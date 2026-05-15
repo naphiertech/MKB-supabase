@@ -1,0 +1,15 @@
+{
+  "name": "mkb-supabase-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "cd dashboard && npm install && cd ../landing && npx pnpm install --config.ignore-scripts=true",
+    "postinstall": "npm run install:all",
+    "dev": "concurrently \"npm run dev:dashboard\" \"npm run dev:landing\"",
+    "dev:dashboard": "cd dashboard && npm run dev",
+    "dev:landing": "cd landing && npx pnpm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
