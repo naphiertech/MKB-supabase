@@ -1,0 +1,215 @@
+@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+/* --- MANAGED FONT IMPORTS START (do not edit manually) --- */
+/* INTERNAL USE NAME: Heading */
+@import url('https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+/* INTERNAL USE NAME: Mono */
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* --- MANAGED FONT IMPORTS END --- */
+
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
+
+/* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
+/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
+@custom-variant dark (&:is(.dark *));
+:root {
+  --background: #FFFFFF;
+  --foreground: #1A1410;
+  --card: #FFFFFF;
+  --card-foreground: #1A1410;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1410;
+  --primary: #db6c00;
+  --primary-foreground: #FFFFFF;
+  --secondary: #FAFAF7;
+  --secondary-foreground: #1A1410;
+  --muted: #FAFAF7;
+  --muted-foreground: #6B6258;
+  --accent: #FFF1E0;
+  --accent-foreground: #b85a00;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #EFEAE2;
+  --input: #EFEAE2;
+  --ring: #db6c00;
+  --chart-1: #db6c00;
+  --chart-2: #f59e0b;
+  --chart-3: #475569;
+  --chart-4: #16A34A;
+  --chart-5: #DC2626;
+  --radius: 0.625rem;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1A1410;
+  --sidebar-primary: #db6c00;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #FFF1E0;
+  --sidebar-accent-foreground: #b85a00;
+  --sidebar-border: #EFEAE2;
+  --sidebar-ring: #db6c00;
+}
+/* Dark mode intentionally mirrors light tokens — AttenRider is a light-only brand now */
+:root.dark {
+  --background: #FFFFFF;
+  --foreground: #1A1410;
+  --card: #FFFFFF;
+  --card-foreground: #1A1410;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1410;
+  --primary: #db6c00;
+  --primary-foreground: #FFFFFF;
+  --secondary: #FAFAF7;
+  --secondary-foreground: #1A1410;
+  --muted: #FAFAF7;
+  --muted-foreground: #6B6258;
+  --accent: #FFF1E0;
+  --accent-foreground: #b85a00;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #EFEAE2;
+  --input: #EFEAE2;
+  --ring: #db6c00;
+  --chart-1: #db6c00;
+  --chart-2: #f59e0b;
+  --chart-3: #475569;
+  --chart-4: #16A34A;
+  --chart-5: #DC2626;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1A1410;
+  --sidebar-primary: #db6c00;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #FFF1E0;
+  --sidebar-accent-foreground: #b85a00;
+  --sidebar-border: #EFEAE2;
+  --sidebar-ring: #db6c00;
+}
+@layer base {
+  * {
+    @apply border-border outline-ring;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Geist', sans-serif;
+  }
+}
+/* AttenRider — Leaflet light overrides (map canvas stays dark for tile legibility) */
+.leaflet-container {
+  background: #0a0c12;
+  font-family: 'Geist', sans-serif;
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #FFFFFF;
+  color: #1A1410;
+  border: 1px solid #EFEAE2;
+  box-shadow: 0 10px 30px rgba(26, 20, 16, 0.12);
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-size: 13px;
+}
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #6B6258 !important;
+  font-size: 10px !important;
+  border: 1px solid #EFEAE2 !important;
+}
+.leaflet-control-attribution a { color: #db6c00 !important; }
+.leaflet-control-zoom a {
+  background: #FFFFFF !important;
+  color: #1A1410 !important;
+  border-color: #EFEAE2 !important;
+}
+.leaflet-control-zoom a:hover {
+  background: #FFF1E0 !important;
+  color: #db6c00 !important;
+}
+/* Rider pin pulse — semantic colors retained */
+@keyframes ar-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.65); }
+  50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+}
+@keyframes ar-pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+}
+.ar-rider-pin {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 2px solid #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.ar-rider-pin.active { background: #10B981; animation: ar-pulse-green 2.4s infinite; }
+.ar-rider-pin.idle   { background: #F59E0B; }
+.ar-rider-pin.violation { background: #EF4444; animation: ar-pulse 1.4s infinite; }
+.ar-rider-pin.offline { background: #6B7280; opacity: 0.7; }
+/* Brand glow for primary CTAs */
+@keyframes ar-brand-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(219, 108, 0, 0); }
+  50% { box-shadow: 0 0 0 8px rgba(219, 108, 0, 0.12); }
+}
+.ar-brand-glow { animation: ar-brand-glow 2.4s ease-in-out infinite; }
+/* Slide-in for new alerts */
+@keyframes ar-slide-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.ar-slide-in { animation: ar-slide-in 0.35s ease-out; }
+/* Ticker scroll */
+@keyframes ar-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ar-ticker-track {
+  animation: ar-ticker 50s linear infinite;
+  white-space: nowrap;
+  display: inline-block;
+}
+/* Subtle float for login brand mark */
+@keyframes ar-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.ar-float { animation: ar-float 5s ease-in-out infinite; }
+/* Custom scrollbar — warm neutral */
+.ar-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.ar-scroll::-webkit-scrollbar-track { background: transparent; }
+.ar-scroll::-webkit-scrollbar-thumb { background: #E5DFD3; border-radius: 9999px; }
+.ar-scroll::-webkit-scrollbar-thumb:hover { background: #D6CFC0; }
+/* Card hover lift utility */
+.ar-card-hover { transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease; }
+.ar-card-hover:hover { transform: translateY(-1px); box-shadow: 0 8px 24px -12px rgba(26, 20, 16, 0.12); }
+/* Geofence map overlays */
+.ar-zone-glow {
+  filter: drop-shadow(0 0 6px rgba(219, 108, 0, 0.55))
+    drop-shadow(0 0 14px rgba(219, 108, 0, 0.35));
+}
+.leaflet-tooltip.ar-zone-tooltip {
+  background: rgba(26, 20, 16, 0.85);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.leaflet-tooltip.ar-zone-tooltip::before {
+  display: none;
+}
