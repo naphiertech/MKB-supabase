@@ -57,7 +57,7 @@ export function SiteHeader() {
             </Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/locations">Access Portal</Link>
+            <Link href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"}>Access Portal</Link>
           </Button>
         </div>
 
@@ -120,7 +120,7 @@ export function SiteHeader() {
                 ))}
               </div>
               <Button asChild className="mt-2">
-                <Link href="/locations" onClick={() => setOpen(false)}>
+                <Link href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"} onClick={() => setOpen(false)}>
                   Access Portal
                 </Link>
               </Button>
