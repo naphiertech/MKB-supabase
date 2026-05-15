@@ -131,7 +131,7 @@ export default async function LocationDetailPage({
             asChild
             className="bg-accent text-accent-foreground hover:bg-accent/90"
           >
-            <Link href="/contact">Access Portal</Link>
+            <Link href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"}>Access Portal</Link>
           </Button>
         </div>
       </section>
