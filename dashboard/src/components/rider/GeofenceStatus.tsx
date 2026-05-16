@@ -1,4 +1,3 @@
-import React from 'react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 interface GeofenceStatusProps {
   inZone: boolean;
