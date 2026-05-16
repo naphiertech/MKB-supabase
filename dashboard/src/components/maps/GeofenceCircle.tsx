@@ -1,4 +1,3 @@
-import React from 'react';
 import { Circle, Tooltip } from 'react-leaflet';
 import type { Zone } from '../../services/mockData';
 interface GeofenceCircleProps {
