@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Siren } from 'lucide-react';
 import type { ViolationEvent } from '../../services/mockData';
 import { ViolationAlert } from './ViolationAlert';
