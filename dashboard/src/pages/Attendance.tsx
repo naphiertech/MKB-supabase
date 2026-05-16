@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BadgeCheck, Clock, UserMinus, PalmtreeIcon } from 'lucide-react';
 import { attendanceLogs, zones } from '../services/mockData';
 import { StatCard } from '../components/common/StatCard';
