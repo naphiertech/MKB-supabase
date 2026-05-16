@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, X, ChevronDown, Search } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import type { Zone, Rider } from '../../services/mockData';
