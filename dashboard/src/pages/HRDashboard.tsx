@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BadgeCheck, ClipboardCheck, UserX, AlertCircle } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
