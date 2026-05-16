@@ -1,4 +1,3 @@
-import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { Zone, Rider, AttendanceLog } from '../../services/mockData';
 interface AssignedRidersByZoneProps {
