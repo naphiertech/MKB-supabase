@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, Component } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   X,
   Upload,
@@ -165,14 +165,14 @@ export function UserDrawer({
       setForm({
         name: user.name,
         email: user.email,
-        contact: (user as any).contact ?? '',
+        contact: (user as AppUser & { contact?: string }).contact ?? '',
         tempPassword: '',
         role: safeRole,
         status: user.status,
-        mkbRiderId: (user as any).mkbRiderId ?? '',
+        mkbRiderId: (user as AppUser & { mkbRiderId?: string }).mkbRiderId ?? '',
         zoneId: user.zoneId ?? '',
-        shift: (user as any).shift as Shift ?? '',
-        faceImage: (user as any).faceImage ?? user.avatar ?? null
+        shift: (user as AppUser & { shift?: Shift }).shift ?? '',
+        faceImage: (user as AppUser & { faceImage?: string }).faceImage ?? user.avatar ?? null
       });
     } else {
       setForm(EMPTY_FORM);

@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { ComponentType } from 'react';
 import { CheckCircle2, Info, AlertTriangle, X, Flag } from 'lucide-react';
 import { useToasts, type ToastTone } from '../../hooks/useToast';
 const TONE: Record<

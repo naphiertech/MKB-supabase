@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScanFace, CheckCircle2, XCircle, Loader2, Camera } from 'lucide-react';
 import type { ScanPhase } from '../../hooks/useFaceRecognition';
 interface FaceScannerProps {
@@ -23,7 +23,7 @@ export function FaceScanner({
   useEffect(() => {
     if (phase !== 'scanning') return;
     let raf = 0;
-    let start = performance.now();
+    const start = performance.now();
     const loop = (t: number) => {
       const elapsed = (t - start) / 1400;
       setScanLineY(elapsed % 1 * 100);

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { AttendanceStatus } from '../../services/mockData';
 interface StatusPillProps {
   status: AttendanceStatus;

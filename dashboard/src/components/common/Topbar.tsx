@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Search, Menu } from 'lucide-react';
 import type { PageKey } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';

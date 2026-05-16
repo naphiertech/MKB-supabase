@@ -1,4 +1,3 @@
-import React from 'react';
 import { LogIn, LogOut, Clock } from 'lucide-react';
 interface AttendanceStatusProps {
   timeIn: string | null;

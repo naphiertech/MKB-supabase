@@ -41,6 +41,7 @@ export function useGeolocation({
 
   useEffect(() => {
     anchorRef.current = initial;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial.lat, initial.lng]);
 
   useEffect(() => {

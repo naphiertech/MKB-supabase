@@ -1,10 +1,9 @@
-import React, { useEffect, useRef, useLayoutEffect } from 'react';
+import { useEffect, useRef, useLayoutEffect } from 'react';
 import {
   AlertTriangle,
   UserX,
   CheckCircle2,
   Info,
-  BoxIcon,
   X } from
 'lucide-react';
 import { Notification, NotificationType } from '../../hooks/useNotifications';
@@ -17,7 +16,7 @@ interface NotificationDropdownProps {
 const TYPE_STYLES: Record<
   NotificationType,
   {
-    icon: BoxIcon;
+    icon: React.ElementType;
     bg: string;
     fg: string;
   }> =

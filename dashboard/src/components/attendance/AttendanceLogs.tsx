@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ClipboardCheck, ChevronRight } from 'lucide-react';
 import type { AttendanceLog } from '../../services/mockData';
 import { StatusPill } from './StatusPill';

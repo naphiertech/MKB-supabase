@@ -1,4 +1,3 @@
-import React from 'react';
 import { LogIn, LogOut, CheckCircle2 } from 'lucide-react';
 export type AttendanceAction = 'time-in' | 'time-out' | 'completed';
 interface AttendanceButtonProps {

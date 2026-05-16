@@ -1,4 +1,4 @@
-import React, { useEffect, Component } from 'react';
+import { useEffect, ComponentType } from 'react';
 import {
   LayoutDashboard,
   MapPin,

@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { ComponentType } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 interface StatCardProps {
   label: string;
