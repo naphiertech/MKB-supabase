@@ -1,4 +1,3 @@
-import React from 'react';
 import { MapPin, Sun, Sunrise, Moon, Sunset } from 'lucide-react';
 export type RiderOnlineStatus = 'online' | 'offline' | 'break';
 export type ShiftStatus = 'not_started' | 'on_duty' | 'completed';
