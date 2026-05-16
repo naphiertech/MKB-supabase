@@ -1,4 +1,4 @@
-import React, { useMemo, useState, Component } from 'react';
+import { useMemo, useState, ComponentType } from 'react';
 import {
   Filter,
   ChevronLeft,
