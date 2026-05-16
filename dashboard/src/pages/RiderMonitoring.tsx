@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import {
   riders as ALL_RIDERS,
