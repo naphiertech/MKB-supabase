@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, Pencil, Trash2, ChevronRight } from 'lucide-react';
 import type { Zone } from '../../services/mockData';
 import { formatLatLng } from '../../lib/geofenceUtils';
