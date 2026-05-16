@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Activity,
+  ArrowLeft,
   ArrowRight,
   MapPin,
   Eye,
@@ -52,7 +53,7 @@ export function Login() {
     setLoading(false);
     if (!res.ok) setError(res.error ?? 'Sign-in failed.');
   }
-  function useDemo(account: (typeof DEMO_ACCOUNTS)[number]) {
+  function handleDemoLogin(account: (typeof DEMO_ACCOUNTS)[number]) {
     setEmail(account.email);
     setPassword('demo1234');
     setActiveRole(account.role);
@@ -104,6 +105,14 @@ export function Login() {
       {/* Right form panel */}
       <main className="flex-1 flex items-center justify-center px-4 py-10 sm:py-12 bg-white relative">
         <div className="w-full max-w-md">
+          <a
+            href={import.meta.env.VITE_LANDING_URL || 'http://localhost:3000'}
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#6B6258] hover:text-[#db6c00] transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to website
+          </a>
+
           {/* Mobile brand */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-6">
             <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-[#db6c00] to-[#f59e0b] flex items-center justify-center shadow-[0_10px_25px_-8px_rgba(219,108,0,0.45)]">
@@ -229,7 +238,7 @@ export function Login() {
                   <button
                     key={a.role}
                     type="button"
-                    onClick={() => useDemo(a)}
+                    onClick={() => handleDemoLogin(a)}
                     className={`text-left p-3 rounded-lg border transition ${isActive ? 'bg-[#FFF1E0] border-[#db6c00]/50 ring-2 ring-[#db6c00]/20' : 'bg-white border-[#EFEAE2] hover:border-[#db6c00]/30 hover:bg-[#FFF1E0]/50'}`}>
                     
                     <div className="flex items-center justify-between mb-1">
