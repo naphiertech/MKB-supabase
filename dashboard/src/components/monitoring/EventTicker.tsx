@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { LogIn, LogOut, Clock, Activity } from 'lucide-react';
 import type { Rider, Zone, ViolationEvent } from '../../services/mockData';
 interface EventTickerProps {
