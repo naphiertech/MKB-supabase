@@ -1,4 +1,4 @@
-import React, { useMemo, useState, Component } from 'react';
+import { useMemo, useState, ComponentType } from 'react';
 import {
   Plus,
   Search,
@@ -10,8 +10,7 @@ import {
 import {
   users as seedUsers,
   zones,
-  type AppUser,
-  type UserRole } from
+  type AppUser } from
 '../services/mockData';
 import { UsersTable } from '../components/users/UsersTable';
 import { UserDrawer } from '../components/users/UserDrawer';
