@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, memo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import {
   zones as initialZones,
@@ -45,7 +45,7 @@ export function Geofence() {
       return next;
     });
   }, [activeZoneId]);
-  const riderCounts = useMemo(() => riderCountByZone(), [zones, allRiders]);
+  const riderCounts = useMemo(() => riderCountByZone(), []);
   const violationCountByRider = useMemo(() => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -55,7 +55,7 @@ export function Geofence() {
       counts[v.riderId] = (counts[v.riderId] ?? 0) + 1;
     });
     return counts;
-  }, [allViolations]);
+  }, []);
   const violationsToday = totalViolationsToday();
   const editingZone = editingZoneId ?
   zones.find((z) => z.id === editingZoneId) ?? null :
