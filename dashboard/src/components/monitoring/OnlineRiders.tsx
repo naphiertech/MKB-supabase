@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ChevronDown,
@@ -46,7 +46,7 @@ export function OnlineRiders({
     return filter === 'all' ? online : online.filter((r) => r.status === filter);
   }, [riders, filter]);
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-full min-h-[400px] shadow-sm">
+    <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-full min-h-[400px] lg:h-[512px] shadow-sm">
       <div className="flex items-center justify-between p-4 border-b border-[#EFEAE2]">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-emerald-50 ring-1 ring-emerald-500/25 flex items-center justify-center">
