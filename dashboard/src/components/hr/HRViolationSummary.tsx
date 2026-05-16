@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertTriangle, Flag, Check } from 'lucide-react';
 import type { ViolationEvent, Rider } from '../../services/mockData';
 import { useNow, relativeTime } from '../../hooks/useNow';
