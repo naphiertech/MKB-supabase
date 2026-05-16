@@ -1,4 +1,3 @@
-import React from 'react';
 import L from 'leaflet';
 import type { Rider } from '../../services/mockData';
 /**
