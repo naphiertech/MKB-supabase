@@ -1,4 +1,4 @@
-import React, { useState, createElement, Component } from 'react';
+import { useState, ComponentType } from 'react';
 import {
   CalendarRange,
   Receipt,
@@ -199,7 +199,7 @@ export function PayrollReports() {
       }
       if (template === 'cutoff_summary') {
         // Build rows summarizing each rider's cutoff
-        const rows = targetRiders.map((rider, i) => {
+        const rows = targetRiders.map((rider, _i) => {
           const riderIndex = riders.findIndex((r) => r.id === rider.id);
           const days = buildDaysForRange(riderIndex, from, to);
           const daysPresent = days.filter(
