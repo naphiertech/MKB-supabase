@@ -1,4 +1,3 @@
-import React from 'react';
 import { Clock4, ArrowLeft } from 'lucide-react';
 interface RiderAttendanceProps {
   onBack: () => void;
