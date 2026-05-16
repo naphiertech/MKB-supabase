@@ -1,9 +1,8 @@
-import React, {
+import {
   useEffect,
   useMemo,
   useState,
-  useRef,
-  createElement } from
+  useRef } from
 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
