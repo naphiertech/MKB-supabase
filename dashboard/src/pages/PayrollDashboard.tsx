@@ -1,4 +1,4 @@
-import React, { useMemo, useState, Fragment } from 'react';
+import { useMemo, useState, Fragment } from 'react';
 import {
   Users,
   Clock,
