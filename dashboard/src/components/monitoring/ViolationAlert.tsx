@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertTriangle, ChevronRight, Clock } from 'lucide-react';
 import type { ViolationEvent } from '../../services/mockData';
 import { useNow, relativeTime } from '../../hooks/useNow';
