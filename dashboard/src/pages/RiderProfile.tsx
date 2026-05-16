@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowLeft, Phone, Mail, IdCard, MapPin, Shield } from 'lucide-react';
 import {
   riders as ALL_RIDERS,
