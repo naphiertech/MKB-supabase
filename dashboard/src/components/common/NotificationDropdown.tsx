@@ -6,6 +6,7 @@ import {
   Info,
   X } from
 'lucide-react';
+import { motion } from 'framer-motion';
 import { Notification, NotificationType } from '../../hooks/useNotifications';
 interface NotificationDropdownProps {
   notifications: Notification[];
@@ -82,12 +83,21 @@ export function NotificationDropdown({
   return (
     <>
       {/* Mobile backdrop — solid scrim (no blur), closes on tap */}
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={onClose}
-        className="sm:hidden fixed inset-0 bg-[#1A1410]/45 z-40 animate-in fade-in"
-        aria-hidden="true" />
+        className="sm:hidden fixed inset-0 bg-[#1A1410]/45 z-40"
+        aria-hidden="true" 
+      />
       
-      <div
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
         ref={ref}
         role="dialog"
         aria-label="Notifications"
@@ -97,10 +107,6 @@ export function NotificationDropdown({
           sm:w-[360px]
           bg-white border border-[#EFEAE2] rounded-xl shadow-2xl overflow-hidden
         ">
-
-
-
-
 
         
         {/* Header */}
@@ -136,10 +142,20 @@ export function NotificationDropdown({
           </div> :
 
         <ul className="max-h-[60vh] sm:max-h-[420px] overflow-y-auto divide-y divide-[#EFEAE2]">
-            {notifications.map((n) => {
+            {notifications.map((n, index) => {
             const { icon: Icon, bg, fg } = TYPE_STYLES[n.type];
             return (
-              <li key={n.id}>
+              <motion.li 
+                key={n.id}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ 
+                  delay: index * 0.05, 
+                  type: "spring", 
+                  stiffness: 300, 
+                  damping: 24 
+                }}
+              >
                   <button
                   type="button"
                   onClick={() => !n.read && onMarkAsRead(n.id)}
@@ -170,12 +186,12 @@ export function NotificationDropdown({
 
                   }
                   </button>
-                </li>);
+                </motion.li>);
 
           })}
           </ul>
         }
-      </div>
+      </motion.div>
     </>);
 
 }
