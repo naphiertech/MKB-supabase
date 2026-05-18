@@ -1,4 +1,5 @@
 import { MapPin, Sun, Sunrise, Moon, Sunset } from 'lucide-react';
+import { motion } from 'framer-motion';
 export type RiderOnlineStatus = 'online' | 'offline' | 'break';
 export type ShiftStatus = 'not_started' | 'on_duty' | 'completed';
 interface IdentityBannerProps {
@@ -109,7 +110,12 @@ export function IdentityBanner({
     year: 'numeric'
   });
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#EFEAE2] bg-gradient-to-br from-[#FFF1E0] via-white to-white p-5 sm:p-6 shadow-sm">
+    <motion.div 
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="relative overflow-hidden rounded-2xl border border-[#EFEAE2] bg-gradient-to-br from-[#FFF1E0] via-white to-white p-5 sm:p-6 shadow-sm"
+    >
       {/* Decorative accents */}
       <div className="pointer-events-none absolute -top-20 -right-16 w-72 h-72 rounded-full bg-[#db6c00]/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -left-10 w-72 h-72 rounded-full bg-[#f59e0b]/8 blur-3xl" />
@@ -166,6 +172,6 @@ export function IdentityBanner({
           </span>
         </div>
       </div>
-    </div>);
+    </motion.div>);
 
 }
