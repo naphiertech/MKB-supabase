@@ -6,6 +6,7 @@ import {
   Coffee,
   Clock } from
 'lucide-react';
+import { motion } from 'framer-motion';
 export type ActivityKind =
 'time_in' |
 'time_out' |
@@ -86,11 +87,17 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
 
       <ol className="relative pl-6 space-y-3">
           <span className="absolute left-[10px] top-1 bottom-1 w-px bg-[#EFEAE2]" />
-          {events.map((e) => {
+          {events.map((e, index) => {
           const meta = KIND_META[e.kind];
           const Icon = meta.icon;
           return (
-            <li key={e.id} className="relative flex items-start gap-3">
+            <motion.li 
+              key={e.id} 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1, duration: 0.3 }}
+              className="relative flex items-start gap-3"
+            >
                 <span
                 className={`absolute -left-6 mt-1 flex items-center justify-center w-5 h-5 rounded-full border ${meta.ring}`}>
                 
@@ -109,7 +116,7 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
                     </div>
                 }
                 </div>
-              </li>);
+              </motion.li>);
 
         })}
         </ol>
