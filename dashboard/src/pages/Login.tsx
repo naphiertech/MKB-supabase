@@ -9,6 +9,7 @@ import {
   Sparkles } from
 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { motion } from 'framer-motion';
 const DEMO_ACCOUNTS = [
 {
   role: 'admin' as const,
@@ -60,9 +61,18 @@ export function Login() {
     setError(null);
   }
   return (
-    <div className="min-h-screen w-full bg-white text-[#1A1410] font-[Geist,sans-serif] flex flex-col lg:flex-row">
+    <motion.div 
+      className="min-h-screen w-full bg-white text-[#1A1410] font-[Geist,sans-serif] flex flex-col lg:flex-row"
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.3 }}
+    >
       {/* Left brand panel */}
-      <aside className="relative hidden lg:flex lg:w-1/2 xl:w-[55%] overflow-hidden bg-gradient-to-br from-[#FFF1E0] via-[#FFE5C2] to-white items-center justify-center p-12">
+      <motion.aside 
+        initial={{ x: -60, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative hidden lg:flex lg:w-1/2 xl:w-[55%] overflow-hidden bg-gradient-to-br from-[#FFF1E0] via-[#FFE5C2] to-white items-center justify-center p-12"
+      >
         {/* Decorative ornaments */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-32 -left-32 w-[420px] h-[420px] rounded-full bg-[#db6c00]/20 blur-3xl" />
@@ -100,10 +110,15 @@ export function Login() {
             MKB Corp · Zamboanga
           </div>
         </div>
-      </aside>
+      </motion.aside>
 
       {/* Right form panel */}
-      <main className="flex-1 flex items-center justify-center px-4 py-10 sm:py-12 bg-white relative">
+      <motion.main 
+        initial={{ x: 60, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="flex-1 flex items-center justify-center px-4 py-10 sm:py-12 bg-white relative"
+      >
         <div className="w-full max-w-md">
           <a
             href={import.meta.env.VITE_LANDING_URL || 'http://localhost:3000'}
@@ -139,7 +154,11 @@ export function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
+            <motion.div
+              initial={{ y: 16, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
               <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
                 Email
               </label>
@@ -166,9 +185,13 @@ export function Login() {
                 required
                 className="w-full h-11 px-3.5 rounded-lg bg-white border border-[#EFEAE2] text-sm text-[#1A1410] placeholder:text-[#6B6258]/60 outline-none transition focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15" />
               
-            </div>
+            </motion.div>
 
-            <div>
+            <motion.div
+              initial={{ y: 16, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
                   Password
@@ -203,7 +226,7 @@ export function Login() {
                   }
                 </button>
               </div>
-            </div>
+            </motion.div>
 
             {error &&
             <div className="text-xs text-red-700 bg-red-50 border border-red-500/30 rounded-md px-3 py-2">
@@ -211,18 +234,28 @@ export function Login() {
               </div>
             }
 
-            <button
+            <motion.button
               type="submit"
               disabled={loading}
+              initial={{ y: 16, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               className="w-full h-11 rounded-lg font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition focus:outline-none focus:ring-4 disabled:opacity-60 bg-[#db6c00] hover:bg-[#b85a00] active:bg-[#a04e00] text-white focus:ring-[#db6c00]/25 shadow-[0_10px_25px_-8px_rgba(219,108,0,0.45)]">
               
               {loading ? 'Signing in…' : 'Sign in'}
               {!loading && <ArrowRight className="w-4 h-4" />}
-            </button>
+            </motion.button>
           </form>
 
           {/* Demo accounts */}
-          <div className="mt-7 pt-6 border-t border-[#EFEAE2]">
+          <motion.div 
+            className="mt-7 pt-6 border-t border-[#EFEAE2]"
+            initial={{ y: 16, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.6 }}
+          >
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-mono font-semibold">
                 Demo accounts
@@ -263,14 +296,14 @@ export function Login() {
               Demo build — any non-empty password works. In production, sign-in
               is handled by Supabase Auth.
             </p>
-          </div>
+          </motion.div>
 
           <div className="text-center mt-8 text-[11px] text-[#6B6258] font-mono">
             © {new Date().getFullYear()} MKB Corporation · AttenRider
           </div>
         </div>
-      </main>
-    </div>);
+      </motion.main>
+    </motion.div>);
 
 }
 function Pill({ label, value }: {label: string;value: string;}) {
