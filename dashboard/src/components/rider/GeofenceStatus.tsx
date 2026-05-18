@@ -1,4 +1,5 @@
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import { motion } from 'framer-motion';
 interface GeofenceStatusProps {
   inZone: boolean;
   zoneName: string;
@@ -16,11 +17,16 @@ export function GeofenceStatus({
   const overshoot = Math.max(0, distance - radius);
   if (inZone) {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#FFF1E0] border border-[#db6c00]/30 shadow-sm">
-        <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-white text-[#db6c00] ring-1 ring-[#db6c00]/25">
+      <div className="relative flex items-center gap-3 px-4 py-3 rounded-xl bg-[#FFF1E0] border border-[#db6c00]/30 shadow-sm overflow-hidden">
+        <motion.span 
+          animate={{ scale: [1, 1.02, 1], opacity: [0.4, 0, 0.4] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="absolute inset-0 rounded-xl border border-[#db6c00]/40" 
+        />
+        <span className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white text-[#db6c00] ring-1 ring-[#db6c00]/25">
           <ShieldCheck className="w-5 h-5" />
         </span>
-        <div className="flex-1 min-w-0">
+        <div className="relative flex-1 min-w-0">
           <div className="text-sm text-[#b85a00] font-semibold">
             You are within your assigned zone
           </div>
@@ -32,8 +38,12 @@ export function GeofenceStatus({
 
   }
   return (
-    <div className="relative flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-500/40 shadow-sm">
-      <span className="absolute inset-0 rounded-xl border-2 border-red-400/40 animate-ping" />
+    <div className="relative flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-500/40 shadow-sm overflow-hidden">
+      <motion.span 
+        animate={{ scale: [1, 1.05, 1], opacity: [0.8, 0, 0.8] }}
+        transition={{ duration: 1, repeat: Infinity }}
+        className="absolute inset-0 rounded-xl border-2 border-red-400/40" 
+      />
       <span className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white text-red-600 ring-1 ring-red-500/25">
         <ShieldAlert className="w-5 h-5" />
       </span>
