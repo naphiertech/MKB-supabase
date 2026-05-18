@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu, X, MapPin, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { siteConfig, locations } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
@@ -71,6 +71,7 @@ export function SiteHeader() {
           </SheetTrigger>
           <SheetContent side="right" className="w-full max-w-sm">
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+            <SheetDescription className="sr-only">Site navigation links</SheetDescription>
             <div className="flex flex-col gap-6 pt-6">
               <Link
                 href="/"
