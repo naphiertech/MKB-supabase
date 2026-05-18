@@ -1,4 +1,5 @@
 import { LogIn, LogOut, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 export type AttendanceAction = 'time-in' | 'time-out' | 'completed';
 interface AttendanceButtonProps {
   action: AttendanceAction;
@@ -55,8 +56,10 @@ export function AttendanceButton({
   const inactive = action === 'completed' || disabled;
   const isPrimary = action === 'time-in';
   return (
-    <button
+    <motion.button
       type="button"
+      whileHover={!inactive ? { scale: 1.02 } : {}}
+      whileTap={!inactive ? { scale: 0.98 } : {}}
       onClick={inactive ? undefined : onClick}
       disabled={inactive}
       aria-label={c.label}
@@ -64,8 +67,10 @@ export function AttendanceButton({
       
       {/* Pulse ring (only when ready) */}
       {action !== 'completed' &&
-      <span
-        className={`absolute inset-0 rounded-2xl border-2 ${c.ring} opacity-0 group-hover:opacity-100 group-hover:animate-ping`}
+      <motion.span
+        animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0, 0.5] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className={`absolute inset-0 rounded-2xl border-2 ${c.ring}`}
         aria-hidden="true" />
 
       }
@@ -88,6 +93,6 @@ export function AttendanceButton({
           {c.sub}
         </div>
       </div>
-    </button>);
+    </motion.button>);
 
 }
