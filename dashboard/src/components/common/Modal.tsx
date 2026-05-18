@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 interface ModalProps {
   open: boolean;
   onClose: () => void;
@@ -37,25 +38,34 @@ export function Modal({
       document.body.style.overflow = '';
     };
   }, [open, onClose, dismissible]);
-  if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center px-4 py-8"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={title ? 'modal-title' : undefined}>
-      
-      <button
-        type="button"
-        aria-label="Close"
-        tabIndex={-1}
-        onClick={() => dismissible && onClose()}
-        className="absolute inset-0 bg-[#1A1410]/40 backdrop-blur-sm" />
-      
-      <div
-        className={`relative w-full ${SIZE[size]} bg-white border border-[#EFEAE2] rounded-2xl shadow-[0_30px_60px_-20px_rgba(26,20,16,0.25)] overflow-hidden animate-[fadeIn_.18s_ease-out]`}>
-        
-        {(title || dismissible) &&
+    <AnimatePresence>
+      {open && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center px-4 py-8"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? 'modal-title' : undefined}>
+          
+          <motion.button
+            type="button"
+            aria-label="Close"
+            tabIndex={-1}
+            onClick={() => dismissible && onClose()}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 bg-[#1A1410]/40 backdrop-blur-sm cursor-default" />
+          
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: "spring", duration: 0.4, bounce: 0 }}
+            className={`relative w-full ${SIZE[size]} bg-white border border-[#EFEAE2] rounded-2xl shadow-[0_30px_60px_-20px_rgba(26,20,16,0.25)] overflow-hidden`}>
+            
+            {(title || dismissible) &&
         <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-[#EFEAE2]/70">
             <div className="min-w-0">
               {title &&
@@ -82,8 +92,11 @@ export function Modal({
           }
           </div>
         }
-        <div className="px-5 py-5">{children}</div>
+          <div className="px-5 py-5">{children}</div>
+        </motion.div>
       </div>
-    </div>);
+      )}
+    </AnimatePresence>
+  );
 
 }
