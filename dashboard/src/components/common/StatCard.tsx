@@ -1,5 +1,18 @@
-import { ComponentType } from 'react';
+import { ComponentType, useEffect } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+
+function CountUp({ value }: { value: number }) {
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.round(latest));
+  
+  useEffect(() => {
+    const controls = animate(count, value, { duration: 0.8, ease: "easeOut" });
+    return controls.stop;
+  }, [value, count]);
+
+  return <motion.span>{rounded}</motion.span>;
+}
 interface StatCardProps {
   label: string;
   value: React.ReactNode;
@@ -15,6 +28,7 @@ interface StatCardProps {
   };
   spark?: number[];
   pulse?: boolean;
+  index?: number;
 }
 const ACCENT: Record<
   NonNullable<StatCardProps['accent']>,
@@ -63,12 +77,19 @@ export function StatCard({
   accent = 'blue',
   trend,
   spark,
-  pulse
+  pulse,
+  index = 0
 }: StatCardProps) {
   const a = ACCENT[accent];
   const maxSpark = spark && spark.length ? Math.max(...spark) : 1;
   return (
-    <div className="relative bg-white border border-[#EFEAE2] rounded-xl p-4 sm:p-5 overflow-hidden ar-card-hover">
+    <motion.div 
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.1 }}
+      whileHover={{ y: -2 }}
+      className="relative bg-white border border-[#EFEAE2] rounded-xl p-4 sm:p-5 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+    >
       {/* top accent edge */}
       <div className={`absolute top-0 left-0 right-0 h-[2px] ${a.topBar}`} />
       <div className="flex items-start justify-between gap-3">
@@ -85,7 +106,7 @@ export function StatCard({
             }
           </div>
           <div className="mt-2 text-2xl sm:text-[28px] font-semibold text-[#1A1410] leading-none tracking-tight tabular-nums">
-            {value}
+            {typeof value === 'number' ? <CountUp value={value} /> : value}
           </div>
           {sub && <div className="mt-2 text-xs text-[#6B6258]">{sub}</div>}
         </div>
@@ -123,6 +144,6 @@ export function StatCard({
           </div>
         }
       </div>
-    </div>);
+    </motion.div>);
 
 }
