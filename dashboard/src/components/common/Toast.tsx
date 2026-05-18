@@ -1,5 +1,6 @@
 import { ComponentType } from 'react';
 import { CheckCircle2, Info, AlertTriangle, X, Flag } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useToasts, type ToastTone } from '../../hooks/useToast';
 const TONE: Record<
   ToastTone,
@@ -53,14 +54,20 @@ export function ToastViewport() {
   const { toasts, dismiss } = useToasts();
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex flex-col items-end gap-2 max-w-sm w-[calc(100%-2rem)]">
+      <AnimatePresence>
       {toasts.map((t) => {
         const cfg = TONE[t.tone];
         const Icon = cfg.icon;
         return (
-          <div
+          <motion.div
             key={t.id}
+            layout
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+            transition={{ type: "spring", bounce: 0.4, duration: 0.5 }}
             role="status"
-            className="pointer-events-auto relative w-full bg-white backdrop-blur border border-[#EFEAE2] rounded-xl shadow-[0_12px_32px_-12px_rgba(26,20,16,0.18)] pl-4 pr-3.5 py-3 flex items-start gap-3 ar-toast-in overflow-hidden">
+            className="pointer-events-auto relative w-full bg-white backdrop-blur border border-[#EFEAE2] rounded-xl shadow-[0_12px_32px_-12px_rgba(26,20,16,0.18)] pl-4 pr-3.5 py-3 flex items-start gap-3 overflow-hidden">
             
             <span
               className={`absolute left-0 top-0 bottom-0 w-1 ${cfg.leftBar}`} />
@@ -87,16 +94,10 @@ export function ToastViewport() {
               
               <X className="w-3.5 h-3.5" />
             </button>
-          </div>);
+          </motion.div>);
 
       })}
-      <style>{`
-        @keyframes ar-toast-in {
-          from { opacity: 0; transform: translateY(8px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0)   scale(1); }
-        }
-        .ar-toast-in { animation: ar-toast-in 220ms cubic-bezier(.2,.8,.2,1); }
-      `}</style>
+      </AnimatePresence>
     </div>);
 
 }
