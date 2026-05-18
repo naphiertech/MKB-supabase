@@ -8,6 +8,7 @@ import {
   ChevronsUpDown,
   Lock } from
 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { riders, zones } from '../services/mockData';
 import {
   exportPayslipPDF,
@@ -245,8 +246,14 @@ export function PayrollComputation() {
               <ChevronsUpDown className="w-4 h-4 text-[#6B6258] shrink-0" />
             </button>
 
+            <AnimatePresence>
             {pickerOpen &&
-            <div className="absolute z-30 mt-1.5 w-full max-h-72 overflow-y-auto bg-white border border-[#EFEAE2] rounded-lg shadow-lg">
+            <motion.div 
+              initial={{ opacity: 0, y: -5, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -5, scale: 0.98 }}
+              transition={{ duration: 0.15 }}
+              className="absolute z-30 mt-1.5 w-full max-h-72 overflow-y-auto bg-white border border-[#EFEAE2] rounded-lg shadow-lg">
                 {riders.map((r) => {
                 const zName =
                 zones.find((z) => z.id === r.zoneId)?.name ?? '—';
@@ -277,8 +284,9 @@ export function PayrollComputation() {
                     </button>);
 
               })}
-              </div>
+              </motion.div>
             }
+            </AnimatePresence>
           </div>
 
           {/* Inputs */}
@@ -392,20 +400,24 @@ export function PayrollComputation() {
 
           {/* Action buttons */}
           <div className="px-5 pb-5 flex flex-col sm:flex-row gap-2.5">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleExportPDF}
               className="flex-1 h-11 rounded-lg bg-[#ca8a04] hover:bg-[#a16207] text-white text-sm font-semibold transition inline-flex items-center justify-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#ca8a04]/30">
               
               <FileDown className="w-4 h-4" />
               Export PDF Payslip
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleExportCSV}
               className="flex-1 h-11 rounded-lg bg-white border border-[#EFEAE2] hover:border-[#ca8a04]/40 hover:bg-[#FEF9C3]/40 text-[#1A1410] text-sm font-semibold transition inline-flex items-center justify-center gap-2">
               
               <FileSpreadsheet className="w-4 h-4 text-[#a16207]" />
               Export CSV
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
@@ -445,7 +457,10 @@ export function PayrollComputation() {
                 </tr> :
 
               days.map((d, i) =>
-              <tr
+              <motion.tr
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.02, duration: 0.3 }}
                 key={d.date}
                 className={`border-b last:border-b-0 border-[#EFEAE2] ${i % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF7]/60'}`}>
                 
@@ -464,7 +479,7 @@ export function PayrollComputation() {
                     <td className="px-3 py-2.5 pr-5">
                       <DayStatusPill status={d.status} />
                     </td>
-                  </tr>
+                  </motion.tr>
               )
               }
             </tbody>
