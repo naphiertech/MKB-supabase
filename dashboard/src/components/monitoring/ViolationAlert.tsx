@@ -1,4 +1,5 @@
 import { AlertTriangle, ChevronRight, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { ViolationEvent } from '../../services/mockData';
 import { useNow, relativeTime } from '../../hooks/useNow';
 interface ViolationAlertProps {
@@ -14,8 +15,26 @@ const TYPE_LABEL: Record<ViolationEvent['type'], string> = {
 export function ViolationAlert({ alert, onView, isNew }: ViolationAlertProps) {
   const now = useNow();
   return (
-    <div
-      className={`relative flex items-start gap-3 p-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] ${!alert.read ? 'border-l-2 border-l-red-500' : 'opacity-80'} ${isNew ? 'ar-slide-in' : ''}`}>
+    <motion.div
+      initial={isNew ? { opacity: 0, scale: 0.9, x: 30 } : false}
+      animate={{ 
+        opacity: 1, 
+        scale: 1, 
+        x: 0,
+        backgroundColor: !alert.read ? ["#FAFAF7", "#fef2f2", "#FAFAF7"] : "#FAFAF7"
+      }}
+      transition={{ 
+        duration: isNew ? 0.5 : undefined,
+        type: isNew ? "spring" : "tween",
+        bounce: 0.4,
+        backgroundColor: {
+          duration: 2,
+          repeat: !alert.read ? Infinity : 0,
+          ease: "easeInOut"
+        }
+      }}
+      className={`relative flex items-start gap-3 p-3 rounded-lg border border-[#EFEAE2] ${!alert.read ? 'border-l-2 border-l-red-500' : 'opacity-80'}`}
+    >
       
       <div
         className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${alert.type === 'idle_excess' ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-500/25' : 'bg-red-50 text-red-600 ring-1 ring-red-500/25'}`}>
@@ -49,6 +68,6 @@ export function ViolationAlert({ alert, onView, isNew }: ViolationAlertProps) {
         
         View <ChevronRight className="w-3 h-3" />
       </button>
-    </div>);
+    </motion.div>);
 
 }
