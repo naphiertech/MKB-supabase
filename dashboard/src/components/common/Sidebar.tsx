@@ -13,6 +13,7 @@ import {
   Wallet,
   X } from
 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 export type PageKey =
 'dashboard' |
 'monitoring' |
@@ -216,10 +217,14 @@ export function Sidebar({
     if (isMobileOpen) onMobileClose?.();
   }
   const panel = (mobile: boolean) =>
-  <aside
+  <motion.aside
+    initial={mobile ? { x: '-100%' } : { x: -20, opacity: 0 }}
+    animate={mobile ? { x: 0 } : { x: 0, opacity: 1 }}
+    exit={mobile ? { x: '-100%' } : undefined}
+    transition={{ duration: mobile ? 0.3 : 0.4, ease: "easeOut" }}
     className={
     mobile ?
-    `relative flex w-72 max-w-[85vw] shrink-0 flex-col bg-white border-r border-[#EFEAE2] h-full shadow-2xl transition-transform duration-300 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}` :
+    `relative flex w-72 max-w-[85vw] shrink-0 flex-col bg-white border-r border-[#EFEAE2] h-full shadow-2xl` :
     'hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-[#EFEAE2] h-screen sticky top-0'
     }>
     
@@ -266,19 +271,31 @@ export function Sidebar({
         <div className="px-2 mb-2 text-[10px] uppercase tracking-[0.18em] text-[#6B6258]/70 font-mono">
           Operations
         </div>
-        {items.map(({ key, label, icon: Icon }) => {
+        {items.map(({ key, label, icon: Icon }, index) => {
         const active = current === key;
         return (
-          <button
+          <motion.div
             key={key}
-            onClick={() => handleNavigate(key)}
-            className={`group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${active ? `${a.activeBg} ${a.text}` : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]'}`}>
-            
-              {active &&
-            <span
-              className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${a.activeBar}`} />
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.05 + 0.2 }}
+          >
+            <button
+              onClick={() => handleNavigate(key)}
+              className={`group relative z-0 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${active ? a.text : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]'}`}>
+              
+                {active &&
+              <motion.span
+                layoutId="activeNav"
+                className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              />
+              }
+                {active &&
+              <span
+                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${a.activeBar}`} />
 
-            }
+              }
               <Icon
               className={`w-[18px] h-[18px] ${active ? a.iconActive : 'text-[#6B6258] group-hover:text-[#1A1410]'}`} />
             
@@ -287,9 +304,10 @@ export function Sidebar({
             <ChevronRight className={`w-3.5 h-3.5 ${a.chevron}`} />
             }
               {key === 'monitoring' && !active &&
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            }
-            </button>);
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              }
+            </button>
+          </motion.div>);
 
       })}
 
@@ -341,7 +359,7 @@ export function Sidebar({
           </button>
         </div>
       </div>
-    </aside>;
+    </motion.aside>;
 
   return (
     <>
@@ -349,18 +367,24 @@ export function Sidebar({
       {panel(false)}
 
       {/* Mobile drawer */}
-      <div
-        className={`md:hidden fixed inset-0 z-50 ${isMobileOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
-        aria-hidden={!isMobileOpen}>
-        
-        {/* Backdrop */}
-        <div
-          onClick={onMobileClose}
-          className={`absolute inset-0 bg-[#1A1410]/40 backdrop-blur-sm transition-opacity duration-300 ${isMobileOpen ? 'opacity-100' : 'opacity-0'}`} />
-        
-        {/* Drawer panel */}
-        <div className="absolute inset-y-0 left-0 flex">{panel(true)}</div>
-      </div>
+      <AnimatePresence>
+        {isMobileOpen && (
+          <div className="md:hidden fixed inset-0 z-50 pointer-events-auto">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              onClick={onMobileClose}
+              className="absolute inset-0 bg-[#1A1410]/40 backdrop-blur-sm"
+            />
+            
+            {/* Drawer panel */}
+            <div className="absolute inset-y-0 left-0 flex">{panel(true)}</div>
+          </div>
+        )}
+      </AnimatePresence>
     </>);
 
 }
