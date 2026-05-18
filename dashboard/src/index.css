@@ -103,6 +103,7 @@
 .leaflet-container {
   background: #0a0c12;
   font-family: 'Geist', sans-serif;
+  cursor: crosshair !important;
 }
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
