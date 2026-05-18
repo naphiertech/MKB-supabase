@@ -21,6 +21,18 @@ import { riders as ALL_RIDERS, zones as ALL_ZONES } from './services/mockData';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { ToastViewport } from './components/common/Toast';
+import { AnimatePresence, motion } from 'framer-motion';
+
+const pageVariants = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit:    { opacity: 0, y: -8 },
+};
+
+const pageTransition = {
+  duration: 0.25,
+  ease: "easeInOut" as const
+};
 export function App() {
   const { session, user, signOut } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageKey>('dashboard');
@@ -77,22 +89,34 @@ export function App() {
           onSignOut={signOut} />
         
         <main className="flex-1 min-w-0">
-          {riderPage === 'dashboard' && <RiderDashboard userId={user.id} />}
-          {riderPage === 'attendance' &&
-          <RiderAttendance onBack={() => setRiderPage('dashboard')} />
-          }
-          {riderPage === 'monitoring' &&
-          <RiderMonitoring
-            userId={user.id}
-            onBack={() => setRiderPage('dashboard')} />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={riderPage}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={pageTransition}
+              className="h-full"
+            >
+              {riderPage === 'dashboard' && <RiderDashboard userId={user.id} />}
+              {riderPage === 'attendance' &&
+              <RiderAttendance onBack={() => setRiderPage('dashboard')} />
+              }
+              {riderPage === 'monitoring' &&
+              <RiderMonitoring
+                userId={user.id}
+                onBack={() => setRiderPage('dashboard')} />
 
-          }
-          {riderPage === 'profile' &&
-          <RiderProfile
-            userId={user.id}
-            onBack={() => setRiderPage('dashboard')} />
+              }
+              {riderPage === 'profile' &&
+              <RiderProfile
+                userId={user.id}
+                onBack={() => setRiderPage('dashboard')} />
 
-          }
+              }
+            </motion.div>
+          </AnimatePresence>
         </main>
         <ToastViewport />
       </div>);
@@ -154,37 +178,49 @@ export function App() {
           onMenuClick={() => setMobileNavOpen(true)} />
         
         <main className="flex-1 min-w-0">
-          {role === 'admin' &&
-          <>
-              {safePage === 'dashboard' &&
-            <AdminDashboard
-              onNavigate={(p) => handleNavigate(p as PageKey)} />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={safePage}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={pageTransition}
+              className="h-full"
+            >
+              {role === 'admin' &&
+              <>
+                  {safePage === 'dashboard' &&
+                <AdminDashboard
+                  onNavigate={(p) => handleNavigate(p as PageKey)} />
 
-            }
-              {safePage === 'monitoring' && <LiveMonitoring />}
-              {safePage === 'geofence' && <Geofence />}
-              {safePage === 'attendance' && <Attendance />}
-              {safePage === 'reports' && <Reports />}
-              {safePage === 'users' && <Users />}
-            </>
-          }
-          {role === 'hr' &&
-          <>
-              {safePage === 'dashboard' &&
-            <HRDashboard onNavigate={handleHrNavigate} />
-            }
-              {safePage === 'monitoring' && <LiveMonitoring />}
-              {safePage === 'attendance' && <Attendance />}
-              {safePage === 'reports' && <Reports />}
-            </>
-          }
-          {role === 'payroll' &&
-          <>
-              {safePage === 'dashboard' && <PayrollDashboard />}
-              {safePage === 'computation' && <PayrollComputation />}
-              {safePage === 'reports' && <PayrollReports />}
-            </>
-          }
+                }
+                  {safePage === 'monitoring' && <LiveMonitoring />}
+                  {safePage === 'geofence' && <Geofence />}
+                  {safePage === 'attendance' && <Attendance />}
+                  {safePage === 'reports' && <Reports />}
+                  {safePage === 'users' && <Users />}
+                </>
+              }
+              {role === 'hr' &&
+              <>
+                  {safePage === 'dashboard' &&
+                <HRDashboard onNavigate={handleHrNavigate} />
+                }
+                  {safePage === 'monitoring' && <LiveMonitoring />}
+                  {safePage === 'attendance' && <Attendance />}
+                  {safePage === 'reports' && <Reports />}
+                </>
+              }
+              {role === 'payroll' &&
+              <>
+                  {safePage === 'dashboard' && <PayrollDashboard />}
+                  {safePage === 'computation' && <PayrollComputation />}
+                  {safePage === 'reports' && <PayrollReports />}
+                </>
+              }
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
       <ToastViewport />
