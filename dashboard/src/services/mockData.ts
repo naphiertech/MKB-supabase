@@ -416,3 +416,59 @@ lng2: number)
   Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
+
+export interface RoutePoint {
+  lat: number;
+  lng: number;
+  timestamp: string;
+  speed: number;
+}
+
+export interface ShiftRoute {
+  riderId: string;
+  date: string;
+  points: RoutePoint[];
+}
+
+const generateMockRoute = (
+  startLat: number,
+  startLng: number,
+  pointCount: number
+): RoutePoint[] => {
+  const points: RoutePoint[] = [];
+  let lat = startLat;
+  let lng = startLng;
+  const startTime = new Date();
+  startTime.setHours(7, 0, 0, 0);
+
+  for (let i = 0; i < pointCount; i++) {
+    lat += (Math.random() - 0.5) * 0.003;
+    lng += (Math.random() - 0.5) * 0.003;
+    const time = new Date(startTime.getTime() + i * 90000);
+    points.push({
+      lat: parseFloat(lat.toFixed(6)),
+      lng: parseFloat(lng.toFixed(6)),
+      timestamp: time.toISOString(),
+      speed: parseFloat((15 + Math.random() * 20).toFixed(1)),
+    });
+  }
+  return points;
+};
+
+export const shiftRoutes: ShiftRoute[] = [
+  {
+    riderId: 'r-1',
+    date: new Date().toISOString().split('T')[0],
+    points: generateMockRoute(6.9214, 122.0790, 40),
+  },
+  {
+    riderId: 'r-2',
+    date: new Date().toISOString().split('T')[0],
+    points: generateMockRoute(6.9100, 122.0650, 28),
+  },
+  {
+    riderId: 'r-3',
+    date: new Date().toISOString().split('T')[0],
+    points: generateMockRoute(6.9350, 122.0820, 35),
+  },
+];
