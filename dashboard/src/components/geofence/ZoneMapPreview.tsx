@@ -15,6 +15,27 @@ function MapController({ activeZone }: {activeZone: Zone | null;}) {
       duration: 0.9
     });
   }, [activeZone, map]);
+
+  useEffect(() => {
+    const container = map.getContainer();
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+
+    resizeObserver.observe(container);
+
+    map.invalidateSize();
+    const intervals = [50, 100, 150, 200, 300, 400, 600, 1000];
+    const timers = intervals.map(ms => setTimeout(() => map.invalidateSize(), ms));
+
+    return () => {
+      resizeObserver.disconnect();
+      timers.forEach(clearTimeout);
+    };
+  }, [map]);
+
   return null;
 }
 interface ZoneMapPreviewProps {
