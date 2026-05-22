@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Sidebar, type PageKey } from './components/common/Sidebar';
 import { Topbar } from './components/common/Topbar';
+import { DashboardSkeleton } from './components/common/DashboardSkeleton';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { HRDashboard } from './pages/HRDashboard';
 import { LiveMonitoring } from './pages/LiveMonitoring';
@@ -21,23 +22,51 @@ import { riders as ALL_RIDERS, zones as ALL_ZONES } from './services/mockData';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { ToastViewport } from './components/common/Toast';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, type Variants } from 'framer-motion';
 
-const pageVariants = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  exit:    { opacity: 0, y: -8 },
-};
-
-const pageTransition = {
-  duration: 0.25,
-  ease: "easeInOut" as const
+const pageVariants: Variants = {
+  initial: {
+    opacity: 0,
+    scale: 0.985,
+    y: 8,
+  },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 220,
+      damping: 24,
+      mass: 0.8,
+    },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.99,
+    y: -4,
+    transition: {
+      duration: 0.14,
+      ease: "easeInOut" as const,
+    },
+  },
 };
 export function App() {
   const { session, user, signOut } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageKey>('dashboard');
   const [riderPage, setRiderPage] = useState<RiderPageKey>('dashboard');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(false);
+
+  // Trigger organic simulated skeleton loading on page/tab changes
+  useEffect(() => {
+    setIsPageLoading(true);
+    const timer = setTimeout(() => {
+      setIsPageLoading(false);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [currentPage, riderPage]);
+
   const role = session?.role;
   // Riders only see attendance + system notifications.
   // Payroll only sees system notifications.
@@ -91,30 +120,33 @@ export function App() {
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
             <motion.div
-              key={riderPage}
+              key={isPageLoading ? 'loading' : riderPage}
               variants={pageVariants}
               initial="initial"
               animate="animate"
               exit="exit"
-              transition={pageTransition}
               className="h-full"
             >
-              {riderPage === 'dashboard' && <RiderDashboard userId={user.id} />}
-              {riderPage === 'attendance' &&
-              <RiderAttendance onBack={() => setRiderPage('dashboard')} />
-              }
-              {riderPage === 'monitoring' &&
-              <RiderMonitoring
-                userId={user.id}
-                onBack={() => setRiderPage('dashboard')} />
-
-              }
-              {riderPage === 'profile' &&
-              <RiderProfile
-                userId={user.id}
-                onBack={() => setRiderPage('dashboard')} />
-
-              }
+              {isPageLoading ? (
+                <DashboardSkeleton page={riderPage} role="rider" />
+              ) : (
+                <>
+                  {riderPage === 'dashboard' && <RiderDashboard userId={user.id} />}
+                  {riderPage === 'attendance' &&
+                  <RiderAttendance onBack={() => setRiderPage('dashboard')} />
+                  }
+                  {riderPage === 'monitoring' &&
+                  <RiderMonitoring
+                    userId={user.id}
+                    onBack={() => setRiderPage('dashboard')} />
+                  }
+                  {riderPage === 'profile' &&
+                  <RiderProfile
+                    userId={user.id}
+                    onBack={() => setRiderPage('dashboard')} />
+                  }
+                </>
+              )}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -180,45 +212,49 @@ export function App() {
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
             <motion.div
-              key={safePage}
+              key={isPageLoading ? 'loading' : safePage}
               variants={pageVariants}
               initial="initial"
               animate="animate"
               exit="exit"
-              transition={pageTransition}
               className="h-full"
             >
-              {role === 'admin' &&
-              <>
-                  {safePage === 'dashboard' &&
-                <AdminDashboard
-                  onNavigate={(p) => handleNavigate(p as PageKey)} />
-
-                }
-                  {safePage === 'monitoring' && <LiveMonitoring />}
-                  {safePage === 'geofence' && <Geofence />}
-                  {safePage === 'attendance' && <Attendance />}
-                  {safePage === 'reports' && <Reports />}
-                  {safePage === 'users' && <Users />}
+              {isPageLoading ? (
+                <DashboardSkeleton page={safePage} role={dashRole} />
+              ) : (
+                <>
+                  {role === 'admin' &&
+                  <>
+                      {safePage === 'dashboard' &&
+                    <AdminDashboard
+                      onNavigate={(p) => handleNavigate(p as PageKey)} />
+                    }
+                      {safePage === 'monitoring' && <LiveMonitoring />}
+                      {safePage === 'geofence' && <Geofence />}
+                      {safePage === 'attendance' && <Attendance />}
+                      {safePage === 'reports' && <Reports />}
+                      {safePage === 'users' && <Users />}
+                    </>
+                  }
+                  {role === 'hr' &&
+                  <>
+                      {safePage === 'dashboard' &&
+                    <HRDashboard onNavigate={handleHrNavigate} />
+                    }
+                      {safePage === 'monitoring' && <LiveMonitoring />}
+                      {safePage === 'attendance' && <Attendance />}
+                      {safePage === 'reports' && <Reports />}
+                    </>
+                  }
+                  {role === 'payroll' &&
+                  <>
+                      {safePage === 'dashboard' && <PayrollDashboard />}
+                      {safePage === 'computation' && <PayrollComputation />}
+                      {safePage === 'reports' && <PayrollReports />}
+                    </>
+                  }
                 </>
-              }
-              {role === 'hr' &&
-              <>
-                  {safePage === 'dashboard' &&
-                <HRDashboard onNavigate={handleHrNavigate} />
-                }
-                  {safePage === 'monitoring' && <LiveMonitoring />}
-                  {safePage === 'attendance' && <Attendance />}
-                  {safePage === 'reports' && <Reports />}
-                </>
-              }
-              {role === 'payroll' &&
-              <>
-                  {safePage === 'dashboard' && <PayrollDashboard />}
-                  {safePage === 'computation' && <PayrollComputation />}
-                  {safePage === 'reports' && <PayrollReports />}
-                </>
-              }
+              )}
             </motion.div>
           </AnimatePresence>
         </main>
