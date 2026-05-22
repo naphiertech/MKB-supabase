@@ -82,11 +82,6 @@ function buildPin(inZone: boolean) {
 }
 function Recenter({
   position
-
-
-
-
-
 }: {position: {lat: number;lng: number;};}) {
   const map = useMap();
   useEffect(() => {
@@ -95,6 +90,29 @@ function Recenter({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  return null;
+}
+function ResizeObserverController() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+
+    resizeObserver.observe(container);
+
+    map.invalidateSize();
+    const intervals = [50, 100, 150, 200, 300, 400, 600, 1000];
+    const timers = intervals.map(ms => setTimeout(() => map.invalidateSize(), ms));
+
+    return () => {
+      resizeObserver.disconnect();
+      timers.forEach(clearTimeout);
+    };
+  }, [map]);
   return null;
 }
 export function RiderMap({
@@ -131,6 +149,7 @@ export function RiderMap({
         }}
         ref={mapRef}>
         
+        <ResizeObserverController />
         <TileLayer
           key={activeLayer}
           url={tile.url}
