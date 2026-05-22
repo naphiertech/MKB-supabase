@@ -214,3 +214,19 @@
 .leaflet-tooltip.ar-zone-tooltip::before {
   display: none;
 }
+
+/* Premium tactile shimmer for skeleton loading */
+@keyframes ar-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.ar-shimmer {
+  background: linear-gradient(90deg, #EFEAE2 25%, #F5F0E8 50%, #EFEAE2 75%);
+  background-size: 200% 100%;
+  animation: ar-shimmer 1.5s infinite linear;
+}
