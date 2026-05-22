@@ -34,20 +34,43 @@ const SATELLITE_LABELS_LAYER = {
 };
 function MapController({
   focusRiderId,
-  riders
-
-
-
-}: {focusRiderId?: string | null;riders: Rider[];}) {
+  riders,
+  height
+}: {
+  focusRiderId?: string | null;
+  riders: Rider[];
+  height: string;
+}) {
   const map = useMap();
   useEffect(() => {
     if (!focusRiderId) return;
     const r = riders.find((x) => x.id === focusRiderId);
     if (r)
-    map.flyTo([r.lat, r.lng], 16, {
-      duration: 0.9
-    });
+      map.flyTo([r.lat, r.lng], 16, {
+        duration: 0.9
+      });
   }, [focusRiderId, riders, map]);
+
+  useEffect(() => {
+    const container = map.getContainer();
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+
+    resizeObserver.observe(container);
+
+    map.invalidateSize();
+    const intervals = [50, 100, 150, 200, 300, 400, 600, 1000];
+    const timers = intervals.map(ms => setTimeout(() => map.invalidateSize(), ms));
+    
+    return () => {
+      resizeObserver.disconnect();
+      timers.forEach(clearTimeout);
+    };
+  }, [height, map]);
+
   return null;
 }
 export function LiveMonitoringMap({
@@ -140,7 +163,7 @@ export function LiveMonitoringMap({
             </Marker>);
 
         })}
-        <MapController focusRiderId={focusRiderId} riders={riders} />
+        <MapController focusRiderId={focusRiderId} riders={riders} height={height} />
       </MapContainer>
 
       {/* Legend (top-left) */}
