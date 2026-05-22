@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Activity,
   ArrowLeft,
@@ -9,7 +9,8 @@ import {
   Sparkles } from
 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LoginSkeleton } from '../components/common/DashboardSkeleton';
 const DEMO_ACCOUNTS = [
 {
   role: 'admin' as const,
@@ -38,6 +39,7 @@ const DEMO_ACCOUNTS = [
 
 export function Login() {
   const { signIn } = useAuth();
+  const [isInitLoading, setIsInitLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +48,14 @@ export function Login() {
   const [activeRole, setActiveRole] = useState<
     'admin' | 'hr' | 'rider' | 'payroll' | null>(
     null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitLoading(false);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -120,187 +130,202 @@ export function Login() {
         className="flex-1 flex items-center justify-center px-4 py-10 sm:py-12 bg-white relative"
       >
         <div className="w-full max-w-md">
-          <a
-            href={import.meta.env.VITE_LANDING_URL || 'http://localhost:3000'}
-            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#6B6258] hover:text-[#db6c00] transition-colors mb-8"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to website
-          </a>
+          <AnimatePresence mode="wait">
+            {isInitLoading ? (
+              <motion.div
+                key="skeleton"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <LoginSkeleton />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="form"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+              >
+                <a
+                  href={import.meta.env.VITE_LANDING_URL || 'http://localhost:3000'}
+                  className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#6B6258] hover:text-[#db6c00] transition-colors mb-8"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to website
+                </a>
 
-          {/* Mobile brand */}
-          <div className="lg:hidden flex items-center justify-center gap-3 mb-6">
-            <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-[#db6c00] to-[#f59e0b] flex items-center justify-center shadow-[0_10px_25px_-8px_rgba(219,108,0,0.45)]">
-              <Activity className="w-6 h-6 text-white" strokeWidth={2.5} />
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-[#1A1410] font-semibold tracking-tight text-lg">
-                AttenRider
-              </span>
-              <span className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono">
-                MKB Corp · Zamboanga
-              </span>
-            </div>
-          </div>
+                {/* Mobile brand */}
+                <div className="lg:hidden flex items-center justify-center gap-3 mb-6">
+                  <div className="relative w-11 h-11 rounded-xl bg-gradient-to-br from-[#db6c00] to-[#f59e0b] flex items-center justify-center shadow-[0_10px_25px_-8px_rgba(219,108,0,0.45)]">
+                    <Activity className="w-6 h-6 text-white" strokeWidth={2.5} />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+                  </div>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[#1A1410] font-semibold tracking-tight text-lg">
+                      AttenRider
+                    </span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono">
+                      MKB Corp · Zamboanga
+                    </span>
+                  </div>
+                </div>
 
-          <div className="mb-6">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-[#1A1410] tracking-tight">
-              Welcome back
-            </h1>
-            <p className="text-sm text-[#6B6258] mt-1.5">
-              Sign in to access the AttenRider dashboard.
-            </p>
-          </div>
+                <div className="mb-6">
+                  <h1 className="text-2xl sm:text-3xl font-semibold text-[#1A1410] tracking-tight">
+                    Welcome back
+                  </h1>
+                  <p className="text-sm text-[#6B6258] mt-1.5">
+                    Sign in to access the AttenRider dashboard.
+                  </p>
+                </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <motion.div
-              initial={{ y: 16, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  const v = e.target.value.toLowerCase();
-                  setEmail(e.target.value);
-                  setActiveRole(
-                    v.includes('@riders.') ?
-                    'rider' :
-                    v.includes('payroll') ?
-                    'payroll' :
-                    v.includes('hr') ?
-                    'hr' :
-                    v.includes('admin') ?
-                    'admin' :
-                    activeRole
-                  );
-                }}
-                placeholder="name@mkb.ph"
-                autoComplete="email"
-                required
-                className="w-full h-11 px-3.5 rounded-lg bg-white border border-[#EFEAE2] text-sm text-[#1A1410] placeholder:text-[#6B6258]/60 outline-none transition focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15" />
-              
-            </motion.div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <motion.div
+                    initial={{ y: 16, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        const v = e.target.value.toLowerCase();
+                        setEmail(e.target.value);
+                        setActiveRole(
+                          v.includes('@riders.') ?
+                          'rider' :
+                          v.includes('payroll') ?
+                          'payroll' :
+                          v.includes('hr') ?
+                          'hr' :
+                          v.includes('admin') ?
+                          'admin' :
+                          activeRole
+                        );
+                      }}
+                      placeholder="name@mkb.ph"
+                      autoComplete="email"
+                      required
+                      className="w-full h-11 px-3.5 rounded-lg bg-white border border-[#EFEAE2] text-sm text-[#1A1410] placeholder:text-[#6B6258]/60 outline-none transition focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15" />
+                  </motion.div>
 
-            <motion.div
-              initial={{ y: 16, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4 }}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  className="text-[11px] text-[#db6c00] hover:text-[#b85a00] font-semibold">
-                  
-                  Forgot?
-                </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPw ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                  required
-                  className="w-full h-11 px-3.5 pr-11 rounded-lg bg-white border border-[#EFEAE2] text-sm text-[#1A1410] placeholder:text-[#6B6258]/60 outline-none transition font-mono focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15" />
-                
-                <button
-                  type="button"
-                  onClick={() => setShowPw((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[#6B6258] hover:text-[#1A1410]"
-                  aria-label={showPw ? 'Hide password' : 'Show password'}>
-                  
-                  {showPw ?
-                  <EyeOff className="w-4 h-4" /> :
-
-                  <Eye className="w-4 h-4" />
-                  }
-                </button>
-              </div>
-            </motion.div>
-
-            {error &&
-            <div className="text-xs text-red-700 bg-red-50 border border-red-500/30 rounded-md px-3 py-2">
-                {error}
-              </div>
-            }
-
-            <motion.button
-              type="submit"
-              disabled={loading}
-              initial={{ y: 16, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full h-11 rounded-lg font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition focus:outline-none focus:ring-4 disabled:opacity-60 bg-[#db6c00] hover:bg-[#b85a00] active:bg-[#a04e00] text-white focus:ring-[#db6c00]/25 shadow-[0_10px_25px_-8px_rgba(219,108,0,0.45)]">
-              
-              {loading ? 'Signing in…' : 'Sign in'}
-              {!loading && <ArrowRight className="w-4 h-4" />}
-            </motion.button>
-          </form>
-
-          {/* Demo accounts */}
-          <motion.div 
-            className="mt-7 pt-6 border-t border-[#EFEAE2]"
-            initial={{ y: 16, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.6 }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-mono font-semibold">
-                Demo accounts
-              </span>
-              <span className="text-[10px] text-[#6B6258] font-mono">
-                Click to autofill
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              {DEMO_ACCOUNTS.map((a) => {
-                const isActive = activeRole === a.role;
-                return (
-                  <button
-                    key={a.role}
-                    type="button"
-                    onClick={() => handleDemoLogin(a)}
-                    className={`text-left p-3 rounded-lg border transition ${isActive ? 'bg-[#FFF1E0] border-[#db6c00]/50 ring-2 ring-[#db6c00]/20' : 'bg-white border-[#EFEAE2] hover:border-[#db6c00]/30 hover:bg-[#FFF1E0]/50'}`}>
-                    
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] uppercase tracking-wider font-semibold text-[#db6c00]">
-                        {a.label}
-                      </span>
-                      <span className="text-[10px] text-[#6B6258] font-mono">
-                        →
-                      </span>
+                  <motion.div
+                    initial={{ y: 16, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.15 }}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        className="text-[11px] text-[#db6c00] hover:text-[#b85a00] font-semibold">
+                        Forgot?
+                      </button>
                     </div>
-                    <div className="text-sm text-[#1A1410] font-semibold">
-                      {a.name}
+                    <div className="relative">
+                      <input
+                        type={showPw ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        autoComplete="current-password"
+                        required
+                        className="w-full h-11 px-3.5 pr-11 rounded-lg bg-white border border-[#EFEAE2] text-sm text-[#1A1410] placeholder:text-[#6B6258]/60 outline-none transition font-mono focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15" />
+                      
+                      <button
+                        type="button"
+                        onClick={() => setShowPw((v) => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[#6B6258] hover:text-[#1A1410]"
+                        aria-label={showPw ? 'Hide password' : 'Show password'}>
+                        {showPw ?
+                        <EyeOff className="w-4 h-4" /> :
+                        <Eye className="w-4 h-4" />
+                        }
+                      </button>
                     </div>
-                    <div className="text-[10px] text-[#6B6258] font-mono truncate">
-                      {a.email}
+                  </motion.div>
+
+                  {error && (
+                    <div className="text-xs text-red-700 bg-red-50 border border-red-500/30 rounded-md px-3 py-2">
+                      {error}
                     </div>
-                  </button>);
+                  )}
 
-              })}
-            </div>
-            <p className="mt-3 text-[10px] text-[#6B6258] leading-relaxed">
-              Demo build — any non-empty password works. In production, sign-in
-              is handled by Supabase Auth.
-            </p>
-          </motion.div>
+                  <motion.button
+                    type="submit"
+                    disabled={loading}
+                    initial={{ y: 16, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full h-11 rounded-lg font-semibold text-sm inline-flex items-center justify-center gap-1.5 transition focus:outline-none focus:ring-4 disabled:opacity-60 bg-[#db6c00] hover:bg-[#b85a00] active:bg-[#a04e00] text-white focus:ring-[#db6c00]/25 shadow-[0_10px_25px_-8px_rgba(219,108,0,0.45)]">
+                    {loading ? 'Signing in…' : 'Sign in'}
+                    {!loading && <ArrowRight className="w-4 h-4" />}
+                  </motion.button>
+                </form>
 
-          <div className="text-center mt-8 text-[11px] text-[#6B6258] font-mono">
-            © {new Date().getFullYear()} MKB Corporation · AttenRider
-          </div>
+                {/* Demo accounts */}
+                <motion.div 
+                  className="mt-7 pt-6 border-t border-[#EFEAE2]"
+                  initial={{ y: 16, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.25 }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-mono font-semibold">
+                      Demo accounts
+                    </span>
+                    <span className="text-[10px] text-[#6B6258] font-mono">
+                      Click to autofill
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    {DEMO_ACCOUNTS.map((a) => {
+                      const isActive = activeRole === a.role;
+                      return (
+                        <button
+                          key={a.role}
+                          type="button"
+                          onClick={() => handleDemoLogin(a)}
+                          className={`text-left p-3 rounded-lg border transition ${isActive ? 'bg-[#FFF1E0] border-[#db6c00]/50 ring-2 ring-[#db6c00]/20' : 'bg-white border-[#EFEAE2] hover:border-[#db6c00]/30 hover:bg-[#FFF1E0]/50'}`}>
+                          
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase tracking-wider font-semibold text-[#db6c00]">
+                              {a.label}
+                            </span>
+                            <span className="text-[10px] text-[#6B6258] font-mono">
+                              →
+                            </span>
+                          </div>
+                          <div className="text-sm text-[#1A1410] font-semibold">
+                            {a.name}
+                          </div>
+                          <div className="text-[10px] text-[#6B6258] font-mono truncate">
+                            {a.email}
+                          </div>
+                        </button>);
+                    })}
+                  </div>
+                  <p className="mt-3 text-[10px] text-[#6B6258] leading-relaxed">
+                    Demo build — any non-empty password works. In production, sign-in
+                    is handled by Supabase Auth.
+                  </p>
+                </motion.div>
+
+                <div className="text-center mt-8 text-[11px] text-[#6B6258] font-mono">
+                  © {new Date().getFullYear()} MKB Corporation · AttenRider
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.main>
     </motion.div>);
