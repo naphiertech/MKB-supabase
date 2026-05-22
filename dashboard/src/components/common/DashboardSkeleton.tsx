@@ -1,0 +1,467 @@
+import { type PageKey } from './Sidebar';
+import { type RiderPageKey } from '../rider/RiderTopNav';
+
+/**
+ * Premium Login Page Form Skeleton
+ */
+export function LoginSkeleton() {
+  return (
+    <div className="w-full max-w-md space-y-6">
+      {/* Back to website link */}
+      <div className="w-28 h-3.5 rounded ar-shimmer" />
+
+      {/* Header title and description */}
+      <div className="space-y-2 mt-2">
+        <div className="w-48 h-8 rounded ar-shimmer" />
+        <div className="w-64 h-3.5 rounded ar-shimmer" />
+      </div>
+
+      {/* Form Fields container */}
+      <div className="space-y-4 pt-2">
+        {/* Email input field */}
+        <div className="space-y-1.5">
+          <div className="w-16 h-3 rounded ar-shimmer" />
+          <div className="w-full h-11 rounded-lg border border-[#EFEAE2] ar-shimmer opacity-40" />
+        </div>
+
+        {/* Password input field */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center">
+            <div className="w-20 h-3 rounded ar-shimmer" />
+            <div className="w-12 h-3 rounded ar-shimmer" />
+          </div>
+          <div className="w-full h-11 rounded-lg border border-[#EFEAE2] ar-shimmer opacity-40" />
+        </div>
+
+        {/* Submit CTA button */}
+        <div className="w-full h-11 rounded-lg ar-shimmer mt-2" />
+      </div>
+
+      {/* Demo Accounts shortcuts section */}
+      <div className="pt-6 border-t border-[#EFEAE2] space-y-3">
+        <div className="flex justify-between items-center">
+          <div className="w-28 h-3 rounded ar-shimmer" />
+          <div className="w-24 h-3 rounded ar-shimmer" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-lg border border-[#EFEAE2] p-3 space-y-1.5 bg-white">
+              <div className="flex justify-between items-center">
+                <div className="w-10 h-2.5 rounded ar-shimmer" />
+                <div className="w-4 h-2.5 rounded ar-shimmer" />
+              </div>
+              <div className="w-20 h-3.5 rounded ar-shimmer" />
+              <div className="w-28 h-2.5 rounded ar-shimmer" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface DashboardSkeletonProps {
+  page: PageKey | RiderPageKey;
+  role: 'admin' | 'hr' | 'payroll' | 'rider';
+}
+
+/**
+ * Premium Stat Card Skeleton Component
+ */
+export function StatCardSkeleton() {
+  return (
+    <div className="relative bg-white border border-[#EFEAE2] rounded-xl p-4 sm:p-5 overflow-hidden shadow-sm">
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#EFEAE2]" />
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-2.5 flex-1">
+          {/* Label */}
+          <div className="w-28 h-3 rounded ar-shimmer" />
+          {/* Value */}
+          <div className="w-16 h-7 rounded ar-shimmer mt-1" />
+          {/* Subtitle */}
+          <div className="w-32 h-3 rounded ar-shimmer mt-2" />
+        </div>
+        {/* Icon */}
+        <div className="w-9 h-9 rounded-lg ar-shimmer shrink-0" />
+      </div>
+      <div className="mt-4 flex items-end justify-between gap-3">
+        {/* Trend */}
+        <div className="w-20 h-3 rounded ar-shimmer" />
+        {/* Sparkline */}
+        <div className="flex items-end gap-[3.5px] h-7">
+          {[40, 60, 50, 70, 80, 60, 90].map((h, i) => (
+            <div
+              key={i}
+              className="w-[3px] rounded-sm ar-shimmer"
+              style={{ height: `${h}%` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Premium Map Skeleton Component (Geofence & Live Monitoring)
+ */
+export function MapSkeleton() {
+  return (
+    <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-sm">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#EFEAE2]">
+        <div className="space-y-1.5 flex-1">
+          <div className="w-32 h-3.5 rounded ar-shimmer" />
+          <div className="w-48 h-3 rounded ar-shimmer" />
+        </div>
+        <div className="w-24 h-4 rounded ar-shimmer" />
+      </div>
+      <div className="h-[460px] ar-shimmer opacity-40" />
+    </div>
+  );
+}
+
+/**
+ * Premium Table / Grid Page Skeleton
+ */
+export function TableSkeleton() {
+  return (
+    <div className="space-y-4">
+      {/* Search & Filter Bar */}
+      <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-1">
+            <div className="w-9 h-9 rounded-lg ar-shimmer shrink-0" />
+            <div className="w-1/3 h-4 rounded ar-shimmer" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-32 h-9 rounded-md ar-shimmer" />
+            <div className="w-48 h-9 rounded-md ar-shimmer" />
+          </div>
+        </div>
+      </div>
+
+      {/* Grid Table */}
+      <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-[#EFEAE2] flex justify-between items-center">
+          <div className="space-y-1">
+            <div className="w-32 h-4 rounded ar-shimmer" />
+            <div className="w-48 h-3 rounded ar-shimmer" />
+          </div>
+          <div className="w-20 h-5 rounded-md ar-shimmer" />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2]">
+              <tr>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <th key={i} className="px-5 py-3.5">
+                    <div className="w-16 h-3 rounded ar-shimmer" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 7 }).map((_, rowIndex) => (
+                <tr key={rowIndex} className="border-b border-[#EFEAE2]">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full ar-shimmer shrink-0" />
+                      <div className="space-y-1">
+                        <div className="w-24 h-3 rounded ar-shimmer" />
+                        <div className="w-16 h-2.5 rounded ar-shimmer" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="w-20 h-3 rounded ar-shimmer" />
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="w-8 h-3 rounded ar-shimmer ml-auto" />
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="w-12 h-3 rounded ar-shimmer ml-auto" />
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <div className="w-16 h-3 rounded ar-shimmer ml-auto" />
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="w-16 h-5 rounded-full ar-shimmer" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Premium Profile Form Page Skeleton
+ */
+export function ProfileSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* Left Avatar Column */}
+      <div className="lg:col-span-1 bg-white border border-[#EFEAE2] rounded-xl p-5 space-y-4 shadow-sm flex flex-col items-center text-center">
+        <div className="w-24 h-24 rounded-full ar-shimmer" />
+        <div className="w-32 h-4 rounded ar-shimmer" />
+        <div className="w-20 h-3 rounded ar-shimmer" />
+        <hr className="w-full border-[#EFEAE2]" />
+        <div className="w-full space-y-2">
+          <div className="w-full h-8 rounded ar-shimmer" />
+          <div className="w-full h-8 rounded ar-shimmer" />
+        </div>
+      </div>
+
+      {/* Right Form Column */}
+      <div className="lg:col-span-2 bg-white border border-[#EFEAE2] rounded-xl p-5 sm:p-6 space-y-5 shadow-sm">
+        <div className="w-48 h-4.5 rounded ar-shimmer" />
+        <hr className="border-[#EFEAE2]" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="w-20 h-3 rounded ar-shimmer" />
+              <div className="w-full h-9 rounded border border-[#EFEAE2] ar-shimmer opacity-40" />
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-3 mt-6">
+          <div className="w-20 h-9 rounded-md ar-shimmer" />
+          <div className="w-32 h-9 rounded-md ar-shimmer" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Premium DashboardSkeleton Component
+ */
+export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
+  // If it's the main dashboard page, show role-specific structures
+  if (page === 'dashboard') {
+    if (role === 'admin') {
+      return (
+        <div className="p-4 md:p-6 lg:p-7 space-y-5">
+          {/* Top 4 stats cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </div>
+
+          {/* Map + Online List */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-3">
+              <MapSkeleton />
+            </div>
+            <div className="lg:col-span-2 space-y-4">
+              <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 space-y-3.5 shadow-sm">
+                <div className="flex justify-between items-center">
+                  <div className="w-28 h-3.5 rounded ar-shimmer" />
+                  <div className="w-16 h-3 rounded ar-shimmer" />
+                </div>
+                <hr className="border-[#EFEAE2]" />
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full ar-shimmer shrink-0" />
+                    <div className="space-y-1 flex-1">
+                      <div className="w-28 h-3 rounded ar-shimmer" />
+                      <div className="w-16 h-2 rounded ar-shimmer" />
+                    </div>
+                    <div className="w-12 h-4 rounded-full ar-shimmer shrink-0" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom logs + feed */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-3">
+              <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="w-36 h-4 rounded ar-shimmer" />
+                  <div className="w-16 h-3 rounded ar-shimmer" />
+                </div>
+                <hr className="border-[#EFEAE2]" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex justify-between items-center py-1">
+                    <div className="flex gap-2">
+                      <div className="w-7 h-7 rounded-full ar-shimmer" />
+                      <div className="space-y-1">
+                        <div className="w-24 h-3 rounded ar-shimmer" />
+                        <div className="w-16 h-2 rounded ar-shimmer" />
+                      </div>
+                    </div>
+                    <div className="w-16 h-4 rounded-full ar-shimmer" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="w-28 h-3.5 rounded ar-shimmer" />
+                  <div className="w-20 h-3 rounded ar-shimmer" />
+                </div>
+                <hr className="border-[#EFEAE2]" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex gap-3 py-1">
+                    <div className="w-7 h-7 rounded-full ar-shimmer shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="w-full h-3 rounded ar-shimmer" />
+                      <div className="w-2/3 h-2 rounded ar-shimmer" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (role === 'hr') {
+      return (
+        <div className="p-4 md:p-6 lg:p-7 space-y-5">
+          {/* Today's KPI Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </div>
+
+          {/* Quick Shortcuts */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white border border-[#EFEAE2] rounded-xl p-3.5 flex flex-col items-center gap-2">
+                <div className="w-8 h-8 rounded-lg ar-shimmer" />
+                <div className="w-16 h-2.5 rounded ar-shimmer" />
+              </div>
+            ))}
+          </div>
+
+          {/* Attendance Overview Card */}
+          <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 space-y-4 shadow-sm">
+            <div className="flex justify-between items-center">
+              <div className="w-48 h-4 rounded ar-shimmer" />
+              <div className="w-16 h-3 rounded ar-shimmer" />
+            </div>
+            <div className="w-full h-[180px] rounded ar-shimmer opacity-40" />
+          </div>
+        </div>
+      );
+    }
+
+    if (role === 'payroll') {
+      return (
+        <div className="p-4 md:p-6 lg:p-7 space-y-5">
+          {/* Read-only warning banner */}
+          <div className="w-full h-11 rounded-lg border border-[#EFEAE2] ar-shimmer opacity-40" />
+
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </div>
+
+          {/* Cutoff period selector */}
+          <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 sm:p-5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg ar-shimmer" />
+              <div className="space-y-1">
+                <div className="w-24 h-2.5 rounded ar-shimmer" />
+                <div className="w-32 h-3.5 rounded ar-shimmer" />
+              </div>
+            </div>
+            <div className="w-32 h-9 rounded-md ar-shimmer" />
+          </div>
+
+          {/* Detailed table layout skeleton */}
+          <TableSkeleton />
+        </div>
+      );
+    }
+
+    if (role === 'rider') {
+      return (
+        <div className="p-4 md:p-6 lg:p-7 max-w-6xl mx-auto space-y-5">
+          {/* Identity banner skeleton */}
+          <div className="w-full h-24 rounded-2xl border border-[#EFEAE2] ar-shimmer opacity-50" />
+
+          {/* Clock-in verification panel */}
+          <div className="bg-white border border-[#EFEAE2] rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center space-y-4 shadow-sm">
+            <div className="w-36 h-3.5 rounded ar-shimmer mx-auto" />
+            <div className="w-32 h-32 rounded-full ar-shimmer" />
+            <div className="w-48 h-10 rounded-lg ar-shimmer" />
+          </div>
+
+          {/* Live GPS & Map panel */}
+          <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 space-y-4 shadow-sm">
+            <div className="flex justify-between items-center">
+              <div className="space-y-1">
+                <div className="w-24 h-4 rounded ar-shimmer" />
+                <div className="w-36 h-3 rounded ar-shimmer" />
+              </div>
+              <div className="w-28 h-3 rounded ar-shimmer" />
+            </div>
+            <div className="h-[320px] rounded-xl ar-shimmer opacity-40" />
+            <div className="w-full h-8 rounded-lg ar-shimmer" />
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Page-specific generic layouts for sub-tabs to ensure precise visual matching
+  if (page === 'monitoring' || page === 'geofence') {
+    return (
+      <div className="p-4 md:p-6 lg:p-7">
+        <MapSkeleton />
+      </div>
+    );
+  }
+
+  if (
+    page === 'attendance' ||
+    page === 'reports' ||
+    page === 'users' ||
+    page === 'computation'
+  ) {
+    return (
+      <div className="p-4 md:p-6 lg:p-7">
+        <TableSkeleton />
+      </div>
+    );
+  }
+
+  if (page === 'profile') {
+    return (
+      <div className="p-4 md:p-6 lg:p-7 max-w-6xl mx-auto">
+        <ProfileSkeleton />
+      </div>
+    );
+  }
+
+  // Fallback generic card grid skeleton
+  return (
+    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="bg-white border border-[#EFEAE2] rounded-xl p-5 space-y-3 shadow-sm">
+            <div className="w-1/2 h-4 rounded ar-shimmer" />
+            <div className="w-3/4 h-3 rounded ar-shimmer" />
+            <div className="w-full h-[120px] rounded ar-shimmer opacity-30 mt-2" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
