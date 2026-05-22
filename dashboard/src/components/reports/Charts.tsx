@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -31,116 +32,155 @@ const axisTick = {
   fontFamily: 'Geist Mono'
 };
 export function AttendanceRateChart() {
+  const [shouldRender, setShouldRender] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShouldRender(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <ChartCard title="Attendance Rate" subtitle="Last 30 days" tone="primary">
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart
-          data={dailyAttendanceRate}
-          margin={{
-            top: 8,
-            right: 12,
-            left: -10,
-            bottom: 0
-          }}>
-          
-          <CartesianGrid
-            stroke="#EFEAE2"
-            strokeDasharray="3 3"
-            vertical={false} />
-          
-          <XAxis
-            dataKey="day"
-            tick={axisTick}
-            tickFormatter={(v) => v.slice(5)}
-            interval={4}
-            stroke="#EFEAE2" />
-          
-          <YAxis tick={axisTick} domain={[60, 100]} stroke="#EFEAE2" />
-          <Tooltip
-            contentStyle={tooltipStyle}
-            cursor={{
-              stroke: '#db6c00',
-              strokeOpacity: 0.3
-            }} />
-          
-          <Line
-            type="monotone"
-            dataKey="rate"
-            stroke="#db6c00"
-            strokeWidth={2.5}
-            dot={false}
-            activeDot={{
-              r: 4,
-              fill: '#db6c00'
-            }} />
-          
-        </LineChart>
-      </ResponsiveContainer>
+      <div style={{ height: 220 }}>
+        {shouldRender ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart
+              data={dailyAttendanceRate}
+              margin={{
+                top: 8,
+                right: 12,
+                left: -10,
+                bottom: 0
+              }}>
+              
+              <CartesianGrid
+                stroke="#EFEAE2"
+                strokeDasharray="3 3"
+                vertical={false} />
+              
+              <XAxis
+                dataKey="day"
+                tick={axisTick}
+                tickFormatter={(v) => v.slice(5)}
+                interval={4}
+                stroke="#EFEAE2" />
+              
+              <YAxis tick={axisTick} domain={[60, 100]} stroke="#EFEAE2" />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{
+                  stroke: '#db6c00',
+                  strokeOpacity: 0.3
+                }} />
+              
+              <Line
+                type="monotone"
+                dataKey="rate"
+                stroke="#db6c00"
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={{
+                  r: 4,
+                  fill: '#db6c00'
+                }}
+                isAnimationActive={true}
+                animationDuration={1200} />
+              
+            </LineChart>
+          </ResponsiveContainer>
+        ) : null}
+      </div>
     </ChartCard>);
 
 }
 export function ViolationsByZoneChart() {
+  const [shouldRender, setShouldRender] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShouldRender(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <ChartCard title="Violations by Zone" subtitle="This month" tone="red">
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart
-          data={violationsByZone}
-          margin={{
-            top: 8,
-            right: 12,
-            left: -10,
-            bottom: 0
-          }}>
-          
-          <CartesianGrid
-            stroke="#EFEAE2"
-            strokeDasharray="3 3"
-            vertical={false} />
-          
-          <XAxis
-            dataKey="zone"
-            tick={{
-              fontSize: 10,
-              fill: '#6B6258'
-            }}
-            stroke="#EFEAE2" />
-          
-          <YAxis tick={axisTick} stroke="#EFEAE2" />
-          <Tooltip
-            contentStyle={tooltipStyle}
-            cursor={{
-              fill: '#FFF1E0'
-            }} />
-          
-          <Bar dataKey="violations" fill="#DC2626" radius={[4, 4, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+      <div style={{ height: 220 }}>
+        {shouldRender ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart
+              data={violationsByZone}
+              margin={{
+                top: 8,
+                right: 12,
+                left: -10,
+                bottom: 0
+              }}>
+              
+              <CartesianGrid
+                stroke="#EFEAE2"
+                strokeDasharray="3 3"
+                vertical={false} />
+              
+              <XAxis
+                dataKey="zone"
+                tick={{
+                  fontSize: 10,
+                  fill: '#6B6258'
+                }}
+                stroke="#EFEAE2" />
+              
+              <YAxis tick={axisTick} stroke="#EFEAE2" />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{
+                  fill: '#FFF1E0'
+                }} />
+              
+              <Bar
+                dataKey="violations"
+                fill="#DC2626"
+                radius={[4, 4, 0, 0]}
+                isAnimationActive={true}
+                animationDuration={1200} />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : null}
+      </div>
     </ChartCard>);
 
 }
 export function StatusMixChart() {
+  const [shouldRender, setShouldRender] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShouldRender(true), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <ChartCard title="Rider Status Mix" subtitle="Current" tone="green">
       <div className="flex items-center gap-4">
-        <ResponsiveContainer width="55%" height={220}>
-          <PieChart>
-            <Pie
-              data={statusMix}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={50}
-              outerRadius={80}
-              paddingAngle={3}
-              stroke="#FFFFFF"
-              strokeWidth={2}>
-              
-              {statusMix.map((s) =>
-              <Cell key={s.name} fill={s.color} />
-              )}
-            </Pie>
-            <Tooltip contentStyle={tooltipStyle} />
-          </PieChart>
-        </ResponsiveContainer>
+        <div style={{ width: '55%', height: 220 }} className="flex items-center justify-center">
+          {shouldRender ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={statusMix}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={3}
+                  stroke="#FFFFFF"
+                  strokeWidth={2}
+                  isAnimationActive={true}
+                  animationDuration={1000}>
+                  
+                  {statusMix.map((s) =>
+                  <Cell key={s.name} fill={s.color} />
+                  )}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : null}
+        </div>
         <div className="flex-1 space-y-1.5">
           {statusMix.map((s) =>
           <div
