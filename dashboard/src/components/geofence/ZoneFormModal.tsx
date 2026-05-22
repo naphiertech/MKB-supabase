@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, ChevronDown, Search } from 'lucide-react';
-import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Circle, Marker, useMapEvents, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Zone, Rider } from '../../services/mockData';
 import type { ZoneInput } from '../../services/geofenceService';
@@ -19,6 +19,30 @@ const MapClickHandler = ({
       );
     },
   });
+  return null;
+};
+
+const ResizeObserverController = () => {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+
+    resizeObserver.observe(container);
+
+    map.invalidateSize();
+    const intervals = [50, 100, 150, 200, 300, 400, 600, 1000];
+    const timers = intervals.map(ms => setTimeout(() => map.invalidateSize(), ms));
+
+    return () => {
+      resizeObserver.disconnect();
+      timers.forEach(clearTimeout);
+    };
+  }, [map]);
   return null;
 };
 
@@ -339,6 +363,7 @@ export function ZoneFormModal({
                       zoom={13}
                       style={{ height: '100%', width: '100%' }}
                     >
+                      <ResizeObserverController />
                       <TileLayer
                         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                         attribution="&copy; CARTO"
