@@ -24,5 +24,20 @@ export function GSAPProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("/sw.js")
+          .then((reg) => {
+            // Service worker successfully registered
+          })
+          .catch((err) => {
+            // Silent error handling in production
+          })
+      })
+    }
+  }, [])
+
   return <>{children}</>
 }
