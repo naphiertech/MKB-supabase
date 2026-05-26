@@ -144,27 +144,6 @@ export function Geofence() {
   }
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <h2 className="text-[#1A1410] font-semibold text-xl md:text-2xl tracking-tight">
-            Geofence Zones
-          </h2>
-          <p className="text-sm text-[#6B6258] mt-0.5">
-            Manage operational boundaries · Zamboanga City
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-sm font-semibold shadow-sm transition">
-          
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Zone</span>
-          <span className="sm:hidden">Add</span>
-        </button>
-      </div>
-
       {/* Summary cards */}
       <ZoneSummaryCards
         zones={zones}
@@ -191,7 +170,8 @@ export function Geofence() {
             onDelete={handleDeleteRequest}
             pendingDeleteId={pendingDeleteId}
             onConfirmDelete={handleConfirmDelete}
-            onCancelDelete={handleCancelDelete} />
+            onCancelDelete={handleCancelDelete}
+            onAdd={openCreate} />
           
         </div>
       </div>
