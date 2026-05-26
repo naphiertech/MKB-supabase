@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import { Search, Pencil, Trash2, ChevronRight, Plus } from 'lucide-react';
 import type { Zone } from '../../services/mockData';
 import { formatLatLng } from '../../lib/geofenceUtils';
 interface ZoneListPanelProps {
@@ -12,6 +12,7 @@ interface ZoneListPanelProps {
   pendingDeleteId: string | null;
   onConfirmDelete: (zoneId: string) => void;
   onCancelDelete: () => void;
+  onAdd?: () => void;
 }
 export function ZoneListPanel({
   zones,
@@ -22,7 +23,8 @@ export function ZoneListPanel({
   onDelete,
   pendingDeleteId,
   onConfirmDelete,
-  onCancelDelete
+  onCancelDelete,
+  onAdd
 }: ZoneListPanelProps) {
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => {
@@ -42,6 +44,15 @@ export function ZoneListPanel({
               {filtered.length} of {zones.length} shown
             </div>
           </div>
+          {onAdd && (
+            <button
+              type="button"
+              onClick={onAdd}
+              className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-semibold shadow-sm transition hover:scale-105 active:scale-95">
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Zone</span>
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 px-3 h-9 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] focus-within:border-[#db6c00]/40 focus-within:ring-2 focus-within:ring-[#db6c00]/15 transition">
           <Search className="w-4 h-4 text-[#6B6258]" />
