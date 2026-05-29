@@ -1,10 +1,17 @@
-// Attendance service — stubbed for Magic Patterns
-// TODO: Replace with Supabase queries in production
-import {
-  attendanceLogs,
-  type AttendanceLog,
-  type AttendanceStatus } from
-'./mockData';
+import { supabase } from '../lib/supabaseClient';
+import { type AttendanceLog, type AttendanceStatus } from './types';
+
+// Helper to convert dynamic timestamps (timestamptz) back to HH:MM format expected by frontend UI
+function toHHMM(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  } catch {
+    return null;
+  }
+}
 
 export async function getAttendanceLogs(filters?: {
   status?: AttendanceStatus;
@@ -12,21 +19,85 @@ export async function getAttendanceLogs(filters?: {
   dateTo?: string;
   zoneId?: string;
 }): Promise<AttendanceLog[]> {
-  // TODO: supabase.from('attendance_logs').select('*').match(...)
-  let result = [...attendanceLogs];
-  if (filters?.status)
-  result = result.filter((l) => l.status === filters.status);
-  if (filters?.dateFrom)
-  result = result.filter((l) => l.date >= filters.dateFrom!);
-  if (filters?.dateTo) result = result.filter((l) => l.date <= filters.dateTo!);
-  if (filters?.zoneId)
-  result = result.filter((l) => l.zoneId === filters.zoneId);
-  return Promise.resolve(result.sort((a, b) => b.date.localeCompare(a.date)));
+  let query = supabase
+    .from('attendance_logs')
+    .select(`
+      id,
+      rider_id,
+      date,
+      time_in,
+      time_out,
+      hours,
+      status,
+      source,
+      notes,
+      riders (
+        name,
+        avatar_url,
+        zone_id,
+        zones (
+          name
+        )
+      )
+    `);
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status);
+  }
+  if (filters?.dateFrom) {
+    query = query.gte('date', filters.dateFrom);
+  }
+  if (filters?.dateTo) {
+    query = query.lte('date', filters.dateTo);
+  }
+
+  // Sort descending by date
+  query = query.order('date', { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching attendance logs:', error);
+    return [];
+  }
+
+  // Map nested objects to match the original flat AttendanceLog shape
+  let result: AttendanceLog[] = (data || []).map((row: any) => {
+    const rider = row.riders;
+    const zone = rider?.zones;
+    return {
+      id: row.id,
+      riderId: row.rider_id,
+      riderName: rider?.name || 'Unknown Rider',
+      riderAvatar: rider?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider?.name || '')}`,
+      date: row.date,
+      timeIn: toHHMM(row.time_in),
+      timeOut: toHHMM(row.time_out),
+      hours: row.hours || 0,
+      zoneId: rider?.zone_id || '',
+      zoneName: zone?.name || 'No Zone',
+      status: row.status as AttendanceStatus,
+      source: row.source as 'face-scan' | 'manual',
+      events: [] // DB model is structural; events are constructed dynamically via realtime location stream
+    };
+  });
+
+  // Safe in-memory filtering for zoneId to handle nested relational bounds robustly
+  if (filters?.zoneId) {
+    result = result.filter((l) => l.zoneId === filters.zoneId);
+  }
+
+  return result;
+}
+
+export async function getTodayLogs(): Promise<AttendanceLog[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  return getAttendanceLogs({ dateFrom: today, dateTo: today });
 }
 
 export async function getTodayKpis() {
   const today = new Date().toISOString().slice(0, 10);
-  const todays = attendanceLogs.filter((l) => l.date === today);
+  const todays = await getAttendanceLogs({ dateFrom: today, dateTo: today });
   return {
     present: todays.filter((l) => l.status === 'present').length,
     late: todays.filter((l) => l.status === 'late').length,
@@ -44,16 +115,91 @@ export async function getTodayKpis() {
  */
 export async function getHrTodayKpis() {
   const today = new Date().toISOString().slice(0, 10);
-  const todays = attendanceLogs.filter((l) => l.date === today);
+  const todays = await getAttendanceLogs({ dateFrom: today, dateTo: today });
+  
   const onDuty = todays.filter((l) => !!l.timeIn).length;
   const complete = todays.filter((l) => !!l.timeIn && !!l.timeOut).length;
   const absent = todays.filter((l) => l.status === 'absent' || !l.timeIn).length;
   const pending = todays.filter(
     (l) =>
-    l.source === 'manual' && l.status !== 'absent' ||
-    !!l.timeIn && !l.timeOut && l.status !== 'on_leave'
+      (l.source === 'manual' && l.status !== 'absent') ||
+      (!!l.timeIn && !l.timeOut && l.status !== 'on_leave')
   ).length;
+
   return { onDuty, complete, absent, pending };
+}
+
+export async function recordTimeIn(riderId: string): Promise<void> {
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+
+  // Standard late cut-off rule: if signing in after 8:15 AM
+  const isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15);
+  const status = isLate ? 'late' : 'present';
+
+  const { error } = await supabase
+    .from('attendance_logs')
+    .insert({
+      rider_id: riderId,
+      date: dateStr,
+      time_in: now.toISOString(),
+      source: 'face-scan',
+      status: status
+    });
+
+  if (error) {
+    console.error('Error recording time in:', error);
+    throw error;
+  }
+}
+
+export async function recordTimeOut(riderId: string): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Find today's existing log for this rider
+  const { data: existing, error: findError } = await supabase
+    .from('attendance_logs')
+    .select('id')
+    .eq('rider_id', riderId)
+    .eq('date', today)
+    .maybeSingle();
+
+  if (findError) {
+    console.error('Error finding today attendance log for sign-out:', findError);
+    throw findError;
+  }
+
+  if (existing) {
+    const { error: updateError } = await supabase
+      .from('attendance_logs')
+      .update({
+        time_out: new Date().toISOString()
+      })
+      .eq('id', existing.id);
+
+    if (updateError) {
+      console.error('Error updating time out:', updateError);
+      throw updateError;
+    }
+  } else {
+    // Failsafe: if no record exists for today, insert a complete row directly
+    const now = new Date();
+    const { error: insertError } = await supabase
+      .from('attendance_logs')
+      .insert({
+        rider_id: riderId,
+        date: today,
+        time_in: now.toISOString(),
+        time_out: now.toISOString(),
+        source: 'face-scan',
+        status: 'present'
+      });
+
+    if (insertError) {
+      console.error('Failsafe sign-out insert failed:', insertError);
+      throw insertError;
+    }
+  }
 }
 
 /** HR view status derived from raw attendance fields. */
@@ -61,7 +207,7 @@ export type HrLogStatus = 'Complete' | 'Incomplete' | 'Absent' | 'Late';
 
 export function deriveHrStatus(log: AttendanceLog): HrLogStatus {
   if (log.status === 'absent' || !log.timeIn && log.status !== 'on_leave')
-  return 'Absent';
+    return 'Absent';
   if (log.status === 'late') return 'Late';
   if (log.timeIn && log.timeOut) return 'Complete';
   return 'Incomplete';
@@ -69,37 +215,40 @@ export function deriveHrStatus(log: AttendanceLog): HrLogStatus {
 
 /** Build a CSV string + trigger a download in the browser. */
 export function exportLogsCsv(
-logs: AttendanceLog[],
-fileName = 'attendance.csv')
-{
+  logs: AttendanceLog[],
+  fileName = 'attendance.csv'
+) {
   const headers = [
-  'Rider Name',
-  'Rider ID',
-  'Date',
-  'Zone',
-  'Time-In',
-  'Time-Out',
-  'Hours',
-  'Status',
-  'Source'];
+    'Rider Name',
+    'Rider ID',
+    'Date',
+    'Zone',
+    'Time-In',
+    'Time-Out',
+    'Hours',
+    'Status',
+    'Source'
+  ];
 
   const rows = logs.map((l) => [
-  l.riderName,
-  l.riderId,
-  l.date,
-  l.zoneName,
-  l.timeIn ?? '',
-  l.timeOut ?? '',
-  l.hours?.toString() ?? '',
-  deriveHrStatus(l),
-  l.source]
-  );
+    l.riderName,
+    l.riderId,
+    l.date,
+    l.zoneName,
+    l.timeIn ?? '',
+    l.timeOut ?? '',
+    l.hours?.toString() ?? '',
+    deriveHrStatus(l),
+    l.source
+  ]);
+
   const escape = (v: string) =>
-  /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+
   const csv =
-  [headers, ...rows].
-  map((r) => r.map((c) => escape(String(c ?? ''))).join(',')).
-  join('\n') + '\n';
+    [headers, ...rows]
+      .map((r) => r.map((c) => escape(String(c ?? ''))).join(','))
+      .join('\n') + '\n';
 
   if (typeof window === 'undefined') return csv;
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
