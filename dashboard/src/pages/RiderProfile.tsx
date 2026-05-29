@@ -1,23 +1,23 @@
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Phone, Mail, IdCard, MapPin, Shield } from 'lucide-react';
 import {
-  riders as ALL_RIDERS,
-  zones as ALL_ZONES,
-  users as ALL_USERS } from
-'../services/mockData';
+  type Rider,
+  type Zone,
+  type AppUser } from
+'../services/types';
+import { supabase } from '../lib/supabaseClient';
+import { getZones } from '../services/geofenceService';
+
 interface RiderProfileProps {
   userId: string;
   onBack: () => void;
 }
+
 function Field({
   label,
   value,
   icon: Icon,
   mono
-
-
-
-
-
 }: {label: string;value: string;icon: typeof Phone;mono?: boolean;}) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#EFEAE2] hover:border-[#db6c00]/30 transition-colors">
@@ -28,26 +28,118 @@ function Field({
         <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono">
           {label}
         </div>
-        <div
-          className={`mt-0.5 text-sm text-[#1A1410] truncate ${mono ? 'font-mono' : ''}`}>
-          
+        <div className={`mt-0.5 text-sm text-[#1A1410] truncate ${mono ? 'font-mono' : ''}`}>
           {value}
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
+
 export function RiderProfile({ userId, onBack }: RiderProfileProps) {
   const riderId = userId.replace(/^u-rider-/, '');
-  const rider = ALL_RIDERS.find((r) => r.id === riderId) ?? ALL_RIDERS[0];
-  const user = ALL_USERS.find((u) => u.id === userId);
-  const zone = ALL_ZONES.find((z) => z.id === rider.zoneId) ?? ALL_ZONES[0];
+  const [rider, setRider] = useState<Rider | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [zone, setZone] = useState<Zone | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+
+        const { data: dbRider, error: riderErr } = await supabase
+          .from('riders')
+          .select('*')
+          .eq('id', riderId)
+          .maybeSingle();
+
+        if (!riderErr && dbRider) {
+          const mappedRider: Rider = {
+            id: dbRider.id,
+            name: dbRider.name,
+            avatar: dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
+            zoneId: dbRider.zone_id,
+            status: dbRider.status,
+            lat: dbRider.lat || 0,
+            lng: dbRider.lng || 0,
+            speed: dbRider.speed || 0,
+            shift: (dbRider.shift || 'Morning').toLowerCase() as any,
+            lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : Date.now(),
+            phone: dbRider.contact || '',
+            riderCode: dbRider.mkb_id
+          };
+          setRider(mappedRider);
+
+          if (dbRider.zone_id) {
+            const { data: dbZone } = await supabase
+              .from('zones')
+              .select('*')
+              .eq('id', dbRider.zone_id)
+              .maybeSingle();
+
+            if (dbZone) {
+              setZone({
+                id: dbZone.id,
+                name: dbZone.name,
+                center: [dbZone.lat, dbZone.lng],
+                radius: dbZone.radius,
+                color: dbZone.color,
+                status: dbZone.status
+              });
+            }
+          } else {
+            const zList = await getZones();
+            if (zList.length > 0) {
+              setZone(zList[0]);
+            }
+          }
+        }
+
+        const { data: dbUser, error: userErr } = await supabase
+          .from('users')
+          .select('*')
+          .eq('rider_id', riderId)
+          .maybeSingle();
+
+        if (!userErr && dbUser) {
+          setUser({
+            id: dbUser.id,
+            name: dbUser.full_name,
+            avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbUser.full_name)}`,
+            email: dbUser.email,
+            role: dbUser.role,
+            zoneId: null,
+            status: dbUser.status,
+            lastLogin: dbUser.last_login ? new Date(dbUser.last_login).getTime() : Date.now()
+          });
+        }
+      } catch (err) {
+        console.error('Error loading rider profile details:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [riderId]);
+
+  if (loading || !rider || !zone) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] text-[#6B6258] text-sm">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-6 h-6 border-2 border-[#db6c00] border-t-transparent rounded-full animate-spin" />
+          <span>Loading profile...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 lg:p-7 max-w-3xl mx-auto space-y-5">
       <button
         onClick={onBack}
         className="inline-flex items-center gap-1.5 text-sm text-[#6B6258] hover:text-[#1A1410] transition-colors">
-        
         <ArrowLeft className="w-4 h-4" />
         Back to dashboard
       </button>
@@ -86,13 +178,11 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
           label="Shift"
           value={rider.shift.charAt(0).toUpperCase() + rider.shift.slice(1)}
           icon={Shield} />
-        
         <Field
           label="Zone Center"
           value={`${zone.center[0].toFixed(4)}, ${zone.center[1].toFixed(4)}`}
           icon={MapPin}
           mono />
-        
       </div>
 
       <div className="rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm">
@@ -113,6 +203,6 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
           </span>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
