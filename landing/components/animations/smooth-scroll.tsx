@@ -1,12 +1,14 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { usePathname } from "next/navigation"
 import Lenis from "lenis"
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const lenisRef = useRef<Lenis | null>(null)
+  const pathname = usePathname()
 
   useEffect(() => {
     // Initialize Lenis
@@ -61,6 +63,21 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       document.removeEventListener("click", handleAnchorClick)
     }
   }, [])
+
+  useEffect(() => {
+    // Reset scroll to top immediately on route change
+    if (lenisRef.current) {
+      lenisRef.current.scrollTo(0, { immediate: true })
+    }
+
+    // Refresh and update ScrollTrigger once Next.js renders the page layout
+    const timer = setTimeout(() => {
+      ScrollTrigger.refresh()
+      ScrollTrigger.update()
+    }, 150)
+
+    return () => clearTimeout(timer)
+  }, [pathname])
 
   return <>{children}</>
 }
