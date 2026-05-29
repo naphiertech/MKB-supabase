@@ -1,13 +1,9 @@
-// Geofence service — in-memory CRUD over the mock zones + riders arrays.
-// TODO: replace with Supabase queries when wiring to production backend.
+import { supabase } from '../lib/supabaseClient';
 import {
-  zones,
-  riders,
-  violations,
   type Zone,
   type ZoneStatus,
-  type Rider } from
-'./mockData';
+  type Rider
+} from './types';
 import { randomZoneColor } from '../lib/geofenceUtils';
 
 export interface ZoneInput {
@@ -19,109 +15,269 @@ export interface ZoneInput {
   riderIds: string[];
 }
 
-export function listZones(): Zone[] {
-  return zones;
+const mapZone = (row: any): Zone => ({
+  id: row.id,
+  name: row.name,
+  center: [row.lat, row.lng],
+  radius: row.radius,
+  color: row.color,
+  status: row.status as ZoneStatus
+});
+
+export async function getZones(): Promise<Zone[]> {
+  const { data, error } = await supabase
+    .from('zones')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching zones from Supabase:', error);
+    return [];
+  }
+
+  return (data || []).map(mapZone);
 }
 
-export function getZoneById(id: string): Zone | undefined {
-  return zones.find((z) => z.id === id);
+export async function listZones(): Promise<Zone[]> {
+  return getZones();
 }
 
-export function ridersInZone(zoneId: string): Rider[] {
-  return riders.filter((r) => r.zoneId === zoneId);
+export async function getZoneById(id: string): Promise<Zone | undefined> {
+  const { data, error } = await supabase
+    .from('zones')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) return undefined;
+  return mapZone(data);
 }
 
-export function riderCountByZone(): Record<string, number> {
+export async function ridersInZone(zoneId: string): Promise<Rider[]> {
+  const { data, error } = await supabase
+    .from('riders')
+    .select('*')
+    .eq('zone_id', zoneId);
+
+  if (error) {
+    console.error('Error fetching riders in zone:', error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    avatar: row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
+    zoneId: row.zone_id,
+    status: row.status,
+    lat: row.lat || 0,
+    lng: row.lng || 0,
+    speed: row.speed || 0,
+    shift: row.shift,
+    lastPing: row.last_ping ? new Date(row.last_ping).getTime() : Date.now(),
+    phone: row.contact || '',
+    riderCode: row.mkb_id
+  }));
+}
+
+export async function riderCountByZone(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('riders')
+    .select('id, zone_id');
+
   const counts: Record<string, number> = {};
-  for (const z of zones) counts[z.id] = 0;
-  for (const r of riders) {
-    if (r.zoneId && counts[r.zoneId] !== undefined) counts[r.zoneId] += 1;
+  const allZones = await getZones();
+
+  for (const z of allZones) {
+    counts[z.id] = 0;
   }
-  return counts;
-}
 
-export function violationsTodayByZone(): Record<string, number> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const cutoff = startOfDay.getTime();
-  const counts: Record<string, number> = {};
-  for (const z of zones) counts[z.id] = 0;
-  for (const v of violations) {
-    if (v.ts < cutoff) continue;
-    const z = zones.find((zz) => zz.name === v.zoneName);
-    if (z) counts[z.id] += 1;
-  }
-  return counts;
-}
-
-export function totalViolationsToday(): number {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  return violations.filter((v) => v.ts >= startOfDay.getTime()).length;
-}
-
-export function createZone(input: ZoneInput): Zone {
-  const zone: Zone = {
-    id: `z-${Date.now()}`,
-    name: input.name.trim() || 'Untitled Zone',
-    center: [input.lat, input.lng],
-    radius: input.radius,
-    color: randomZoneColor(),
-    status: input.status
-  };
-  zones.push(zone);
-  assignRidersToZone(zone.id, input.riderIds);
-  return zone;
-}
-
-export function updateZone(id: string, patch: Partial<ZoneInput>): Zone | null {
-  const zone = zones.find((z) => z.id === id);
-  if (!zone) return null;
-  if (patch.name !== undefined) zone.name = patch.name.trim() || zone.name;
-  if (patch.lat !== undefined || patch.lng !== undefined) {
-    zone.center = [patch.lat ?? zone.center[0], patch.lng ?? zone.center[1]];
-  }
-  if (patch.radius !== undefined) zone.radius = patch.radius;
-  if (patch.status !== undefined) zone.status = patch.status;
-  if (patch.riderIds !== undefined) {
-    // Unassign previous riders of this zone, then reassign
-    riders.forEach((r) => {
-      if (r.zoneId === id && !patch.riderIds!.includes(r.id)) {
-        r.zoneId = null;
+  if (!error && data) {
+    for (const r of data) {
+      if (r.zone_id && counts[r.zone_id] !== undefined) {
+        counts[r.zone_id] += 1;
       }
-    });
-    assignRidersToZone(id, patch.riderIds);
+    }
   }
-  return zone;
+
+  return counts;
 }
 
-export function deleteZone(id: string): {
+export async function violationsTodayByZone(): Promise<Record<string, number>> {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const { data, error } = await supabase
+    .from('violations')
+    .select('id, zone_id, created_at')
+    .gte('created_at', startOfDay.toISOString());
+
+  const counts: Record<string, number> = {};
+  const allZones = await getZones();
+
+  for (const z of allZones) {
+    counts[z.id] = 0;
+  }
+
+  if (!error && data) {
+    for (const v of data) {
+      if (v.zone_id && counts[v.zone_id] !== undefined) {
+        counts[v.zone_id] += 1;
+      }
+    }
+  }
+
+  return counts;
+}
+
+export async function totalViolationsToday(): Promise<number> {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const { count, error } = await supabase
+    .from('violations')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', startOfDay.toISOString());
+
+  if (error) {
+    console.error('Error counting today violations:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+export async function createZone(input: ZoneInput): Promise<Zone> {
+  const { data, error } = await supabase
+    .from('zones')
+    .insert({
+      name: input.name.trim() || 'Untitled Zone',
+      lat: input.lat,
+      lng: input.lng,
+      radius: input.radius,
+      color: randomZoneColor(),
+      status: input.status
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error('Error creating zone:', error);
+    throw error;
+  }
+
+  const newZone = mapZone(data);
+
+  if (input.riderIds && input.riderIds.length > 0) {
+    await assignRidersToZone(newZone.id, input.riderIds);
+  }
+
+  return newZone;
+}
+
+export async function updateZone(id: string, patch: Partial<ZoneInput>): Promise<Zone | null> {
+  const updates: any = {};
+  if (patch.name !== undefined) updates.name = patch.name.trim();
+  if (patch.lat !== undefined) updates.lat = patch.lat;
+  if (patch.lng !== undefined) updates.lng = patch.lng;
+  if (patch.radius !== undefined) updates.radius = patch.radius;
+  if (patch.status !== undefined) updates.status = patch.status;
+
+  const { data, error } = await supabase
+    .from('zones')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error('Error updating zone:', error);
+    return null;
+  }
+
+  const updated = mapZone(data);
+
+  // Handle rider list re-allocations
+  if (patch.riderIds !== undefined) {
+    // Unassign riders currently in this zone who are not in the new patch.riderIds
+    const { data: currentRiders, error: fetchRidersErr } = await supabase
+      .from('riders')
+      .select('id')
+      .eq('zone_id', id);
+
+    if (!fetchRidersErr && currentRiders) {
+      const ridersToUnassign = currentRiders
+        .map((r: any) => r.id)
+        .filter((rId: string) => !patch.riderIds!.includes(rId));
+
+      if (ridersToUnassign.length > 0) {
+        await supabase
+          .from('riders')
+          .update({ zone_id: null })
+          .in('id', ridersToUnassign);
+      }
+    }
+
+    // Assign the newly selected riders
+    if (patch.riderIds.length > 0) {
+      await assignRidersToZone(id, patch.riderIds);
+    }
+  }
+
+  return updated;
+}
+
+export async function deleteZone(id: string): Promise<{
   zone: Zone | null;
   unassignedRiderIds: string[];
-} {
-  const idx = zones.findIndex((z) => z.id === id);
-  if (idx === -1) return { zone: null, unassignedRiderIds: [] };
-  const [zone] = zones.splice(idx, 1);
-  const unassigned: string[] = [];
-  riders.forEach((r) => {
-    if (r.zoneId === id) {
-      r.zoneId = null;
-      unassigned.push(r.id);
-    }
-  });
-  return { zone, unassignedRiderIds: unassigned };
+}> {
+  const zoneToDelete = await getZoneById(id);
+  if (!zoneToDelete) {
+    return { zone: null, unassignedRiderIds: [] };
+  }
+
+  const { data: assignedRiders } = await supabase
+    .from('riders')
+    .select('id')
+    .eq('zone_id', id);
+
+  const unassignedRiderIds = assignedRiders ? assignedRiders.map((r: any) => r.id) : [];
+
+  const { error } = await supabase
+    .from('zones')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting zone from database:', error);
+    return { zone: null, unassignedRiderIds: [] };
+  }
+
+  return { zone: zoneToDelete, unassignedRiderIds };
 }
 
-export function assignRidersToZone(zoneId: string, riderIds: string[]): void {
-  const set = new Set(riderIds);
-  riders.forEach((r) => {
-    if (set.has(r.id)) {
-      r.zoneId = zoneId;
-    }
-  });
+export async function assignRidersToZone(zoneId: string | null, riderIds: string[]): Promise<void> {
+  if (riderIds.length === 0) return;
+
+  const { error } = await supabase
+    .from('riders')
+    .update({ zone_id: zoneId })
+    .in('id', riderIds);
+
+  if (error) {
+    console.error('Error assigning riders to zone:', error);
+    throw error;
+  }
 }
 
-export function setZoneStatus(id: string, status: ZoneStatus): void {
-  const z = zones.find((zz) => zz.id === id);
-  if (z) z.status = status;
+export async function setZoneStatus(id: string, status: ZoneStatus): Promise<void> {
+  const { error } = await supabase
+    .from('zones')
+    .update({ status })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error updating zone status:', error);
+    throw error;
+  }
 }
