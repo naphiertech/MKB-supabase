@@ -35,7 +35,7 @@ export function TeamGrid() {
           ease: "power4.out",
           scrollTrigger: {
             trigger: containerRef.current,
-            start: "top 80%",
+            start: "top bottom",
             toggleActions: "play none none reverse",
           },
         },
