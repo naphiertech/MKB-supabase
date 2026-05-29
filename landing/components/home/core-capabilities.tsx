@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { SectionHeader } from "@/components/section-header"
 import { AnimateIn } from "@/components/animations/animate-in"
+import { Magnetic } from "@/components/animations/magnetic"
 import { locations } from "@/lib/data"
 
 // Pull one featured module from each zone
@@ -95,13 +96,15 @@ export function CoreCapabilities() {
           ))}
         </AnimateIn>
 
-        <AnimateIn delay={0.6} className="mt-12 text-center">
-          <Button asChild variant="outline">
-            <Link href="/locations">
-              Explore All Zones
-              <ArrowRight className="size-4" />
-            </Link>
-          </Button>
+        <AnimateIn delay={0.6} className="mt-12 text-center flex justify-center">
+          <Magnetic>
+            <Button asChild variant="outline">
+              <Link href="/locations">
+                Explore All Zones
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </Magnetic>
         </AnimateIn>
       </div>
     </section>
