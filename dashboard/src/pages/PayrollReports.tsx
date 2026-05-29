@@ -1,4 +1,4 @@
-import { useState, ComponentType } from 'react';
+import { useState, useEffect, ComponentType } from 'react';
 import {
   CalendarRange,
   Receipt,
@@ -10,7 +10,9 @@ import {
   ArrowUpRight,
   Users } from
 'lucide-react';
-import { riders, zones } from '../services/mockData';
+import { getZones } from '../services/geofenceService';
+import { getAllRiders } from '../services/monitoringService';
+import type { Rider, Zone } from '../services/types';
 import {
   exportCutoffSummaryCSV,
   exportPayslipCSV,
@@ -158,13 +160,26 @@ function csvEscape(cell: string | number | null | undefined): string {
   return s;
 }
 export function PayrollReports() {
+  const [ridersList, setRidersList] = useState<Rider[]>([]);
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [singleRiderId, setSingleRiderId] = useState<string>('');
+
+  useEffect(() => {
+    Promise.all([getAllRiders(), getZones()]).then(([r, z]) => {
+      setRidersList(r);
+      setZonesList(z);
+      if (r.length > 0) {
+        setSingleRiderId(r[0].id);
+      }
+    });
+  }, []);
+
   const [template, setTemplate] = useState<PayrollTemplate>('cutoff_summary');
   const [format, setFormat] = useState<PayrollFormat>('pdf');
   const [from, setFrom] = useState(isoOffset(14));
   const [to, setTo] = useState(isoToday());
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const [bulkMode, setBulkMode] = useState<'single' | 'bulk'>('bulk');
-  const [singleRiderId, setSingleRiderId] = useState(riders[0].id);
   const [dailyRate, setDailyRate] = useState(500);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -175,8 +190,8 @@ export function PayrollReports() {
   }
   function filteredRiders() {
     return selectedZones.length === 0 ?
-    riders :
-    riders.filter((r) => r.zoneId && selectedZones.includes(r.zoneId));
+    ridersList :
+    ridersList.filter((r) => r.zoneId && selectedZones.includes(r.zoneId));
   }
   async function handleGenerate() {
     if (!from || !to || to < from) {
@@ -200,14 +215,14 @@ export function PayrollReports() {
       if (template === 'cutoff_summary') {
         // Build rows summarizing each rider's cutoff
         const rows = targetRiders.map((rider, _i) => {
-          const riderIndex = riders.findIndex((r) => r.id === rider.id);
+          const riderIndex = ridersList.findIndex((r) => r.id === rider.id);
           const days = buildDaysForRange(riderIndex, from, to);
           const daysPresent = days.filter(
             (d) => d.status === 'Present' || d.status === 'Late'
           ).length;
           const totalHours =
           Math.round(days.reduce((s, d) => s + d.hours, 0) * 10) / 10;
-          const zone = zones.find((z) => z.id === rider.zoneId)?.name ?? '—';
+          const zone = zonesList.find((z) => z.id === rider.zoneId)?.name ?? '—';
           return {
             riderName: rider.name,
             zone,
@@ -338,14 +353,14 @@ export function PayrollReports() {
           return;
         }
         targets.forEach((rider) => {
-          const riderIndex = riders.findIndex((r) => r.id === rider.id);
+          const riderIndex = ridersList.findIndex((r) => r.id === rider.id);
           const days = buildDaysForRange(riderIndex, from, to);
           const daysPresent = days.filter(
             (d) => d.status === 'Present' || d.status === 'Late'
           ).length;
           const totalHours =
           Math.round(days.reduce((s, d) => s + d.hours, 0) * 10) / 10;
-          const zone = zones.find((z) => z.id === rider.zoneId)?.name ?? '—';
+          const zone = zonesList.find((z) => z.id === rider.zoneId)?.name ?? '—';
           const grossPay = daysPresent * dailyRate;
           const data = {
             riderName: rider.name,
@@ -373,9 +388,9 @@ export function PayrollReports() {
         // Raw hours log per rider per day
         const rows: (string | number)[][] = [];
         targetRiders.forEach((rider) => {
-          const riderIndex = riders.findIndex((r) => r.id === rider.id);
+          const riderIndex = ridersList.findIndex((r) => r.id === rider.id);
           const days = buildDaysForRange(riderIndex, from, to);
-          const zone = zones.find((z) => z.id === rider.zoneId)?.name ?? '—';
+          const zone = zonesList.find((z) => z.id === rider.zoneId)?.name ?? '—';
           days.forEach((d) => {
             rows.push([
             rider.name,
@@ -574,7 +589,7 @@ export function PayrollReports() {
               Zones {selectedZones.length === 0 && '(all)'}
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {zones.map((z) => {
+              {zonesList.map((z) => {
                 const on = selectedZones.includes(z.id);
                 return (
                   <button
@@ -617,7 +632,7 @@ export function PayrollReports() {
               onChange={(e) => setSingleRiderId(e.target.value)}
               className="w-full h-10 px-3 pr-8 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] font-mono outline-none focus:border-[#ca8a04] focus:ring-2 focus:ring-[#ca8a04]/15 cursor-pointer">
               
-                  {riders.map((r) =>
+                  {ridersList.map((r) =>
               <option key={r.id} value={r.id}>
                       {r.name} · {r.riderCode}
                     </option>
