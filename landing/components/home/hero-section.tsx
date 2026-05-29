@@ -6,11 +6,13 @@ import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { Button } from "@/components/ui/button"
 import { siteConfig } from "@/lib/data"
+import { Magnetic } from "@/components/animations/magnetic"
 
 export function HeroSection() {
   const containerRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const textRef = useRef<HTMLParagraphElement>(null)
+  const buttonContainerRef = useRef<HTMLDivElement>(null)
   const bgRef = useRef<HTMLDivElement>(null)
 
   useGSAP(
@@ -61,6 +63,21 @@ export function HeroSection() {
           duration: 1.2,
         },
         "-=1.5"
+      )
+
+      // Button container animation
+      tl.fromTo(
+        buttonContainerRef.current,
+        {
+          y: 20,
+          opacity: 0,
+        },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 1.2,
+        },
+        "-=1.0"
       )
 
 
@@ -124,6 +141,35 @@ export function HeroSection() {
           >
             {siteConfig.tagline}. {siteConfig.description.split(",")[0]}.
           </p>
+
+          <div
+            ref={buttonContainerRef}
+            className="mt-10 flex flex-col gap-4 sm:flex-row opacity-0"
+          >
+            <Magnetic>
+              <Button
+                asChild
+                size="lg"
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+              >
+                <Link href="/locations">
+                  Explore Zones
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </Magnetic>
+            <Magnetic>
+              <Button
+                asChild
+                size="lg"
+                className="border border-primary-foreground/20 !bg-transparent text-primary-foreground hover:!bg-primary-foreground hover:!text-primary transition-all duration-300"
+              >
+                <Link href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"}>
+                  Open Dashboard
+                </Link>
+              </Button>
+            </Magnetic>
+          </div>
 
         </div>
       </div>
