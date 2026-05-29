@@ -42,7 +42,7 @@ export function LocationsList() {
               ease: "power3.out",
               scrollTrigger: {
                 trigger: row,
-                start: "top 75%",
+                start: i === 0 ? "top bottom" : "top 75%",
                 toggleActions: "play none none reverse",
               },
             },
@@ -65,7 +65,7 @@ export function LocationsList() {
               ease: "power2.out",
               scrollTrigger: {
                 trigger: row,
-                start: "top 75%",
+                start: i === 0 ? "top bottom" : "top 75%",
                 toggleActions: "play none none reverse",
               },
             },
