@@ -9,6 +9,7 @@ import { useGSAP } from "@gsap/react"
 import { Button } from "@/components/ui/button"
 import { SectionHeader } from "@/components/section-header"
 import { AnimateIn } from "@/components/animations/animate-in"
+import { Magnetic } from "@/components/animations/magnetic"
 import { locations } from "@/lib/data"
 
 export function LocationsPreview() {
@@ -103,13 +104,15 @@ export function LocationsPreview() {
           ))}
         </div>
 
-        <AnimateIn delay={0.6} className="mt-12 text-center">
-          <Button asChild>
-            <Link href="/locations">
-              View All Zones
-              <ArrowRight className="size-4" />
-            </Link>
-          </Button>
+        <AnimateIn delay={0.6} className="mt-12 text-center flex justify-center">
+          <Magnetic>
+            <Button asChild>
+              <Link href="/locations">
+                View All Zones
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </Magnetic>
         </AnimateIn>
       </div>
     </section>
