@@ -38,7 +38,7 @@ export function ContactSection() {
           ease: "power2.out",
           scrollTrigger: {
             trigger: ".contact-form-trigger",
-            start: "top 80%",
+            start: "top bottom",
             toggleActions: "play none none reverse",
           },
         },
@@ -56,7 +56,7 @@ export function ContactSection() {
           ease: "power2.out",
           scrollTrigger: {
             trigger: ".contact-form-trigger",
-            start: "top 80%",
+            start: "top bottom",
             toggleActions: "play none none reverse",
           },
         },
@@ -75,7 +75,7 @@ export function ContactSection() {
           ease: "back.out(1.2)",
           scrollTrigger: {
             trigger: ".contact-map-trigger",
-            start: "top 85%",
+            start: "top bottom",
             toggleActions: "play none none reverse",
           },
         },
