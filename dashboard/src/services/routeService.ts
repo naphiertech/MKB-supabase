@@ -1,6 +1,8 @@
-import { shiftRoutes, RoutePoint } from './mockData';
-export type { RoutePoint };
+import { supabase } from '../lib/supabaseClient';
+import { RoutePoint } from './types';
 import { haversine } from '../lib/geofenceUtils';
+
+export type { RoutePoint };
 
 export interface RouteStats {
   totalDistanceKm: number;
@@ -17,20 +19,26 @@ export const getRouteForRider = async (
 ): Promise<RoutePoint[]> => {
   const targetDate = date ?? new Date().toISOString().split('T')[0];
 
-  // TODO: Replace with Supabase query:
-  // const { data } = await supabase
-  //   .from('rider_locations')
-  //   .select('lat, lng, recorded_at')
-  //   .eq('rider_id', riderId)
-  //   .gte('recorded_at', `${targetDate}T00:00:00`)
-  //   .lte('recorded_at', `${targetDate}T23:59:59`)
-  //   .order('recorded_at', { ascending: true });
-  // return data ?? [];
+  const { data, error } = await supabase
+    .from('rider_locations')
+    .select('lat, lng, speed, recorded_at')
+    .eq('rider_id', riderId)
+    .gte('recorded_at', `${targetDate}T00:00:00`)
+    .lte('recorded_at', `${targetDate}T23:59:59`)
+    .order('recorded_at', { ascending: true });
 
-  const route = shiftRoutes.find(
-    r => r.riderId === riderId && r.date === targetDate
-  );
-  return route?.points ?? [];
+  if (error) {
+    console.error('Error fetching rider route for playback:', error);
+    return [];
+  }
+
+  // Map recorded_at to the timestamp field required by frontend components
+  return (data || []).map((row: any) => ({
+    lat: row.lat,
+    lng: row.lng,
+    speed: row.speed || 0,
+    timestamp: row.recorded_at
+  }));
 };
 
 export const computeRouteStats = (
@@ -50,8 +58,9 @@ export const computeRouteStats = (
 
   const start = new Date(points[0].timestamp);
   const end = new Date(points[points.length - 1].timestamp);
-  const durationMinutes = Math.round(
-    (end.getTime() - start.getTime()) / 60000
+  const durationMinutes = Math.max(
+    1,
+    Math.round((end.getTime() - start.getTime()) / 60000)
   );
 
   const totalDistanceKm = parseFloat((totalDistance / 1000).toFixed(2));
