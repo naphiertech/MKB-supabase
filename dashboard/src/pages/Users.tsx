@@ -1,4 +1,4 @@
-import { useMemo, useState, ComponentType } from 'react';
+import { useMemo, useState, useEffect, ComponentType } from 'react';
 import {
   Plus,
   Search,
@@ -7,16 +7,19 @@ import {
   Bike,
   Wallet } from
 'lucide-react';
-import {
-  users as seedUsers,
-  zones,
-  type AppUser } from
-'../services/mockData';
+import { createClient } from '@supabase/supabase-js';
+import { type AppUser, type Zone } from '../services/types';
+import { supabase } from '../lib/supabaseClient';
+import { getZones } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
 import { UserDrawer } from '../components/users/UserDrawer';
+
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
+
 export function Users() {
-  const [userList, setUserList] = useState<AppUser[]>(seedUsers);
+  const [userList, setUserList] = useState<AppUser[]>([]);
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | EditableRole>('all');
   const [statusFilter, setStatusFilter] = useState<
@@ -24,12 +27,48 @@ export function Users() {
     'all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<AppUser | null>(null);
+
+  const loadData = async () => {
+    try {
+      const zList = await getZones();
+      setZonesList(zList);
+
+      const { data: dbUsers, error } = await supabase
+        .from('users')
+        .select('*, riders(zone_id)')
+        .order('full_name', { ascending: true });
+
+      if (!error && dbUsers) {
+        const mapped: AppUser[] = dbUsers.map((u: any) => ({
+          id: u.id,
+          name: u.full_name,
+          avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.full_name)}`,
+          email: u.email,
+          role: u.role,
+          zoneId: u.riders?.zone_id || null,
+          status: u.status,
+          lastLogin: u.last_login ? new Date(u.last_login).getTime() : Date.now()
+        }));
+        setUserList(mapped);
+      }
+    } catch (err) {
+      console.error('Error loading users:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const counts = {
     admin: userList.filter((u) => u.role === 'admin').length,
     hr: userList.filter((u) => u.role === 'hr').length,
     rider: userList.filter((u) => u.role === 'rider').length,
     payroll: userList.filter((u) => u.role === 'payroll').length
   };
+
   const filtered = useMemo(
     () =>
     userList.filter((u) => {
@@ -44,6 +83,7 @@ export function Users() {
     }),
     [q, roleFilter, statusFilter, userList]
   );
+
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
       {/* Header */}
@@ -152,34 +192,147 @@ export function Users() {
         </div>
       </div>
 
-      <UsersTable
-        users={filtered}
-        zones={zones}
-        onEdit={(u) => {
-          setEditing(u);
-          setDrawerOpen(true);
-        }} />
-      
+      {loading ? (
+        <div className="flex items-center justify-center h-48 text-[#6B6258] text-sm">
+          Loading users from Supabase...
+        </div>
+      ) : (
+        <UsersTable
+          users={filtered}
+          zones={zonesList}
+          onEdit={(u) => {
+            setEditing(u);
+            setDrawerOpen(true);
+          }} />
+      )}
 
       <UserDrawer
         open={drawerOpen}
         user={editing}
-        zones={zones}
+        zones={zonesList}
         onClose={() => setDrawerOpen(false)}
-        onSaved={(savedUser, mode) => {
-          setUserList((prev) => {
-            if (mode === 'edit') {
-              return prev.map((u) =>
-              u.id === savedUser.id ?
-              {
-                ...u,
-                ...savedUser
-              } :
-              u
-              );
+        onSaved={async (savedUser, mode) => {
+          if (mode === 'edit') {
+            // Update the profile first in public.users
+            const { error: userErr } = await supabase
+              .from('users')
+              .update({
+                full_name: savedUser.name,
+                status: savedUser.status,
+                role: savedUser.role,
+                contact: savedUser.contact || null
+              })
+              .eq('id', savedUser.id);
+            if (userErr) throw userErr;
+
+            // If the user's role is rider, also synchronize the riders table details
+            if (savedUser.role === 'rider') {
+              const { data: userProfile } = await supabase
+                .from('users')
+                .select('rider_id')
+                .eq('id', savedUser.id)
+                .single();
+              
+              if (userProfile?.rider_id) {
+                const dbShift = savedUser.shift
+                  ? savedUser.shift.charAt(0).toUpperCase() + savedUser.shift.slice(1)
+                  : null;
+                const { error: riderErr } = await supabase
+                  .from('riders')
+                  .update({
+                    name: savedUser.name,
+                    contact: savedUser.contact || null,
+                    zone_id: savedUser.zoneId || null,
+                    shift: dbShift,
+                    face_registered: !!savedUser.faceImage,
+                    face_image_url: savedUser.faceImage || null
+                  })
+                  .eq('id', userProfile.rider_id);
+                if (riderErr) throw riderErr;
+              }
             }
-            return [savedUser as AppUser, ...prev];
-          });
+          } else {
+            // mode === 'create'
+            let generatedRiderId: string | null = null;
+            try {
+              // 1. If role is rider, insert to public.riders first
+              if (savedUser.role === 'rider') {
+                const dbShift = savedUser.shift
+                  ? savedUser.shift.charAt(0).toUpperCase() + savedUser.shift.slice(1)
+                  : null;
+                
+                const { data: riderData, error: riderErr } = await supabase
+                  .from('riders')
+                  .insert({
+                    name: savedUser.name,
+                    mkb_id: savedUser.mkbRiderId || `MKB-${Math.floor(1000 + Math.random() * 9000)}`,
+                    email: savedUser.email,
+                    contact: savedUser.contact || null,
+                    zone_id: savedUser.zoneId || null,
+                    shift: dbShift,
+                    status: 'offline',
+                    face_registered: !!savedUser.faceImage,
+                    face_image_url: savedUser.faceImage || null
+                  })
+                  .select('id')
+                  .single();
+
+                if (riderErr) throw riderErr;
+                generatedRiderId = riderData.id;
+              }
+
+              // 2. Instantiate an isolated Supabase client in-memory ONLY to avoid active Admin session hijacking
+              const tempSupabase = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                import.meta.env.VITE_SUPABASE_ANON_KEY,
+                {
+                  auth: {
+                    persistSession: false,
+                    autoRefreshToken: false,
+                    detectSessionInUrl: false
+                  }
+                }
+              );
+
+              // 3. Call tempSupabase.auth.signUp to register the user in auth.users
+              const { data: authData, error: authErr } = await tempSupabase.auth.signUp({
+                email: savedUser.email,
+                password: savedUser.tempPassword || 'tempPassword123'
+              });
+
+              if (authErr) throw authErr;
+
+              const authUser = authData.user;
+              if (!authUser) {
+                throw new Error('Authentication account could not be initialized.');
+              }
+
+              // 4. Insert the final user profile into public.users referencing the Auth UUID
+              const { error: profileErr } = await supabase
+                .from('users')
+                .insert({
+                  id: authUser.id,
+                  full_name: savedUser.name,
+                  email: savedUser.email,
+                  role: savedUser.role,
+                  contact: savedUser.contact || null,
+                  rider_id: generatedRiderId,
+                  status: savedUser.status || 'active'
+                });
+
+              if (profileErr) throw profileErr;
+
+            } catch (transactionErr) {
+              // Transaction rollback: clean up the newly created rider record if anything fails
+              if (generatedRiderId) {
+                await supabase.from('riders').delete().eq('id', generatedRiderId);
+              }
+              throw transactionErr;
+            }
+          }
+
+          // Reload users list dynamically
+          await loadData();
         }} />
       
     </div>);
@@ -194,7 +347,7 @@ function RoleChip({
 
 
 
-
+  
 
 
 }: {icon: ComponentType<{className?: string;}>;label: string;count: number;tone: 'orange' | 'amber' | 'slate' | 'indigo';}) {
