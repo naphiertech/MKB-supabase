@@ -2,8 +2,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-
 import { AnimateIn } from "@/components/animations/animate-in"
+import { Magnetic } from "@/components/animations/magnetic"
 
 export function CtaSection() {
   return (
@@ -29,19 +29,23 @@ export function CtaSection() {
           eliminate buddy punching and enhance operational transparency.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Button
-            asChild
-            size="lg"
-            className="bg-accent text-accent-foreground hover:bg-accent/90"
-          >
-            <Link href="/locations">
-              Request a Demo
-              <ArrowRight className="size-4" />
-            </Link>
-          </Button>
-          <Button asChild size="lg" variant="outline">
-            <Link href="/contact">Contact Us</Link>
-          </Button>
+          <Magnetic>
+            <Button
+              asChild
+              size="lg"
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              <Link href="/locations">
+                Request a Demo
+                <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </Button>
+          </Magnetic>
+          <Magnetic>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/contact">Contact Us</Link>
+            </Button>
+          </Magnetic>
         </div>
       </AnimateIn>
     </section>
