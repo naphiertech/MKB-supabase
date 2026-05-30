@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { BadgeCheck, Clock, UserMinus, PalmtreeIcon } from 'lucide-react';
-import { attendanceLogs, zones } from '../services/mockData';
+import { getAttendanceLogs } from '../services/attendanceService';
+import { getZones } from '../services/geofenceService';
+import type { AttendanceLog, Zone } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
 import { AttendanceTable } from '../components/attendance/AttendanceTable';
 export function Attendance() {
@@ -13,7 +15,15 @@ export function Attendance() {
   slice(0, 10);
   const [dateFrom, setDateFrom] = useState<string>(sevenDaysAgo);
   const [dateTo, setDateTo] = useState<string>(today);
-  const todayLogs = attendanceLogs.filter((l) => l.date === today);
+
+  const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+
+  useEffect(() => {
+    getAttendanceLogs().then(setAttendanceList);
+    getZones().then(setZonesList);
+  }, []);
+  const todayLogs = attendanceList.filter((l) => l.date === today);
   const kpis = {
     present: todayLogs.filter((l) => l.status === 'present').length,
     late: todayLogs.filter((l) => l.status === 'late').length,
@@ -21,7 +31,7 @@ export function Attendance() {
     onLeave: todayLogs.filter((l) => l.status === 'on_leave').length
   };
   const filtered = useMemo(() => {
-    return attendanceLogs.filter(
+    return attendanceList.filter(
       (l) =>
       l.date >= dateFrom &&
       l.date <= dateTo && (
@@ -29,7 +39,7 @@ export function Attendance() {
       statusFilter === 'all' || l.status === statusFilter) && (
       shiftFilter === 'all' || true)
     );
-  }, [dateFrom, dateTo, zoneFilter, statusFilter, shiftFilter]);
+  }, [attendanceList, dateFrom, dateTo, zoneFilter, statusFilter, shiftFilter]);
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
       {/* KPIs */}
@@ -103,11 +113,11 @@ export function Attendance() {
             className="att-input">
             
             <option value="all">All Zones</option>
-            {zones.map((z) =>
-            <option key={z.id} value={z.id}>
-                {z.name}
-              </option>
-            )}
+             {zonesList.map((z) =>
+             <option key={z.id} value={z.id}>
+                 {z.name}
+               </option>
+             )}
           </select>
         </FilterField>
         <FilterField label="Status">
