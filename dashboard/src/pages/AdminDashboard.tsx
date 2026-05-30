@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Users as UsersIcon,
   BadgeCheck,
@@ -6,7 +6,9 @@ import {
   TrendingUp } from
 'lucide-react';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
-import { zones, attendanceLogs } from '../services/mockData';
+import { getZones } from '../services/geofenceService';
+import { getAttendanceLogs } from '../services/attendanceService';
+import type { Zone, AttendanceLog } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
 import { LiveMonitoringMap } from '../components/maps/LiveMonitoringMap';
 import { OnlineRiders } from '../components/monitoring/OnlineRiders';
@@ -25,8 +27,16 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const [, force] = useState(0);
   const activeCount = riders.filter((r) => r.status !== 'offline').length;
   const violationCount = riders.filter((r) => r.status === 'violation').length;
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
+
+  useEffect(() => {
+    getZones().then(setZonesList);
+    getAttendanceLogs().then(setAttendanceList);
+  }, []);
+
   const today = new Date().toISOString().slice(0, 10);
-  const todayLogs = attendanceLogs.filter((l) => l.date === today);
+  const todayLogs = attendanceList.filter((l) => l.date === today);
   const presentToday = todayLogs.filter(
     (l) => l.status === 'present' || l.status === 'late'
   ).length;
@@ -130,7 +140,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             <div className="h-[460px]">
               <LiveMonitoringMap
                 riders={riders}
-                zones={zones}
+                zones={zonesList}
                 focusRiderId={focusRiderId}
                 onMarkerClick={setFocusRiderId} />
               
@@ -140,7 +150,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         <div className="lg:col-span-2">
           <OnlineRiders
             riders={riders}
-            zones={zones}
+            zones={zonesList}
             onSelectRider={setFocusRiderId} />
           
         </div>
@@ -150,7 +160,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3">
           <AttendanceLogs
-            logs={attendanceLogs}
+            logs={attendanceList}
             onViewAll={() => onNavigate('attendance')} />
           
         </div>
