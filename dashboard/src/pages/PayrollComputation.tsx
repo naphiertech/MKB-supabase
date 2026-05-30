@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   FileDown,
   FileSpreadsheet,
@@ -9,7 +9,9 @@ import {
   Lock } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { riders, zones } from '../services/mockData';
+import { getZones } from '../services/geofenceService';
+import { getAllRiders } from '../services/monitoringService';
+import type { Rider, Zone } from '../services/types';
 import {
   exportPayslipPDF,
   exportPayslipCSV,
@@ -123,14 +125,27 @@ function DayStatusPill({ status }: {status: PayslipDay['status'];}) {
 
 }
 export function PayrollComputation() {
-  const [riderId, setRiderId] = useState(riders[0].id);
+  const [ridersList, setRidersList] = useState<Rider[]>([]);
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [riderId, setRiderId] = useState<string>('');
+
+  useEffect(() => {
+    Promise.all([getAllRiders(), getZones()]).then(([r, z]) => {
+      setRidersList(r);
+      setZonesList(z);
+      if (r.length > 0) {
+        setRiderId(r[0].id);
+      }
+    });
+  }, []);
+
   const [dailyRate, setDailyRate] = useState(500);
   const [from, setFrom] = useState(isoOffset(14));
   const [to, setTo] = useState(isoToday());
   const [pickerOpen, setPickerOpen] = useState(false);
-  const rider = riders.find((r) => r.id === riderId) ?? riders[0];
-  const riderIndex = riders.findIndex((r) => r.id === riderId);
-  const zone = zones.find((z) => z.id === rider.zoneId)?.name ?? '—';
+  const rider = ridersList.find((r) => r.id === riderId) || ridersList[0] || { id: '', name: 'Loading...', avatar: '', riderCode: '', zoneId: '' };
+  const riderIndex = ridersList.findIndex((r) => r.id === riderId);
+  const zone = zonesList.find((z) => z.id === rider.zoneId)?.name ?? '—';
   const days = useMemo(
     () => buildDaysForRange(riderIndex, from, to),
     [riderIndex, from, to]
@@ -219,7 +234,7 @@ export function PayrollComputation() {
                 Select Rider
               </div>
               <div className="text-[11px] text-[#6B6258] font-mono">
-                {riders.length} active
+                {ridersList.length} active
               </div>
             </div>
           </div>
@@ -254,9 +269,9 @@ export function PayrollComputation() {
               exit={{ opacity: 0, y: -5, scale: 0.98 }}
               transition={{ duration: 0.15 }}
               className="absolute z-30 mt-1.5 w-full max-h-72 overflow-y-auto bg-white border border-[#EFEAE2] rounded-lg shadow-lg">
-                {riders.map((r) => {
+                {ridersList.map((r) => {
                 const zName =
-                zones.find((z) => z.id === r.zoneId)?.name ?? '—';
+                zonesList.find((z) => z.id === r.zoneId)?.name ?? '—';
                 const selected = r.id === riderId;
                 return (
                   <button
