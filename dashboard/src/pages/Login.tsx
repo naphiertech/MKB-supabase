@@ -9,6 +9,7 @@ import {
   Sparkles } from
 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { pushToast } from '../hooks/useToast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginSkeleton } from '../components/common/DashboardSkeleton';
 const DEMO_ACCOUNTS = [
@@ -62,7 +63,20 @@ export function Login() {
     setLoading(true);
     const res = await signIn(email, password);
     setLoading(false);
-    if (!res.ok) setError(res.error ?? 'Sign-in failed.');
+    if (!res.ok) {
+      setError(res.error ?? 'Sign-in failed.');
+      pushToast({
+        title: 'Sign-in failed',
+        description: res.error ?? 'Please check your email and password.',
+        tone: 'error'
+      });
+    } else {
+      pushToast({
+        title: 'Welcome back',
+        description: 'Successfully signed in to AttenRider.',
+        tone: 'success'
+      });
+    }
   }
   function handleDemoLogin(account: (typeof DEMO_ACCOUNTS)[number]) {
     setEmail(account.email);
