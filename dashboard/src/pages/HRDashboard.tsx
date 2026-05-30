@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { BadgeCheck, ClipboardCheck, UserX, AlertCircle } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
-import { attendanceLogs, zones } from '../services/mockData';
-import { getHrTodayKpis, deriveHrStatus } from '../services/attendanceService';
+import { getZones } from '../services/geofenceService';
+import { getAttendanceLogs, getHrTodayKpis, deriveHrStatus } from '../services/attendanceService';
+import type { Zone, AttendanceLog } from '../services/types';
 import {
   QuickReportShortcuts,
   type QuickReportKey } from
@@ -25,11 +26,16 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
     absent: 0,
     pending: 0
   });
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
+
   useEffect(() => {
     getHrTodayKpis().then(setKpis);
+    getZones().then(setZonesList);
+    getAttendanceLogs().then(setAttendanceList);
   }, []);
   const today = new Date().toISOString().slice(0, 10);
-  const todayLogs = attendanceLogs.filter((l) => l.date === today);
+  const todayLogs = attendanceList.filter((l) => l.date === today);
   const lateCount = todayLogs.filter((l) => deriveHrStatus(l) === 'Late').length;
   function handleQuickReport(key: QuickReportKey) {
     onNavigate('reports', {
@@ -106,12 +112,12 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
       <QuickReportShortcuts onSelect={handleQuickReport} />
 
       {/* 3. Attendance Overview Table */}
-      <HRAttendanceOverview logs={attendanceLogs} zones={zones} />
+      <HRAttendanceOverview logs={attendanceList} zones={zonesList} />
 
       {/* 4. Rider Status Cards Grid */}
       <RiderStatusGrid
         riders={riders}
-        zones={zones}
+        zones={zonesList}
         todayLogs={todayLogs}
         onSelectRider={handleRiderClick} />
       
