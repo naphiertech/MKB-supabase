@@ -1,4 +1,4 @@
-import { useMemo, useState, Fragment } from 'react';
+import { useMemo, useState, useEffect, Fragment } from 'react';
 import {
   Users,
   Clock,
@@ -10,7 +10,9 @@ import {
   Calendar } from
 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
-import { riders, zones } from '../services/mockData';
+import { getZones } from '../services/geofenceService';
+import { getAllRiders } from '../services/monitoringService';
+import type { Rider, Zone } from '../services/types';
 type CutoffHalf = 'first' | 'second';
 type PayrollStatus = 'Complete' | 'Incomplete' | 'Flagged';
 interface DayBreakdown {
@@ -58,14 +60,14 @@ function seeded(seed: number) {
 function pad(n: number) {
   return String(n).padStart(2, '0');
 }
-function buildCutoffData(monthIdx: number, half: CutoffHalf): PayrollRow[] {
+function buildCutoffData(monthIdx: number, half: CutoffHalf, ridersList: Rider[], zonesList: Zone[]): PayrollRow[] {
   const startDay = half === 'first' ? 1 : 16;
   const endDay =
   half === 'first' ? 15 : new Date(2026, monthIdx + 1, 0).getDate();
   const workingDays = endDay - startDay + 1;
-  return riders.map((rider, i) => {
+  return ridersList.map((rider, i) => {
     const rand = seeded(monthIdx * 100 + (half === 'first' ? 0 : 50) + i);
-    const zone = zones.find((z) => z.id === rider.zoneId)?.name ?? '—';
+    const zone = zonesList.find((z) => z.id === rider.zoneId)?.name ?? '—';
     // Deterministic outcome buckets
     const bucket = i % 5; // 0,1,2 complete, 3 incomplete, 4 flagged
     let status: PayrollStatus = 'Complete';
@@ -229,11 +231,19 @@ function DayStatusPill({ status }: {status: DayBreakdown['status'];}) {
 
 }
 export function PayrollDashboard() {
+  const [ridersList, setRidersList] = useState<Rider[]>([]);
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+
+  useEffect(() => {
+    getAllRiders().then(setRidersList);
+    getZones().then(setZonesList);
+  }, []);
+
   // Today is May 2026 per spec defaults
   const [month, setMonth] = useState(4); // May (0-indexed)
   const [half, setHalf] = useState<CutoffHalf>('first');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const rows = useMemo(() => buildCutoffData(month, half), [month, half]);
+  const rows = useMemo(() => buildCutoffData(month, half, ridersList, zonesList), [month, half, ridersList, zonesList]);
   const totals = useMemo(() => {
     const totalGross = rows.reduce((s, r) => s + r.grossPay, 0);
     const totalHours = rows.reduce((s, r) => s + r.totalHours, 0);
