@@ -1,4 +1,4 @@
-import { useMemo, useState, ComponentType } from 'react';
+import { useMemo, useState, useEffect, ComponentType } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Filter,
@@ -9,7 +9,8 @@ import {
   Flag } from
 'lucide-react';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
-import { zones } from '../services/mockData';
+import { getZones } from '../services/geofenceService';
+import type { Zone } from '../services/types';
 import { LiveMonitoringMap } from '../components/maps/LiveMonitoringMap';
 import { EventTicker } from '../components/monitoring/EventTicker';
 import { useNow, relativeTime } from '../hooks/useNow';
@@ -34,6 +35,12 @@ export function LiveMonitoring() {
   const [routeDrawerOpen, setRouteDrawerOpen] = useState(false);
   const [isRouteFullscreen, setIsRouteFullscreen] = useState(false);
 
+  const [zonesList, setZonesList] = useState<Zone[]>([]);
+
+  useEffect(() => {
+    getZones().then(setZonesList);
+  }, []);
+
   const now = useNow();
   const filtered = useMemo(() => {
     return riders.filter(
@@ -45,7 +52,7 @@ export function LiveMonitoring() {
   }, [riders, zoneFilter, statusFilter, shiftFilter]);
   const focused = riders.find((r) => r.id === focusRiderId);
   const focusedZone = focused ?
-  zones.find((z) => z.id === focused.zoneId) :
+  zonesList.find((z) => z.id === focused.zoneId) :
   null;
 
   const handleRiderClick = async (riderId: string) => {
@@ -96,7 +103,7 @@ export function LiveMonitoring() {
                   v: 'all',
                   l: 'All Zones'
                 },
-                ...zones.map((z) => ({
+                ...zonesList.map((z) => ({
                   v: z.id,
                   l: z.name
                 }))]
@@ -155,7 +162,7 @@ export function LiveMonitoring() {
               </div>
               <div className="ar-scroll overflow-y-auto flex-1 px-2 pb-2 space-y-1">
                 {filtered.map((r) => {
-                const z = zones.find((z) => z.id === r.zoneId);
+                const z = zonesList.find((z) => z.id === r.zoneId);
                 const ring =
                 r.status === 'active' ?
                 'ring-emerald-500/70' :
@@ -206,7 +213,7 @@ export function LiveMonitoring() {
               >
                 <LiveMonitoringMap
                   riders={filtered}
-                  zones={zones}
+                  zones={zonesList}
                   focusRiderId={focusRiderId}
                   onMarkerClick={handleRiderClick}
                 />
@@ -309,7 +316,7 @@ export function LiveMonitoring() {
         </main>
       </div>
 
-      <EventTicker riders={riders} zones={zones} violations={violations} />
+      <EventTicker riders={riders} zones={zonesList} violations={violations} />
     </div>);
 
 }
