@@ -17,6 +17,7 @@ import {
   RoutePoint,
   RouteStats
 } from '../services/routeService';
+import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 
 interface RiderMonitoringProps {
   userId: string;
@@ -25,6 +26,7 @@ interface RiderMonitoringProps {
 
 export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
   const riderId = userId.replace(/^u-rider-/, '');
+  const [actualRiderId, setActualRiderId] = useState<string>(riderId);
   const [rider, setRider] = useState<Rider | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,10 +39,21 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
     async function loadData() {
       try {
         setLoading(true);
+
+        // Retrieve the linked rider_id using the logged-in Auth UUID
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('rider_id')
+          .eq('id', userId)
+          .maybeSingle();
+
+        const resolvedRiderId = dbUser?.rider_id || riderId;
+        setActualRiderId(resolvedRiderId);
+
         const { data: dbRider, error } = await supabase
           .from('riders')
           .select('*')
-          .eq('id', riderId)
+          .eq('id', resolvedRiderId)
           .maybeSingle();
 
         if (!error && dbRider) {
@@ -92,19 +105,19 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
     }
 
     loadData();
-  }, [riderId]);
+  }, [userId, riderId]);
 
   useEffect(() => {
     const loadRoute = async () => {
-      if (!riderId) return;
+      if (!actualRiderId) return;
       setLoadingRoute(true);
-      const points = await getRouteForRider(riderId);
+      const points = await getRouteForRider(actualRiderId);
       setRoutePoints(points);
       setRouteStats(computeRouteStats(points));
       setLoadingRoute(false);
     };
     loadRoute();
-  }, [riderId]);
+  }, [actualRiderId]);
 
   const zoneCenterLat = zone?.center[0] ?? 6.9214;
   const zoneCenterLng = zone?.center[1] ?? 122.0790;
@@ -134,14 +147,7 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
   const inZone = distance <= zoneRadius;
 
   if (loading || !rider || !zone) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px] text-[#6B6258] text-sm">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-[#db6c00] border-t-transparent rounded-full animate-spin" />
-          <span>Loading location details...</span>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton page="monitoring" role="rider" />;
   }
 
   return (
