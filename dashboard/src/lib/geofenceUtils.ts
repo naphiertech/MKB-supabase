@@ -1,4 +1,4 @@
-import { haversine } from '../services/mockData';
+import { haversine } from '../services/types';
 
 export { haversine };
 
