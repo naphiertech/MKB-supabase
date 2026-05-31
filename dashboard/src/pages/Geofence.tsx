@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+
 import { type Zone, type Rider, type ViolationEvent, type AttendanceLog } from '../services/types';
 import {
   createZone,
@@ -158,7 +158,7 @@ export function Geofence() {
 
   async function handleConfirmDelete(zoneId: string) {
     try {
-      const { zone, unassignedRiderIds } = await deleteZone(zoneId);
+      const { zone } = await deleteZone(zoneId);
       setPendingDeleteId(null);
       if (activeZoneId === zoneId) setActiveZoneId(null);
       setOpenGroupIds((prev) => {
