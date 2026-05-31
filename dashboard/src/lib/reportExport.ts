@@ -1,12 +1,10 @@
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
-import {
-  attendanceLogs,
-  riders,
-  zones,
-  violations,
-  type AttendanceLog } from
-'../services/mockData';
+import { type AttendanceLog, type Rider, type Zone, type ViolationEvent } from '../services/types';
+import { getAttendanceLogs } from '../services/attendanceService';
+import { getAllRiders } from '../services/monitoringService';
+import { getZones } from '../services/geofenceService';
+import { getViolations } from '../services/monitoringService';
 
 export type ReportTemplate =
 'weekly_attendance' |
@@ -54,8 +52,8 @@ function inDateRange(date: string, from: string, to: string): boolean {
   return date >= from && date <= to;
 }
 
-function filterAttendance(opts: BuilderOptions): AttendanceLog[] {
-  return attendanceLogs.filter((log) => {
+function filterAttendance(opts: BuilderOptions, attendanceLogsList: AttendanceLog[]): AttendanceLog[] {
+  return attendanceLogsList.filter((log) => {
     if (!inDateRange(log.date, opts.from, opts.to)) return false;
     if (opts.zoneIds.length > 0 && !opts.zoneIds.includes(log.zoneId))
     return false;
@@ -63,45 +61,49 @@ function filterAttendance(opts: BuilderOptions): AttendanceLog[] {
   });
 }
 
-export function buildWeeklyAttendance(opts: BuilderOptions): ReportData {
-  const rows = filterAttendance(opts).map((log) => [
-  log.riderName,
-  log.zoneName,
-  log.date,
-  log.timeIn ?? '—',
-  log.timeOut ?? '—',
-  log.hours,
-  log.status]
-  );
+export function buildWeeklyAttendance(opts: BuilderOptions, attendanceLogsList: AttendanceLog[]): ReportData {
+  const rows = filterAttendance(opts, attendanceLogsList).map((log) => [
+    log.riderName,
+    log.zoneName,
+    log.date,
+    log.timeIn ?? '—',
+    log.timeOut ?? '—',
+    log.hours,
+    log.status
+  ]);
   return {
     title: TEMPLATE_TITLES.weekly_attendance,
     columns: [
-    'Rider',
-    'Zone',
-    'Date',
-    'Time-In',
-    'Time-Out',
-    'Hours',
-    'Status'],
-
+      'Rider',
+      'Zone',
+      'Date',
+      'Time-In',
+      'Time-Out',
+      'Hours',
+      'Status'
+    ],
     rows
   };
 }
 
-export function buildViolationSummary(opts: BuilderOptions): ReportData {
+export function buildViolationSummary(
+  opts: BuilderOptions,
+  violationsList: ViolationEvent[],
+  ridersList: Rider[]
+): ReportData {
   const fromTs = new Date(opts.from + 'T00:00:00').getTime();
   const toTs = new Date(opts.to + 'T23:59:59').getTime();
-  const filtered = violations.filter((v) => {
+  const filtered = violationsList.filter((v) => {
     if (v.ts < fromTs || v.ts > toTs) return false;
     if (opts.zoneIds.length > 0) {
-      const rider = riders.find((r) => r.id === v.riderId);
+      const rider = ridersList.find((r) => r.id === v.riderId);
       if (!rider || !rider.zoneId || !opts.zoneIds.includes(rider.zoneId))
       return false;
     }
     return true;
   });
   const rows = filtered.map((v) => {
-    const rider = riders.find((r) => r.id === v.riderId);
+    const rider = ridersList.find((r) => r.id === v.riderId);
     const coords = rider ?
     `${rider.lat.toFixed(4)}, ${rider.lng.toFixed(4)}` :
     '—';
@@ -121,25 +123,31 @@ export function buildViolationSummary(opts: BuilderOptions): ReportData {
   };
 }
 
-export function buildZoneCoverage(opts: BuilderOptions): ReportData {
+export function buildZoneCoverage(
+  opts: BuilderOptions,
+  attendanceLogsList: AttendanceLog[],
+  ridersList: Rider[],
+  zonesList: Zone[],
+  violationsList: ViolationEvent[]
+): ReportData {
   const targetZones =
   opts.zoneIds.length > 0 ?
-  zones.filter((z) => opts.zoneIds.includes(z.id)) :
-  zones;
-  const logs = filterAttendance({ ...opts, zoneIds: [] });
+  zonesList.filter((z) => opts.zoneIds.includes(z.id)) :
+  zonesList;
+  const logs = filterAttendance({ ...opts, zoneIds: [] }, attendanceLogsList);
   const fromTs = new Date(opts.from + 'T00:00:00').getTime();
   const toTs = new Date(opts.to + 'T23:59:59').getTime();
   const rows = targetZones.map((zone) => {
-    const ridersInZone = riders.filter((r) => r.zoneId === zone.id);
+    const ridersInZone = ridersList.filter((r) => r.zoneId === zone.id);
     const zoneLogs = logs.filter((l) => l.zoneId === zone.id);
     const totalHours = zoneLogs.reduce((sum, l) => sum + l.hours, 0);
     const avgHours =
     zoneLogs.length > 0 ?
     Math.round(totalHours / zoneLogs.length * 10) / 10 :
     0;
-    const zoneViolations = violations.filter((v) => {
+    const zoneViolations = violationsList.filter((v) => {
       if (v.ts < fromTs || v.ts > toTs) return false;
-      const rider = riders.find((r) => r.id === v.riderId);
+      const rider = ridersList.find((r) => r.id === v.riderId);
       return rider?.zoneId === zone.id;
     }).length;
     return [zone.name, ridersInZone.length, avgHours, zoneViolations];
@@ -147,21 +155,26 @@ export function buildZoneCoverage(opts: BuilderOptions): ReportData {
   return {
     title: TEMPLATE_TITLES.zone_coverage,
     columns: [
-    'Zone',
-    'Total Riders Assigned',
-    'Avg Hours Covered',
-    'Violations'],
-
+      'Zone',
+      'Total Riders Assigned',
+      'Avg Hours Covered',
+      'Violations'
+    ],
     rows
   };
 }
 
-export function buildRiderPerformance(opts: BuilderOptions): ReportData {
-  const logs = filterAttendance(opts);
+export function buildRiderPerformance(
+  opts: BuilderOptions,
+  attendanceLogsList: AttendanceLog[],
+  ridersList: Rider[],
+  violationsList: ViolationEvent[]
+): ReportData {
+  const logs = filterAttendance(opts, attendanceLogsList);
   const targetRiders =
   opts.zoneIds.length > 0 ?
-  riders.filter((r) => r.zoneId && opts.zoneIds.includes(r.zoneId)) :
-  riders;
+  ridersList.filter((r) => r.zoneId && opts.zoneIds.includes(r.zoneId)) :
+  ridersList;
   const fromTs = new Date(opts.from + 'T00:00:00').getTime();
   const toTs = new Date(opts.to + 'T23:59:59').getTime();
   // Total days in range
@@ -177,46 +190,50 @@ export function buildRiderPerformance(opts: BuilderOptions): ReportData {
     const totalHours =
     Math.round(riderLogs.reduce((sum, l) => sum + l.hours, 0) * 10) / 10;
     const lateCount = riderLogs.filter((l) => l.status === 'late').length;
-    const riderViolations = violations.filter(
+    const riderViolations = violationsList.filter(
       (v) => v.riderId === rider.id && v.ts >= fromTs && v.ts <= toTs
     ).length;
     const rate = Math.round(daysPresent / daysInRange * 100);
     return [
-    rider.name,
-    daysPresent,
-    totalHours,
-    lateCount,
-    riderViolations,
-    `${rate}%`];
-
+      rider.name,
+      daysPresent,
+      totalHours,
+      lateCount,
+      riderViolations,
+      `${rate}%`
+    ];
   });
   return {
     title: TEMPLATE_TITLES.rider_performance,
     columns: [
-    'Rider',
-    'Days Present',
-    'Total Hours',
-    'Late Count',
-    'Violations',
-    'Attendance Rate %'],
-
+      'Rider',
+      'Days Present',
+      'Total Hours',
+      'Late Count',
+      'Violations',
+      'Attendance Rate %'
+    ],
     rows
   };
 }
 
 function buildReport(
-template: ReportTemplate,
-opts: BuilderOptions)
-: ReportData {
+  template: ReportTemplate,
+  opts: BuilderOptions,
+  attendanceLogsList: AttendanceLog[],
+  ridersList: Rider[],
+  zonesList: Zone[],
+  violationsList: ViolationEvent[]
+): ReportData {
   switch (template) {
     case 'weekly_attendance':
-      return buildWeeklyAttendance(opts);
+      return buildWeeklyAttendance(opts, attendanceLogsList);
     case 'violation_summary':
-      return buildViolationSummary(opts);
+      return buildViolationSummary(opts, violationsList, ridersList);
     case 'zone_coverage':
-      return buildZoneCoverage(opts);
+      return buildZoneCoverage(opts, attendanceLogsList, ridersList, zonesList, violationsList);
     case 'rider_performance':
-      return buildRiderPerformance(opts);
+      return buildRiderPerformance(opts, attendanceLogsList, ridersList, violationsList);
   }
 }
 
@@ -243,7 +260,7 @@ function csvEscape(cell: string | number): string {
 
 export function exportCSV(data: ReportData, filename: string) {
   const lines = [data.columns, ...data.rows].map((row) =>
-  row.map(csvEscape).join(',')
+    row.map(csvEscape).join(',')
   );
   const csv = '\uFEFF' + lines.join('\r\n'); // BOM for Excel compatibility
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -277,10 +294,10 @@ export function exportXLSX(data: ReportData, filename: string) {
 }
 
 export function exportPDF(
-data: ReportData,
-filename: string,
-meta: {from: string;to: string;})
-{
+  data: ReportData,
+  filename: string,
+  meta: {from: string; to: string;}
+) {
   const doc = new jsPDF({
     unit: 'pt',
     format: 'letter',
@@ -364,9 +381,9 @@ meta: {from: string;to: string;})
     if (doc.getTextWidth(text) <= maxWidth) return text;
     let truncated = text;
     while (
-    truncated.length > 1 &&
-    doc.getTextWidth(truncated + '…') > maxWidth)
-    {
+      truncated.length > 1 &&
+      doc.getTextWidth(truncated + '…') > maxWidth
+    ) {
       truncated = truncated.slice(0, -1);
     }
     return truncated + '…';
@@ -415,8 +432,8 @@ meta: {from: string;to: string;})
 // ------------ Orchestrator ------------
 
 export async function generateReport(
-opts: GenerateOptions)
-: Promise<{rowCount: number;}> {
+  opts: GenerateOptions
+): Promise<{rowCount: number;}> {
   if (!opts.from || !opts.to) {
     throw new ReportError('INVALID_RANGE', 'Please select a date range');
   }
@@ -427,11 +444,19 @@ opts: GenerateOptions)
     );
   }
 
+  // Fetch live lists from database dynamically
+  const [logsData, ridersData, zonesData, violationsData] = await Promise.all([
+    getAttendanceLogs(),
+    getAllRiders(),
+    getZones(),
+    getViolations()
+  ]);
+
   const data = buildReport(opts.template, {
     from: opts.from,
     to: opts.to,
     zoneIds: opts.zoneIds
-  });
+  }, logsData, ridersData, zonesData, violationsData);
 
   if (data.rows.length === 0) {
     throw new ReportError('NO_DATA', 'No data matches the selected filters');
