@@ -22,6 +22,7 @@ import {
 '../components/rider/ActivityTimeline';
 import { PersonalStats } from '../components/rider/PersonalStats';
 import { pushToast } from '../hooks/useToast';
+import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 
 interface RiderDashboardProps {
   userId: string;
@@ -62,6 +63,7 @@ function diffPretty(fromHHMM: string, to: Date = new Date()) {
 
 export function RiderDashboard({ userId }: RiderDashboardProps) {
   const riderId = userId.replace(/^u-rider-/, '');
+  const [actualRiderId, setActualRiderId] = useState<string>(riderId);
   const [rider, setRider] = useState<Rider | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,16 +73,29 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   const [scanOpen, setScanOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
 
-  const { phase, progress, result, start, reset } = useFaceRecognition();
+  const { phase, progress, result, start, reset, videoRef, canvasRef } = useFaceRecognition({
+    referenceAvatar: rider?.avatar
+  });
 
   useEffect(() => {
     async function loadRiderAndZone() {
       try {
         setLoading(true);
+
+        // Retrieve the linked rider_id using the logged-in Auth UUID
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('rider_id')
+          .eq('id', userId)
+          .maybeSingle();
+
+        const resolvedRiderId = dbUser?.rider_id || riderId;
+        setActualRiderId(resolvedRiderId);
+
         const { data: dbRider, error } = await supabase
           .from('riders')
           .select('*')
-          .eq('id', riderId)
+          .eq('id', resolvedRiderId)
           .maybeSingle();
 
         if (!error && dbRider) {
@@ -124,12 +139,12 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             }
           }
 
-          // Fetch attendance logs for today
+          // Fetch attendance logs for today using the resolved Rider UUID
           const todayStr = new Date().toISOString().slice(0, 10);
           const { data: attLog } = await supabase
             .from('attendance_logs')
             .select('*')
-            .eq('rider_id', riderId)
+            .eq('rider_id', resolvedRiderId)
             .eq('date', todayStr)
             .maybeSingle();
 
@@ -146,7 +161,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     }
 
     loadRiderAndZone();
-  }, [riderId]);
+  }, [userId, riderId]);
 
   const zoneCenterLat = zone?.center[0] ?? 6.9214;
   const zoneCenterLng = zone?.center[1] ?? 122.0790;
@@ -229,10 +244,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   }
 
   useEffect(() => {
-    if (phase !== 'matched' || !result?.matched || !rider) return;
+    if (phase !== 'matched' || !result?.matched || !rider || !actualRiderId) return;
     const stamp = nowHHMM(new Date(result.capturedAt));
     if (pendingAction === 'time-in') {
-      recordTimeIn(riderId).then(() => {
+      recordTimeIn(actualRiderId).then(() => {
         setTimeIn(stamp);
         setEvents((prev) => [
           {
@@ -258,7 +273,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         });
       });
     } else {
-      recordTimeOut(riderId).then(() => {
+      recordTimeOut(actualRiderId).then(() => {
         setTimeOut(stamp);
         setEvents((prev) => [
           {
@@ -303,14 +318,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   }
 
   if (loading || !rider || !zone) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px] text-[#6B6258] text-sm">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-[#db6c00] border-t-transparent rounded-full animate-spin" />
-          <span>Loading rider portal...</span>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton page="dashboard" role="rider" />;
   }
 
   const today = new Date();
@@ -414,7 +422,9 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           progress={progress}
           riderName={rider.name}
           riderAvatar={rider.avatar}
-          confidence={result?.confidence} />
+          confidence={result?.confidence}
+          videoRef={videoRef}
+          canvasRef={canvasRef} />
 
         <div className="mt-5 flex items-center justify-between gap-3">
           <span className="text-[11px] text-[#6B6258] font-mono">
