@@ -7,6 +7,7 @@ import {
 '../services/types';
 import { supabase } from '../lib/supabaseClient';
 import { getZones } from '../services/geofenceService';
+import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 
 interface RiderProfileProps {
   userId: string;
@@ -48,58 +49,11 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
       try {
         setLoading(true);
 
-        const { data: dbRider, error: riderErr } = await supabase
-          .from('riders')
-          .select('*')
-          .eq('id', riderId)
-          .maybeSingle();
-
-        if (!riderErr && dbRider) {
-          const mappedRider: Rider = {
-            id: dbRider.id,
-            name: dbRider.name,
-            avatar: dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
-            zoneId: dbRider.zone_id,
-            status: dbRider.status,
-            lat: dbRider.lat || 0,
-            lng: dbRider.lng || 0,
-            speed: dbRider.speed || 0,
-            shift: (dbRider.shift || 'Morning').toLowerCase() as any,
-            lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : Date.now(),
-            phone: dbRider.contact || '',
-            riderCode: dbRider.mkb_id
-          };
-          setRider(mappedRider);
-
-          if (dbRider.zone_id) {
-            const { data: dbZone } = await supabase
-              .from('zones')
-              .select('*')
-              .eq('id', dbRider.zone_id)
-              .maybeSingle();
-
-            if (dbZone) {
-              setZone({
-                id: dbZone.id,
-                name: dbZone.name,
-                center: [dbZone.lat, dbZone.lng],
-                radius: dbZone.radius,
-                color: dbZone.color,
-                status: dbZone.status
-              });
-            }
-          } else {
-            const zList = await getZones();
-            if (zList.length > 0) {
-              setZone(zList[0]);
-            }
-          }
-        }
-
+        // Fetch public.users by Auth UUID (userId)
         const { data: dbUser, error: userErr } = await supabase
           .from('users')
           .select('*')
-          .eq('rider_id', riderId)
+          .eq('id', userId)
           .maybeSingle();
 
         if (!userErr && dbUser) {
@@ -113,6 +67,56 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
             status: dbUser.status,
             lastLogin: dbUser.last_login ? new Date(dbUser.last_login).getTime() : Date.now()
           });
+
+          // Fetch public.riders using user's linked rider_id
+          const resolvedRiderId = dbUser.rider_id || riderId;
+          const { data: dbRider, error: riderErr } = await supabase
+            .from('riders')
+            .select('*')
+            .eq('id', resolvedRiderId)
+            .maybeSingle();
+
+          if (!riderErr && dbRider) {
+            const mappedRider: Rider = {
+              id: dbRider.id,
+              name: dbRider.name,
+              avatar: dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
+              zoneId: dbRider.zone_id,
+              status: dbRider.status,
+              lat: dbRider.lat || 0,
+              lng: dbRider.lng || 0,
+              speed: dbRider.speed || 0,
+              shift: (dbRider.shift || 'Morning').toLowerCase() as any,
+              lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : Date.now(),
+              phone: dbRider.contact || '',
+              riderCode: dbRider.mkb_id
+            };
+            setRider(mappedRider);
+
+            if (dbRider.zone_id) {
+              const { data: dbZone } = await supabase
+                .from('zones')
+                .select('*')
+                .eq('id', dbRider.zone_id)
+                .maybeSingle();
+
+              if (dbZone) {
+                setZone({
+                  id: dbZone.id,
+                  name: dbZone.name,
+                  center: [dbZone.lat, dbZone.lng],
+                  radius: dbZone.radius,
+                  color: dbZone.color,
+                  status: dbZone.status
+                });
+              }
+            } else {
+              const zList = await getZones();
+              if (zList.length > 0) {
+                setZone(zList[0]);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error('Error loading rider profile details:', err);
@@ -122,17 +126,10 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
     }
 
     loadData();
-  }, [riderId]);
+  }, [userId, riderId]);
 
   if (loading || !rider || !zone) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px] text-[#6B6258] text-sm">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-6 h-6 border-2 border-[#db6c00] border-t-transparent rounded-full animate-spin" />
-          <span>Loading profile...</span>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton page="profile" role="rider" />;
   }
 
   return (
