@@ -34,6 +34,7 @@ export async function getAttendanceLogs(filters?: {
       riders (
         name,
         avatar_url,
+        face_image_url,
         zone_id,
         zones (
           name
@@ -69,7 +70,7 @@ export async function getAttendanceLogs(filters?: {
       id: row.id,
       riderId: row.rider_id,
       riderName: rider?.name || 'Unknown Rider',
-      riderAvatar: rider?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider?.name || '')}`,
+      riderAvatar: rider?.face_image_url || rider?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider?.name || '')}`,
       date: row.date,
       timeIn: toHHMM(row.time_in),
       timeOut: toHHMM(row.time_out),
