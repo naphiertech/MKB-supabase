@@ -11,9 +11,9 @@ import {
   Loader2,
   Trash2 } from
 'lucide-react';
-import type { AppUser, UserRole, Zone } from '../../services/mockData';
+import type { AppUser, UserRole, Zone } from '../../services/types';
 import { FaceScanner } from '../attendance/FaceScanner';
-import type { ScanPhase } from '../../hooks/useFaceRecognition';
+import { useFaceRecognition } from '../../hooks/useFaceRecognition';
 import { pushToast } from '../../hooks/useToast';
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
 type Shift = 'morning' | 'afternoon' | 'evening' | '';
@@ -41,6 +41,7 @@ interface UserDrawerProps {
     mkbRiderId?: string;
     shift?: Shift;
     faceImage?: string | null;
+    tempPassword?: string;
   },
   mode: 'create' | 'edit')
   => void;
@@ -108,7 +109,9 @@ function validate(form: FormState, mode: 'create' | 'edit'): FormErrors {
   if (!form.name.trim()) errors.name = 'Full name is required.';
   if (!form.email.trim()) {
     errors.email = 'Email is required.';
-  } else if (!/@mkb\.ph$/i.test(form.email.trim())) {
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+    errors.email = 'Invalid email format.';
+  } else if (form.role !== 'rider' && !/@mkb\.ph$/i.test(form.email.trim())) {
     errors.email = 'Email must use the @mkb.ph domain.';
   }
   const digits = form.contact.replace(/\D/g, '');
@@ -119,9 +122,9 @@ function validate(form: FormState, mode: 'create' | 'edit'): FormErrors {
   }
   if (mode === 'create') {
     if (!form.tempPassword)
-    errors.tempPassword = 'Temporary password is required.';else
-    if (form.tempPassword.length < 8)
-    errors.tempPassword = 'Must be at least 8 characters.';
+      errors.tempPassword = 'Temporary password is required.';
+    else if (form.tempPassword.length < 8)
+      errors.tempPassword = 'Must be at least 8 characters.';
   } else if (form.tempPassword && form.tempPassword.length < 8) {
     errors.tempPassword = 'Must be at least 8 characters.';
   }
@@ -213,13 +216,12 @@ export function UserDrawer({
     setShowSummary(false);
     setSubmitting(true);
     try {
-      // Simulated async save
-      await new Promise((res) => setTimeout(res, 350));
       const saved: AppUser & {
         contact?: string;
         mkbRiderId?: string;
         shift?: Shift;
         faceImage?: string | null;
+        tempPassword?: string;
       } = {
         id: user?.id ?? `u-${Date.now()}`,
         name: form.name.trim(),
@@ -236,9 +238,10 @@ export function UserDrawer({
         contact: form.contact,
         mkbRiderId: form.mkbRiderId,
         shift: form.shift,
-        faceImage: form.faceImage
+        faceImage: form.faceImage,
+        tempPassword: form.tempPassword
       };
-      onSaved?.(saved, mode);
+      await onSaved?.(saved, mode);
       pushToast({
         title: mode === 'create' ? 'User created successfully' : 'User updated',
         description:
@@ -248,11 +251,12 @@ export function UserDrawer({
         tone: 'success'
       });
       onClose();
-    } catch {
+    } catch (err: any) {
+      console.error(err);
       pushToast({
         title:
         mode === 'create' ? 'Failed to create user' : 'Failed to update user',
-        description: 'Try again.',
+        description: err?.message || 'Try again.',
         tone: 'error'
       });
     } finally {
@@ -269,7 +273,7 @@ export function UserDrawer({
   );
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[1050]">
       <div
         className="absolute inset-0 bg-[#1A1410]/40 backdrop-blur-sm"
         onClick={() => !submitting && onClose()} />
@@ -315,24 +319,65 @@ export function UserDrawer({
           {/* Avatar */}
           <div>
             <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] mb-2 font-semibold">
-              Avatar
+              Avatar / Face Photo
             </label>
             <div className="flex items-center gap-3">
               <img
                 src={
-                form.faceImage ??
-                user?.avatar ??
-                `https://api.dicebear.com/7.x/avataaars/svg?seed=new&backgroundColor=fff1e0`
+                  form.faceImage ??
+                  user?.avatar ??
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(form.name || 'new')}&backgroundColor=fff1e0`
                 }
                 alt=""
-                className="w-16 h-16 rounded-full bg-[#FAFAF7] border border-[#EFEAE2] ring-2 ring-[#db6c00]/15 object-cover" />
+                className="w-16 h-16 rounded-full bg-[#FAFAF7] border border-[#EFEAE2] ring-2 ring-[#db6c00]/15 object-cover"
+              />
               
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 px-3 h-9 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition">
-                
-                <Upload className="w-3.5 h-3.5" /> Upload photo
-              </button>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const result = reader.result;
+                        if (typeof result === 'string') {
+                          setField('faceImage', result);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-2 px-3 h-9 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition font-semibold"
+                  >
+                    <Upload className="w-3.5 h-3.5" /> Upload photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCameraOpen(true)}
+                    className="inline-flex items-center gap-2 px-3 h-9 rounded-md bg-[#db6c00] text-white text-xs hover:bg-[#b85a00] transition font-semibold"
+                  >
+                    <Camera className="w-3.5 h-3.5" /> Open Camera
+                  </button>
+                </div>
+                {form.faceImage && (
+                  <button
+                    type="button"
+                    onClick={() => setField('faceImage', null)}
+                    className="text-left inline-flex items-center gap-1 text-[11px] text-[#6B6258] hover:text-red-600 transition font-medium w-fit"
+                  >
+                    <Trash2 className="w-3 h-3" /> Remove photo
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -396,26 +441,42 @@ export function UserDrawer({
             'User will be prompted to change this on first login.'
             }>
             
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={form.tempPassword}
-                onChange={(e) => setField('tempPassword', e.target.value)}
-                placeholder="Min. 8 characters"
-                className="ar-input pr-9"
-                autoComplete="new-password" />
-              
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.tempPassword}
+                  onChange={(e) => setField('tempPassword', e.target.value)}
+                  placeholder="Min. 8 characters"
+                  className="ar-input pr-9"
+                  autoComplete="new-password" />
+                
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[#6B6258] hover:text-[#1A1410]"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                  
+                  {showPassword ?
+                  <EyeOff className="w-4 h-4" /> :
+
+                  <Eye className="w-4 h-4" />
+                  }
+                </button>
+              </div>
               <button
                 type="button"
-                onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[#6B6258] hover:text-[#1A1410]"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}>
-                
-                {showPassword ?
-                <EyeOff className="w-4 h-4" /> :
-
-                <Eye className="w-4 h-4" />
-                }
+                onClick={() => {
+                  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+                  let pass = '';
+                  for (let i = 0; i < 12; i++) {
+                    pass += chars.charAt(Math.floor(Math.random() * chars.length));
+                  }
+                  setField('tempPassword', pass);
+                  setShowPassword(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition shrink-0">
+                <Sparkles className="w-3.5 h-3.5" /> Generate
               </button>
             </div>
           </Field>
@@ -442,9 +503,9 @@ export function UserDrawer({
             </div>
           </Field>
 
-          {/* Rider-only grouped section */}
-          {isRider &&
-          <div className="border-l-2 border-[#db6c00]/30 pl-4 space-y-5">
+          {/* Rider Details (with smooth height transition) */}
+          <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isRider ? 'max-h-[1000px] opacity-100 mt-5' : 'max-h-0 opacity-0 pointer-events-none'}`}>
+            <div className="border-l-2 border-[#db6c00]/30 pl-4 space-y-5">
               <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#b85a00]">
                 Rider Details
               </div>
@@ -514,107 +575,51 @@ export function UserDrawer({
                           {s.range}
                         </span>
                       </button>);
-
+ 
                 })}
                 </div>
               </Field>
 
-              {/* Face Registration */}
+              {/* Face Registration Status */}
               <div ref={(el) => fieldRefs.current.faceImage = el}>
                 <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
-                  Face Registration
+                  Face Registration Status
                 </label>
                 <div
-                className={`rounded-lg border-2 border-dashed px-4 py-4 transition ${errors.faceImage ? 'border-red-300 bg-red-50/40' : form.faceImage ? 'border-emerald-300 bg-emerald-50/40' : 'border-[#EFEAE2] bg-[#FAFAF7]'}`}>
-                
-                  <div className="text-[11px] text-[#6B6258] mb-3 text-center">
-                    Required for facial recognition time-in/out.
-                  </div>
-
-                  {form.faceImage ?
-                <div className="flex items-center gap-3">
-                      <img
-                    src={form.faceImage}
-                    alt="Registered face"
-                    className="w-[60px] h-[60px] rounded-full object-cover border-2 border-emerald-400 shrink-0" />
-                  
-                      <div className="flex-1 min-w-0">
+                  className={`rounded-lg border-2 border-dashed px-4 py-3 transition ${
+                    errors.faceImage ? 'border-red-300 bg-red-50/40' : form.faceImage ? 'border-emerald-300 bg-emerald-50/40' : 'border-[#EFEAE2] bg-[#FAFAF7]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {form.faceImage ? (
+                      <>
+                        <img
+                          src={form.faceImage}
+                          alt="Registered face"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-emerald-400 shrink-0"
+                        />
                         <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Face registered
                         </span>
-                        <div className="flex items-center gap-3 mt-2">
-                          <button
-                        type="button"
-                        onClick={() => setCameraOpen(true)}
-                        className="text-[11px] font-semibold text-[#db6c00] hover:text-[#b85a00] transition">
-                        
-                            Re-enroll
-                          </button>
-                          <button
-                        type="button"
-                        onClick={() => setField('faceImage', null)}
-                        className="inline-flex items-center gap-1 text-[11px] text-[#6B6258] hover:text-red-600 transition">
-                        
-                            <Trash2 className="w-3 h-3" /> Remove
-                          </button>
-                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[11px] text-[#6B6258] flex items-center gap-1.5 py-1">
+                        <AlertTriangle className="w-4 h-4 text-[#db6c00]" />
+                        <span>No face photo registered. Use the Avatar controls above to upload or scan.</span>
                       </div>
-                    </div> :
-
-                <div className="flex items-center justify-center gap-2">
-                      <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const result = reader.result;
-                        if (typeof result === 'string') {
-                          setField('faceImage', result);
-                        }
-                      };
-                      reader.readAsDataURL(file);
-                      e.target.value = '';
-                    }} />
-                  
-                      <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition">
-                    
-                        <Upload className="w-3.5 h-3.5" /> Upload Photo
-                      </button>
-                      <button
-                    type="button"
-                    onClick={() => setCameraOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-[#db6c00] text-white text-xs font-semibold hover:bg-[#b85a00] transition">
-                    
-                        <Camera className="w-3.5 h-3.5" /> Open Camera
-                      </button>
-                    </div>
-                }
+                    )}
+                  </div>
                 </div>
 
-                {!form.faceImage &&
-              <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#FFF1E0] border border-[#db6c00]/30 text-[#b85a00] text-[11px] font-semibold">
-                    <AlertTriangle className="w-3 h-3" />
-                    Face registration required for rider time-in
-                  </div>
-              }
-
-                {errors.faceImage &&
-              <div className="mt-1.5 text-[11px] text-red-600">
+                {errors.faceImage && (
+                  <div className="mt-1.5 text-[11px] text-red-600">
                     {errors.faceImage}
                   </div>
-              }
+                )}
               </div>
             </div>
-          }
+          </div>
 
           <div className="border-t border-[#EFEAE2]" />
 
@@ -731,40 +736,32 @@ function Field({
 }
 /**
  * Lightweight face capture overlay that wraps the existing FaceScanner viewfinder.
- * Drives a simulated scan lifecycle (initializing → scanning → matched) and
- * returns a captured image URL on success.
+ * Drives a real face detection scan and captures a gray-scaled snapshot on match success.
  */
 function FaceCaptureModal({
   riderName,
   seedAvatar,
   onCapture,
   onCancel
+}: {
+  riderName: string;
+  seedAvatar: string;
+  onCapture: (dataUrl: string) => void;
+  onCancel: () => void;
+}) {
+  const { phase, progress, result, start, videoRef, canvasRef } = useFaceRecognition({
+    durationMs: 2500
+  });
 
+  // Automatically pass grayscaled snapshot or seed avatar on successful face-match detection
+  useEffect(() => {
+    if (phase === 'matched') {
+      const targetPhoto = result?.snapshotUrl || seedAvatar;
+      const t = setTimeout(() => onCapture(targetPhoto), 800);
+      return () => clearTimeout(t);
+    }
+  }, [phase, result, seedAvatar, onCapture]);
 
-
-
-
-}: {riderName: string;seedAvatar: string;onCapture: (dataUrl: string) => void;onCancel: () => void;}) {
-  const [phase, setPhase] = useState<ScanPhase>('idle');
-  const [progress, setProgress] = useState(0);
-  const start = () => {
-    setPhase('initializing');
-    setProgress(0);
-    setTimeout(() => {
-      setPhase('scanning');
-      const startTs = performance.now();
-      const tick = () => {
-        const p = Math.min(1, (performance.now() - startTs) / 1600);
-        setProgress(p);
-        if (p < 1) requestAnimationFrame(tick);else
-        {
-          setPhase('matched');
-          setTimeout(() => onCapture(seedAvatar), 600);
-        }
-      };
-      requestAnimationFrame(tick);
-    }, 500);
-  };
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
@@ -785,7 +782,6 @@ function FaceCaptureModal({
             onClick={onCancel}
             className="p-1.5 rounded-md text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]"
             aria-label="Close">
-            
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -794,7 +790,9 @@ function FaceCaptureModal({
           phase={phase}
           progress={progress}
           riderName={riderName}
-          riderAvatar={seedAvatar} />
+          riderAvatar={seedAvatar}
+          videoRef={videoRef}
+          canvasRef={canvasRef} />
         
 
         <div className="mt-4 flex items-center gap-2">
@@ -802,7 +800,6 @@ function FaceCaptureModal({
             type="button"
             onClick={onCancel}
             className="px-4 h-9 rounded-md bg-white border border-[#EFEAE2] text-sm text-[#1A1410] hover:border-[#db6c00]/30 transition">
-            
             Cancel
           </button>
           <button
@@ -812,21 +809,21 @@ function FaceCaptureModal({
             className="flex-1 px-4 h-9 rounded-md bg-[#db6c00] hover:bg-[#b85a00] text-white text-sm font-semibold disabled:opacity-70 inline-flex items-center justify-center gap-2">
             
             {phase === 'matched' ?
-            <>
+              <>
                 <CheckCircle2 className="w-4 h-4" /> Captured
               </> :
             phase === 'scanning' || phase === 'initializing' ?
-            <>
+              <>
                 <Loader2 className="w-4 h-4 animate-spin" /> Capturing…
               </> :
-
-            <>
+              <>
                 <Camera className="w-4 h-4" /> Capture
               </>
             }
           </button>
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
+
