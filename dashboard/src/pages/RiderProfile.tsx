@@ -80,7 +80,7 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
             const mappedRider: Rider = {
               id: dbRider.id,
               name: dbRider.name,
-              avatar: dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
+              avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
               zoneId: dbRider.zone_id,
               status: dbRider.status,
               lat: dbRider.lat || 0,
