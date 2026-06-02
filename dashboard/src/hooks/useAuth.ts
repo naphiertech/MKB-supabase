@@ -1,21 +1,19 @@
-// Lightweight client-side auth for AttenRider demo.
-// TODO: Replace with Supabase Auth (supabase.auth.signInWithPassword, onAuthStateChange).
 import { useEffect, useState, useCallback } from 'react';
-import { users, type AppUser, type UserRole } from '../services/mockData';
+import { supabase } from '../lib/supabaseClient';
+import { type AppUser, type UserRole } from '../services/types';
 
 const STORAGE_KEY = 'attenrider.session.v1';
 
 export type Role = Extract<UserRole, 'admin' | 'hr' | 'rider' | 'payroll'>;
 
 export interface Session {
-  userId: string;
+  id: string;
+  email: string;
+  fullName: string;
   role: Role;
+  riderId?: string;
 }
 
-interface AuthState {
-  session: Session | null;
-  user: AppUser | null;
-}
 
 function readSession(): Session | null {
   if (typeof window === 'undefined') return null;
@@ -23,7 +21,7 @@ function readSession(): Session | null {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Session;
-    if (!parsed?.userId || !parsed?.role) return null;
+    if (!parsed?.id || !parsed?.role) return null;
     return parsed;
   } catch {
     return null;
@@ -32,8 +30,8 @@ function readSession(): Session | null {
 
 function writeSession(s: Session | null) {
   if (typeof window === 'undefined') return;
-  if (s) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));else
-  window.localStorage.removeItem(STORAGE_KEY);
+  if (s) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  else window.localStorage.removeItem(STORAGE_KEY);
 }
 
 // Module-level listeners so all hook consumers stay in sync.
@@ -60,57 +58,158 @@ export function useAuth() {
     };
   }, []);
 
-  const user: AppUser | null = session ?
-  users.find((u) => u.id === session.userId) ?? null :
-  null;
+  // Background revalidation on startup/refresh
+  useEffect(() => {
+    let active = true;
+    async function initializeAuth() {
+      try {
+        const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+        
+        if (!supabaseSession?.user) {
+          if (currentSession !== null) {
+            currentSession = null;
+            writeSession(null);
+            emit();
+          }
+          return;
+        }
+
+        // Fetch latest profile status & details
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('full_name, role, status, rider_id')
+          .eq('id', supabaseSession.user.id)
+          .single();
+
+        if (error || !profile) {
+          await supabase.auth.signOut();
+          currentSession = null;
+          writeSession(null);
+          emit();
+          return;
+        }
+
+        if (profile.status === 'suspended') {
+          await supabase.auth.signOut();
+          currentSession = null;
+          writeSession(null);
+          emit();
+          return;
+        }
+
+        if (active) {
+          const next: Session = {
+            id: supabaseSession.user.id,
+            email: supabaseSession.user.email ?? '',
+            fullName: profile.full_name,
+            role: profile.role as Role,
+            riderId: profile.rider_id || undefined,
+          };
+          currentSession = next;
+          writeSession(next);
+          emit();
+        }
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+      }
+    }
+
+    initializeAuth();
+
+    // Sync active signouts/changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sbSession) => {
+      if (event === 'SIGNED_OUT' || !sbSession) {
+        if (currentSession !== null) {
+          currentSession = null;
+          writeSession(null);
+          emit();
+        }
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Adapt the user profile to match the legacy AppUser interface required by components
+  const user: AppUser | null = session ? {
+    id: session.id,
+    name: session.fullName,
+    avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(session.fullName)}`,
+    email: session.email,
+    role: session.role,
+    zoneId: null,
+    status: 'active',
+    lastLogin: Date.now()
+  } : null;
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<SignInResult> => {
-      // Demo auth: match email, accept any non-empty password.
-      // TODO: Replace with supabase.auth.signInWithPassword({ email, password }).
-      const found = users.find(
-        (u) => u.email.toLowerCase() === email.trim().toLowerCase()
-      );
-      if (!found)
-      return { ok: false, error: 'No account found for that email.' };
-      if (!password) return { ok: false, error: 'Password is required.' };
-      if (
-      found.role !== 'admin' &&
-      found.role !== 'hr' &&
-      found.role !== 'rider' &&
-      found.role !== 'payroll')
-      {
-        return {
-          ok: false,
-          error: 'Only Admin, HR, Rider, and Payroll accounts can sign in.'
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password
+        });
+
+        if (authError || !authData.user) {
+          return { ok: false, error: authError?.message || 'Invalid login credentials.' };
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('full_name, role, status, rider_id')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError || !profile) {
+          const userId = authData.user.id;
+          await supabase.auth.signOut();
+          return { ok: false, error: `User profile not found in database. (UUID: ${userId})` };
+        }
+
+        if (profile.status === 'suspended') {
+          await supabase.auth.signOut();
+          return { ok: false, error: 'This account is suspended.' };
+        }
+
+        const next: Session = {
+          id: authData.user.id,
+          email: authData.user.email ?? '',
+          fullName: profile.full_name,
+          role: profile.role as Role,
+          riderId: profile.rider_id || undefined
         };
+
+        currentSession = next;
+        writeSession(next);
+        emit();
+        return { ok: true };
+      } catch (err: any) {
+        return { ok: false, error: err.message || 'An unexpected error occurred during login.' };
       }
-      if (found.status === 'suspended') {
-        return { ok: false, error: 'This account is suspended.' };
-      }
-      const next: Session = { userId: found.id, role: found.role as Role };
-      currentSession = next;
-      writeSession(next);
-      emit();
-      return { ok: true };
     },
     []
   );
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('SignOut warning:', err);
+    }
     currentSession = null;
     writeSession(null);
     emit();
   }, []);
 
-  const state: AuthState & {
-    signIn: typeof signIn;
-    signOut: typeof signOut;
-  } = {
+  const state = {
     session,
     user,
     signIn,
     signOut
   };
+
   return state;
 }
