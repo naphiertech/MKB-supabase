@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MoreVertical, KeyRound, Pencil, Ban } from 'lucide-react';
-import type { AppUser, UserRole, Zone } from '../../services/mockData';
+import type { AppUser, UserRole, Zone } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 interface UsersTableProps {
   users: AppUser[];
