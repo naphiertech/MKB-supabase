@@ -9,7 +9,7 @@ const mapRider = (row: any): Rider => {
   return {
     id: row.id,
     name: row.name,
-    avatar: row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
+    avatar: row.face_image_url || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
     zoneId: row.zone_id,
     status: row.status,
     lat: row.lat || 0,
