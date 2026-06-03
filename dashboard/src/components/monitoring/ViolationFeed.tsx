@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Siren } from 'lucide-react';
-import type { ViolationEvent } from '../../services/mockData';
+import type { ViolationEvent } from '../../services/types';
 import { ViolationAlert } from './ViolationAlert';
 interface ViolationFeedProps {
   alerts: ViolationEvent[];
