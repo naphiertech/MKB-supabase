@@ -1,6 +1,6 @@
 import { AlertTriangle, ChevronRight, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { ViolationEvent } from '../../services/mockData';
+import type { ViolationEvent } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 interface ViolationAlertProps {
   alert: ViolationEvent;
