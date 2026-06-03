@@ -8,7 +8,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Crosshair } from 'lucide-react';
 import { GeofenceCircle } from './GeofenceCircle';
-import type { Zone } from '../../services/mockData';
+import type { Zone } from '../../services/types';
 interface RiderMapProps {
   position: {
     lat: number;
