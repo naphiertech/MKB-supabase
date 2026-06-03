@@ -9,7 +9,7 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import { RoutePoint, RouteStats } from '../../services/routeService';
-import { haversine } from '../../services/mockData';
+import { haversine } from '../../services/types';
 import { Play, Pause, RotateCcw, X, Activity } from 'lucide-react';
 
 // Custom start marker — green
