@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import type { Rider } from '../../services/mockData';
+import type { Rider } from '../../services/types';
 /**
  * Builds a Leaflet divIcon for a rider pin with status-colored styling.
  * Using divIcon avoids the default Leaflet marker asset issues (broken image URLs).
