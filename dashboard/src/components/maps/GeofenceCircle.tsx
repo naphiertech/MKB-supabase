@@ -1,5 +1,5 @@
 import { Circle, Tooltip } from 'react-leaflet';
-import type { Zone } from '../../services/mockData';
+import type { Zone } from '../../services/types';
 interface GeofenceCircleProps {
   zone: Zone;
   highlighted?: boolean;
