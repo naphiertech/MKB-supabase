@@ -5,7 +5,7 @@ import {
   AlertTriangle } from
 'lucide-react';
 import { StatCard } from '../common/StatCard';
-import type { Zone, Rider } from '../../services/mockData';
+import type { Zone, Rider } from '../../services/types';
 interface ZoneSummaryCardsProps {
   zones: Zone[];
   riders: Rider[];
