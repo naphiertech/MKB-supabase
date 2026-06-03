@@ -5,7 +5,7 @@ import {
   ChevronRight,
   Users as UsersIcon } from
 'lucide-react';
-import type { Rider, RiderStatus, Zone } from '../../services/mockData';
+import type { Rider, RiderStatus, Zone } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 interface OnlineRidersProps {
   riders: Rider[];
