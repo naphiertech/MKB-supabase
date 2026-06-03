@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { LogIn, LogOut, Clock, Activity } from 'lucide-react';
-import type { Rider, Zone, ViolationEvent } from '../../services/mockData';
+import type { Rider, Zone, ViolationEvent } from '../../services/types';
 interface EventTickerProps {
   riders: Rider[];
   zones: Zone[];
