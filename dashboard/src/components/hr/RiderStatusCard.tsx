@@ -1,5 +1,5 @@
 import { Clock } from 'lucide-react';
-import type { Rider, Zone } from '../../services/mockData';
+import type { Rider, Zone } from '../../services/types';
 interface RiderStatusCardProps {
   rider: Rider;
   zone?: Zone;
