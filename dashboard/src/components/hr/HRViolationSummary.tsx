@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Flag, Check } from 'lucide-react';
-import type { ViolationEvent, Rider } from '../../services/mockData';
+import type { ViolationEvent, Rider } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 import { pushToast } from '../../hooks/useToast';
 interface HRViolationSummaryProps {
