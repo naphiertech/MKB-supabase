@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Users as UsersIcon, Search } from 'lucide-react';
-import type { Rider, Zone, AttendanceLog } from '../../services/mockData';
+import type { Rider, Zone, AttendanceLog } from '../../services/types';
 import { RiderStatusCard } from './RiderStatusCard';
 interface RiderStatusGridProps {
   riders: Rider[];
