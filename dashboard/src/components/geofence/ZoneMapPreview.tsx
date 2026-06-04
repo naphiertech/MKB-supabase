@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Crosshair } from 'lucide-react';
-import type { Zone } from '../../services/mockData';
+import type { Zone } from '../../services/types';
 import { GeofenceCircle } from '../maps/GeofenceCircle';
 const ZAMBOANGA_CENTER: [number, number] = [6.925, 122.078];
 function MapController({ activeZone }: {activeZone: Zone | null;}) {
