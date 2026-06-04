@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, ChevronDown, Search } from 'lucide-react';
 import { MapContainer, TileLayer, Circle, Marker, useMapEvents, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Zone, Rider } from '../../services/mockData';
+import type { Zone, Rider } from '../../services/types';
 import type { ZoneInput } from '../../services/geofenceService';
 
 
