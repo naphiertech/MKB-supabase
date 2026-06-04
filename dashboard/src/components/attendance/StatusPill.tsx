@@ -1,4 +1,4 @@
-import type { AttendanceStatus } from '../../services/mockData';
+import type { AttendanceStatus } from '../../services/types';
 interface StatusPillProps {
   status: AttendanceStatus;
 }
