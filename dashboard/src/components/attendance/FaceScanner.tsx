@@ -1,25 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ScanFace, CheckCircle2, XCircle, Loader2, Camera } from 'lucide-react';
 import type { ScanPhase } from '../../hooks/useFaceRecognition';
+
 interface FaceScannerProps {
   phase: ScanPhase;
   progress: number;
   riderName: string;
   riderAvatar: string;
   confidence?: number;
+  videoRef?: React.RefObject<HTMLVideoElement>;
+  canvasRef?: React.RefObject<HTMLCanvasElement>;
 }
+
 /**
- * Simulated facial-recognition viewfinder. No real camera access — purely a
- * visual placeholder for the OpenCV + FaceNet pipeline.
+ * Real-time camera time-in time-out scanner utilizing device media streams.
+ * Simulates low-level verification features over live frame captures.
  */
 export function FaceScanner({
   phase,
   progress,
   riderName,
   riderAvatar,
-  confidence
+  confidence,
+  videoRef,
+  canvasRef
 }: FaceScannerProps) {
   const [scanLineY, setScanLineY] = useState(0);
+  const internalVideoRef = useRef<HTMLVideoElement>(null);
+  const activeVideoRef = videoRef || internalVideoRef;
+  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+
+  // Animate digital laser scan line
   useEffect(() => {
     if (phase !== 'scanning') return;
     let raf = 0;
@@ -32,6 +43,42 @@ export function FaceScanner({
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [phase]);
+
+  // Handle active webcam media acquisition
+  useEffect(() => {
+    if (phase === 'idle') {
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+        setWebcamStream(null);
+      }
+      return;
+    }
+
+    let active = true;
+    navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 400, facingMode: 'user' } })
+      .then(stream => {
+        if (active) {
+          setWebcamStream(stream);
+          if (activeVideoRef.current) {
+            activeVideoRef.current.srcObject = stream;
+            activeVideoRef.current.play().catch(err => console.warn('Webcam stream play suspended:', err));
+          }
+        } else {
+          stream.getTracks().forEach(track => track.stop());
+        }
+      })
+      .catch(err => {
+        console.warn('Webcam access not granted or unavailable:', err);
+      });
+
+    return () => {
+      active = false;
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [phase, activeVideoRef]);
+
   const matched = phase === 'matched';
   const failed = phase === 'failed';
   const ringColor = matched ?
@@ -47,33 +94,56 @@ export function FaceScanner({
       <div
         className={`relative aspect-square w-full max-w-[280px] mx-auto rounded-2xl overflow-hidden border-2 ${ringColor} bg-[#0a0c12] transition-colors shadow-[0_20px_45px_-20px_rgba(219,108,0,0.35)]`}>
         
-        {/* Simulated camera feed */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a0f06] via-[#0f0a06] to-[#0a0c12]" />
-        <div
-          className="absolute inset-0 opacity-[0.18]"
-          style={{
-            backgroundImage:
-            'radial-gradient(circle at 50% 40%, rgba(219,108,0,0.45), transparent 55%)'
-          }} />
+        {/* Real Live Camera Feed */}
+        {webcamStream ? (
+          <div className="absolute inset-0 w-full h-full">
+            <video
+              ref={activeVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+            />
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 w-full h-full object-cover scale-x-[-1] pointer-events-none"
+            />
+          </div>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1a0f06] via-[#0f0a06] to-[#0a0c12]" />
+            <div
+              className="absolute inset-0 opacity-[0.18]"
+              style={{
+                backgroundImage:
+                  'radial-gradient(circle at 50% 40%, rgba(219,108,0,0.45), transparent 55%)'
+              }}
+            />
+          </>
+        )}
         
-        {/* Centered rider silhouette → avatar */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        {/* Centered target reticle */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div
-            className={`relative w-32 h-32 rounded-full overflow-hidden border-2 ${matched ? 'border-emerald-400/80' : failed ? 'border-red-400/80' : 'border-[#db6c00]/70'} bg-[#1a1d27]`}>
-            
-            <img
-              src={riderAvatar}
-              alt={`${riderName} face capture`}
-              className={`w-full h-full object-cover ${phase === 'scanning' ? 'opacity-90' : 'opacity-95'}`} />
+            className={`relative w-40 h-40 rounded-full border-2 border-dashed ${matched ? 'border-emerald-400/80 animate-pulse bg-emerald-500/10' : failed ? 'border-red-400/80 bg-red-500/10' : 'border-[#db6c00]/70'} bg-transparent`}
+          >
+            {/* Small floating rider profile avatar as reference */}
+            {matched && (
+              <img
+                src={riderAvatar}
+                alt={`${riderName} matching template`}
+                className="absolute -bottom-2 right-2 w-10 h-10 rounded-full border-2 border-emerald-400 object-cover shadow-md"
+              />
+            )}
             
             {/* Face overlay grid */}
-            {(phase === 'scanning' || phase === 'initializing') &&
-            <div className="absolute inset-0 pointer-events-none">
+            {(phase === 'scanning' || phase === 'initializing') && (
+              <div className="absolute inset-0">
                 <div className="absolute inset-3 border border-[#db6c00]/50 rounded-full" />
                 <div className="absolute top-1/2 left-3 right-3 h-px bg-[#db6c00]/40" />
                 <div className="absolute top-3 bottom-3 left-1/2 w-px bg-[#db6c00]/40" />
               </div>
-            }
+            )}
           </div>
         </div>
 
