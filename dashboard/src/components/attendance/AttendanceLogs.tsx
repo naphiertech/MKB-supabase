@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ClipboardCheck, ChevronRight } from 'lucide-react';
-import type { AttendanceLog } from '../../services/mockData';
+import type { AttendanceLog } from '../../services/types';
 import { StatusPill } from './StatusPill';
 interface AttendanceLogsProps {
   logs: AttendanceLog[];
