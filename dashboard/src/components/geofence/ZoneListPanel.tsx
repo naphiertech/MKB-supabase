@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search, Pencil, Trash2, ChevronRight, Plus } from 'lucide-react';
-import type { Zone } from '../../services/mockData';
+import type { Zone } from '../../services/types';
 import { formatLatLng } from '../../lib/geofenceUtils';
 interface ZoneListPanelProps {
   zones: Zone[];
