@@ -107,7 +107,7 @@ export function Topbar({
   });
   const badge = ROLE_BADGE[role];
   return (
-    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-[#EFEAE2]">
+    <header className="sticky top-0 z-[1010] bg-white/90 backdrop-blur-md border-b border-[#EFEAE2]">
       <div className="flex items-center gap-3 md:gap-6 px-4 md:px-7 h-16">
         <button
           onClick={onMenuClick}
