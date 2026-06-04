@@ -10,7 +10,7 @@ import {
   LogOut,
   Pause } from
 'lucide-react';
-import type { AttendanceLog } from '../../services/mockData';
+import type { AttendanceLog } from '../../services/types';
 import { StatusPill } from './StatusPill';
 interface AttendanceTableProps {
   logs: AttendanceLog[];
