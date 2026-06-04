@@ -18,7 +18,8 @@ import {
   ChevronsUpDown,
   Lock,
   Sparkles,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 
 function pad(n: number) {
@@ -55,13 +56,21 @@ export function PayrollComputation() {
   const [savingAll, setSavingAll] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Load active riders from Supabase on mount
+  // Unsaved draft states to prevent automatic saves on keystroke
+  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [editingVal, setEditingVal] = useState<number>(0);
+
+  // Modal confirmation gates
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmDate, setConfirmDate] = useState<string | null>(null);
+  const [confirmVal, setConfirmVal] = useState<number>(0);
+
+  // Load all riders from Supabase on mount
   useEffect(() => {
     const loadRiders = async () => {
       const { data } = await supabase
         .from('riders')
         .select('id, name, mkb_id, zones(name)')
-        .eq('status', 'active')
         .order('name');
       if (data) {
         setRiders(data);
@@ -75,6 +84,7 @@ export function PayrollComputation() {
   useEffect(() => {
     if (!selectedRiderId || !cutoffFrom || !cutoffTo) return;
 
+    setEditingDate(null);
     const loadLogs = async () => {
       setLoadingLogs(true);
 
@@ -128,11 +138,19 @@ export function PayrollComputation() {
     );
   }, [rate]);
 
+  // Handle typing in input field (saves to local draft state instead of DB)
+  const handleInputChange = useCallback((date: string, val: number) => {
+    setEditingDate(date);
+    setEditingVal(val);
+  }, []);
+
   // Update a single day's parcels and auto-save in Supabase
   const updateDayParcels = useCallback(async (
     date: string,
     parcels: number
   ) => {
+    if (date > isoToday()) return;
+
     setDayEntries(prev =>
       prev.map(entry =>
         entry.date === date
@@ -273,7 +291,7 @@ export function PayrollComputation() {
               </div>
               <div>
                 <div className="text-sm font-semibold text-[#1A1410]">Select Rider</div>
-                <div className="text-[11px] text-[#6B6258] font-mono">{riders.length} active</div>
+                <div className="text-[11px] text-[#6B6258] font-mono">{riders.length} total</div>
               </div>
             </div>
 
@@ -542,12 +560,19 @@ export function PayrollComputation() {
                 {dayEntries.map(entry => {
                   const isHigh = entry.parcels > 100;
                   const isLow = entry.parcels > 0 && entry.parcels < 5;
+                  const isFuture = entry.date > isoToday();
+                  const isEditingThis = editingDate === entry.date;
+                  const displayVal = isEditingThis ? editingVal : entry.parcels;
 
                   return (
                     <tr
                       key={entry.date}
                       className={`border-b border-[#EFEAE2] transition-colors
-                        ${entry.parcels === 0
+                        ${isFuture
+                          ? 'opacity-40 bg-[#FAFAF7]/30'
+                          : isEditingThis
+                          ? 'bg-[#FFF1E0]/20'
+                          : entry.parcels === 0
                           ? 'opacity-50'
                           : isHigh
                           ? 'bg-amber-50'
@@ -556,7 +581,9 @@ export function PayrollComputation() {
                           : 'hover:bg-[#FAFAF7]/50'
                         }`}
                       title={
-                        isHigh
+                        isFuture
+                          ? 'Future date is locked'
+                          : isHigh
                           ? 'Unusually high — please verify with supervisor'
                           : isLow
                           ? 'Very low count — please verify'
@@ -571,21 +598,67 @@ export function PayrollComputation() {
                         })}
                       </td>
                       <td className="px-5 py-2.5">
-                        <input
-                          type="number"
-                          min={0}
-                          value={entry.parcels}
-                          onChange={e => updateDayParcels(entry.date, Number(e.target.value))}
-                          className="w-24 text-center border border-[#EFEAE2] rounded-lg px-2.5 py-1 text-sm font-mono focus:border-[#db6c00] outline-none bg-[#FAFAF7] text-[#1A1410]"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            value={displayVal}
+                            disabled={isFuture}
+                            onChange={e => handleInputChange(entry.date, Math.max(0, Number(e.target.value) || 0))}
+                            className={`w-24 text-center border rounded-lg px-2.5 py-1 text-sm font-mono outline-none transition
+                              ${isEditingThis 
+                                ? 'border-[#db6c00] bg-white text-[#1A1410] ring-2 ring-[#db6c00]/15' 
+                                : 'border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] focus:border-[#db6c00]'
+                              }
+                              disabled:opacity-50 disabled:cursor-not-allowed`}
+                          />
+                          {isEditingThis && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setConfirmDate(entry.date);
+                                  setConfirmVal(editingVal);
+                                  setConfirmOpen(true);
+                                }}
+                                className="w-7 h-7 rounded bg-emerald-50 hover:bg-emerald-100 border border-emerald-500/30 flex items-center justify-center text-emerald-600 transition"
+                                title="Save changes"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingDate(null);
+                                }}
+                                className="w-7 h-7 rounded bg-red-50 hover:bg-red-100 border border-red-500/30 flex items-center justify-center text-red-500 transition"
+                                title="Cancel edit"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-2.5 text-sm font-mono text-[#1A1410]">
                         {entry.parcels === 0 ? '—' : `₱${entry.dailyGross.toLocaleString()}`}
                       </td>
                       <td className="px-5 py-2.5 text-xs">
-                        {entry.saving && <span className="text-amber-600 font-medium">Saving...</span>}
-                        {entry.saved && !entry.saving && <span className="text-emerald-600 font-medium">✓ Saved</span>}
-                        {entry.error && <span className="text-red-500 font-medium">Failed — retry</span>}
+                        {isFuture ? (
+                          <span className="text-[#6B6258]/60 font-medium inline-flex items-center gap-1">
+                            <Lock className="w-3.5 h-3.5" /> Locked
+                          </span>
+                        ) : isEditingThis ? (
+                          <span className="text-amber-600 font-medium inline-flex items-center gap-1">
+                            Unsaved draft
+                          </span>
+                        ) : (
+                          <>
+                            {entry.saving && <span className="text-amber-600 font-medium">Saving...</span>}
+                            {entry.saved && !entry.saving && <span className="text-emerald-600 font-medium">✓ Saved</span>}
+                            {entry.error && <span className="text-red-500 font-medium">Failed — retry</span>}
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -605,6 +678,76 @@ export function PayrollComputation() {
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {confirmOpen && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmOpen(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-md bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-xl z-10"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center shrink-0">
+                  <Calculator className="w-5 h-5 text-[#db6c00]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1410]">Verify Parcel Count Change</h3>
+                  <p className="text-xs text-[#6B6258] mt-1 leading-relaxed">
+                    You are updating the delivered parcels for <span className="font-semibold text-[#1A1410]">{confirmDate && new Date(confirmDate).toLocaleDateString('en-PH', { month: 'long', day: '2-digit', year: 'numeric' })}</span>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="my-5 p-4 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-semibold">New Count</div>
+                  <div className="text-lg font-bold text-[#1A1410] font-mono mt-0.5">{confirmVal} parcels</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-semibold">New Gross Pay</div>
+                  <div className="text-lg font-bold text-[#db6c00] font-mono mt-0.5">₱{(confirmVal * rate).toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  className="px-4 h-9 rounded-md bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] text-sm font-semibold text-[#6B6258] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (confirmDate) {
+                      await updateDayParcels(confirmDate, confirmVal);
+                      setEditingDate(null);
+                    }
+                    setConfirmOpen(false);
+                  }}
+                  className="px-4 h-9 rounded-md bg-[#db6c00] hover:bg-[#b85a00] text-sm font-semibold text-white transition shadow-sm"
+                >
+                  Confirm & Save
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
