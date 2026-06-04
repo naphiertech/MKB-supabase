@@ -292,20 +292,43 @@ export function Sidebar({
               />
               }
                 {active &&
-              <span
-                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${a.activeBar}`} />
+              <motion.span
+                layoutId="activeBar"
+                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${a.activeBar}`}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }} />
 
               }
               <Icon
               className={`w-[18px] h-[18px] ${active ? a.iconActive : 'text-[#6B6258] group-hover:text-[#1A1410]'}`} />
             
               <span className="flex-1 text-left font-medium">{label}</span>
-              {active &&
-            <ChevronRight className={`w-3.5 h-3.5 ${a.chevron}`} />
-            }
-              {key === 'monitoring' && !active &&
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              }
+
+              <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
+                <motion.div
+                  initial={false}
+                  animate={{
+                    opacity: active ? 1 : 0,
+                    scale: active ? 1 : 0.6,
+                    x: active ? 0 : -6
+                  }}
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  className={`absolute ${a.chevron}`}
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </motion.div>
+
+                {key === 'monitoring' && (
+                  <motion.span
+                    initial={false}
+                    animate={{
+                      opacity: active ? 0 : 1,
+                      scale: active ? 0 : 1
+                    }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="absolute w-1.5 h-1.5 rounded-full bg-emerald-500"
+                  />
+                )}
+              </div>
             </button>
           </motion.div>);
 
@@ -369,7 +392,7 @@ export function Sidebar({
       {/* Mobile drawer */}
       <AnimatePresence>
         {isMobileOpen && (
-          <div className="md:hidden fixed inset-0 z-50 pointer-events-auto">
+          <div className="md:hidden fixed inset-0 z-[1050] pointer-events-auto">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
