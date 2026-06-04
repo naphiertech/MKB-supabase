@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react';
-import type { Zone, Rider, AttendanceLog } from '../../services/mockData';
+import type { Zone, Rider, AttendanceLog } from '../../services/types';
 interface AssignedRidersByZoneProps {
   zones: Zone[];
   riders: Rider[];
