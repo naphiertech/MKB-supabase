@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Component } from 'react';
 import { Sidebar, type PageKey } from './components/common/Sidebar';
 import { Topbar } from './components/common/Topbar';
 import { DashboardSkeleton } from './components/common/DashboardSkeleton';
@@ -18,10 +18,12 @@ import { RiderTopNav, type RiderPageKey } from './components/rider/RiderTopNav';
 import { PayrollDashboard } from './pages/PayrollDashboard';
 import { PayrollComputation } from './pages/PayrollComputation';
 import { PayrollReports } from './pages/PayrollReports';
-import { riders as ALL_RIDERS, zones as ALL_ZONES } from './services/mockData';
+import { getAllRiders } from './services/monitoringService';
+import { getZones } from './services/geofenceService';
+import type { Rider, Zone } from './services/types';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
-import { ToastViewport } from './components/common/Toast';
+import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
 
 const pageVariants: Variants = {
@@ -51,12 +53,57 @@ const pageVariants: Variants = {
     },
   },
 };
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
+  state: { hasError: boolean; error: any } = { hasError: false, error: null };
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 max-w-2xl mx-auto my-10 bg-red-50 border border-red-200 rounded-xl shadow-lg text-red-950 font-sans">
+          <h2 className="text-lg font-bold flex items-center gap-2 mb-2 text-red-800">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" />
+            Component Rendering Error Detected
+          </h2>
+          <p className="text-sm text-red-700 mb-4 font-medium">
+            The reports dashboard encountered a runtime error and was caught by the emergency error boundary:
+          </p>
+          <div className="bg-red-950 text-red-100 p-4 rounded-lg text-xs font-mono overflow-auto max-h-[300px] border border-red-900 leading-relaxed whitespace-pre-wrap">
+            {this.state.error?.stack || this.state.error?.toString() || 'Unknown Error'}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition shadow-sm"
+          >
+            Reload Dashboard
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function App() {
   const { session, user, signOut } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageKey>('dashboard');
   const [riderPage, setRiderPage] = useState<RiderPageKey>('dashboard');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
+
+  const [allRiders, setAllRiders] = useState<Rider[]>([]);
+  const [allZones, setAllZones] = useState<Zone[]>([]);
+
+  useEffect(() => {
+    if (session) {
+      getAllRiders().then(setAllRiders);
+      getZones().then(setAllZones);
+    }
+  }, [session]);
 
   // Trigger organic simulated skeleton loading on page/tab changes
   useEffect(() => {
@@ -72,15 +119,15 @@ export function App() {
   // Payroll only sees system notifications.
   const allowedTypes = useMemo(
     () =>
-    role === 'rider' ?
-    (['attendance', 'system'] as const).slice() :
-    role === 'payroll' ?
-    (['system'] as const).slice() :
-    undefined,
+      role === 'rider' ?
+        (['attendance', 'system'] as const).slice() :
+        role === 'payroll' ?
+          (['system'] as const).slice() :
+          undefined,
     [role]
   );
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
-  useNotifications(allowedTypes);
+    useNotifications(allowedTypes);
   // Reset to dashboard whenever the role changes (e.g. switching accounts)
   useEffect(() => {
     setCurrentPage('dashboard');
@@ -92,15 +139,16 @@ export function App() {
     return (
       <>
         <Login />
-        <ToastViewport />
+        <Toaster position="top-right" reverseOrder={false} />
       </>);
 
   }
   // Rider role — dedicated top-nav layout (no sidebar)
   if (role === 'rider') {
     const riderId = user.id.replace(/^u-rider-/, '');
-    const rider = ALL_RIDERS.find((r) => r.id === riderId) ?? ALL_RIDERS[0];
-    const zone = ALL_ZONES.find((z) => z.id === rider.zoneId) ?? ALL_ZONES[0];
+    const rider = allRiders.find((r) => r.id === riderId) || { name: user.name, avatar: user.avatar, zoneId: null };
+    const zone = allZones.find((z) => z.id === rider.zoneId);
+    const zoneName = zone?.name || 'Zamboanga City';
     return (
       <div className="min-h-screen w-full bg-[#FAFAF7] text-[#1A1410] font-[Geist,sans-serif] flex flex-col">
         <RiderTopNav
@@ -109,48 +157,48 @@ export function App() {
           user={{
             name: rider.name,
             avatar: rider.avatar,
-            zoneName: zone.name
+            zoneName: zoneName
           }}
           notifications={notifications}
           unreadCount={unreadCount}
           onMarkAsRead={markAsRead}
           onMarkAllAsRead={markAllAsRead}
           onSignOut={signOut} />
-        
+
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={isPageLoading ? 'loading' : riderPage}
-              variants={pageVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="h-full"
-            >
-              {isPageLoading ? (
+            {isPageLoading ? (
+              <div key="loading" className="h-full">
                 <DashboardSkeleton page={riderPage} role="rider" />
-              ) : (
-                <>
-                  {riderPage === 'dashboard' && <RiderDashboard userId={user.id} />}
-                  {riderPage === 'attendance' &&
+              </div>
+            ) : (
+              <motion.div
+                key={riderPage}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="h-full"
+              >
+                {riderPage === 'dashboard' && <RiderDashboard userId={user.id} />}
+                {riderPage === 'attendance' &&
                   <RiderAttendance onBack={() => setRiderPage('dashboard')} />
-                  }
-                  {riderPage === 'monitoring' &&
+                }
+                {riderPage === 'monitoring' &&
                   <RiderMonitoring
                     userId={user.id}
                     onBack={() => setRiderPage('dashboard')} />
-                  }
-                  {riderPage === 'profile' &&
+                }
+                {riderPage === 'profile' &&
                   <RiderProfile
                     userId={user.id}
                     onBack={() => setRiderPage('dashboard')} />
-                  }
-                </>
-              )}
-            </motion.div>
+                }
+              </motion.div>
+            )}
           </AnimatePresence>
         </main>
-        <ToastViewport />
+        <Toaster position="top-right" reverseOrder={false} />
       </div>);
 
   }
@@ -161,10 +209,10 @@ export function App() {
     if (r === 'admin') return p;
     if (r === 'hr') {
       const allowed: PageKey[] = [
-      'dashboard',
-      'monitoring',
-      'attendance',
-      'reports'];
+        'dashboard',
+        'monitoring',
+        'attendance',
+        'reports'];
 
       return allowed.includes(p) ? p : 'dashboard';
     }
@@ -174,9 +222,8 @@ export function App() {
   }
   const safePage = safePageFor(dashRole, currentPage);
   function handleHrNavigate(
-  page: 'monitoring' | 'attendance' | 'reports',
-  _params?: Record<string, string>)
-  {
+    page: 'monitoring' | 'attendance' | 'reports',
+    _params?: Record<string, string>) {
     setCurrentPage(page);
     setMobileNavOpen(false);
   }
@@ -198,7 +245,7 @@ export function App() {
         onSignOut={signOut}
         isMobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)} />
-      
+
       <div className="flex-1 min-w-0 flex flex-col">
         <Topbar
           page={safePage}
@@ -208,58 +255,58 @@ export function App() {
           onMarkAllAsRead={markAllAsRead}
           role={dashRole}
           onMenuClick={() => setMobileNavOpen(true)} />
-        
+
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={isPageLoading ? 'loading' : safePage}
-              variants={pageVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="h-full"
-            >
-              {isPageLoading ? (
+            {isPageLoading ? (
+              <div key="loading" className="h-full">
                 <DashboardSkeleton page={safePage} role={dashRole} />
-              ) : (
-                <>
-                  {role === 'admin' &&
+              </div>
+            ) : (
+              <motion.div
+                key={safePage}
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="h-full"
+              >
+                {role === 'admin' &&
                   <>
-                      {safePage === 'dashboard' &&
-                    <AdminDashboard
-                      onNavigate={(p) => handleNavigate(p as PageKey)} />
+                    {safePage === 'dashboard' &&
+                      <AdminDashboard
+                        onNavigate={(p) => handleNavigate(p as PageKey)} />
                     }
-                      {safePage === 'monitoring' && <LiveMonitoring />}
-                      {safePage === 'geofence' && <Geofence />}
-                      {safePage === 'attendance' && <Attendance />}
-                      {safePage === 'reports' && <Reports />}
-                      {safePage === 'users' && <Users />}
-                    </>
-                  }
-                  {role === 'hr' &&
+                    {safePage === 'monitoring' && <LiveMonitoring />}
+                    {safePage === 'geofence' && <Geofence />}
+                    {safePage === 'attendance' && <Attendance />}
+                    {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
+                    {safePage === 'users' && <Users />}
+                  </>
+                }
+                {role === 'hr' &&
                   <>
-                      {safePage === 'dashboard' &&
-                    <HRDashboard onNavigate={handleHrNavigate} />
+                    {safePage === 'dashboard' &&
+                      <HRDashboard onNavigate={handleHrNavigate} />
                     }
-                      {safePage === 'monitoring' && <LiveMonitoring />}
-                      {safePage === 'attendance' && <Attendance />}
-                      {safePage === 'reports' && <Reports />}
-                    </>
-                  }
-                  {role === 'payroll' &&
+                    {safePage === 'monitoring' && <LiveMonitoring />}
+                    {safePage === 'attendance' && <Attendance />}
+                    {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
+                  </>
+                }
+                {role === 'payroll' &&
                   <>
-                      {safePage === 'dashboard' && <PayrollDashboard />}
-                      {safePage === 'computation' && <PayrollComputation />}
-                      {safePage === 'reports' && <PayrollReports />}
-                    </>
-                  }
-                </>
-              )}
-            </motion.div>
+                    {safePage === 'dashboard' && <PayrollDashboard />}
+                    {safePage === 'computation' && <PayrollComputation />}
+                    {safePage === 'reports' && <PayrollReports />}
+                  </>
+                }
+              </motion.div>
+            )}
           </AnimatePresence>
         </main>
       </div>
-      <ToastViewport />
+      <Toaster position="top-right" reverseOrder={false} />
     </div>);
 
 }
