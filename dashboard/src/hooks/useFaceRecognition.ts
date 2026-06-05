@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ensureScriptsLoaded,
   loadFaceModels,
-  detectSingleFaceRect,
-  getFaceDescriptor,
   getDescriptorFromUrl,
   verifyFaceIdentity,
-  preprocessWithOpenCV
+  detectFaceWithDetails,
+  loadMediaPipeLandmarker,
+  calculateMediaPipeEAR
 } from '../lib/faceAi';
 
 export type ScanPhase =
@@ -16,6 +16,17 @@ export type ScanPhase =
   | 'matched'
   | 'failed';
 
+export interface BiometricDebugInfo {
+  referenceLoaded: boolean | null;
+  eyesOpen: boolean;
+  eyesClosed: boolean;
+  blinkCompleted: boolean;
+  headTilted: boolean;
+  currentEAR: number;
+  headTiltAngle: number;
+  lastDistance: number | null;
+}
+
 interface UseFaceRecognitionOptions {
   /** Total duration of a scan, in ms. */
   durationMs?: number;
@@ -23,6 +34,10 @@ interface UseFaceRecognitionOptions {
   successRate?: number;
   /** Enrolled reference face image URL (Base64 or standard HTTP URL) */
   referenceAvatar?: string | null;
+  /** Enrolled reference face descriptor array (128-dimensional) */
+  referenceDescriptor?: number[] | null;
+  /** Callback fired when a fallback reference image finishes compiling its descriptor */
+  onDescriptorCalculated?: (descriptor: number[]) => void;
 }
 
 interface ScanResult {
@@ -30,24 +45,47 @@ interface ScanResult {
   confidence: number;
   capturedAt: number;
   snapshotUrl?: string; // Captured enrollment photo snapshot
+  descriptor?: number[]; // Serializable 128-dimensional face descriptor
 }
 
 export function useFaceRecognition({
   durationMs = 3000,
   successRate = 1.0,
-  referenceAvatar = null
+  referenceAvatar = null,
+  referenceDescriptor = null,
+  onDescriptorCalculated
 }: UseFaceRecognitionOptions = {}) {
   const [phase, setPhase] = useState<ScanPhase>('idle');
   const [progress, setProgress] = useState(0); // 0–1
   const [result, setResult] = useState<ScanResult | null>(null);
-  
+  const [livenessPrompt, setLivenessPrompt] = useState<string>('Look straight into the camera.');
+  const [debugInfo, setDebugInfo] = useState<BiometricDebugInfo>({
+    referenceLoaded: null,
+    eyesOpen: false,
+    eyesClosed: false,
+    blinkCompleted: false,
+    headTilted: false,
+    currentEAR: 0,
+    headTiltAngle: 0,
+    lastDistance: null
+  });
+
+  const eyesOpenDetectedRef = useRef(false);
+  const eyesClosedDetectedRef = useRef(false);
+  const blinkCompletedRef = useRef(false);
+  const headTiltedDetectedRef = useRef(false);
+  const faceMatchedRef = useRef(false);
+  const maxEarRef = useRef<number>(0);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const scanLoopRef = useRef<number | null>(null);
   const timers = useRef<number[]>([]);
+  const isScanningActiveRef = useRef(false);
 
   const clearTimers = useCallback(() => {
+    isScanningActiveRef.current = false;
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
     if (scanLoopRef.current) {
@@ -61,6 +99,23 @@ export function useFaceRecognition({
     setPhase('idle');
     setProgress(0);
     setResult(null);
+    setLivenessPrompt('Center your face & look straight 😐');
+    eyesOpenDetectedRef.current = false;
+    eyesClosedDetectedRef.current = false;
+    blinkCompletedRef.current = false;
+    headTiltedDetectedRef.current = false;
+    faceMatchedRef.current = false;
+    maxEarRef.current = 0;
+    setDebugInfo({
+      referenceLoaded: null,
+      eyesOpen: false,
+      eyesClosed: false,
+      blinkCompleted: false,
+      headTilted: false,
+      currentEAR: 0,
+      headTiltAngle: 0,
+      lastDistance: null
+    });
     
     // Clear overlay canvas
     const canvas = canvasRef.current;
@@ -102,10 +157,11 @@ export function useFaceRecognition({
   }, [durationMs, successRate]);
 
   /**
-   * Real Facial Detection and Embedding Matching Loop
+   * Real Facial Detection, Liveness Verification and Embedding Matching Loop
    */
   const startRealScanning = useCallback(async () => {
     setPhase('scanning');
+    isScanningActiveRef.current = true;
     
     const isVerificationMode = !!referenceAvatar;
     const isCartoonPlaceholder = !!referenceAvatar && (
@@ -115,19 +171,43 @@ export function useFaceRecognition({
       referenceAvatar.endsWith('.svg')
     );
 
+    console.log('[Face AI] Starting real scan. Reference avatar:', referenceAvatar ? referenceAvatar.slice(0, 100) + '...' : 'none');
+    
     let referenceDesc: Float32Array | null = null;
-    if (isVerificationMode && !isCartoonPlaceholder) {
-      referenceDesc = await getDescriptorFromUrl(referenceAvatar);
+    let refLoaded = false;
+    
+    if (isVerificationMode) {
+      if (referenceDescriptor && referenceDescriptor.length === 128) {
+        referenceDesc = new Float32Array(referenceDescriptor);
+        refLoaded = true;
+        console.log('[Face AI] Reference descriptor loaded directly from DB.');
+      } else if (!isCartoonPlaceholder && referenceAvatar) {
+        referenceDesc = await getDescriptorFromUrl(referenceAvatar);
+        if (referenceDesc) {
+          refLoaded = true;
+          console.log('[Face AI] Reference descriptor compiled from URL.');
+          // Fire callback to save it to database
+          onDescriptorCalculated?.(Array.from(referenceDesc));
+        }
+      }
+      
+      setDebugInfo(prev => ({
+        ...prev,
+        referenceLoaded: refLoaded
+      }));
     }
 
+    const landmarker = await loadMediaPipeLandmarker();
+    console.log('[Face AI] MediaPipe Face Landmarker loaded:', landmarker ? 'Success' : 'Failed');
+
+    const scanDuration = isVerificationMode ? 30000 : durationMs; // Allow more time for double challenge (30s)
     const startTime = Date.now();
-    let isScanningActive = true;
 
     const tick = async () => {
-      if (!isScanningActive) return;
+      if (!isScanningActiveRef.current) return;
 
       const elapsed = Date.now() - startTime;
-      const currentProgress = Math.min(1.0, elapsed / durationMs);
+      const currentProgress = Math.min(1.0, elapsed / scanDuration);
       setProgress(currentProgress);
 
       const video = videoRef.current;
@@ -140,8 +220,64 @@ export function useFaceRecognition({
           canvas.height = video.videoHeight;
         }
 
-        // 1. Detect face rect for rendering visual cyber corners
-        const box = await detectSingleFaceRect(video);
+        let mpEAR = 0.0;
+        let mpRoll = 0.0;
+        let livenessPassed = false;
+
+        // 1. Run MediaPipe Landmarker for Liveness (Blink + Head Tilt)
+        if (landmarker) {
+          try {
+            const detections = landmarker.detectForVideo(video, Date.now());
+            if (detections && detections.faceLandmarks && detections.faceLandmarks.length > 0) {
+              const landmarks = detections.faceLandmarks[0];
+              mpEAR = calculateMediaPipeEAR(landmarks);
+
+              if (isVerificationMode) {
+                // Challenge Sequence:
+                // Stage A: Align face (open eyes, look straight)
+                if (!eyesOpenDetectedRef.current && mpEAR > 0.20) {
+                  eyesOpenDetectedRef.current = true;
+                  console.log('[Liveness] Align stage complete (Eyes open).');
+                }
+                // Stage B: Blink (eyes closed)
+                if (eyesOpenDetectedRef.current && !eyesClosedDetectedRef.current && mpEAR < 0.19) {
+                  eyesClosedDetectedRef.current = true;
+                  console.log('[Liveness] Blink stage complete (Eyes closed).');
+                }
+                // Stage C: Reopen eyes
+                if (eyesClosedDetectedRef.current && !blinkCompletedRef.current && mpEAR > 0.20) {
+                  blinkCompletedRef.current = true;
+                  console.log('[Liveness] Blink complete.');
+                }
+
+                livenessPassed = blinkCompletedRef.current;
+              } else {
+                // Enrollment mode: Just align face
+                livenessPassed = mpEAR > 0.20;
+              }
+            }
+          } catch (err) {
+            console.warn('[Face AI] MediaPipe detection exception:', err);
+          }
+        }
+
+        // Update status prompts
+        if (isVerificationMode) {
+          if (!eyesOpenDetectedRef.current) {
+            setLivenessPrompt('Center your face & look straight 😐');
+          } else if (!eyesClosedDetectedRef.current) {
+            setLivenessPrompt('Close your eyes for a brief moment 😴');
+          } else if (!blinkCompletedRef.current) {
+            setLivenessPrompt('Blink detected! Open your eyes 😊');
+          } else {
+            setLivenessPrompt('Liveness verified! Verifying identity... 🔍');
+          }
+        } else {
+          setLivenessPrompt(livenessPassed ? 'Face aligned! Capturing...' : 'Look straight and center your face.');
+        }
+
+        // 2. Run face-api.js for Face Bounding Box & Matching
+        const faceData = await detectFaceWithDetails(video);
 
         // Draw bounding box details on overlay canvas
         if (canvas) {
@@ -149,9 +285,8 @@ export function useFaceRecognition({
           if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            if (box) {
-              // Target bounds
-              const r = box;
+            if (faceData) {
+              const r = faceData.box;
 
               // Draw dashed background outline box
               ctx.setLineDash([4, 4]);
@@ -195,55 +330,75 @@ export function useFaceRecognition({
           }
         }
 
-        // 2. Perform deep learning face comparison (wait until 35% scanning completes to simulate loading rhythm)
-        if (box && currentProgress >= 0.35) {
-          const descriptor = await getFaceDescriptor(video);
-          
-          if (descriptor) {
-            if (isVerificationMode) {
-              // Attendance Clock-in verification mode
-              if (isCartoonPlaceholder || !referenceDesc) {
-                // Reject immediately if they don't have a valid real face registered
-                isScanningActive = false;
-                setPhase('failed');
-                setProgress(1.0);
-                
-                if (canvas) {
-                  const ctx = canvas.getContext('2d');
-                  ctx?.clearRect(0, 0, canvas.width, canvas.height);
-                }
+        // 3. Process matching if faceData is available
+        if (faceData) {
+          if (isVerificationMode) {
+            let currentDistance: number | null = null;
 
-                setResult({
-                  matched: false,
-                  confidence: 0.0,
-                  capturedAt: Date.now()
-                });
-                return;
-              }
-
-              // Enforce strict biometric distance threshold (0.52) for real face-match verification
-              const verify = verifyFaceIdentity(descriptor, referenceDesc, 0.52);
+            if (isCartoonPlaceholder || !referenceDesc) {
+              console.log('[Face AI] Aborting verification: isCartoonPlaceholder:', isCartoonPlaceholder, 'referenceDesc:', !!referenceDesc);
+              isScanningActiveRef.current = false;
+              setPhase('failed');
+              setProgress(1.0);
+              setLivenessPrompt('Verification failed.');
               
-              if (verify.matched) {
-                isScanningActive = false;
-                setPhase('matched');
-                setProgress(1.0);
-                
-                if (canvas) {
-                  const ctx = canvas.getContext('2d');
-                  ctx?.clearRect(0, 0, canvas.width, canvas.height);
-                }
-
-                setResult({
-                  matched: true,
-                  confidence: verify.confidence,
-                  capturedAt: Date.now()
-                });
-                return;
+              if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx?.clearRect(0, 0, canvas.width, canvas.height);
               }
-            } else {
-              // Admin enrollment registration mode
-              isScanningActive = false;
+
+              setResult({
+                matched: false,
+                confidence: 0.0,
+                capturedAt: Date.now()
+              });
+              return;
+            }
+
+            // Enforce biometric distance threshold (0.58) for real face-match verification
+            const verify = verifyFaceIdentity(faceData.descriptor, referenceDesc, 0.58);
+            currentDistance = verify.distance;
+
+            // Lock face match status if verification succeeds during any frame (typically when facing straight)
+            if (verify.matched) {
+              faceMatchedRef.current = true;
+            }
+
+            // Verification succeeds ONLY if both face-matching and liveness challenge succeed
+            if (faceMatchedRef.current && livenessPassed) {
+              isScanningActiveRef.current = false;
+              setPhase('matched');
+              setProgress(1.0);
+              setLivenessPrompt('Verify complete!');
+              
+              if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx?.clearRect(0, 0, canvas.width, canvas.height);
+              }
+
+              setResult({
+                matched: true,
+                confidence: verify.confidence,
+                capturedAt: Date.now()
+              });
+              return;
+            }
+
+            setDebugInfo(prev => ({
+              referenceLoaded: refLoaded,
+              eyesOpen: eyesOpenDetectedRef.current,
+              eyesClosed: eyesClosedDetectedRef.current,
+              blinkCompleted: blinkCompletedRef.current,
+              headTilted: headTiltedDetectedRef.current,
+              currentEAR: mpEAR,
+              headTiltAngle: mpRoll,
+              lastDistance: currentDistance !== null ? currentDistance : prev.lastDistance
+            }));
+          } else {
+            // Admin enrollment registration mode
+            // Snaps immediately when face is detected and properly aligned
+            if (livenessPassed) {
+              isScanningActiveRef.current = false;
               setPhase('matched');
               setProgress(1.0);
 
@@ -255,8 +410,6 @@ export function useFaceRecognition({
               
               if (snapCtx) {
                 snapCtx.drawImage(video, 0, 0);
-                // Preprocess snapshot frame using OpenCV (grayscale + hist equalize)
-                await preprocessWithOpenCV(snapCanvas);
               }
 
               const base64Data = snapCanvas.toDataURL('image/jpeg');
@@ -270,20 +423,30 @@ export function useFaceRecognition({
                 matched: true,
                 confidence: 0.98,
                 capturedAt: Date.now(),
-                snapshotUrl: base64Data
+                snapshotUrl: base64Data,
+                descriptor: Array.from(faceData.descriptor)
               });
               return;
             }
           }
+        } else {
+          // No face detected by face-api.js
+          setDebugInfo(prev => ({
+            ...prev,
+            currentEAR: mpEAR,
+            headTiltAngle: mpRoll,
+            lastDistance: null
+          }));
         }
       }
 
-      if (currentProgress < 1.0) {
+      if (isScanningActiveRef.current && currentProgress < 1.0) {
         scanLoopRef.current = window.requestAnimationFrame(tick);
-      } else {
+      } else if (currentProgress >= 1.0) {
         // Scanning duration elapsed with no successful matches
-        isScanningActive = false;
+        isScanningActiveRef.current = false;
         setPhase('failed');
+        setLivenessPrompt('Verification failed.');
         setResult({
           matched: false,
           confidence: 0.38,
@@ -298,13 +461,15 @@ export function useFaceRecognition({
     };
 
     scanLoopRef.current = window.requestAnimationFrame(tick);
-  }, [durationMs, referenceAvatar]);
+  }, [durationMs, referenceAvatar, referenceDescriptor, onDescriptorCalculated]);
 
   const start = useCallback(async () => {
     clearTimers();
     setResult(null);
     setProgress(0);
     setPhase('initializing');
+    setLivenessPrompt('Initializing camera...');
+    isScanningActiveRef.current = true;
 
     const isVerificationMode = !!referenceAvatar;
 
@@ -313,7 +478,11 @@ export function useFaceRecognition({
     
     if (active) {
       try {
-        await loadFaceModels();
+        // Load both Face-API models and MediaPipe landmarker in parallel
+        await Promise.all([
+          loadFaceModels(),
+          loadMediaPipeLandmarker()
+        ]);
         // Models parsed successfully, trigger genuine scan loops
         await startRealScanning();
         return;
@@ -321,6 +490,7 @@ export function useFaceRecognition({
         console.warn('Face AI weights loading exception:', err);
         if (isVerificationMode) {
           setPhase('failed');
+          setLivenessPrompt('Verification failed.');
           setResult({
             matched: false,
             confidence: 0.0,
@@ -334,6 +504,7 @@ export function useFaceRecognition({
     if (isVerificationMode) {
       // Strictly prevent simulated fallback in biometric verification mode
       setPhase('failed');
+      setLivenessPrompt('Verification failed.');
       setResult({
         matched: false,
         confidence: 0.0,
@@ -357,6 +528,8 @@ export function useFaceRecognition({
     start,
     reset,
     videoRef,
-    canvasRef
+    canvasRef,
+    livenessPrompt,
+    debugInfo
   };
 }
