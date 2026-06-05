@@ -30,12 +30,6 @@ const DEMO_ACCOUNTS = [
   email: 'payroll@mkb.ph',
   label: 'Payroll',
   name: 'Sofia Reyes'
-},
-{
-  role: 'rider' as const,
-  email: 'juan.dela.cruz@riders.mkb.ph',
-  label: 'Rider',
-  name: 'Juan dela Cruz'
 }];
 
 export function Login() {
@@ -301,7 +295,7 @@ export function Login() {
                       Click to autofill
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {DEMO_ACCOUNTS.map((a) => {
                       const isActive = activeRole === a.role;
                       return (
