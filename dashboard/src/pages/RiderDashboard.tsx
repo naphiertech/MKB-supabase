@@ -64,7 +64,7 @@ function diffPretty(fromHHMM: string, to: Date = new Date()) {
 export function RiderDashboard({ userId }: RiderDashboardProps) {
   const riderId = userId.replace(/^u-rider-/, '');
   const [actualRiderId, setActualRiderId] = useState<string>(riderId);
-  const [rider, setRider] = useState<Rider | null>(null);
+  const [rider, setRider] = useState<(Rider & { faceDescriptor?: number[] | null }) | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -73,8 +73,31 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   const [scanOpen, setScanOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
 
-  const { phase, progress, result, start, reset, videoRef, canvasRef } = useFaceRecognition({
-    referenceAvatar: rider?.avatar
+  const { phase, progress, result, start, reset, videoRef, canvasRef, livenessPrompt, debugInfo } = useFaceRecognition({
+    referenceAvatar: rider?.avatar,
+    referenceDescriptor: rider?.faceDescriptor,
+    onDescriptorCalculated: async (descriptor) => {
+      if (!actualRiderId) return;
+      console.log('[RiderDashboard] Fallback calculated face descriptor. Saving to database...', actualRiderId);
+      try {
+        const { error: updateErr } = await supabase
+          .from('riders')
+          .update({
+            face_descriptor: descriptor,
+            face_registered_at: new Date().toISOString()
+          })
+          .eq('id', actualRiderId);
+        
+        if (updateErr) {
+          console.error('[RiderDashboard] Failed to auto-cache face descriptor to Supabase:', updateErr);
+        } else {
+          console.log('[RiderDashboard] Successfully cached face descriptor to Supabase.');
+          setRider(prev => prev ? { ...prev, faceDescriptor: descriptor } : null);
+        }
+      } catch (err) {
+        console.error('[RiderDashboard] Exception while caching face descriptor:', err);
+      }
+    }
   });
 
   useEffect(() => {
@@ -99,7 +122,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           .maybeSingle();
 
         if (!error && dbRider) {
-          const mappedRider: Rider = {
+          const mappedRider: Rider & { faceDescriptor?: number[] | null } = {
             id: dbRider.id,
             name: dbRider.name,
             avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
@@ -111,7 +134,8 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             shift: (dbRider.shift || 'Morning').toLowerCase() as any,
             lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : Date.now(),
             phone: dbRider.contact || '',
-            riderCode: dbRider.mkb_id
+            riderCode: dbRider.mkb_id,
+            faceDescriptor: dbRider.face_descriptor || null
           };
           setRider(mappedRider);
 
@@ -424,7 +448,9 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           riderAvatar={rider.avatar}
           confidence={result?.confidence}
           videoRef={videoRef}
-          canvasRef={canvasRef} />
+          canvasRef={canvasRef}
+          livenessPrompt={livenessPrompt}
+          debugInfo={debugInfo} />
 
         <div className="mt-5 flex items-center justify-between gap-3">
           <span className="text-[11px] text-[#6B6258] font-mono">
