@@ -15,6 +15,12 @@ import type { AppUser, UserRole, Zone } from '../../services/types';
 import { FaceScanner } from '../attendance/FaceScanner';
 import { useFaceRecognition } from '../../hooks/useFaceRecognition';
 import { pushToast } from '../../hooks/useToast';
+import {
+  ensureScriptsLoaded,
+  loadFaceModels,
+  getFaceDescriptor,
+  getDescriptorFromUrl
+} from '../../lib/faceAi';
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
 type Shift = 'morning' | 'afternoon' | 'evening' | '';
 interface FormState {
@@ -162,12 +168,16 @@ export function UserDrawer({
     if (!open) return;
     if (user) {
       const safeRole: EditableRole =
-      user.role === 'admin' ||
-      user.role === 'hr' ||
-      user.role === 'rider' ||
-      user.role === 'payroll' ?
-      user.role as EditableRole :
-      'admin';
+        user.role === 'admin' ||
+        user.role === 'hr' ||
+        user.role === 'rider' ||
+        user.role === 'payroll' ?
+        user.role as EditableRole :
+        'admin';
+      
+      const faceImg = (user as AppUser & { faceImage?: string }).faceImage ?? user.avatar ?? null;
+      const faceDesc = (user as any).faceDescriptor ?? null;
+
       setForm({
         name: user.name,
         email: user.email,
@@ -178,9 +188,31 @@ export function UserDrawer({
         mkbRiderId: (user as AppUser & { mkbRiderId?: string }).mkbRiderId ?? '',
         zoneId: user.zoneId ?? '',
         shift: (user as AppUser & { shift?: Shift }).shift ?? '',
-        faceImage: (user as AppUser & { faceImage?: string }).faceImage ?? user.avatar ?? null,
-        faceDescriptor: (user as any).faceDescriptor ?? null
+        faceImage: faceImg,
+        faceDescriptor: faceDesc
       });
+
+      // Auto-compile descriptor in background if missing for a rider
+      if (safeRole === 'rider' && faceImg && !faceDesc && !faceImg.includes('dicebear') && !faceImg.endsWith('.svg')) {
+        console.log('[Admin UserDrawer] Auto-compiling missing descriptor for user:', user.name);
+        (async () => {
+          try {
+            const active = await ensureScriptsLoaded();
+            if (active) {
+              await loadFaceModels();
+              const desc = await getDescriptorFromUrl(faceImg);
+              if (desc) {
+                console.log('[Admin UserDrawer] Auto-compiled descriptor successfully in background.');
+                setForm(f => ({ ...f, faceDescriptor: Array.from(desc) }));
+              } else {
+                console.warn('[Admin UserDrawer] Background descriptor compilation returned null.');
+              }
+            }
+          } catch (err) {
+            console.warn('[Admin UserDrawer] Background descriptor compilation failed:', err);
+          }
+        })();
+      }
     } else {
       setForm(EMPTY_FORM);
     }
@@ -349,10 +381,36 @@ export function UserDrawer({
                       const file = e.target.files?.[0];
                       if (!file) return;
                       const reader = new FileReader();
-                      reader.onload = () => {
+                      reader.onload = async () => {
                         const result = reader.result;
                         if (typeof result === 'string') {
                           setField('faceImage', result);
+                          
+                          // Compile face descriptor on the fly
+                          try {
+                            const active = await ensureScriptsLoaded();
+                            if (active) {
+                              await loadFaceModels();
+                              const img = new Image();
+                              img.onload = async () => {
+                                const desc = await getFaceDescriptor(img);
+                                if (desc) {
+                                  console.log('[Admin UserDrawer] Face descriptor extracted from uploaded image successfully.');
+                                  setField('faceDescriptor', Array.from(desc));
+                                } else {
+                                  console.warn('[Admin UserDrawer] No face detected in the uploaded image.');
+                                  pushToast({
+                                    title: 'Invalid Face Photo',
+                                    description: 'No face detected in the uploaded image. Please use a clear 2x2 photo.',
+                                    tone: 'warning'
+                                  });
+                                }
+                              };
+                              img.src = result;
+                            }
+                          } catch (err) {
+                            console.error('[Admin UserDrawer] Failed to extract face descriptor from file:', err);
+                          }
                         }
                       };
                       reader.readAsDataURL(file);

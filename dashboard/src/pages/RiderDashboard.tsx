@@ -81,12 +81,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
       console.log('[RiderDashboard] Fallback calculated face descriptor. Saving to database...', actualRiderId);
       try {
         const { error: updateErr } = await supabase
-          .from('riders')
-          .update({
-            face_descriptor: descriptor,
-            face_registered_at: new Date().toISOString()
-          })
-          .eq('id', actualRiderId);
+          .rpc('cache_rider_face_descriptor', {
+            p_rider_id: actualRiderId,
+            p_descriptor: descriptor
+          });
         
         if (updateErr) {
           console.error('[RiderDashboard] Failed to auto-cache face descriptor to Supabase:', updateErr);

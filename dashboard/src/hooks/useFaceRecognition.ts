@@ -335,8 +335,11 @@ export function useFaceRecognition({
           if (isVerificationMode) {
             let currentDistance: number | null = null;
 
-            if (isCartoonPlaceholder || !referenceDesc) {
-              console.log('[Face AI] Aborting verification: isCartoonPlaceholder:', isCartoonPlaceholder, 'referenceDesc:', !!referenceDesc);
+            const isValidDesc = referenceDesc && referenceDesc.length === 128 && !referenceDesc.some(val => isNaN(val));
+            const isFaceDataValid = faceData && faceData.descriptor && faceData.descriptor.length === 128 && !faceData.descriptor.some(val => isNaN(val));
+
+            if (isCartoonPlaceholder || !isValidDesc || !isFaceDataValid) {
+              console.warn('[Face AI] Aborting verification due to invalid descriptors. Cartoon:', isCartoonPlaceholder, 'ValidRef:', !!isValidDesc, 'ValidFace:', !!isFaceDataValid);
               isScanningActiveRef.current = false;
               setPhase('failed');
               setProgress(1.0);
@@ -355,8 +358,8 @@ export function useFaceRecognition({
               return;
             }
 
-            // Enforce biometric distance threshold (0.58) for real face-match verification
-            const verify = verifyFaceIdentity(faceData.descriptor, referenceDesc, 0.58);
+            // Enforce biometric distance threshold (0.54) for real face-match verification
+            const verify = verifyFaceIdentity(faceData.descriptor, referenceDesc!, 0.54);
             currentDistance = verify.distance;
 
             // Lock face match status if verification succeeds during any frame (typically when facing straight)
