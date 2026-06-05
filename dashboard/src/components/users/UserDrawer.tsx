@@ -28,6 +28,7 @@ interface FormState {
   zoneId: string; // '' means Unassigned
   shift: Shift;
   faceImage: string | null;
+  faceDescriptor: number[] | null; // Added
 }
 type FormErrors = Partial<Record<keyof FormState, string>>;
 interface UserDrawerProps {
@@ -41,6 +42,7 @@ interface UserDrawerProps {
     mkbRiderId?: string;
     shift?: Shift;
     faceImage?: string | null;
+    faceDescriptor?: number[] | null; // Added
     tempPassword?: string;
   },
   mode: 'create' | 'edit')
@@ -98,7 +100,8 @@ const EMPTY_FORM: FormState = {
   mkbRiderId: '',
   zoneId: '',
   shift: '',
-  faceImage: null
+  faceImage: null,
+  faceDescriptor: null
 };
 function generateMkbId() {
   const n = Math.floor(1000 + Math.random() * 9000);
@@ -175,7 +178,8 @@ export function UserDrawer({
         mkbRiderId: (user as AppUser & { mkbRiderId?: string }).mkbRiderId ?? '',
         zoneId: user.zoneId ?? '',
         shift: (user as AppUser & { shift?: Shift }).shift ?? '',
-        faceImage: (user as AppUser & { faceImage?: string }).faceImage ?? user.avatar ?? null
+        faceImage: (user as AppUser & { faceImage?: string }).faceImage ?? user.avatar ?? null,
+        faceDescriptor: (user as any).faceDescriptor ?? null
       });
     } else {
       setForm(EMPTY_FORM);
@@ -221,6 +225,7 @@ export function UserDrawer({
         mkbRiderId?: string;
         shift?: Shift;
         faceImage?: string | null;
+        faceDescriptor?: number[] | null;
         tempPassword?: string;
       } = {
         id: user?.id ?? `u-${Date.now()}`,
@@ -239,6 +244,7 @@ export function UserDrawer({
         mkbRiderId: form.mkbRiderId,
         shift: form.shift,
         faceImage: form.faceImage,
+        faceDescriptor: form.faceDescriptor,
         tempPassword: form.tempPassword
       };
       await onSaved?.(saved, mode);
@@ -698,8 +704,9 @@ export function UserDrawer({
         `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(form.name || 'capture')}&backgroundColor=fff1e0`
         }
         onCancel={() => setCameraOpen(false)}
-        onCapture={(dataUrl) => {
+        onCapture={(dataUrl, descriptor) => {
           setField('faceImage', dataUrl);
+          setField('faceDescriptor', descriptor);
           setCameraOpen(false);
         }} />
 
@@ -746,10 +753,10 @@ function FaceCaptureModal({
 }: {
   riderName: string;
   seedAvatar: string;
-  onCapture: (dataUrl: string) => void;
+  onCapture: (dataUrl: string, descriptor: number[]) => void;
   onCancel: () => void;
 }) {
-  const { phase, progress, result, start, videoRef, canvasRef } = useFaceRecognition({
+  const { phase, progress, result, start, videoRef, canvasRef, debugInfo } = useFaceRecognition({
     durationMs: 2500
   });
 
@@ -757,7 +764,8 @@ function FaceCaptureModal({
   useEffect(() => {
     if (phase === 'matched') {
       const targetPhoto = result?.snapshotUrl || seedAvatar;
-      const t = setTimeout(() => onCapture(targetPhoto), 800);
+      const descriptor = result?.descriptor || [];
+      const t = setTimeout(() => onCapture(targetPhoto, descriptor), 800);
       return () => clearTimeout(t);
     }
   }, [phase, result, seedAvatar, onCapture]);
@@ -792,7 +800,8 @@ function FaceCaptureModal({
           riderName={riderName}
           riderAvatar={seedAvatar}
           videoRef={videoRef}
-          canvasRef={canvasRef} />
+          canvasRef={canvasRef}
+          debugInfo={debugInfo} />
         
 
         <div className="mt-4 flex items-center gap-2">
