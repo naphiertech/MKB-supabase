@@ -67,7 +67,7 @@ export function loadFaceModels(): Promise<void> {
       console.log('TensorFlow.js SSD MobileNet face models loaded locally from /models/.');
     } catch (localErr) {
       console.warn('Failed to load local models from /models/, falling back to online CDN registry...', localErr);
-      const FALLBACK_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+      const FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
       await Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri(FALLBACK_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(FALLBACK_URL),
@@ -153,6 +153,71 @@ export async function getFaceDescriptor(
 }
 
 
+export interface FaceRecognitionData {
+  descriptor: Float32Array;
+  leftEye: { x: number; y: number }[];
+  rightEye: { x: number; y: number }[];
+  box: { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * Computes Euclidean distance between two points.
+ */
+function distance(p1: { x: number; y: number }, p2: { x: number; y: number }) {
+  const dx = p1.x - p2.x;
+  const dy = p1.y - p2.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Computes Eye Aspect Ratio (EAR) for a single eye.
+ */
+function calculateEyeRatio(eyePoints: { x: number; y: number }[]): number {
+  if (!eyePoints || eyePoints.length < 6) return 0.0;
+  const vertical1 = distance(eyePoints[1], eyePoints[5]);
+  const vertical2 = distance(eyePoints[2], eyePoints[4]);
+  const horizontal = distance(eyePoints[0], eyePoints[3]);
+  return (vertical1 + vertical2) / (2.0 * horizontal);
+}
+
+/**
+ * Calculates average Eye Aspect Ratio (EAR) across both eyes.
+ */
+export function calculateEAR(leftEye: { x: number; y: number }[], rightEye: { x: number; y: number }[]): number {
+  const leftEAR = calculateEyeRatio(leftEye);
+  const rightEAR = calculateEyeRatio(rightEye);
+  return (leftEAR + rightEAR) / 2.0;
+}
+
+/**
+ * Detects single face and extracts bounding box, eye landmarks, and descriptor.
+ */
+export async function detectFaceWithDetails(
+  element: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement
+): Promise<FaceRecognitionData | null> {
+  const { faceapi } = getFaceAiGlobals();
+  if (!faceapi) return null;
+
+  try {
+    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.45 });
+    const detection = await faceapi.detectSingleFace(element, options)
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection) return null;
+    return {
+      descriptor: detection.descriptor,
+      leftEye: detection.landmarks.getLeftEye(),
+      rightEye: detection.landmarks.getRightEye(),
+      box: detection.detection.box
+    };
+  } catch (err) {
+    console.warn('Face details extraction error:', err);
+    return null;
+  }
+}
+
+
 /**
  * Loads a remote or local image URL as an HTMLImageElement and computes its facial embedding.
  */
@@ -165,7 +230,9 @@ export async function getDescriptorFromUrl(url: string): Promise<Float32Array | 
     }
 
     const img = new Image();
-    img.crossOrigin = 'anonymous'; // Prevent CORS taint issues
+    if (url && !url.startsWith('data:')) {
+      img.crossOrigin = 'anonymous'; // Prevent CORS taint issues
+    }
     img.onload = async () => {
       try {
         const desc = await getFaceDescriptor(img);
@@ -207,4 +274,76 @@ export function verifyFaceIdentity(
     distance,
     confidence: Math.max(0.1, Math.min(0.99, confidence))
   };
+}
+
+let landmarkerPromise: Promise<any> | null = null;
+let landmarkerInstance: any = null;
+
+export async function loadMediaPipeLandmarker() {
+  if (landmarkerInstance) return landmarkerInstance;
+  if (landmarkerPromise) return landmarkerPromise;
+
+  landmarkerPromise = (async () => {
+    try {
+      const { FilesetResolver, FaceLandmarker } = await import('@mediapipe/tasks-vision');
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
+      );
+      landmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          delegate: "GPU"
+        },
+        runningMode: "VIDEO",
+        outputFaceBlendshapes: false,
+        outputFacialTransformationMatrixes: false
+      });
+      return landmarkerInstance;
+    } catch (err) {
+      console.error('Failed to initialize MediaPipe FaceLandmarker:', err);
+      landmarkerPromise = null;
+      throw err;
+    }
+  })();
+
+  return landmarkerPromise;
+}
+
+export function calculateMediaPipeEAR(landmarks: { x: number; y: number; z: number }[]): number {
+  if (!landmarks || landmarks.length < 400) return 0.0;
+  
+  const dist = (p1: any, p2: any) => {
+    const dx = p1.x - p2.x;
+    const dy = p1.y - p2.y;
+    const dz = p1.z - p2.z;
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+  };
+
+  // Left Eye (indices in MediaPipe Face Mesh)
+  const leftVertical = dist(landmarks[159], landmarks[145]);
+  const leftHorizontal = dist(landmarks[33], landmarks[133]);
+  const leftEAR = leftVertical / (leftHorizontal || 1.0);
+
+  // Right Eye (indices in MediaPipe Face Mesh)
+  const rightVertical = dist(landmarks[386], landmarks[374]);
+  const rightHorizontal = dist(landmarks[362], landmarks[263]);
+  const rightEAR = rightVertical / (rightHorizontal || 1.0);
+
+  return (leftEAR + rightEAR) / 2.0;
+}
+
+export function calculateHeadRoll(landmarks: { x: number; y: number; z: number }[]): number {
+  if (!landmarks || landmarks.length < 400) return 0.0;
+  
+  // Landmark 33 is left outer corner, Landmark 263 is right outer corner
+  const p1 = landmarks[33];
+  const p2 = landmarks[263];
+  
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  
+  const angleRad = Math.atan2(dy, dx);
+  const angleDeg = angleRad * (180 / Math.PI);
+  
+  return angleDeg;
 }
