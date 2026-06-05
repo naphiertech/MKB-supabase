@@ -35,20 +35,36 @@ export function Users() {
 
       const { data: dbUsers, error } = await supabase
         .from('users')
-        .select('*, riders(zone_id)')
+        .select('*, riders(*)')
         .order('full_name', { ascending: true });
 
       if (!error && dbUsers) {
-        const mapped: AppUser[] = dbUsers.map((u: any) => ({
-          id: u.id,
-          name: u.full_name,
-          avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.full_name)}`,
-          email: u.email,
-          role: u.role,
-          zoneId: u.riders?.zone_id || null,
-          status: u.status,
-          lastLogin: u.last_login ? new Date(u.last_login).getTime() : Date.now()
-        }));
+        const mapped: AppUser[] = dbUsers.map((u: any) => {
+          const userObj: AppUser & {
+            contact?: string;
+            mkbRiderId?: string;
+            shift?: string;
+            faceImage?: string | null;
+            faceDescriptor?: number[] | null;
+          } = {
+            id: u.id,
+            name: u.full_name,
+            avatar: u.role === 'rider' && u.riders?.face_image_url
+              ? u.riders.face_image_url
+              : `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.full_name)}`,
+            email: u.email,
+            role: u.role,
+            zoneId: u.riders?.zone_id || null,
+            status: u.status,
+            lastLogin: u.last_login ? new Date(u.last_login).getTime() : Date.now(),
+            contact: u.contact || u.riders?.contact || '',
+            mkbRiderId: u.riders?.mkb_id || '',
+            shift: u.riders?.shift ? u.riders.shift.toLowerCase() : '',
+            faceImage: u.riders?.face_image_url || null,
+            faceDescriptor: u.riders?.face_descriptor || null
+          };
+          return userObj;
+        });
         setUserList(mapped);
       }
     } catch (err) {
@@ -245,7 +261,9 @@ export function Users() {
                     zone_id: savedUser.zoneId || null,
                     shift: dbShift,
                     face_registered: !!savedUser.faceImage,
-                    face_image_url: savedUser.faceImage || null
+                    face_image_url: savedUser.faceImage || null,
+                    face_descriptor: savedUser.faceDescriptor || null,
+                    face_registered_at: savedUser.faceDescriptor ? new Date().toISOString() : null
                   })
                   .eq('id', userProfile.rider_id);
                 if (riderErr) throw riderErr;
@@ -272,7 +290,9 @@ export function Users() {
                     shift: dbShift,
                     status: 'offline',
                     face_registered: !!savedUser.faceImage,
-                    face_image_url: savedUser.faceImage || null
+                    face_image_url: savedUser.faceImage || null,
+                    face_descriptor: savedUser.faceDescriptor || null,
+                    face_registered_at: savedUser.faceDescriptor ? new Date().toISOString() : null
                   })
                   .select('id')
                   .single();
