@@ -25,3 +25,5 @@ dist-ssr
 .agents
 
 agents.md
+attenrider_schema.sql
+*.md
