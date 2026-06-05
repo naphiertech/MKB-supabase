@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { ScanFace, CheckCircle2, XCircle, Loader2, Camera } from 'lucide-react';
-import type { ScanPhase } from '../../hooks/useFaceRecognition';
+import { ScanFace, CheckCircle2, XCircle, Camera } from 'lucide-react';
+import type { ScanPhase, BiometricDebugInfo } from '../../hooks/useFaceRecognition';
 
 interface FaceScannerProps {
   phase: ScanPhase;
@@ -10,6 +10,8 @@ interface FaceScannerProps {
   confidence?: number;
   videoRef?: React.RefObject<HTMLVideoElement>;
   canvasRef?: React.RefObject<HTMLCanvasElement>;
+  livenessPrompt?: string;
+  debugInfo?: BiometricDebugInfo;
 }
 
 /**
@@ -18,12 +20,13 @@ interface FaceScannerProps {
  */
 export function FaceScanner({
   phase,
-  progress,
   riderName,
   riderAvatar,
   confidence,
   videoRef,
-  canvasRef
+  canvasRef,
+  livenessPrompt,
+  debugInfo
 }: FaceScannerProps) {
   const [scanLineY, setScanLineY] = useState(0);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -204,36 +207,71 @@ export function FaceScanner({
             LIVE
           </span>
         </div>
+
       </div>
+
+      {/* Biometric Debug Overlay (outside the camera feed viewfinder) */}
+      {phase === 'scanning' && debugInfo && (
+        <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300 space-y-2 max-w-[280px] mx-auto shadow-md">
+          <div className="text-[#db6c00] font-bold uppercase tracking-wider mb-2.5 flex justify-between">
+            <span>Biometric Scan Status</span>
+            <span className="animate-pulse text-[10px]">● RUNNING</span>
+          </div>
+          <div className="flex justify-between border-b border-slate-800/60 pb-1.5">
+            <span>REF EMBEDDING:</span>
+            <span className={debugInfo.referenceLoaded ? "text-emerald-400 font-bold" : debugInfo.referenceLoaded === false ? "text-red-400 font-bold" : "text-amber-400 font-bold"}>
+              {debugInfo.referenceLoaded ? "LOADED" : debugInfo.referenceLoaded === false ? "FAILED" : "LOADING..."}
+            </span>
+          </div>
+          <div className="flex justify-between border-b border-slate-800/60 py-1.5">
+            <span>EYE ASPECT RATIO (EAR):</span>
+            <span className="text-white font-semibold">{debugInfo.currentEAR.toFixed(3)}</span>
+          </div>
+          <div className="flex justify-between border-b border-slate-800/60 py-1.5">
+            <span>FACE DISTANCE:</span>
+            <span className={debugInfo.lastDistance !== null && debugInfo.lastDistance < 0.58 ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>
+              {debugInfo.lastDistance !== null ? debugInfo.lastDistance.toFixed(3) : "--"}
+            </span>
+          </div>
+
+          {/* Graphical Stepper */}
+          <div className="mt-3 grid grid-cols-2 gap-2 text-center text-[10px] font-sans font-bold select-none">
+            <div className={`py-1.5 rounded-lg border transition-all ${
+              debugInfo.eyesOpen 
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                : 'bg-slate-800/40 border-slate-700/50 text-slate-500'
+            }`}>
+              1. ALIGN FACE 😐
+            </div>
+            <div className={`py-1.5 rounded-lg border transition-all ${
+              debugInfo.blinkCompleted 
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                : debugInfo.eyesOpen 
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 animate-pulse' 
+                  : 'bg-slate-800/40 border-slate-700/50 text-slate-500'
+            }`}>
+              2. BLINK EYES 😴
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Caption row */}
       <div className="text-center min-h-[44px]">
         {phase === 'idle' &&
-        <div className="flex items-center justify-center gap-2 text-[#6B6258] text-sm">
+          <div className="flex items-center justify-center gap-2 text-[#6B6258] text-sm">
             <ScanFace className="w-4 h-4" />
             Position your face within the frame.
           </div>
         }
         {phase === 'initializing' &&
-        <div className="flex items-center justify-center gap-2 text-[#db6c00] text-sm font-semibold">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Initializing camera…
+          <div className="text-[#db6c00] text-sm font-semibold text-center">
+            {livenessPrompt || 'Initializing camera…'}
           </div>
         }
         {phase === 'scanning' &&
-        <div className="space-y-2">
-            <div className="flex items-center justify-center gap-2 text-[#db6c00] text-sm font-semibold">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Scanning facial features…
-            </div>
-            <div className="h-1.5 max-w-[240px] mx-auto rounded-full bg-[#FAFAF7] border border-[#EFEAE2] overflow-hidden">
-              <div
-              className="h-full bg-gradient-to-r from-[#db6c00] to-[#f59e0b] transition-[width] duration-100"
-              style={{
-                width: `${Math.round(progress * 100)}%`
-              }} />
-            
-            </div>
+          <div className="text-[#db6c00] text-sm font-semibold text-center">
+            {livenessPrompt || 'Scanning facial features…'}
           </div>
         }
         {phase === 'matched' &&
