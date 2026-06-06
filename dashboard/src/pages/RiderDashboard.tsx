@@ -7,6 +7,7 @@ import {
 import { supabase } from '../lib/supabaseClient';
 import { recordTimeIn, recordTimeOut } from '../services/attendanceService';
 import { getZones } from '../services/geofenceService';
+import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
 import { Modal } from '../components/common/Modal';
@@ -249,6 +250,29 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     return () => window.clearInterval(id);
   }, [timeIn, timeOut, inZone, zoneName, zoneRadius, distance, zone]);
 
+  // Background Geolocation Synchronization Loop
+  useEffect(() => {
+    if (!timeIn || timeOut || !actualRiderId) return;
+
+    const syncLocation = async () => {
+      const status: 'active' | 'violation' = inZone ? 'active' : 'violation';
+      try {
+        await updateRiderStatus(actualRiderId, status, position.lat, position.lng);
+        await logRiderLocation(actualRiderId, position.lat, position.lng, status);
+        console.log(`[RiderDashboard] Location synced to Supabase: Status = ${status}, Lat = ${position.lat}, Lng = ${position.lng}`);
+      } catch (err) {
+        console.error('[RiderDashboard] Failed to sync location to database:', err);
+      }
+    };
+
+    // Initial sync
+    syncLocation();
+
+    // Setup 30s interval
+    const id = setInterval(syncLocation, 30000);
+    return () => clearInterval(id);
+  }, [timeIn, timeOut, actualRiderId, inZone, position.lat, position.lng]);
+
   const onlineStatus =
     timeIn && !timeOut ? 'online' : 'offline';
   const shiftStatus =
@@ -269,8 +293,17 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     if (phase !== 'matched' || !result?.matched || !rider || !actualRiderId) return;
     const stamp = nowHHMM(new Date(result.capturedAt));
     if (pendingAction === 'time-in') {
-      recordTimeIn(actualRiderId).then(() => {
+      recordTimeIn(actualRiderId).then(async () => {
         setTimeIn(stamp);
+        
+        // Immediately sync initial active status & location to DB
+        try {
+          await updateRiderStatus(actualRiderId, 'active', position.lat, position.lng);
+          await logRiderLocation(actualRiderId, position.lat, position.lng, 'active');
+        } catch (err) {
+          console.error('[RiderDashboard] Failed to push initial time-in coordinates:', err);
+        }
+
         setEvents((prev) => [
           {
             id: `ti-${Date.now()}`,
@@ -295,8 +328,16 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         });
       });
     } else {
-      recordTimeOut(actualRiderId).then(() => {
+      recordTimeOut(actualRiderId).then(async () => {
         setTimeOut(stamp);
+
+        // Transition status to offline in DB
+        try {
+          await updateRiderStatus(actualRiderId, 'offline', 0, 0); // resets coords
+        } catch (err) {
+          console.error('[RiderDashboard] Failed to reset offline status:', err);
+        }
+
         setEvents((prev) => [
           {
             id: `to-${Date.now()}`,
