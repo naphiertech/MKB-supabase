@@ -41,23 +41,69 @@ export function useGeolocation({
 
   useEffect(() => {
     anchorRef.current = initial;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial.lat, initial.lng]);
 
   useEffect(() => {
     if (!enabled) return;
-    const id = setInterval(() => {
-      const { lat, lng } = anchorRef.current;
-      const dLat = (Math.random() - 0.5) * 2 * jitter;
-      const dLng = (Math.random() - 0.5) * 2 * jitter;
-      setPosition({
-        lat: lat + dLat,
-        lng: lng + dLng,
-        accuracy: 5 + Math.random() * 8,
-        ts: Date.now()
-      });
-    }, intervalMs);
-    return () => clearInterval(id);
+
+    let watchId: number | null = null;
+    let fallbackIntervalId: number | null = null;
+
+    const startSimulation = () => {
+      if (fallbackIntervalId) return;
+      fallbackIntervalId = window.setInterval(() => {
+        const { lat, lng } = anchorRef.current;
+        const dLat = (Math.random() - 0.5) * 2 * jitter;
+        const dLng = (Math.random() - 0.5) * 2 * jitter;
+        setPosition({
+          lat: lat + dLat,
+          lng: lng + dLng,
+          accuracy: 10 + Math.random() * 10,
+          ts: Date.now()
+        });
+      }, intervalMs);
+    };
+
+    if (navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setPosition({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            ts: pos.timestamp
+          });
+          setError(null);
+          if (fallbackIntervalId) {
+            clearInterval(fallbackIntervalId);
+            fallbackIntervalId = null;
+          }
+        },
+        (err) => {
+          console.warn('[Geolocation] Real GPS tracking failed or denied. Falling back to simulator:', err.message);
+          setError(err.message);
+          startSimulation();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      console.warn('[Geolocation] Geolocation API not supported by browser. Falling back to simulator.');
+      setError('Geolocation not supported');
+      startSimulation();
+    }
+
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      if (fallbackIntervalId !== null) {
+        clearInterval(fallbackIntervalId);
+      }
+    };
   }, [enabled, jitter, intervalMs]);
 
   return { position, error, setError };
