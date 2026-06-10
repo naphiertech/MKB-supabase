@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { type AppUser, type UserRole } from '../services/types';
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "../lib/supabaseClient";
+import { type AppUser, type UserRole } from "../services/types";
 
-const STORAGE_KEY = 'attenrider.session.v1';
+const STORAGE_KEY = "attenrider.session.v1";
 
-export type Role = Extract<UserRole, 'admin' | 'hr' | 'rider' | 'payroll'>;
+export type Role = Extract<UserRole, "admin" | "hr" | "rider" | "payroll">;
 
 export interface Session {
   id: string;
@@ -14,9 +14,8 @@ export interface Session {
   riderId?: string;
 }
 
-
 function readSession(): Session | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -29,7 +28,7 @@ function readSession(): Session | null {
 }
 
 function writeSession(s: Session | null) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   if (s) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   else window.localStorage.removeItem(STORAGE_KEY);
 }
@@ -63,8 +62,10 @@ export function useAuth() {
     let active = true;
     async function initializeAuth() {
       try {
-        const { data: { session: supabaseSession } } = await supabase.auth.getSession();
-        
+        const {
+          data: { session: supabaseSession },
+        } = await supabase.auth.getSession();
+
         if (!supabaseSession?.user) {
           if (currentSession !== null) {
             currentSession = null;
@@ -76,9 +77,9 @@ export function useAuth() {
 
         // Fetch latest profile status & details
         const { data: profile, error } = await supabase
-          .from('users')
-          .select('full_name, role, status, rider_id')
-          .eq('id', supabaseSession.user.id)
+          .from("users")
+          .select("full_name, role, status, rider_id")
+          .eq("id", supabaseSession.user.id)
           .single();
 
         if (error || !profile) {
@@ -89,7 +90,7 @@ export function useAuth() {
           return;
         }
 
-        if (profile.status === 'suspended') {
+        if (profile.status === "suspended") {
           await supabase.auth.signOut();
           currentSession = null;
           writeSession(null);
@@ -100,7 +101,7 @@ export function useAuth() {
         if (active) {
           const next: Session = {
             id: supabaseSession.user.id,
-            email: supabaseSession.user.email ?? '',
+            email: supabaseSession.user.email ?? "",
             fullName: profile.full_name,
             role: profile.role as Role,
             riderId: profile.rider_id || undefined,
@@ -110,15 +111,17 @@ export function useAuth() {
           emit();
         }
       } catch (err) {
-        console.error('Auth initialization error:', err);
+        console.error("Auth initialization error:", err);
       }
     }
 
     initializeAuth();
 
     // Sync active signouts/changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sbSession) => {
-      if (event === 'SIGNED_OUT' || !sbSession) {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, sbSession) => {
+      if (event === "SIGNED_OUT" || !sbSession) {
         if (currentSession !== null) {
           currentSession = null;
           writeSession(null);
@@ -134,52 +137,61 @@ export function useAuth() {
   }, []);
 
   // Adapt the user profile to match the legacy AppUser interface required by components
-  const user: AppUser | null = session ? {
-    id: session.id,
-    name: session.fullName,
-    avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(session.fullName)}`,
-    email: session.email,
-    role: session.role,
-    zoneId: null,
-    status: 'active',
-    lastLogin: Date.now()
-  } : null;
+  const user: AppUser | null = session
+    ? {
+        id: session.id,
+        name: session.fullName,
+        avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(session.fullName)}`,
+        email: session.email,
+        role: session.role,
+        zoneId: null,
+        status: "active",
+        lastLogin: Date.now(),
+      }
+    : null;
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<SignInResult> => {
       try {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password
-        });
+        const { data: authData, error: authError } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
 
         if (authError || !authData.user) {
-          return { ok: false, error: authError?.message || 'Invalid login credentials.' };
+          return {
+            ok: false,
+            error: authError?.message || "Invalid login credentials.",
+          };
         }
 
         const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('full_name, role, status, rider_id')
-          .eq('id', authData.user.id)
+          .from("users")
+          .select("full_name, role, status, rider_id")
+          .eq("id", authData.user.id)
           .single();
 
         if (profileError || !profile) {
           const userId = authData.user.id;
           await supabase.auth.signOut();
-          return { ok: false, error: `User profile not found in database. (UUID: ${userId})` };
+          return {
+            ok: false,
+            error: `User profile not found in database. (UUID: ${userId})`,
+          };
         }
 
-        if (profile.status === 'suspended') {
+        if (profile.status === "suspended") {
           await supabase.auth.signOut();
-          return { ok: false, error: 'This account is suspended.' };
+          return { ok: false, error: "This account is suspended." };
         }
 
         const next: Session = {
           id: authData.user.id,
-          email: authData.user.email ?? '',
+          email: authData.user.email ?? "",
           fullName: profile.full_name,
           role: profile.role as Role,
-          riderId: profile.rider_id || undefined
+          riderId: profile.rider_id || undefined,
         };
 
         currentSession = next;
@@ -187,17 +199,20 @@ export function useAuth() {
         emit();
         return { ok: true };
       } catch (err: any) {
-        return { ok: false, error: err.message || 'An unexpected error occurred during login.' };
+        return {
+          ok: false,
+          error: err.message || "An unexpected error occurred during login.",
+        };
       }
     },
-    []
+    [],
   );
 
   const signOut = useCallback(async () => {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      console.warn('SignOut warning:', err);
+      console.warn("SignOut warning:", err);
     }
     currentSession = null;
     writeSession(null);
@@ -208,7 +223,7 @@ export function useAuth() {
     session,
     user,
     signIn,
-    signOut
+    signOut,
   };
 
   return state;

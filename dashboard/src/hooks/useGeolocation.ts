@@ -1,6 +1,6 @@
 // Lightweight geolocation hook for AttenRider rider view.
 // TODO: Replace mock simulation with `navigator.geolocation.watchPosition` and Supabase Realtime upsert.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 export interface GeoPosition {
   lat: number;
@@ -11,7 +11,7 @@ export interface GeoPosition {
 
 interface UseGeolocationOptions {
   /** Initial / anchor position the simulated jitter is centered on */
-  initial: {lat: number;lng: number;};
+  initial: { lat: number; lng: number };
   /** Jitter radius in degrees (~111km per degree). Default ~10–15m. */
   jitter?: number;
   /** Update interval in ms. */
@@ -28,13 +28,13 @@ export function useGeolocation({
   initial,
   jitter = 0.00012,
   intervalMs = 2500,
-  enabled = true
+  enabled = true,
 }: UseGeolocationOptions) {
   const [position, setPosition] = useState<GeoPosition>({
     lat: initial.lat,
     lng: initial.lng,
     accuracy: 8,
-    ts: Date.now()
+    ts: Date.now(),
   });
   const [error, setError] = useState<string | null>(null);
   const anchorRef = useRef(initial);
@@ -59,7 +59,7 @@ export function useGeolocation({
           lat: lat + dLat,
           lng: lng + dLng,
           accuracy: 10 + Math.random() * 10,
-          ts: Date.now()
+          ts: Date.now(),
         });
       }, intervalMs);
     };
@@ -71,7 +71,7 @@ export function useGeolocation({
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
             accuracy: pos.coords.accuracy,
-            ts: pos.timestamp
+            ts: pos.timestamp,
           });
           setError(null);
           if (fallbackIntervalId) {
@@ -80,19 +80,24 @@ export function useGeolocation({
           }
         },
         (err) => {
-          console.warn('[Geolocation] Real GPS tracking failed or denied. Falling back to simulator:', err.message);
+          console.warn(
+            "[Geolocation] Real GPS tracking failed or denied. Falling back to simulator:",
+            err.message,
+          );
           setError(err.message);
           startSimulation();
         },
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 0
-        }
+          maximumAge: 0,
+        },
       );
     } else {
-      console.warn('[Geolocation] Geolocation API not supported by browser. Falling back to simulator.');
-      setError('Geolocation not supported');
+      console.warn(
+        "[Geolocation] Geolocation API not supported by browser. Falling back to simulator.",
+      );
+      setError("Geolocation not supported");
       startSimulation();
     }
 

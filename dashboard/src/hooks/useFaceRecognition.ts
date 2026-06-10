@@ -75,6 +75,7 @@ export function useFaceRecognition({
   const blinkCompletedRef = useRef(false);
   const headTiltedDetectedRef = useRef(false);
   const faceMatchedRef = useRef(false);
+  const matchCountRef = useRef(0);
   const maxEarRef = useRef<number>(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -105,6 +106,7 @@ export function useFaceRecognition({
     blinkCompletedRef.current = false;
     headTiltedDetectedRef.current = false;
     faceMatchedRef.current = false;
+    matchCountRef.current = 0;
     maxEarRef.current = 0;
     setDebugInfo({
       referenceLoaded: null,
@@ -358,12 +360,18 @@ export function useFaceRecognition({
               return;
             }
 
-            // Enforce biometric distance threshold (0.54) for real face-match verification
-            const verify = verifyFaceIdentity(faceData.descriptor, referenceDesc!, 0.54);
+            // Enforce biometric distance threshold (0.50) for real face-match verification
+            const verify = verifyFaceIdentity(faceData.descriptor, referenceDesc!, 0.50);
             currentDistance = verify.distance;
 
-            // Lock face match status if verification succeeds during any frame (typically when facing straight)
+            // Increment match count if verification succeeds during this frame
             if (verify.matched) {
+              matchCountRef.current += 1;
+              console.log(`[Face AI] Frame match! Count: ${matchCountRef.current}, Distance: ${verify.distance}`);
+            }
+
+            // Lock face match status if verification succeeds across multiple stable frames (at least 3)
+            if (matchCountRef.current >= 3) {
               faceMatchedRef.current = true;
             }
 
