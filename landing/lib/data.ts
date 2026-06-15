@@ -103,10 +103,10 @@ export const teamMembers: TeamMember[] = [
   },
 ]
 
-export interface MenuItem {
+export interface Capability {
   name: string
   description: string
-  price: string
+  status: string
   category: string
   tags?: string[]
   image?: string
@@ -125,7 +125,7 @@ export interface Location {
   image: string
   gallery: string[]
   features: string[]
-  menu: MenuItem[]
+  capabilities: Capability[]
 }
 
 export const locations: Location[] = [
@@ -153,11 +153,11 @@ export const locations: Location[] = [
       "Immediate Violation Alerts",
       "Live Coordinate Sync",
     ],
-    menu: [
+    capabilities: [
       {
         name: "Biometric Time-In",
         description: "TensorFlow-powered facial recognition verification.",
-        price: "Active",
+        status: "Active",
         category: "Attendance",
         tags: ["Verified"],
         image: "https://images.pexels.com/photos/8090298/pexels-photo-8090298.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -188,11 +188,11 @@ export const locations: Location[] = [
       "Offline Status Detection",
       "Payroll Data Sync",
     ],
-    menu: [
+    capabilities: [
       {
         name: "Boundary Detection",
         description: "Real-time coordinate comparison against assigned zone.",
-        price: "Active",
+        status: "Active",
         category: "Security",
         tags: ["Alerts"],
         image: "https://images.pexels.com/photos/4480987/pexels-photo-4480987.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -223,11 +223,11 @@ export const locations: Location[] = [
       "Attendance Validation",
       "Active Shift Logs",
     ],
-    menu: [
+    capabilities: [
       {
         name: "Live Rider Map",
         description: "Interactive dashboard displaying current rider locations.",
-        price: "Active",
+        status: "Active",
         category: "Monitoring",
         image: "https://images.pexels.com/photos/281260/pexels-photo-281260.jpeg?auto=compress&cs=tinysrgb&w=800",
       },
@@ -257,11 +257,11 @@ export const locations: Location[] = [
       "Activity Logging",
       "Historical Route Data",
     ],
-    menu: [
+    capabilities: [
       {
         name: "Violation Logging",
         description: "Automated recording of all geofence breaches.",
-        price: "Active",
+        status: "Active",
         category: "Security",
         tags: ["Audit"],
         image: "https://images.pexels.com/photos/7857526/pexels-photo-7857526.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -277,36 +277,7 @@ export interface Testimonial {
   rating: number
 }
 
-export const testimonials: Testimonial[] = [
-  {
-    quote:
-      "Since integrating AttenRider's biometric attendance, we've completely eliminated buddy punching. The payroll accuracy has improved drastically.",
-    author: "Sarah M.",
-    location: "HR Director",
-    rating: 5,
-  },
-  {
-    quote:
-      "The geofencing alerts are a game changer. Our admins no longer have to guess if riders are actually in their assigned zones; we get notified immediately.",
-    author: "Michael T.",
-    location: "Operations Manager",
-    rating: 5,
-  },
-  {
-    quote:
-      "The live rider map allows us to see exactly who is active and online. It brings total operational transparency to our third-party logistics.",
-    author: "Priya K.",
-    location: "Fleet Supervisor",
-    rating: 5,
-  },
-  {
-    quote:
-      "Automated attendance-based salary computation saves our accounting team hours of manual work every cutoff. The data is validated and trustworthy.",
-    author: "Robert L.",
-    location: "Payroll Administrator",
-    rating: 5,
-  },
-]
+export const testimonials: Testimonial[] = []
 
 export const galleryImages = [
   { src: "https://images.pexels.com/photos/6169123/pexels-photo-6169123.jpeg?auto=compress&cs=tinysrgb&w=800", alt: "Workforce Monitoring Dashboard" },
