@@ -15,10 +15,10 @@ import { Magnetic } from "@/components/animations/magnetic"
 import { locations } from "@/lib/data"
 
 // Pull one featured module from each zone
-const featuredDishes = [
-  { ...locations[0].menu.find((m) => m.name === "Biometric Time-In")!, locationSlug: locations[0].slug, locationName: locations[0].shortName },
-  { ...locations[1].menu.find((m) => m.name === "Boundary Detection")!, locationSlug: locations[1].slug, locationName: locations[1].shortName },
-  { ...locations[2].menu.find((m) => m.name === "Live Rider Map")!, locationSlug: locations[2].slug, locationName: locations[2].shortName },
+const featuredCapabilities = [
+  { ...locations[0].capabilities.find((m) => m.name === "Biometric Time-In")!, locationSlug: locations[0].slug, locationName: locations[0].shortName },
+  { ...locations[1].capabilities.find((m) => m.name === "Boundary Detection")!, locationSlug: locations[1].slug, locationName: locations[1].shortName },
+  { ...locations[2].capabilities.find((m) => m.name === "Live Rider Map")!, locationSlug: locations[2].slug, locationName: locations[2].shortName },
 ]
 
 export function CoreCapabilities() {
@@ -62,16 +62,16 @@ export function CoreCapabilities() {
           stagger={0.2}
           className="mt-14 grid gap-8 md:grid-cols-3"
         >
-          {featuredDishes.map((dish) => (
+          {featuredCapabilities.map((capability) => (
             <Link
-              key={dish.name}
-              href={`/locations/${dish.locationSlug}`}
+              key={capability.name}
+              href={`/locations/${capability.locationSlug}`}
               className="group"
             >
               <div className="relative aspect-[4/5] overflow-hidden rounded-lg">
                 <Image
-                  src={dish.image || "/images/menu/default.jpg"}
-                  alt={dish.name}
+                  src={capability.image || "/placeholder.jpg"}
+                  alt={capability.name}
                   fill
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
                   sizes="(max-width: 768px) 100vw, 33vw"
@@ -79,16 +79,16 @@ export function CoreCapabilities() {
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
                   <Badge variant="secondary" className="mb-3 text-xs">
-                    {dish.locationName}
+                    {capability.locationName}
                   </Badge>
                   <h3 className="font-serif text-2xl font-bold text-primary-foreground">
-                    {dish.name}
+                    {capability.name}
                   </h3>
                   <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-primary-foreground/70">
-                    {dish.description}
+                    {capability.description}
                   </p>
                   <p className="mt-3 text-sm font-semibold text-accent">
-                    {dish.price}
+                    {capability.status}
                   </p>
                 </div>
               </div>
