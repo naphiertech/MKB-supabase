@@ -7,6 +7,8 @@ interface SectionHeaderProps {
   description?: string
   align?: "left" | "center"
   className?: string
+  titleClassName?: string
+  descriptionClassName?: string
 }
 
 export function SectionHeader({
@@ -15,6 +17,8 @@ export function SectionHeader({
   description,
   align = "center",
   className,
+  titleClassName,
+  descriptionClassName,
 }: SectionHeaderProps) {
   return (
     <AnimateIn
@@ -29,11 +33,11 @@ export function SectionHeader({
           {label}
         </p>
       )}
-      <h2 className="text-balance font-serif text-3xl font-bold tracking-tight text-foreground md:text-4xl lg:text-5xl">
+      <h2 className={cn("text-balance font-serif text-3xl font-bold tracking-tight text-foreground md:text-4xl lg:text-5xl", titleClassName)}>
         {title}
       </h2>
       {description && (
-        <p className="mt-6 text-pretty text-base leading-relaxed text-muted-foreground md:text-lg">
+        <p className={cn("mt-6 text-pretty text-base leading-relaxed text-muted-foreground md:text-lg", descriptionClassName)}>
           {description}
         </p>
       )}
