@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Menu, X, MapPin, Phone } from "lucide-react"
@@ -19,6 +19,11 @@ const navigation = [
 export function SiteHeader() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-lg">
@@ -62,7 +67,8 @@ export function SiteHeader() {
         </div>
 
         {/* Mobile Menu */}
-        <Sheet open={open} onOpenChange={setOpen}>
+        {mounted && (
+          <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="lg:hidden">
               <Menu className="size-5" />
@@ -128,6 +134,7 @@ export function SiteHeader() {
             </div>
           </SheetContent>
         </Sheet>
+        )}
       </div>
     </header>
   )
