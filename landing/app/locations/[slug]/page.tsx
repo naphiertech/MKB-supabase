@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { SectionHeader } from "@/components/section-header"
 import { siteConfig, locations } from "@/lib/data"
-import { LocationMenu } from "@/components/location-menu"
 
 export function generateStaticParams() {
   return locations.map((loc) => ({ slug: loc.slug }))
@@ -27,14 +26,14 @@ export async function generateMetadata({
     title: location.name,
     description: location.description,
     openGraph: {
-      title: `${location.name} | The Hearth`,
+      title: `${location.name} | ${siteConfig.name}`,
       description: location.description,
       url: `${siteConfig.url}/locations/${location.slug}`,
       images: [{ url: "/images/og-image.jpg", width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${location.name} | The Hearth`,
+      title: `${location.name} | ${siteConfig.name}`,
       description: location.description,
     },
     alternates: { canonical: `${siteConfig.url}/locations/${location.slug}` },
@@ -50,7 +49,7 @@ export default async function LocationDetailPage({
   const location = locations.find((l) => l.slug === slug)
   if (!location) notFound()
 
-  const categories = [...new Set(location.menu.map((item) => item.category))]
+  const categories = [...new Set(location.capabilities.map((item) => item.category))]
 
   return (
     <>
