@@ -13,7 +13,8 @@ export function useNow(intervalMs = 1000): number {
   return now;
 }
 
-export function relativeTime(ts: number, now: number): string {
+export function relativeTime(ts: number | null | undefined, now: number): string {
+  if (!ts || isNaN(ts)) return 'Never';
   const diff = Math.max(0, now - ts);
   const s = Math.floor(diff / 1000);
   if (s < 5) return 'just now';
