@@ -5,12 +5,22 @@ import { type AttendanceLog, type AttendanceStatus } from './types';
 function toHHMM(dateStr: string | null): string | null {
   if (!dateStr) return null;
   try {
-    const d = new Date(dateStr);
+    const formatted = dateStr.includes(' ') && !dateStr.includes('T')
+      ? dateStr.replace(' ', 'T')
+      : dateStr;
+    const d = new Date(formatted);
     if (isNaN(d.getTime())) return null;
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   } catch {
     return null;
   }
+}
+
+export function getLocalDateString(d: Date = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export async function getAttendanceLogs(filters?: {
@@ -92,12 +102,12 @@ export async function getAttendanceLogs(filters?: {
 }
 
 export async function getTodayLogs(): Promise<AttendanceLog[]> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateString();
   return getAttendanceLogs({ dateFrom: today, dateTo: today });
 }
 
 export async function getTodayKpis() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateString();
   const todays = await getAttendanceLogs({ dateFrom: today, dateTo: today });
   return {
     present: todays.filter((l) => l.status === 'present').length,
@@ -115,7 +125,7 @@ export async function getTodayKpis() {
  * - pending: needs review — manual source OR has time-in but no time-out
  */
 export async function getHrTodayKpis() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateString();
   const todays = await getAttendanceLogs({ dateFrom: today, dateTo: today });
   
   const onDuty = todays.filter((l) => !!l.timeIn).length;
@@ -132,7 +142,7 @@ export async function getHrTodayKpis() {
 
 export async function recordTimeIn(riderId: string): Promise<void> {
   const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10);
+  const dateStr = getLocalDateString(now);
 
   // Standard late cut-off rule: if signing in after 8:15 AM
   const isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15);
@@ -155,7 +165,7 @@ export async function recordTimeIn(riderId: string): Promise<void> {
 }
 
 export async function recordTimeOut(riderId: string): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateString();
 
   // Find today's existing log for this rider
   const { data: existing, error: findError } = await supabase
