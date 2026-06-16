@@ -5,6 +5,7 @@ import { useNow, relativeTime } from '../../hooks/useNow';
 interface UsersTableProps {
   users: AppUser[];
   zones: Zone[];
+  onlineUserIds: string[];
   onEdit?: (user: AppUser) => void;
 }
 const ROLE_STYLES: Record<
@@ -53,7 +54,7 @@ const FALLBACK_ROLE_STYLE = {
   text: 'text-[#475569]',
   label: 'User'
 };
-export function UsersTable({ users, zones, onEdit }: UsersTableProps) {
+export function UsersTable({ users, zones, onlineUserIds, onEdit }: UsersTableProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const now = useNow();
   return (
@@ -106,17 +107,25 @@ export function UsersTable({ users, zones, onEdit }: UsersTableProps) {
                     {zone?.name ?? '—'}
                   </td>
                   <td className="py-2.5 px-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${u.status === 'active' ? 'text-emerald-600' : 'text-red-600'}`}>
-                      
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${u.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                      
-                      {u.status === 'active' ? 'Active' : 'Suspended'}
-                    </span>
+                    {u.status === 'suspended' ? (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                        Suspended
+                      </span>
+                    ) : onlineUserIds.includes(u.id) ? (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        Offline
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 px-4 font-mono text-[#6B6258] text-xs">
-                    {relativeTime(u.lastLogin, now)}
+                    {u.lastLogin === 0 ? 'Never' : relativeTime(u.lastLogin, now)}
                   </td>
                   <td className="py-2.5 px-4 relative">
                     <button
