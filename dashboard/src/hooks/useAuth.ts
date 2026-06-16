@@ -109,6 +109,13 @@ export function useAuth() {
           currentSession = next;
           writeSession(next);
           emit();
+
+          // Safely record user active session timestamp
+          supabase.rpc('update_my_last_login').then(({ error }) => {
+            if (error) {
+              console.error('[Auth] Failed to update session last login timestamp:', error);
+            }
+          });
         }
       } catch (err) {
         console.error("Auth initialization error:", err);
@@ -197,6 +204,13 @@ export function useAuth() {
         currentSession = next;
         writeSession(next);
         emit();
+
+        // Record user login timestamp in database
+        const { error: loginStampErr } = await supabase.rpc('update_my_last_login');
+        if (loginStampErr) {
+          console.error('[Auth] Failed to update login timestamp:', loginStampErr);
+        }
+
         return { ok: true };
       } catch (err: any) {
         return {
