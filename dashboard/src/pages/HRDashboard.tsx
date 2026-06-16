@@ -3,7 +3,7 @@ import { BadgeCheck, ClipboardCheck, UserX, AlertCircle } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
 import { getZones } from '../services/geofenceService';
-import { getAttendanceLogs, getHrTodayKpis, deriveHrStatus } from '../services/attendanceService';
+import { getAttendanceLogs, getHrTodayKpis, deriveHrStatus, getLocalDateString } from '../services/attendanceService';
 import type { Zone, AttendanceLog } from '../services/types';
 import {
   QuickReportShortcuts,
@@ -34,7 +34,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
     getZones().then(setZonesList);
     getAttendanceLogs().then(setAttendanceList);
   }, []);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateString();
   const todayLogs = attendanceList.filter((l) => l.date === today);
   const lateCount = todayLogs.filter((l) => deriveHrStatus(l) === 'Late').length;
   function handleQuickReport(key: QuickReportKey) {
