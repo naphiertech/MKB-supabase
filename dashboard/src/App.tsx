@@ -9,6 +9,7 @@ import { Geofence } from './pages/Geofence';
 import { Attendance } from './pages/Attendance';
 import { Reports } from './pages/Reports';
 import { Users } from './pages/Users';
+import { ReviewsModeration } from './pages/ReviewsModeration';
 import { Login } from './pages/Login';
 import { RiderDashboard } from './pages/RiderDashboard';
 import { RiderAttendance } from './pages/RiderAttendance';
@@ -22,6 +23,8 @@ import { getAllRiders } from './services/monitoringService';
 import { getZones } from './services/geofenceService';
 import type { Rider, Zone } from './services/types';
 import { useAuth } from './hooks/useAuth';
+import { supabase } from './lib/supabaseClient';
+
 import { useNotifications } from './hooks/useNotifications';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
@@ -97,6 +100,7 @@ export function App() {
 
   const [allRiders, setAllRiders] = useState<Rider[]>([]);
   const [allZones, setAllZones] = useState<Zone[]>([]);
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (session) {
@@ -104,6 +108,36 @@ export function App() {
       getZones().then(setAllZones);
     }
   }, [session]);
+
+  // Real-time Presence Tracking for the logged-in user
+  useEffect(() => {
+    if (!session?.id) return;
+
+    const channel = supabase.channel('online-users');
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const presenceState = channel.presenceState();
+        const activeIds = Object.values(presenceState)
+          .flatMap((presencePresences: any) => presencePresences.map((p: any) => p.user_id))
+          .filter(Boolean) as string[];
+        
+        setOnlineUserIds(Array.from(new Set(activeIds)));
+      })
+      .subscribe(async (status: string) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            user_id: session.id,
+            online_at: new Date().toISOString()
+          });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.id]);
+
 
   // Trigger organic simulated skeleton loading on page/tab changes
   useEffect(() => {
@@ -212,7 +246,8 @@ export function App() {
         'dashboard',
         'monitoring',
         'attendance',
-        'reports'];
+        'reports',
+        'reviews'];
 
       return allowed.includes(p) ? p : 'dashboard';
     }
@@ -281,7 +316,8 @@ export function App() {
                     {safePage === 'geofence' && <Geofence />}
                     {safePage === 'attendance' && <Attendance />}
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
-                    {safePage === 'users' && <Users />}
+                    {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
+                    {safePage === 'reviews' && <ReviewsModeration />}
                   </>
                 }
                 {role === 'hr' &&
@@ -292,6 +328,7 @@ export function App() {
                     {safePage === 'monitoring' && <LiveMonitoring />}
                     {safePage === 'attendance' && <Attendance />}
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
+                    {safePage === 'reviews' && <ReviewsModeration />}
                   </>
                 }
                 {role === 'payroll' &&
