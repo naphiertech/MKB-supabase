@@ -16,7 +16,11 @@ import { UserDrawer } from '../components/users/UserDrawer';
 
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
 
-export function Users() {
+interface UsersProps {
+  onlineUserIds: string[];
+}
+
+export function Users({ onlineUserIds = [] }: UsersProps) {
   const [userList, setUserList] = useState<AppUser[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +60,7 @@ export function Users() {
             role: u.role,
             zoneId: u.riders?.zone_id || null,
             status: u.status,
-            lastLogin: u.last_login ? new Date(u.last_login).getTime() : Date.now(),
+            lastLogin: u.last_login ? new Date(u.last_login).getTime() : 0,
             contact: u.contact || u.riders?.contact || '',
             mkbRiderId: u.riders?.mkb_id || '',
             shift: u.riders?.shift ? u.riders.shift.toLowerCase() : '',
@@ -93,11 +97,18 @@ export function Users() {
       u.name.toLowerCase().includes(q.toLowerCase()) ||
       u.email.toLowerCase().includes(q.toLowerCase());
       const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+      
+      const isOnline = onlineUserIds.includes(u.id);
+      const liveStatus = u.status === 'suspended' ? 'suspended' : isOnline ? 'active' : 'offline';
+      
       const matchesStatus =
-      statusFilter === 'all' || u.status === statusFilter;
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && liveStatus === 'active') ||
+        (statusFilter === 'suspended' && liveStatus === 'suspended');
+
       return matchesQ && matchesRole && matchesStatus;
     }),
-    [q, roleFilter, statusFilter, userList]
+    [q, roleFilter, statusFilter, userList, onlineUserIds]
   );
 
   return (
@@ -216,6 +227,7 @@ export function Users() {
         <UsersTable
           users={filtered}
           zones={zonesList}
+          onlineUserIds={onlineUserIds}
           onEdit={(u) => {
             setEditing(u);
             setDrawerOpen(true);
