@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   haversine,
   type Rider,
@@ -36,7 +36,10 @@ function nowHHMM(d: Date = new Date()) {
 function toHHMM(dateStr: string | null): string | null {
   if (!dateStr) return null;
   try {
-    const d = new Date(dateStr);
+    const formatted = dateStr.includes(' ') && !dateStr.includes('T')
+      ? dateStr.replace(' ', 'T')
+      : dateStr;
+    const d = new Date(formatted);
     if (isNaN(d.getTime())) return null;
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   } catch {
@@ -62,6 +65,13 @@ function diffPretty(fromHHMM: string, to: Date = new Date()) {
   return `${hours}h ${String(mins).padStart(2, '0')}m`;
 }
 
+function getLocalDateString(d: Date = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function RiderDashboard({ userId }: RiderDashboardProps) {
   const riderId = userId.replace(/^u-rider-/, '');
   const [actualRiderId, setActualRiderId] = useState<string>(riderId);
@@ -69,8 +79,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [timeIn, setTimeIn] = useState<string | null>(null);
-  const [timeOut, setTimeOut] = useState<string | null>(null);
+  const [attendance, setAttendance] = useState<{
+    timeIn: string | null;
+    timeOut: string | null;
+  }>({ timeIn: null, timeOut: null });
+  const { timeIn, timeOut } = attendance;
   const [scanOpen, setScanOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
 
@@ -131,7 +144,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             lng: dbRider.lng || 0,
             speed: dbRider.speed || 0,
             shift: (dbRider.shift || 'Morning').toLowerCase() as any,
-            lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : Date.now(),
+            lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
             phone: dbRider.contact || '',
             riderCode: dbRider.mkb_id,
             faceDescriptor: dbRider.face_descriptor || null
@@ -163,7 +176,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           }
 
           // Fetch attendance logs for today using the resolved Rider UUID
-          const todayStr = new Date().toISOString().slice(0, 10);
+          const todayStr = getLocalDateString();
           const { data: attLog } = await supabase
             .from('attendance_logs')
             .select('*')
@@ -172,8 +185,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             .maybeSingle();
 
           if (attLog) {
-            setTimeIn(attLog.time_in ? toHHMM(attLog.time_in) : null);
-            setTimeOut(attLog.time_out ? toHHMM(attLog.time_out) : null);
+            setAttendance({
+              timeIn: attLog.time_in ? toHHMM(attLog.time_in) : null,
+              timeOut: attLog.time_out ? toHHMM(attLog.time_out) : null,
+            });
           }
         }
       } catch (err) {
@@ -201,8 +216,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
   const { position } = useGeolocation({
     initial: anchor,
-    jitter: 0.00018
+    jitter: 0.00018,
+    enabled: !!timeIn && !timeOut
   });
+
 
   const distance = useMemo(
     () => haversine(zoneCenterLat, zoneCenterLng, position.lat, position.lng),
@@ -250,16 +267,54 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     return () => window.clearInterval(id);
   }, [timeIn, timeOut, inZone, zoneName, zoneRadius, distance, zone]);
 
+  // Keep refs up-to-date to prevent GPS jitter re-triggering the sync useEffect and stale closures
+  const positionRef = useRef(position);
+  const inZoneRef = useRef(inZone);
+  const actualRiderIdRef = useRef(actualRiderId);
+  const pendingActionRef = useRef(pendingAction);
+  const timeInRef = useRef(timeIn);
+  const riderRef = useRef(rider);
+
+  useEffect(() => {
+    positionRef.current = position;
+  }, [position]);
+
+  useEffect(() => {
+    inZoneRef.current = inZone;
+  }, [inZone]);
+
+  useEffect(() => {
+    actualRiderIdRef.current = actualRiderId;
+  }, [actualRiderId]);
+
+  useEffect(() => {
+    pendingActionRef.current = pendingAction;
+  }, [pendingAction]);
+
+  useEffect(() => {
+    timeInRef.current = timeIn;
+  }, [timeIn]);
+
+  useEffect(() => {
+    riderRef.current = rider;
+  }, [rider]);
+
   // Background Geolocation Synchronization Loop
   useEffect(() => {
-    if (!timeIn || timeOut || !actualRiderId) return;
+    // loading check acts as a gate to prevent race conditions during initial database load
+    if (loading || !timeIn || timeOut || !actualRiderId) return;
 
     const syncLocation = async () => {
-      const status: 'active' | 'violation' = inZone ? 'active' : 'violation';
+      const currentRiderId = actualRiderIdRef.current;
+      const currentPosition = positionRef.current;
+      const currentInZone = inZoneRef.current;
+      if (!currentRiderId) return;
+
+      const status: 'active' | 'violation' = currentInZone ? 'active' : 'violation';
       try {
-        await updateRiderStatus(actualRiderId, status, position.lat, position.lng);
-        await logRiderLocation(actualRiderId, position.lat, position.lng, status);
-        console.log(`[RiderDashboard] Location synced to Supabase: Status = ${status}, Lat = ${position.lat}, Lng = ${position.lng}`);
+        await updateRiderStatus(currentRiderId, status, currentPosition.lat, currentPosition.lng);
+        await logRiderLocation(currentRiderId, currentPosition.lat, currentPosition.lng, status);
+        console.log(`[RiderDashboard] Location synced to Supabase: Status = ${status}, Lat = ${currentPosition.lat}, Lng = ${currentPosition.lng}`);
       } catch (err) {
         console.error('[RiderDashboard] Failed to sync location to database:', err);
       }
@@ -268,10 +323,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     // Initial sync
     syncLocation();
 
-    // Setup 30s interval
+    // Setup stable 30s interval
     const id = setInterval(syncLocation, 30000);
     return () => clearInterval(id);
-  }, [timeIn, timeOut, actualRiderId, inZone, position.lat, position.lng]);
+  }, [timeIn, timeOut, loading, actualRiderId]);
 
   const onlineStatus =
     timeIn && !timeOut ? 'online' : 'offline';
@@ -290,16 +345,24 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   }
 
   useEffect(() => {
-    if (phase !== 'matched' || !result?.matched || !rider || !actualRiderId) return;
+    if (phase !== 'matched' || !result?.matched) return;
+    const currentRider = riderRef.current;
+    const currentRiderId = actualRiderIdRef.current;
+    const currentPendingAction = pendingActionRef.current;
+    const currentTimeIn = timeInRef.current;
+    const currentPosition = positionRef.current;
+
+    if (!currentRider || !currentRiderId) return;
+
     const stamp = nowHHMM(new Date(result.capturedAt));
-    if (pendingAction === 'time-in') {
-      recordTimeIn(actualRiderId).then(async () => {
-        setTimeIn(stamp);
+    if (currentPendingAction === 'time-in') {
+      recordTimeIn(currentRiderId).then(async () => {
+        setAttendance(prev => ({ ...prev, timeIn: stamp }));
         
         // Immediately sync initial active status & location to DB
         try {
-          await updateRiderStatus(actualRiderId, 'active', position.lat, position.lng);
-          await logRiderLocation(actualRiderId, position.lat, position.lng, 'active');
+          await updateRiderStatus(currentRiderId, 'active', currentPosition.lat, currentPosition.lng);
+          await logRiderLocation(currentRiderId, currentPosition.lat, currentPosition.lng, 'active');
         } catch (err) {
           console.error('[RiderDashboard] Failed to push initial time-in coordinates:', err);
         }
@@ -316,7 +379,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         ]);
         pushToast({
           title: 'Time-In recorded',
-          description: `Welcome on shift, ${rider.name.split(' ')[0]}.`,
+          description: `Welcome on shift, ${currentRider.name.split(' ')[0]}.`,
           tone: 'success'
         });
       }).catch((err) => {
@@ -328,12 +391,12 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         });
       });
     } else {
-      recordTimeOut(actualRiderId).then(async () => {
-        setTimeOut(stamp);
+      recordTimeOut(currentRiderId).then(async () => {
+        setAttendance(prev => ({ ...prev, timeOut: stamp }));
 
         // Transition status to offline in DB
         try {
-          await updateRiderStatus(actualRiderId, 'offline', 0, 0); // resets coords
+          await updateRiderStatus(currentRiderId, 'offline', 0, 0); // resets coords
         } catch (err) {
           console.error('[RiderDashboard] Failed to reset offline status:', err);
         }
@@ -344,7 +407,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             ts: stamp,
             kind: 'time_out',
             label: 'Time-Out recorded (Facial Recognition)',
-            detail: `Shift duration · ${timeIn ? diffPretty(timeIn, new Date(result.capturedAt)) : '—'}`
+            detail: `Shift duration · ${currentTimeIn ? diffPretty(currentTimeIn, new Date(result.capturedAt)) : '—'}`
           },
           ...prev
         ]);
