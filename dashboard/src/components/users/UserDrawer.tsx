@@ -271,7 +271,7 @@ export function UserDrawer({
         zoneId:
         form.role === 'rider' ? form.zoneId || null : form.zoneId || null,
         status: form.status,
-        lastLogin: user?.lastLogin ?? Date.now(),
+        lastLogin: user?.lastLogin ?? 0,
         contact: form.contact,
         mkbRiderId: form.mkbRiderId,
         shift: form.shift,
