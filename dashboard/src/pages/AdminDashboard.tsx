@@ -7,7 +7,7 @@ import {
 'lucide-react';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
 import { getZones } from '../services/geofenceService';
-import { getAttendanceLogs } from '../services/attendanceService';
+import { getAttendanceLogs, getLocalDateString } from '../services/attendanceService';
 import type { Zone, AttendanceLog } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
 import { LiveMonitoringMap } from '../components/maps/LiveMonitoringMap';
@@ -35,7 +35,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     getAttendanceLogs().then(setAttendanceList);
   }, []);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateString();
   const todayLogs = attendanceList.filter((l) => l.date === today);
   const presentToday = todayLogs.filter(
     (l) => l.status === 'present' || l.status === 'late'
