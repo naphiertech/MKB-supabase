@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ClipboardCheck, ChevronRight } from 'lucide-react';
 import type { AttendanceLog } from '../../services/types';
+import { getLocalDateString } from '../../services/attendanceService';
 import { StatusPill } from './StatusPill';
 interface AttendanceLogsProps {
   logs: AttendanceLog[];
@@ -10,7 +11,7 @@ type Range = 'today' | 'week';
 export function AttendanceLogs({ logs, onViewAll }: AttendanceLogsProps) {
   const [range, setRange] = useState<Range>('today');
   const filtered = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getLocalDateString();
     if (range === 'today')
     return logs.filter((l) => l.date === today).slice(0, 8);
     return logs.slice(0, 8);
