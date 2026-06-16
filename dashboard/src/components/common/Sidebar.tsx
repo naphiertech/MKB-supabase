@@ -11,6 +11,7 @@ import {
   Target,
   Calculator,
   Wallet,
+  Star,
   X } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +22,8 @@ export type PageKey =
 'attendance' |
 'reports' |
 'users' |
-'computation';
+'computation' |
+'reviews';
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 interface SidebarUser {
   name: string;
@@ -81,6 +83,12 @@ const ADMIN_ITEMS: NavItem[] = [
   label: 'Users',
   icon: UsersIcon,
   route: '/admin/users'
+},
+{
+  key: 'reviews',
+  label: 'Reviews',
+  icon: Star,
+  route: '/admin/reviews'
 }];
 
 const HR_ITEMS: NavItem[] = [
@@ -107,6 +115,12 @@ const HR_ITEMS: NavItem[] = [
   label: 'Reports',
   icon: BarChart3,
   route: '/hr/reports'
+},
+{
+  key: 'reviews',
+  label: 'Reviews',
+  icon: Star,
+  route: '/hr/reviews'
 }];
 
 const PAYROLL_ITEMS: NavItem[] = [
