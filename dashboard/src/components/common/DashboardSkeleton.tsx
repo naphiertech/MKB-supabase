@@ -433,7 +433,8 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
     page === 'attendance' ||
     page === 'reports' ||
     page === 'users' ||
-    page === 'computation'
+    page === 'computation' ||
+    page === 'reviews'
   ) {
     return (
       <div className="p-4 md:p-6 lg:p-7">
