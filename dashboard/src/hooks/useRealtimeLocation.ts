@@ -69,7 +69,7 @@ export function useRealtimeLocation(): {
           lng: row.lng || 0,
           speed: row.speed || 0,
           shift: row.shift,
-          lastPing: row.last_ping ? new Date(row.last_ping).getTime() : Date.now(),
+          lastPing: row.last_ping ? new Date(row.last_ping).getTime() : 0,
           phone: row.contact || '',
           riderCode: row.mkb_id
         }));
