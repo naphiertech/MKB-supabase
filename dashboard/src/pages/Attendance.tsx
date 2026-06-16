@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { BadgeCheck, Clock, UserMinus, PalmtreeIcon } from 'lucide-react';
-import { getAttendanceLogs } from '../services/attendanceService';
+import { getAttendanceLogs, getLocalDateString } from '../services/attendanceService';
 import { getZones } from '../services/geofenceService';
 import type { AttendanceLog, Zone } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
@@ -9,10 +9,8 @@ export function Attendance() {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [shiftFilter, setShiftFilter] = useState<string>('all');
-  const today = new Date().toISOString().slice(0, 10);
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).
-  toISOString().
-  slice(0, 10);
+  const today = getLocalDateString();
+  const sevenDaysAgo = getLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
   const [dateFrom, setDateFrom] = useState<string>(sevenDaysAgo);
   const [dateTo, setDateTo] = useState<string>(today);
 
