@@ -17,14 +17,21 @@ export const getRouteForRider = async (
   riderId: string,
   date?: string
 ): Promise<RoutePoint[]> => {
-  const targetDate = date ?? new Date().toISOString().split('T')[0];
+  const getLocalDateString = (d: Date = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const targetDate = date ?? getLocalDateString();
 
   const { data, error } = await supabase
     .from('rider_locations')
     .select('lat, lng, speed, recorded_at')
     .eq('rider_id', riderId)
-    .gte('recorded_at', `${targetDate}T00:00:00`)
-    .lte('recorded_at', `${targetDate}T23:59:59`)
+    .gte('recorded_at', `${targetDate}T00:00:00+08:00`)
+    .lte('recorded_at', `${targetDate}T23:59:59+08:00`)
     .order('recorded_at', { ascending: true });
 
   if (error) {
