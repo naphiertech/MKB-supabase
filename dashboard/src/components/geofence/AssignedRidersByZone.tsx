@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import type { Zone, Rider, AttendanceLog } from '../../services/types';
+import { getLocalDateString } from '../../services/attendanceService';
 interface AssignedRidersByZoneProps {
   zones: Zone[];
   riders: Rider[];
@@ -63,7 +64,7 @@ export function AssignedRidersByZone({
   onToggleGroup,
   onSelectZone
 }: AssignedRidersByZoneProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateString();
   const timeInByRider: Record<string, string | null> = {};
   attendanceLogs.
   filter((l) => l.date === today).
