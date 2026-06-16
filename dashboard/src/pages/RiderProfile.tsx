@@ -65,7 +65,7 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
             role: dbUser.role,
             zoneId: null,
             status: dbUser.status,
-            lastLogin: dbUser.last_login ? new Date(dbUser.last_login).getTime() : Date.now()
+            lastLogin: dbUser.last_login ? new Date(dbUser.last_login).getTime() : 0
           });
 
           // Fetch public.riders using user's linked rider_id
@@ -87,7 +87,7 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
               lng: dbRider.lng || 0,
               speed: dbRider.speed || 0,
               shift: (dbRider.shift || 'Morning').toLowerCase() as any,
-              lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : Date.now(),
+              lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
               phone: dbRider.contact || '',
               riderCode: dbRider.mkb_id
             };
