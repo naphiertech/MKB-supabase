@@ -37,6 +37,10 @@ const TITLES: Record<
   computation: {
     title: 'Salary Computation',
     subtitle: 'Compute gross pay from validated hours'
+  },
+  reviews: {
+    title: 'Reviews Moderation',
+    subtitle: 'Approve or delete public user reviews'
   }
 };
 type TopbarRole = 'admin' | 'hr' | 'payroll';
