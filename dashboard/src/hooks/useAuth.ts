@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { type AppUser, type UserRole } from "../services/types";
+import { pushToast } from "./useToast";
 
 const STORAGE_KEY = "attenrider.session.v1";
 
@@ -231,6 +232,11 @@ export function useAuth() {
     currentSession = null;
     writeSession(null);
     emit();
+    pushToast({
+      title: "Signed out",
+      description: "You have been logged out successfully.",
+      tone: "info"
+    });
   }, []);
 
   const state = {
