@@ -53,7 +53,6 @@ interface ZoneFormModalProps {
   riders: Rider[];
   initialRiderIds: string[];
   onSave: (input: ZoneInput) => void;
-  onDelete?: () => void;
 }
 
 export function ZoneFormModal({
@@ -63,7 +62,6 @@ export function ZoneFormModal({
   riders,
   initialRiderIds,
   onSave,
-  onDelete,
 }: ZoneFormModalProps) {
   const [zoneName, setZoneName] = useState('');
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
@@ -143,7 +141,7 @@ export function ZoneFormModal({
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-6">
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 md:p-6">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -407,34 +405,21 @@ export function ZoneFormModal({
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-t border-[#EFEAE2] bg-white">
-              <div>
-                {existingZone && onDelete && (
-                  <button
-                    type="button"
-                    onClick={onDelete}
-                    className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline"
-                  >
-                    Delete zone
-                  </button>
-                )}
-              </div>
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-sm font-semibold text-[#888] hover:text-[#1A1410] hover:bg-[#F5F0E8] rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="px-4 py-2 text-sm font-semibold text-white bg-[#db6c00] hover:bg-[#c45f00] rounded-lg shadow-sm transition-colors"
-                >
-                  Save Zone
-                </button>
-              </div>
+            <div className="flex-shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-[#EFEAE2] bg-white">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-semibold text-[#888] hover:text-[#1A1410] hover:bg-[#F5F0E8] rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="px-4 py-2 text-sm font-semibold text-white bg-[#db6c00] hover:bg-[#c45f00] rounded-lg shadow-sm transition-colors"
+              >
+                Save Zone
+              </button>
             </div>
           </motion.div>
         </div>
