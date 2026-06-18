@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Star, Trash2, CheckCircle2, Clock, MessageSquare, ThumbsUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../hooks/useAuth';
 
 interface DBReview {
   id: string;
@@ -14,6 +15,10 @@ interface DBReview {
 }
 
 export function ReviewsModeration() {
+  const { session } = useAuth();
+  const currentUserRole = session?.role;
+  const isHR = currentUserRole === 'hr';
+
   const [reviews, setReviews] = useState<DBReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
@@ -99,10 +104,12 @@ export function ReviewsModeration() {
         <div>
           <h1 className="text-2xl font-semibold text-[#1A1410] tracking-tight flex items-center gap-2">
             <MessageSquare className="w-6 h-6 text-[#db6c00]" />
-            Customer Reviews Moderation
+            {isHR ? 'Rider Performance Feedback' : 'Customer Reviews Moderation'}
           </h1>
           <p className="text-sm text-[#6B6258] mt-1">
-            Moderate submitted customer reviews before they are displayed publicly on the landing page.
+            {isHR 
+              ? 'View submitted customer reviews and rider performance feedback.' 
+              : 'Moderate submitted customer reviews before they are displayed publicly on the landing page.'}
           </p>
         </div>
       </div>
@@ -219,26 +226,28 @@ export function ReviewsModeration() {
               </div>
 
               {/* Action buttons */}
-              <div className="flex items-center justify-end gap-2 border-t border-[#EFEAE2]/60 pt-3 mt-auto">
-                <button
-                  onClick={() => handleDelete(review.id)}
-                  disabled={actioningId === review.id}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Delete
-                </button>
-                {review.status === 'pending' && (
+              {!isHR && (
+                <div className="flex items-center justify-end gap-2 border-t border-[#EFEAE2]/60 pt-3 mt-auto">
                   <button
-                    onClick={() => handleApprove(review.id)}
+                    onClick={() => handleDelete(review.id)}
                     disabled={actioningId === review.id}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition-colors cursor-pointer"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Approve
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
                   </button>
-                )}
-              </div>
+                  {review.status === 'pending' && (
+                    <button
+                      onClick={() => handleApprove(review.id)}
+                      disabled={actioningId === review.id}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Approve
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
