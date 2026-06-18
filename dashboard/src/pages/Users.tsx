@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabaseClient';
 import { getZones } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
 import { UserDrawer } from '../components/users/UserDrawer';
+import { useAuth } from '../hooks/useAuth';
 
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
 
@@ -21,6 +22,9 @@ interface UsersProps {
 }
 
 export function Users({ onlineUserIds = [] }: UsersProps) {
+  const { session } = useAuth();
+  const currentUserRole = session?.role;
+
   const [userList, setUserList] = useState<AppUser[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +35,13 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
     'all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<AppUser | null>(null);
+
+  // Sync roleFilter for HR
+  useEffect(() => {
+    if (currentUserRole === 'hr') {
+      setRoleFilter('rider');
+    }
+  }, [currentUserRole]);
 
   const loadData = async () => {
     try {
@@ -117,34 +128,45 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2.5 flex-wrap">
           <div className="text-2xl font-semibold text-[#1A1410] tracking-tight">
-            {userList.length}
+            {currentUserRole === 'hr' ? counts.rider : userList.length}
           </div>
-          <div className="text-sm text-[#6B6258]">total users</div>
+          <div className="text-sm text-[#6B6258]">
+            {currentUserRole === 'hr' ? 'total riders' : 'total users'}
+          </div>
           <div className="hidden md:flex items-center gap-1.5 ml-3">
-            <RoleChip
-              icon={Shield}
-              label="Admin"
-              count={counts.admin}
-              tone="orange" />
-            
-            <RoleChip
-              icon={UsersIcon}
-              label="HR"
-              count={counts.hr}
-              tone="amber" />
-            
-            <RoleChip
-              icon={Bike}
-              label="Rider"
-              count={counts.rider}
-              tone="slate" />
-            
-            <RoleChip
-              icon={Wallet}
-              label="Payroll"
-              count={counts.payroll}
-              tone="indigo" />
-            
+            {currentUserRole !== 'hr' ? (
+              <>
+                <RoleChip
+                  icon={Shield}
+                  label="Admin"
+                  count={counts.admin}
+                  tone="orange" />
+                
+                <RoleChip
+                  icon={UsersIcon}
+                  label="HR"
+                  count={counts.hr}
+                  tone="amber" />
+                
+                <RoleChip
+                  icon={Bike}
+                  label="Rider"
+                  count={counts.rider}
+                  tone="slate" />
+                
+                <RoleChip
+                  icon={Wallet}
+                  label="Payroll"
+                  count={counts.payroll}
+                  tone="indigo" />
+              </>
+            ) : (
+              <RoleChip
+                icon={Bike}
+                label="Rider"
+                count={counts.rider}
+                tone="slate" />
+            )}
           </div>
         </div>
         <button
@@ -154,7 +176,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           }}
           className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-[#db6c00] hover:bg-[#b85a00] text-white text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#db6c00]/25 shadow-sm">
           
-          <Plus className="w-4 h-4" /> Add User
+          <Plus className="w-4 h-4" /> Add Rider
         </button>
       </div>
 
@@ -165,35 +187,37 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name or email…"
+            placeholder={currentUserRole === 'hr' ? "Search riders by name or email…" : "Search by name or email…"}
             className="bg-transparent outline-none text-sm text-[#1A1410] placeholder:text-[#A39988] flex-1" />
           
         </div>
-        <Segmented
-          value={roleFilter}
-          onChange={(v) => setRoleFilter(v as typeof roleFilter)}
-          options={[
-          {
-            v: 'all',
-            l: 'All Roles'
-          },
-          {
-            v: 'admin',
-            l: 'Admin'
-          },
-          {
-            v: 'hr',
-            l: 'HR'
-          },
-          {
-            v: 'rider',
-            l: 'Rider'
-          },
-          {
-            v: 'payroll',
-            l: 'Payroll'
-          }]
-          } />
+        {currentUserRole !== 'hr' && (
+          <Segmented
+            value={roleFilter}
+            onChange={(v) => setRoleFilter(v as typeof roleFilter)}
+            options={[
+            {
+              v: 'all',
+              l: 'All Roles'
+            },
+            {
+              v: 'admin',
+              l: 'Admin'
+            },
+            {
+              v: 'hr',
+              l: 'HR'
+            },
+            {
+              v: 'rider',
+              l: 'Rider'
+            },
+            {
+              v: 'payroll',
+              l: 'Payroll'
+            }]
+            } />
+        )}
         
         <Segmented
           value={statusFilter}
