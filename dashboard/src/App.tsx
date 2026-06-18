@@ -28,6 +28,7 @@ import { supabase } from './lib/supabaseClient';
 import { useNotifications } from './hooks/useNotifications';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
+import { ProfileSettingsModal } from './components/common/ProfileSettingsModal';
 
 const pageVariants: Variants = {
   initial: {
@@ -97,6 +98,7 @@ export function App() {
   const [riderPage, setRiderPage] = useState<RiderPageKey>('dashboard');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [allRiders, setAllRiders] = useState<Rider[]>([]);
   const [allZones, setAllZones] = useState<Zone[]>([]);
@@ -247,7 +249,8 @@ export function App() {
         'monitoring',
         'attendance',
         'reports',
-        'reviews'];
+        'reviews',
+        'users'];
 
       return allowed.includes(p) ? p : 'dashboard';
     }
@@ -278,6 +281,7 @@ export function App() {
           avatar: user.avatar
         }}
         onSignOut={signOut}
+        onOpenSettings={() => setSettingsOpen(true)}
         isMobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)} />
 
@@ -329,6 +333,7 @@ export function App() {
                     {safePage === 'attendance' && <Attendance />}
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'reviews' && <ReviewsModeration />}
+                    {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
                   </>
                 }
                 {role === 'payroll' &&
@@ -344,6 +349,7 @@ export function App() {
         </main>
       </div>
       <Toaster position="top-right" reverseOrder={false} />
+      <ProfileSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>);
 
 }
