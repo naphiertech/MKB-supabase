@@ -1,29 +1,23 @@
 import { useMemo, useState } from 'react';
-import { Search, Pencil, Trash2, ChevronRight, Plus } from 'lucide-react';
+import { Search, Pencil, ChevronRight, Plus } from 'lucide-react';
 import type { Zone } from '../../services/types';
 import { formatLatLng } from '../../lib/geofenceUtils';
+
 interface ZoneListPanelProps {
   zones: Zone[];
   riderCounts: Record<string, number>;
   activeZoneId: string | null;
   onSelectZone: (id: string | null) => void;
   onEdit: (zoneId: string) => void;
-  onDelete: (zoneId: string) => void;
-  pendingDeleteId: string | null;
-  onConfirmDelete: (zoneId: string) => void;
-  onCancelDelete: () => void;
   onAdd?: () => void;
 }
+
 export function ZoneListPanel({
   zones,
   riderCounts,
   activeZoneId,
   onSelectZone,
   onEdit,
-  onDelete,
-  pendingDeleteId,
-  onConfirmDelete,
-  onCancelDelete,
   onAdd
 }: ZoneListPanelProps) {
   const [query, setQuery] = useState('');
@@ -76,7 +70,6 @@ export function ZoneListPanel({
             const active = zone.id === activeZoneId;
             const status = zone.status ?? 'active';
             const riders = riderCounts[zone.id] ?? 0;
-            const pendingDelete = pendingDeleteId === zone.id;
             return (
               <li key={zone.id}>
                 <div
@@ -130,56 +123,15 @@ export function ZoneListPanel({
                         
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(zone.id);
-                        }}
-                        className="p-1.5 rounded-md text-[#6B6258] hover:text-[#DC2626] hover:bg-red-50 transition"
-                        aria-label={`Delete ${zone.name}`}
-                        title="Delete zone">
-                        
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                       {active &&
                       <ChevronRight className="w-3.5 h-3.5 text-[#db6c00]" />
                       }
                     </div>
                   </div>
-                  {pendingDelete &&
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="border-t border-red-200 bg-red-50/70 px-3 py-2 flex items-center justify-between gap-3">
-                    
-                      <span className="text-[11px] text-red-700">
-                        Delete <strong>{zone.name}</strong>? Riders will be
-                        unassigned.
-                      </span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                        type="button"
-                        onClick={onCancelDelete}
-                        className="text-[11px] font-semibold text-[#6B6258] hover:text-[#1A1410] px-2 py-1 rounded-md hover:bg-white transition">
-                        
-                          Cancel
-                        </button>
-                        <button
-                        type="button"
-                        onClick={() => onConfirmDelete(zone.id)}
-                        className="text-[11px] font-semibold text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded-md transition">
-                        
-                          Confirm Delete
-                        </button>
-                      </div>
-                    </div>
-                  }
                 </div>
               </li>);
-
           })}
         </ul>
       </div>
     </div>);
-
 }
