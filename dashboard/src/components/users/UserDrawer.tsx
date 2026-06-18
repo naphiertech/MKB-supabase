@@ -15,6 +15,7 @@ import type { AppUser, UserRole, Zone } from '../../services/types';
 import { FaceScanner } from '../attendance/FaceScanner';
 import { useFaceRecognition } from '../../hooks/useFaceRecognition';
 import { pushToast } from '../../hooks/useToast';
+import { useAuth } from '../../hooks/useAuth';
 import {
   ensureScriptsLoaded,
   loadFaceModels,
@@ -153,6 +154,8 @@ export function UserDrawer({
   onClose,
   onSaved
 }: UserDrawerProps) {
+  const { session } = useAuth();
+  const currentUserRole = session?.role;
   const mode: 'create' | 'edit' = user ? 'edit' : 'create';
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -168,12 +171,13 @@ export function UserDrawer({
     if (!open) return;
     if (user) {
       const safeRole: EditableRole =
+        currentUserRole === 'hr' ? 'rider' : (
         user.role === 'admin' ||
         user.role === 'hr' ||
         user.role === 'rider' ||
         user.role === 'payroll' ?
         user.role as EditableRole :
-        'admin';
+        'admin');
       
       const faceImg = (user as AppUser & { faceImage?: string }).faceImage ?? user.avatar ?? null;
       const faceDesc = (user as any).faceDescriptor ?? null;
@@ -214,7 +218,10 @@ export function UserDrawer({
         })();
       }
     } else {
-      setForm(EMPTY_FORM);
+      setForm({
+        ...EMPTY_FORM,
+        role: currentUserRole === 'hr' ? 'rider' : 'admin'
+      });
     }
     setErrors({});
     setShowSummary(false);
@@ -545,27 +552,28 @@ export function UserDrawer({
             </div>
           </Field>
 
-          <Field
-            label="Role"
-            error={errors.role}
-            innerRef={(el) => fieldRefs.current.role = el}>
-            
-            <div className="grid grid-cols-2 gap-1.5">
-              {ROLES.map((r) => {
-                const active = form.role === r.value;
-                return (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => setField('role', r.value)}
-                    className={`px-3 h-9 rounded-md border text-xs font-semibold transition ${active ? 'bg-[#FFF1E0] border-[#db6c00]/40 text-[#b85a00] ring-2 ring-[#db6c00]/15' : 'bg-white border-[#EFEAE2] text-[#1A1410] hover:border-[#db6c00]/30'}`}>
-                    
-                    {r.label}
-                  </button>);
-
-              })}
-            </div>
-          </Field>
+          {currentUserRole !== 'hr' && (
+            <Field
+              label="Role"
+              error={errors.role}
+              innerRef={(el) => fieldRefs.current.role = el}>
+              
+              <div className="grid grid-cols-2 gap-1.5">
+                {ROLES.map((r) => {
+                  const active = form.role === r.value;
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setField('role', r.value)}
+                      className={`px-3 h-9 rounded-md border text-xs font-semibold transition ${active ? 'bg-[#FFF1E0] border-[#db6c00]/40 text-[#b85a00] ring-2 ring-[#db6c00]/15' : 'bg-white border-[#EFEAE2] text-[#1A1410] hover:border-[#db6c00]/30'}`}>
+                      
+                      {r.label}
+                    </button>);
+                })}
+              </div>
+            </Field>
+          )}
 
           {/* Rider Details (with smooth height transition) */}
           <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isRider ? 'max-h-[1000px] opacity-100 mt-5' : 'max-h-0 opacity-0 pointer-events-none'}`}>
@@ -609,7 +617,7 @@ export function UserDrawer({
                 className="ar-input">
                 
                   <option value="">Unassigned</option>
-                  {zones.map((z) =>
+                  {zones.filter((z) => z.status === 'active' || z.id === form.zoneId).map((z) =>
                 <option key={z.id} value={z.id}>
                       {z.name}
                     </option>
@@ -829,7 +837,7 @@ function FaceCaptureModal({
   }, [phase, result, seedAvatar, onCapture]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-[#1A1410]/60 backdrop-blur-sm"
         onClick={onCancel} />
