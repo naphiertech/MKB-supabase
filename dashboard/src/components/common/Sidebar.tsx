@@ -12,6 +12,7 @@ import {
   Calculator,
   Wallet,
   Star,
+  Settings,
   X } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,6 +37,7 @@ interface SidebarProps {
   role: SidebarRole;
   user: SidebarUser;
   onSignOut?: () => void;
+  onOpenSettings?: () => void;
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
 }
@@ -115,6 +117,12 @@ const HR_ITEMS: NavItem[] = [
   label: 'Reports',
   icon: BarChart3,
   route: '/hr/reports'
+},
+{
+  key: 'users',
+  label: 'Employee Management',
+  icon: UsersIcon,
+  route: '/hr/users'
 },
 {
   key: 'reviews',
@@ -204,6 +212,7 @@ export function Sidebar({
   role,
   user,
   onSignOut,
+  onOpenSettings,
   isMobileOpen = false,
   onMobileClose
 }: SidebarProps) {
@@ -385,6 +394,16 @@ export function Sidebar({
               {user.email}
             </div>
           </div>
+          {onOpenSettings && (
+            <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="Account settings"
+            title="Account settings"
+            className="text-[#6B6258] hover:text-[#db6c00] p-1.5 rounded-md hover:bg-white transition mr-0.5">
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
           <button
           type="button"
           onClick={onSignOut}
