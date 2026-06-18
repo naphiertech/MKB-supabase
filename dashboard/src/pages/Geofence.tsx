@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { type Zone, type Rider, type ViolationEvent, type AttendanceLog } from '../services/types';
 import {
   createZone,
-  deleteZone,
   listZones,
   totalViolationsToday,
   updateZone,
@@ -32,7 +31,6 @@ export function Geofence() {
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [openGroupIds, setOpenGroupIds] = useState<Set<string>>(new Set());
 
   // Load all live database records asynchronously on mount and refresh triggers
@@ -148,47 +146,6 @@ export function Geofence() {
     }
   }
 
-  function handleDeleteRequest(zoneId: string) {
-    setPendingDeleteId(zoneId);
-  }
-
-  function handleCancelDelete() {
-    setPendingDeleteId(null);
-  }
-
-  async function handleConfirmDelete(zoneId: string) {
-    try {
-      const { zone } = await deleteZone(zoneId);
-      setPendingDeleteId(null);
-      if (activeZoneId === zoneId) setActiveZoneId(null);
-      setOpenGroupIds((prev) => {
-        const next = new Set(prev);
-        next.delete(zoneId);
-        return next;
-      });
-      refresh();
-      if (zone) {
-        pushToast({
-          title: 'Zone deleted',
-          description: `${zone.name} removed successfully.`,
-          tone: 'warning'
-        });
-      }
-    } catch (err) {
-      pushToast({
-        title: 'Error deleting zone',
-        tone: 'error'
-      });
-    }
-  }
-
-  function handleDeleteFromModal() {
-    if (!editingZoneId) return;
-    const id = editingZoneId;
-    closeModal();
-    handleConfirmDelete(id);
-  }
-
   function handleToggleGroup(zoneId: string) {
     setOpenGroupIds((prev) => {
       const next = new Set(prev);
@@ -230,10 +187,6 @@ export function Geofence() {
             activeZoneId={activeZoneId}
             onSelectZone={setActiveZoneId}
             onEdit={openEdit}
-            onDelete={handleDeleteRequest}
-            pendingDeleteId={pendingDeleteId}
-            onConfirmDelete={handleConfirmDelete}
-            onCancelDelete={handleCancelDelete}
             onAdd={openCreate} />
         </div>
       </div>
@@ -255,8 +208,7 @@ export function Geofence() {
         zone={editingZone}
         riders={ridersList}
         initialRiderIds={editingZoneRiderIds}
-        onSave={handleSave}
-        onDelete={handleDeleteFromModal} />
+        onSave={handleSave} />
     </div>
   );
 }
