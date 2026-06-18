@@ -42,7 +42,7 @@ export function Modal({
     <AnimatePresence>
       {open && (
         <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center px-4 py-8"
+          className="fixed inset-0 z-[1200] flex items-center justify-center px-4 py-8"
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? 'modal-title' : undefined}>
