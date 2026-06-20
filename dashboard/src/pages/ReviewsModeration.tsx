@@ -35,7 +35,7 @@ export function ReviewsModeration() {
 
       if (error) throw error;
       setReviews(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching reviews:', err);
       toast.error('Failed to load reviews.');
     } finally {
@@ -62,7 +62,7 @@ export function ReviewsModeration() {
       setReviews((prev) =>
         prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r))
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error approving review:', err);
       toast.error('Failed to approve review.');
     } finally {
@@ -84,7 +84,7 @@ export function ReviewsModeration() {
       toast.success('Review deleted permanently.');
       // Remove from local state
       setReviews((prev) => prev.filter((r) => r.id !== id));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting review:', err);
       toast.error('Failed to delete review.');
     } finally {
