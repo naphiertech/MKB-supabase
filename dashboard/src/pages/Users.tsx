@@ -8,11 +8,11 @@ import {
   Wallet } from
 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
-import { type AppUser, type Zone } from '../services/types';
+import { type AppUser, type UserRole, type UserStatus, type Zone } from '../services/types';
 import { supabase } from '../lib/supabaseClient';
 import { getZones } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
-import { UserDrawer } from '../components/users/UserDrawer';
+import { UserModal } from '../components/users/UserModal';
 import { useAuth } from '../hooks/useAuth';
 
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
@@ -54,13 +54,39 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
         .order('full_name', { ascending: true });
 
       if (!error && dbUsers) {
-        const mapped: AppUser[] = dbUsers.map((u: any) => {
+        const mapped: AppUser[] = dbUsers.map((u: {
+          id: string;
+          full_name: string;
+          email: string;
+          role: string;
+          status: string;
+          last_login: string | null;
+          contact: string | null;
+          riders: {
+            face_image_url?: string | null;
+            zone_id?: string | null;
+            contact?: string | null;
+            mkb_id?: string | null;
+            shift?: string | null;
+            face_descriptor?: number[] | null;
+            province?: string | null;
+            city?: string | null;
+            barangay?: string | null;
+            zip_code?: string | null;
+            street_address?: string | null;
+          } | null;
+        }) => {
           const userObj: AppUser & {
             contact?: string;
             mkbRiderId?: string;
             shift?: string;
             faceImage?: string | null;
             faceDescriptor?: number[] | null;
+            province?: string;
+            city?: string;
+            barangay?: string;
+            zipCode?: string;
+            streetAddress?: string;
           } = {
             id: u.id,
             name: u.full_name,
@@ -68,15 +94,20 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
               ? u.riders.face_image_url
               : `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.full_name)}`,
             email: u.email,
-            role: u.role,
+            role: u.role as UserRole,
             zoneId: u.riders?.zone_id || null,
-            status: u.status,
+            status: u.status as UserStatus,
             lastLogin: u.last_login ? new Date(u.last_login).getTime() : 0,
             contact: u.contact || u.riders?.contact || '',
             mkbRiderId: u.riders?.mkb_id || '',
             shift: u.riders?.shift ? u.riders.shift.toLowerCase() : '',
             faceImage: u.riders?.face_image_url || null,
-            faceDescriptor: u.riders?.face_descriptor || null
+            faceDescriptor: u.riders?.face_descriptor || null,
+            province: u.riders?.province || '',
+            city: u.riders?.city || '',
+            barangay: u.riders?.barangay || '',
+            zipCode: u.riders?.zip_code || '',
+            streetAddress: u.riders?.street_address || ''
           };
           return userObj;
         });
@@ -258,7 +289,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           }} />
       )}
 
-      <UserDrawer
+      <UserModal
         open={drawerOpen}
         user={editing}
         zones={zonesList}
@@ -299,7 +330,12 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                     face_registered: !!savedUser.faceImage,
                     face_image_url: savedUser.faceImage || null,
                     face_descriptor: savedUser.faceDescriptor || null,
-                    face_registered_at: savedUser.faceDescriptor ? new Date().toISOString() : null
+                    face_registered_at: savedUser.faceDescriptor ? new Date().toISOString() : null,
+                    province: savedUser.province || null,
+                    city: savedUser.city || null,
+                    barangay: savedUser.barangay || null,
+                    zip_code: savedUser.zipCode || null,
+                    street_address: savedUser.streetAddress || null
                   })
                   .eq('id', userProfile.rider_id);
                 if (riderErr) throw riderErr;
@@ -328,7 +364,12 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                     face_registered: !!savedUser.faceImage,
                     face_image_url: savedUser.faceImage || null,
                     face_descriptor: savedUser.faceDescriptor || null,
-                    face_registered_at: savedUser.faceDescriptor ? new Date().toISOString() : null
+                    face_registered_at: savedUser.faceDescriptor ? new Date().toISOString() : null,
+                    province: savedUser.province || null,
+                    city: savedUser.city || null,
+                    barangay: savedUser.barangay || null,
+                    zip_code: savedUser.zipCode || null,
+                    street_address: savedUser.streetAddress || null
                   })
                   .select('id')
                   .single();
