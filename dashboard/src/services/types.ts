@@ -53,6 +53,8 @@ export interface ViolationEvent {
   ts: number;
   type: 'boundary_exit' | 'boundary_enter' | 'idle_excess';
   read: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 export interface AppUser {
