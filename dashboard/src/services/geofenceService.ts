@@ -2,7 +2,8 @@ import { supabase } from '../lib/supabaseClient';
 import {
   type Zone,
   type ZoneStatus,
-  type Rider
+  type Rider,
+  type RiderStatus
 } from './types';
 import { randomZoneColor } from '../lib/geofenceUtils';
 
@@ -15,7 +16,32 @@ export interface ZoneInput {
   riderIds: string[];
 }
 
-const mapZone = (row: any): Zone => ({
+interface DbZoneRow {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius: number;
+  color: string;
+  status: string;
+}
+
+interface DbRiderRow {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  zone_id: string | null;
+  status: string;
+  lat: number | null;
+  lng: number | null;
+  speed: number | null;
+  shift: string;
+  last_ping: string | null;
+  contact: string | null;
+  mkb_id: string;
+}
+
+const mapZone = (row: DbZoneRow): Zone => ({
   id: row.id,
   name: row.name,
   center: [row.lat, row.lng],
@@ -64,16 +90,16 @@ export async function ridersInZone(zoneId: string): Promise<Rider[]> {
     return [];
   }
 
-  return (data || []).map((row: any) => ({
+  return (data || []).map((row: DbRiderRow) => ({
     id: row.id,
     name: row.name,
     avatar: row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
     zoneId: row.zone_id,
-    status: row.status,
+    status: row.status as RiderStatus,
     lat: row.lat || 0,
     lng: row.lng || 0,
     speed: row.speed || 0,
-    shift: row.shift,
+    shift: row.shift as Rider['shift'],
     lastPing: row.last_ping ? new Date(row.last_ping).getTime() : 0,
     phone: row.contact || '',
     riderCode: row.mkb_id
@@ -176,7 +202,7 @@ export async function createZone(input: ZoneInput): Promise<Zone> {
 }
 
 export async function updateZone(id: string, patch: Partial<ZoneInput>): Promise<Zone | null> {
-  const updates: any = {};
+  const updates: Record<string, unknown> = {};
   if (patch.name !== undefined) updates.name = patch.name.trim();
   if (patch.lat !== undefined) updates.lat = patch.lat;
   if (patch.lng !== undefined) updates.lng = patch.lng;
@@ -207,7 +233,7 @@ export async function updateZone(id: string, patch: Partial<ZoneInput>): Promise
 
     if (!fetchRidersErr && currentRiders) {
       const ridersToUnassign = currentRiders
-        .map((r: any) => r.id)
+        .map((r: { id: string }) => r.id)
         .filter((rId: string) => !patch.riderIds!.includes(rId));
 
       if (ridersToUnassign.length > 0) {
@@ -241,7 +267,7 @@ export async function deleteZone(id: string): Promise<{
     .select('id')
     .eq('zone_id', id);
 
-  const unassignedRiderIds = assignedRiders ? assignedRiders.map((r: any) => r.id) : [];
+  const unassignedRiderIds = assignedRiders ? assignedRiders.map((r: { id: string }) => r.id) : [];
 
   const { error } = await supabase
     .from('zones')
