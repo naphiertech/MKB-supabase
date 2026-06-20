@@ -78,6 +78,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   const [rider, setRider] = useState<(Rider & { faceDescriptor?: number[] | null }) | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeViolation, setActiveViolation] = useState<{
+    lat: number;
+    lng: number;
+    zoneName: string;
+  } | null>(null);
 
   const [attendance, setAttendance] = useState<{
     timeIn: string | null;
@@ -143,7 +148,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             lat: dbRider.lat || 0,
             lng: dbRider.lng || 0,
             speed: dbRider.speed || 0,
-            shift: (dbRider.shift || 'Morning').toLowerCase() as any,
+            shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
             lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
             phone: dbRider.contact || '',
             riderCode: dbRider.mkb_id,
@@ -190,6 +195,26 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
               timeOut: attLog.time_out ? toHHMM(attLog.time_out) : null,
             });
           }
+
+          // Fetch the latest unread violation for the active rider
+          const { data: violationData } = await supabase
+            .from('violations')
+            .select('*')
+            .eq('rider_id', resolvedRiderId)
+            .eq('read', false)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (violationData && violationData.lat && violationData.lng) {
+            setActiveViolation({
+              lat: violationData.lat,
+              lng: violationData.lng,
+              zoneName: violationData.zone_name || 'Talon-Talon'
+            });
+          } else {
+            setActiveViolation(null);
+          }
         }
       } catch (err) {
         console.error('Error loading rider dashboard data:', err);
@@ -220,13 +245,50 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     enabled: !!timeIn && !timeOut
   });
 
+  const isOnline = !!timeIn && !timeOut;
 
-  const distance = useMemo(
-    () => haversine(zoneCenterLat, zoneCenterLng, position.lat, position.lng),
-    [position.lat, position.lng, zoneCenterLat, zoneCenterLng]
-  );
+  const positionToUse = useMemo(() => {
+    if (isOnline) {
+      return position;
+    }
+    if (activeViolation) {
+      return {
+        lat: activeViolation.lat,
+        lng: activeViolation.lng,
+        accuracy: 8,
+        ts: Date.now()
+      };
+    }
+    return {
+      lat: zoneCenterLat,
+      lng: zoneCenterLng,
+      accuracy: 8,
+      ts: Date.now()
+    };
+  }, [isOnline, position, activeViolation, zoneCenterLat, zoneCenterLng]);
 
-  const inZone = distance <= zoneRadius;
+  const distanceToUse = useMemo(() => {
+    if (isOnline) {
+      return haversine(zoneCenterLat, zoneCenterLng, position.lat, position.lng);
+    }
+    if (activeViolation) {
+      return haversine(zoneCenterLat, zoneCenterLng, activeViolation.lat, activeViolation.lng);
+    }
+    return 0;
+  }, [isOnline, position, activeViolation, zoneCenterLat, zoneCenterLng]);
+
+  const inZoneToUse = useMemo(() => {
+    if (isOnline) {
+      return distanceToUse <= zoneRadius;
+    }
+    if (activeViolation) {
+      return false;
+    }
+    return true;
+  }, [isOnline, distanceToUse, zoneRadius, activeViolation]);
+
+  const distance = distanceToUse;
+  const inZone = inZoneToUse;
 
   const action: 'time-in' | 'time-out' | 'completed' =
     timeIn && timeOut ? 'completed' : timeIn ? 'time-out' : 'time-in';
@@ -509,16 +571,18 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         </header>
 
         <RiderMap
-          position={position}
+          position={positionToUse}
           zone={zone}
-          inZone={inZone}
+          inZone={inZoneToUse}
           height="320px" />
 
-        <GeofenceStatus
-          inZone={inZone}
-          zoneName={zoneName}
-          distance={distance}
-          radius={zoneRadius} />
+        {(!timeIn || timeOut) && !activeViolation ? null : (
+          <GeofenceStatus
+            inZone={inZoneToUse}
+            zoneName={zoneName}
+            distance={distanceToUse}
+            radius={zoneRadius} />
+        )}
       </section>
 
       {/* 4. Activity + 5. Stats */}
