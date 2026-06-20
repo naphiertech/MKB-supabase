@@ -95,7 +95,24 @@ export function PayrollDashboard() {
   const [month, setMonth] = useState(4); // May (0-indexed)
   const [half, setHalf] = useState<'first' | 'second'>('first');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [payrollRecords, setPayrollRecords] = useState<any[]>([]);
+  interface PayrollRecordRow {
+    id: string;
+    rider_id: string;
+    cutoff_start: string;
+    cutoff_end: string;
+    total_parcels: number;
+    rate_per_parcel: number | null;
+    gross_pay: number | null;
+    status: string;
+    created_at: string;
+    updated_at: string;
+    riders: {
+      name: string;
+      mkb_id: string;
+      zones: { name: string } | null;
+    } | null;
+  }
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecordRow[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Day-by-day logs loaded dynamically on row expansion
@@ -118,7 +135,7 @@ export function PayrollDashboard() {
     const loadDashboard = async () => {
       setLoading(true);
       try {
-        const records = await getPayrollRecords(cutoffFrom, cutoffTo);
+        const records: PayrollRecordRow[] = await getPayrollRecords(cutoffFrom, cutoffTo);
         setPayrollRecords(records);
       } catch (err) {
         console.error('Failed to load payroll records', err);
@@ -131,7 +148,7 @@ export function PayrollDashboard() {
 
   // Compute fleet totals
   const totals = useMemo(() => {
-    const totalGross = payrollRecords.reduce((s, r) => s + parseFloat(r.gross_pay || 0), 0);
+    const totalGross = payrollRecords.reduce((s, r) => s + (r.gross_pay ?? 0), 0);
     const totalParcels = payrollRecords.reduce((s, r) => s + (r.total_parcels || 0), 0);
     const flagged = payrollRecords.filter(r => r.status === 'flagged').length;
     const complete = payrollRecords.filter(r => r.status !== 'flagged').length;
@@ -338,7 +355,7 @@ export function PayrollDashboard() {
                   const riderName = r.riders?.name || 'Unknown Rider';
                   const riderId = r.riders?.mkb_id || 'MKB-RIDER';
                   const zone = r.riders?.zones?.name || '—';
-                  const ratePerParcel = parseFloat(r.rate_per_parcel || 50);
+                  const ratePerParcel = r.rate_per_parcel ?? 50;
 
                   return (
                     <Fragment key={r.id}>
@@ -375,7 +392,7 @@ export function PayrollDashboard() {
                           ₱{ratePerParcel.toFixed(2)}
                         </td>
                         <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold text-[#1A1410]">
-                          {phpFmt(parseFloat(r.gross_pay || 0))}
+                          {phpFmt(r.gross_pay ?? 0)}
                         </td>
                         <td className="px-3 py-3 pr-5">
                           <StatusPill status={r.status} />
