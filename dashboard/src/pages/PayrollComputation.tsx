@@ -39,7 +39,13 @@ function isoOffset(days: number): string {
 
 export function PayrollComputation() {
   const { user } = useAuth();
-  const [riders, setRiders] = useState<any[]>([]);
+  interface RiderRow {
+    id: string;
+    name: string;
+    mkb_id: string;
+    zones: { name: string } | null;
+  }
+  const [riders, setRiders] = useState<RiderRow[]>([]);
   const [selectedRiderId, setSelectedRiderId] = useState('');
   const [cutoffFrom, setCutoffFrom] = useState(isoOffset(14));
   const [cutoffTo, setCutoffTo] = useState(isoToday());
@@ -73,7 +79,7 @@ export function PayrollComputation() {
         .select('id, name, mkb_id, zones(name)')
         .order('name');
       if (data) {
-        setRiders(data);
+        setRiders(data as unknown as RiderRow[]);
         if (data.length > 0) setSelectedRiderId(data[0].id);
       }
     };
@@ -126,7 +132,7 @@ export function PayrollComputation() {
     };
 
     loadLogs();
-  }, [selectedRiderId, cutoffFrom, cutoffTo]);
+  }, [selectedRiderId, cutoffFrom, cutoffTo, rate]);
 
   // Recalculate daily gross when rate changes
   useEffect(() => {
