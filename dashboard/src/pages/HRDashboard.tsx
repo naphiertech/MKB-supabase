@@ -12,6 +12,7 @@ import {
 import { HRAttendanceOverview } from '../components/hr/HRAttendanceOverview';
 import { RiderStatusGrid } from '../components/hr/RiderStatusGrid';
 import { HRViolationSummary } from '../components/hr/HRViolationSummary';
+import { HRDetailsPanel } from '../components/hr/HRDetailsPanels';
 interface HRDashboardProps {
   onNavigate: (
   page: 'monitoring' | 'attendance' | 'reports',
@@ -28,6 +29,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
   });
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
+  const [activeSummaryPanel, setActiveSummaryPanel] = useState<'on_duty' | 'complete' | 'absent' | 'pending' | null>(null);
 
   useEffect(() => {
     getHrTodayKpis().then(setKpis);
@@ -63,6 +65,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           icon={BadgeCheck}
           accent="blue"
           pulse
+          onClick={() => setActiveSummaryPanel((prev) => (prev === 'on_duty' ? null : 'on_duty'))}
           trend={{
             direction: 'up',
             value: '+3 vs yesterday'
@@ -75,6 +78,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           sub="Time-in + time-out"
           icon={ClipboardCheck}
           accent="green"
+          onClick={() => setActiveSummaryPanel((prev) => (prev === 'complete' ? null : 'complete'))}
           trend={{
             direction: 'up',
             value: `+${Math.max(1, kpis.complete - 4)} today`
@@ -87,6 +91,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           sub={kpis.absent > 0 ? 'Needs follow-up' : 'All accounted for'}
           icon={UserX}
           accent="red"
+          onClick={() => setActiveSummaryPanel((prev) => (prev === 'absent' ? null : 'absent'))}
           trend={{
             direction: kpis.absent > 0 ? 'up' : 'flat',
             value: kpis.absent > 0 ? `${kpis.absent} today` : 'no change',
@@ -100,6 +105,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           sub={`${lateCount} late · manual entries`}
           icon={AlertCircle}
           accent="amber"
+          onClick={() => setActiveSummaryPanel((prev) => (prev === 'pending' ? null : 'pending'))}
           trend={{
             direction: 'flat',
             value: 'awaiting review'
@@ -107,6 +113,18 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           spark={[4, 5, 4, 6, 5, 4, 5]} />
         
       </div>
+
+      {/* Expanding Inline Details Panel */}
+      {activeSummaryPanel && (
+        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+          <HRDetailsPanel
+            type={activeSummaryPanel}
+            onClose={() => setActiveSummaryPanel(null)}
+            logs={todayLogs}
+            riders={riders}
+          />
+        </div>
+      )}
 
       {/* 2. Quick Report Shortcuts */}
       <QuickReportShortcuts onSelect={handleQuickReport} />
