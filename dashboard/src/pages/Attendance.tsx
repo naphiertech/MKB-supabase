@@ -6,6 +6,7 @@ import type { AttendanceLog, Zone } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
 import { AttendanceTable } from '../components/attendance/AttendanceTable';
 import { supabase } from '../lib/supabaseClient';
+import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetailsPanels';
 
 export function Attendance() {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
@@ -18,6 +19,7 @@ export function Attendance() {
 
   const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [activeSummaryModal, setActiveSummaryModal] = useState<'present' | 'late' | 'absent' | 'on_leave' | null>(null);
   
   // DTR states
   const [dtrModalOpen, setDtrModalOpen] = useState(false);
@@ -37,7 +39,7 @@ export function Attendance() {
       .order('name')
       .then(({ data }) => {
         if (data) {
-          setRidersList(data.map((r: any) => ({ id: r.id, name: r.name, mkb_id: r.mkb_id })));
+          setRidersList(data.map((r: { id: string; name: string; mkb_id?: string }) => ({ id: r.id, name: r.name, mkb_id: r.mkb_id })));
         }
       });
   }, []);
@@ -68,6 +70,7 @@ export function Attendance() {
           icon={BadgeCheck}
           accent="green"
           pulse
+          onClick={() => setActiveSummaryModal((prev) => (prev === 'present' ? null : 'present'))}
           trend={{
             direction: 'up',
             value: '+5 vs avg'
@@ -78,6 +81,7 @@ export function Attendance() {
           value={kpis.late}
           icon={Clock}
           accent="amber"
+          onClick={() => setActiveSummaryModal((prev) => (prev === 'late' ? null : 'late'))}
           trend={{
             direction: 'down',
             value: '-2 vs yesterday'
@@ -88,6 +92,7 @@ export function Attendance() {
           value={kpis.absent}
           icon={UserMinus}
           accent="red"
+          onClick={() => setActiveSummaryModal((prev) => (prev === 'absent' ? null : 'absent'))}
           trend={{
             direction: 'flat',
             value: 'no change',
@@ -99,12 +104,24 @@ export function Attendance() {
           value={kpis.onLeave}
           icon={PalmtreeIcon}
           accent="blue"
+          onClick={() => setActiveSummaryModal((prev) => (prev === 'on_leave' ? null : 'on_leave'))}
           trend={{
             direction: 'flat',
             value: '2 scheduled'
           }} />
         
       </div>
+
+      {/* Expanding Inline Details Panel */}
+      {activeSummaryModal && (
+        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+          <AttendanceDetailsPanel
+            type={activeSummaryModal}
+            onClose={() => setActiveSummaryModal(null)}
+            logs={todayLogs}
+          />
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 flex flex-wrap items-end gap-3 shadow-sm">
