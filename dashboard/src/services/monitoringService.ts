@@ -1,28 +1,68 @@
 import { supabase } from '../lib/supabaseClient';
 import {
   type Rider,
+  type RiderStatus,
   type ViolationEvent,
-  type Zone
+  type Zone,
+  type ZoneStatus
 } from './types';
 
-const mapRider = (row: any): Rider => {
+interface DbRiderRow {
+  id: string;
+  name: string;
+  face_image_url: string | null;
+  avatar_url: string | null;
+  zone_id: string | null;
+  status: string;
+  lat: number | null;
+  lng: number | null;
+  speed: number | null;
+  shift: string;
+  last_ping: string | null;
+  contact: string | null;
+  mkb_id: string;
+}
+
+interface DbViolationRow {
+  id: string;
+  rider_id: string;
+  zone_name: string | null;
+  created_at: string;
+  type: string;
+  read: boolean;
+  lat: number | null;
+  lng: number | null;
+  riders: { name: string } | null;
+}
+
+interface DbZoneRow {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius: number;
+  color: string;
+  status: string;
+}
+
+const mapRider = (row: DbRiderRow): Rider => {
   return {
     id: row.id,
     name: row.name,
     avatar: row.face_image_url || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
     zoneId: row.zone_id,
-    status: row.status,
-    lat: row.lat || 0,
-    lng: row.lng || 0,
-    speed: row.speed || 0,
-    shift: row.shift,
+    status: row.status as RiderStatus,
+    lat: row.lat ?? 0,
+    lng: row.lng ?? 0,
+    speed: row.speed ?? 0,
+    shift: row.shift as Rider['shift'],
     lastPing: row.last_ping ? new Date(row.last_ping).getTime() : 0,
     phone: row.contact || '',
     riderCode: row.mkb_id
   };
 };
 
-const mapViolation = (row: any): ViolationEvent => {
+const mapViolation = (row: DbViolationRow): ViolationEvent => {
   const rider = row.riders;
   return {
     id: row.id,
@@ -31,7 +71,9 @@ const mapViolation = (row: any): ViolationEvent => {
     zoneName: row.zone_name || 'No Zone',
     ts: new Date(row.created_at).getTime(),
     type: row.type as 'boundary_exit' | 'boundary_enter' | 'idle_excess',
-    read: row.read
+    read: row.read,
+    lat: row.lat ?? undefined,
+    lng: row.lng ?? undefined
   };
 };
 
@@ -85,13 +127,13 @@ export async function getZones(): Promise<Zone[]> {
     return [];
   }
 
-  return (data || []).map((row: any) => ({
+  return (data || []).map((row: DbZoneRow) => ({
     id: row.id,
     name: row.name,
     center: [row.lat, row.lng],
     radius: row.radius,
     color: row.color,
-    status: row.status
+    status: row.status as ZoneStatus
   }));
 }
 
