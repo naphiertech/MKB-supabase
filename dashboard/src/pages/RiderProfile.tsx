@@ -86,7 +86,7 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
               lat: dbRider.lat || 0,
               lng: dbRider.lng || 0,
               speed: dbRider.speed || 0,
-              shift: (dbRider.shift || 'Morning').toLowerCase() as any,
+              shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
               lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
               phone: dbRider.contact || '',
               riderCode: dbRider.mkb_id
