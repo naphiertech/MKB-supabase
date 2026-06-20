@@ -13,6 +13,13 @@ export interface RouteStats {
   currentTime: string;
 }
 
+interface DbRiderLocationRow {
+  lat: number;
+  lng: number;
+  speed: number | null;
+  recorded_at: string;
+}
+
 export const getRouteForRider = async (
   riderId: string,
   date?: string
@@ -40,7 +47,7 @@ export const getRouteForRider = async (
   }
 
   // Map recorded_at to the timestamp field required by frontend components
-  return (data || []).map((row: any) => ({
+  return (data || []).map((row: DbRiderLocationRow) => ({
     lat: row.lat,
     lng: row.lng,
     speed: row.speed || 0,
