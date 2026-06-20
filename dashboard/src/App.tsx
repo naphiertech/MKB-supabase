@@ -29,6 +29,7 @@ import { useNotifications } from './hooks/useNotifications';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import { ProfileSettingsModal } from './components/common/ProfileSettingsModal';
+import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
 
 const pageVariants: Variants = {
   initial: {
@@ -57,12 +58,12 @@ const pageVariants: Variants = {
     },
   },
 };
-class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
-  state: { hasError: boolean; error: any } = { hasError: false, error: null };
-  static getDerivedStateFromError(error: any) {
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
+  state: { hasError: boolean; error: unknown } = { hasError: false, error: null };
+  static getDerivedStateFromError(error: unknown) {
     return { hasError: true, error };
   }
-  componentDidCatch(error: any, errorInfo: any) {
+  componentDidCatch(error: unknown, errorInfo: unknown) {
     console.error("ErrorBoundary caught an error", error, errorInfo);
   }
   render() {
@@ -77,7 +78,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
             The reports dashboard encountered a runtime error and was caught by the emergency error boundary:
           </p>
           <div className="bg-red-950 text-red-100 p-4 rounded-lg text-xs font-mono overflow-auto max-h-[300px] border border-red-900 leading-relaxed whitespace-pre-wrap">
-            {this.state.error?.stack || this.state.error?.toString() || 'Unknown Error'}
+            {(this.state.error instanceof Error ? this.state.error.stack : String(this.state.error)) || 'Unknown Error'}
           </div>
           <button
             onClick={() => window.location.reload()}
@@ -92,13 +93,27 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
   }
 }
 
+import { NotFound } from './pages/NotFound';
+
 export function App() {
+  // Check for 404 path before any other rendering
+  const isNotFound = typeof window !== 'undefined' && 
+    window.location.pathname !== '/' && 
+    window.location.pathname !== '' && 
+    window.location.pathname !== '/index.html';
+
+  if (isNotFound) {
+    return <NotFound />;
+  }
+
   const { session, user, signOut } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageKey>('dashboard');
   const [riderPage, setRiderPage] = useState<RiderPageKey>('dashboard');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpTab, setHelpTab] = useState<HelpTab>('guide');
 
   const [allRiders, setAllRiders] = useState<Rider[]>([]);
   const [allZones, setAllZones] = useState<Zone[]>([]);
@@ -121,7 +136,7 @@ export function App() {
       .on('presence', { event: 'sync' }, () => {
         const presenceState = channel.presenceState();
         const activeIds = Object.values(presenceState)
-          .flatMap((presencePresences: any) => presencePresences.map((p: any) => p.user_id))
+          .flatMap((presencePresences: Record<string, unknown>[]) => presencePresences.map((p: Record<string, unknown>) => p.user_id as string))
           .filter(Boolean) as string[];
         
         setOnlineUserIds(Array.from(new Set(activeIds)));
@@ -283,7 +298,11 @@ export function App() {
         onSignOut={signOut}
         onOpenSettings={() => setSettingsOpen(true)}
         isMobileOpen={mobileNavOpen}
-        onMobileClose={() => setMobileNavOpen(false)} />
+        onMobileClose={() => setMobileNavOpen(false)}
+        onOpenHelp={(tab) => {
+          setHelpTab(tab);
+          setHelpOpen(true);
+        }} />
 
       <div className="flex-1 min-w-0 flex flex-col">
         <Topbar
@@ -350,6 +369,7 @@ export function App() {
       </div>
       <Toaster position="top-right" reverseOrder={false} />
       <ProfileSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <HelpSupportModal open={helpOpen} onClose={() => setHelpOpen(false)} defaultTab={helpTab} />
     </div>);
 
 }
