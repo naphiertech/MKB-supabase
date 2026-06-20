@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { type Zone, type Rider, type ViolationEvent, type AttendanceLog } from '../services/types';
 import {
@@ -17,6 +17,7 @@ import { ZoneListPanel } from '../components/geofence/ZoneListPanel';
 import { ZoneFormModal } from '../components/geofence/ZoneFormModal';
 import { AssignedRidersByZone } from '../components/geofence/AssignedRidersByZone';
 import { pushToast } from '../hooks/useToast';
+import { GeofenceDetailsPanel } from '../components/geofence/GeofenceDetailsPanels';
 
 export function Geofence() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -32,6 +33,7 @@ export function Geofence() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
   const [openGroupIds, setOpenGroupIds] = useState<Set<string>>(new Set());
+  const [activeSummaryModal, setActiveSummaryModal] = useState<'total_zones' | 'active_zones' | 'riders_assigned' | 'violations_today' | null>(null);
 
   // Load all live database records asynchronously on mount and refresh triggers
   useEffect(() => {
@@ -57,9 +59,11 @@ export function Geofence() {
   }, [refreshTrigger]);
 
   // Auto-open the group of the first zone when they finish loading
+  const autoOpenedRef = useRef(false);
   useEffect(() => {
-    if (zonesList.length > 0 && openGroupIds.size === 0) {
+    if (zonesList.length > 0 && !autoOpenedRef.current) {
       setOpenGroupIds(new Set([zonesList[0].id]));
+      autoOpenedRef.current = true;
     }
   }, [zonesList]);
 
@@ -93,6 +97,12 @@ export function Geofence() {
       counts[v.riderId] = (counts[v.riderId] ?? 0) + 1;
     });
     return counts;
+  }, [violationsList]);
+
+  const todayViolations = useMemo(() => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    return violationsList.filter((v) => v.ts >= startOfDay.getTime());
   }, [violationsList]);
 
   const editingZone = editingZoneId ?
@@ -170,7 +180,33 @@ export function Geofence() {
       <ZoneSummaryCards
         zones={zonesList}
         riders={ridersList}
-        violationsToday={violationsToday} />
+        violationsToday={violationsToday}
+        onTotalZonesClick={() => setActiveSummaryModal((prev) => (prev === 'total_zones' ? null : 'total_zones'))}
+        onActiveZonesClick={() => setActiveSummaryModal((prev) => (prev === 'active_zones' ? null : 'active_zones'))}
+        onRidersAssignedClick={() => setActiveSummaryModal((prev) => (prev === 'riders_assigned' ? null : 'riders_assigned'))}
+        onViolationsTodayClick={() => setActiveSummaryModal((prev) => (prev === 'violations_today' ? null : 'violations_today'))} />
+
+      {/* Expanding Inline Details Panel */}
+      {activeSummaryModal && (
+        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+          <GeofenceDetailsPanel
+            type={activeSummaryModal}
+            onClose={() => setActiveSummaryModal(null)}
+            zones={zonesList}
+            riders={ridersList}
+            violations={todayViolations}
+            onFocusZone={(zoneId) => {
+              setActiveZoneId(zoneId);
+              if (typeof window !== 'undefined') {
+                window.scrollTo({
+                  top: 0,
+                  behavior: 'smooth'
+                });
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* Map + List */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -201,7 +237,9 @@ export function Geofence() {
         onToggleGroup={handleToggleGroup}
         onSelectZone={handleSelectFromTable} />
 
-      {/* Modal */}
+
+
+      {/* Zone form modal */}
       <ZoneFormModal
         open={modalOpen}
         onClose={closeModal}
