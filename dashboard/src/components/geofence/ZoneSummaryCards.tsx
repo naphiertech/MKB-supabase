@@ -10,11 +10,19 @@ interface ZoneSummaryCardsProps {
   zones: Zone[];
   riders: Rider[];
   violationsToday: number;
+  onTotalZonesClick?: () => void;
+  onActiveZonesClick?: () => void;
+  onRidersAssignedClick?: () => void;
+  onViolationsTodayClick?: () => void;
 }
 export function ZoneSummaryCards({
   zones,
   riders,
-  violationsToday
+  violationsToday,
+  onTotalZonesClick,
+  onActiveZonesClick,
+  onRidersAssignedClick,
+  onViolationsTodayClick
 }: ZoneSummaryCardsProps) {
   const totalZones = zones.length;
   const activeZones = zones.filter(
@@ -29,7 +37,8 @@ export function ZoneSummaryCards({
         sub={`${zones.length} configured`}
         icon={Target}
         accent="blue"
-        spark={[3, 4, 4, 5, 5, 5, 5]} />
+        spark={[3, 4, 4, 5, 5, 5, 5]}
+        onClick={onTotalZonesClick} />
       
       <StatCard
         label="Active Zones"
@@ -47,7 +56,8 @@ export function ZoneSummaryCards({
           direction: 'flat',
           value: 'stable'
         }}
-        spark={[4, 4, 5, 5, 5, 5, 5]} />
+        spark={[4, 4, 5, 5, 5, 5, 5]}
+        onClick={onActiveZonesClick} />
       
       <StatCard
         label="Riders Assigned"
@@ -59,7 +69,8 @@ export function ZoneSummaryCards({
           direction: 'up',
           value: '+3 this week'
         }}
-        spark={[10, 12, 14, 15, 16, 17, 18]} />
+        spark={[10, 12, 14, 15, 16, 17, 18]}
+        onClick={onRidersAssignedClick} />
       
       <StatCard
         label="Violations Today"
@@ -77,7 +88,8 @@ export function ZoneSummaryCards({
           violationsToday > 0 ? `+${violationsToday} today` : 'no change',
           positive: false
         }}
-        spark={[1, 2, 1, 3, 2, 4, violationsToday]} />
+        spark={[1, 2, 1, 3, 2, 4, violationsToday]}
+        onClick={onViolationsTodayClick} />
       
     </div>);
 

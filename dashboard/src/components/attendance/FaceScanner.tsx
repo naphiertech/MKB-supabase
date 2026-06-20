@@ -32,6 +32,8 @@ export function FaceScanner({
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const activeVideoRef = videoRef || internalVideoRef;
   const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+  const webcamStreamRef = useRef<MediaStream | null>(null);
+  webcamStreamRef.current = webcamStream;
 
   // Animate digital laser scan line
   useEffect(() => {
@@ -50,8 +52,8 @@ export function FaceScanner({
   // Handle active webcam media acquisition
   useEffect(() => {
     if (phase === 'idle') {
-      if (webcamStream) {
-        webcamStream.getTracks().forEach(track => track.stop());
+      if (webcamStreamRef.current) {
+        webcamStreamRef.current.getTracks().forEach(track => track.stop());
         setWebcamStream(null);
       }
       return;
@@ -76,8 +78,8 @@ export function FaceScanner({
 
     return () => {
       active = false;
-      if (webcamStream) {
-        webcamStream.getTracks().forEach(track => track.stop());
+      if (webcamStreamRef.current) {
+        webcamStreamRef.current.getTracks().forEach(track => track.stop());
       }
     };
   }, [phase, activeVideoRef]);

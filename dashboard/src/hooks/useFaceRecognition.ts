@@ -223,7 +223,7 @@ export function useFaceRecognition({
         }
 
         let mpEAR = 0.0;
-        let mpRoll = 0.0;
+        const mpRoll = 0.0;
         let livenessPassed = false;
 
         // 1. Run MediaPipe Landmarker for Liveness (Blink + Head Tilt)

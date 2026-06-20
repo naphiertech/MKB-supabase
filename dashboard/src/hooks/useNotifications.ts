@@ -5,11 +5,21 @@ import { useAuth } from './useAuth';
 export type NotificationType = 'violation' | 'absent' | 'attendance' | 'system';
 
 export interface Notification {
-  id: any; // compatible with both database UUID string and legacy number typing
+  id: string | number;
   type: NotificationType;
   message: string;
   time: string;
   read: boolean;
+}
+
+interface NotificationRow {
+  id: string;
+  type: string;
+  title: string | null;
+  message: string;
+  created_at: string;
+  read: boolean;
+  target_roles: string[];
 }
 
 // Friendly timestamp formatter for real-time notifications
@@ -30,7 +40,7 @@ function formatTimeAgo(dateStr: string): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-const mapNotification = (row: any): Notification => ({
+const mapNotification = (row: NotificationRow): Notification => ({
   id: row.id,
   type: row.type as NotificationType,
   message: row.title ? `${row.title} · ${row.message}` : row.message,
@@ -85,7 +95,7 @@ export function useNotifications(allowedTypes?: NotificationType[]) {
         (payload) => {
           const targetRoles = payload.new.target_roles || [];
           if (targetRoles.includes(userRole)) {
-            const mapped = mapNotification(payload.new);
+            const mapped = mapNotification(payload.new as unknown as NotificationRow);
             setNotifications((prev) => {
               // Avoid duplicates
               if (prev.some((n) => n.id === mapped.id)) return prev;
@@ -115,7 +125,7 @@ export function useNotifications(allowedTypes?: NotificationType[]) {
     [visible]
   );
 
-  const markAsRead = useCallback(async (id: any) => {
+  const markAsRead = useCallback(async (id: Notification['id']) => {
     setNotifications((prev) =>
       prev.map((n) => n.id === id ? { ...n, read: true } : n)
     );

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { type AppUser, type UserRole } from "../services/types";
 import { pushToast } from "./useToast";
@@ -42,6 +42,36 @@ function emit() {
   listeners.forEach((l) => l(currentSession));
 }
 
+// Listen for profile updates to keep session synchronized with database in real-time
+if (typeof window !== "undefined") {
+  window.addEventListener("profile-updated", async () => {
+    if (!currentSession) return;
+    try {
+      const { data: profile, error } = await supabase
+        .from("users")
+        .select("full_name, role, status, rider_id")
+        .eq("id", currentSession.id)
+        .single();
+
+      if (!error && profile) {
+        const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+        const next: Session = {
+          id: currentSession.id,
+          email: supabaseSession?.user?.email ?? currentSession.email,
+          fullName: profile.full_name,
+          role: profile.role as Role,
+          riderId: profile.rider_id || undefined,
+        };
+        currentSession = next;
+        writeSession(next);
+        emit();
+      }
+    } catch (err) {
+      console.error("Error refreshing session on profile-updated:", err);
+    }
+  });
+}
+
 export interface SignInResult {
   ok: boolean;
   error?: string;
@@ -49,6 +79,26 @@ export interface SignInResult {
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(currentSession);
+  const [customAvatar, setCustomAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session?.id) {
+      setCustomAvatar(null);
+      return;
+    }
+    setCustomAvatar(localStorage.getItem(`custom_avatar_${session.id}`));
+
+    const handleAvatarUpdate = () => {
+      setCustomAvatar(localStorage.getItem(`custom_avatar_${session.id}`));
+    };
+
+    window.addEventListener("avatar-updated", handleAvatarUpdate);
+    window.addEventListener("storage", handleAvatarUpdate);
+    return () => {
+      window.removeEventListener("avatar-updated", handleAvatarUpdate);
+      window.removeEventListener("storage", handleAvatarUpdate);
+    };
+  }, [session?.id]);
 
   useEffect(() => {
     const listener = (s: Session | null) => setSession(s);
@@ -145,18 +195,19 @@ export function useAuth() {
   }, []);
 
   // Adapt the user profile to match the legacy AppUser interface required by components
-  const user: AppUser | null = session
-    ? {
-        id: session.id,
-        name: session.fullName,
-        avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(session.fullName)}`,
-        email: session.email,
-        role: session.role,
-        zoneId: null,
-        status: "active",
-        lastLogin: Date.now(),
-      }
-    : null;
+  const user = useMemo<AppUser | null>(() => {
+    if (!session) return null;
+    return {
+      id: session.id,
+      name: session.fullName,
+      avatar: customAvatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(session.fullName)}`,
+      email: session.email,
+      role: session.role,
+      zoneId: null,
+      status: "active",
+      lastLogin: Date.now(),
+    };
+  }, [session, customAvatar]);
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<SignInResult> => {
@@ -213,10 +264,11 @@ export function useAuth() {
         }
 
         return { ok: true };
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "An unexpected error occurred during login.";
         return {
           ok: false,
-          error: err.message || "An unexpected error occurred during login.",
+          error: message,
         };
       }
     },

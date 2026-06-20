@@ -3,6 +3,56 @@
  * Coordinates face-api.js (TensorFlow) and OpenCV.js dynamically.
  */
 
+interface FaceDetectionBox {
+  box: { x: number; y: number; width: number; height: number };
+}
+
+interface FaceDetectionFull extends FaceDetectionBox {
+  descriptor: Float32Array;
+  landmarks: {
+    getLeftEye(): { x: number; y: number }[];
+    getRightEye(): { x: number; y: number }[];
+  };
+  detection: {
+    box: { x: number; y: number; width: number; height: number };
+  };
+}
+
+interface FaceDetectionWithLandmarksChain extends Promise<FaceDetectionFull | undefined> {
+  withFaceDescriptor(): Promise<FaceDetectionFull | undefined>;
+}
+
+interface FaceDetectionChain extends Promise<FaceDetectionBox | undefined> {
+  withFaceLandmarks(): FaceDetectionWithLandmarksChain;
+}
+
+interface FaceApiInstance {
+  nets: {
+    ssdMobilenetv1: { loadFromUri(uri: string): Promise<void> };
+    faceLandmark68Net: { loadFromUri(uri: string): Promise<void> };
+    faceRecognitionNet: { loadFromUri(uri: string): Promise<void> };
+  };
+  SsdMobilenetv1Options: new (options: { minConfidence: number }) => Record<string, never>;
+  detectSingleFace(
+    element: unknown,
+    options?: unknown
+  ): FaceDetectionChain;
+  euclideanDistance(desc1: Float32Array, desc2: Float32Array): number;
+}
+
+interface CvInstance {
+  Mat: new () => { delete(): void };
+  imread(canvas: HTMLCanvasElement): { delete(): void };
+  cvtColor(src: { delete(): void }, dst: { delete(): void }, code: number): void;
+  equalizeHist(src: { delete(): void }, dst: { delete(): void }): void;
+  imshow(canvas: HTMLCanvasElement, mat: { delete(): void }): void;
+  COLOR_RGBA2GRAY: number;
+}
+
+interface WindowWithAi extends Window {
+  faceapi?: FaceApiInstance;
+  cv?: CvInstance;
+}
 
 let modelsLoadedPromise: Promise<void> | null = null;
 
@@ -10,9 +60,8 @@ let modelsLoadedPromise: Promise<void> | null = null;
  * Checks if the global CDN scripts are loaded and available.
  */
 export function getFaceAiGlobals() {
-  const faceapi = (window as any).faceapi;
-  const cv = (window as any).cv;
-  return { faceapi, cv };
+  const w = window as unknown as WindowWithAi;
+  return { faceapi: w.faceapi, cv: w.cv };
 }
 
 /**
@@ -276,8 +325,10 @@ export function verifyFaceIdentity(
   };
 }
 
-let landmarkerPromise: Promise<any> | null = null;
-let landmarkerInstance: any = null;
+type FaceLandmarkerType = Awaited<ReturnType<typeof import('@mediapipe/tasks-vision')['FaceLandmarker']['createFromOptions']>>;
+
+let landmarkerPromise: Promise<FaceLandmarkerType> | null = null;
+let landmarkerInstance: FaceLandmarkerType | null = null;
 
 export async function loadMediaPipeLandmarker() {
   if (landmarkerInstance) return landmarkerInstance;
@@ -312,7 +363,7 @@ export async function loadMediaPipeLandmarker() {
 export function calculateMediaPipeEAR(landmarks: { x: number; y: number; z: number }[]): number {
   if (!landmarks || landmarks.length < 400) return 0.0;
   
-  const dist = (p1: any, p2: any) => {
+  const dist = (p1: { x: number; y: number; z: number }, p2: { x: number; y: number; z: number }) => {
     const dx = p1.x - p2.x;
     const dy = p1.y - p2.y;
     const dz = p1.z - p2.z;

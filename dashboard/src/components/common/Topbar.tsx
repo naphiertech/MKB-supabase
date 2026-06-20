@@ -48,7 +48,7 @@ interface TopbarProps {
   page: PageKey;
   notifications: Notification[];
   unreadCount: number;
-  onMarkAsRead: (id: number) => void;
+  onMarkAsRead: (id: string | number) => void;
   onMarkAllAsRead: () => void;
   onMenuClick?: () => void;
   role?: TopbarRole;

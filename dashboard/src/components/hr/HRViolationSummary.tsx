@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { AlertTriangle, Flag, Check } from 'lucide-react';
 import type { ViolationEvent, Rider } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 import { pushToast } from '../../hooks/useToast';
+import { supabase } from '../../lib/supabaseClient';
 interface HRViolationSummaryProps {
   violations: ViolationEvent[];
   riders: Rider[];
@@ -17,6 +18,7 @@ export function HRViolationSummary({
   riders
 }: HRViolationSummaryProps) {
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<'all' | 'flagged' | 'unflagged'>('all');
   const now = useNow();
   const ridersById = useMemo(() => {
     const m = new Map<string, Rider>();
@@ -24,18 +26,71 @@ export function HRViolationSummary({
     return m;
   }, [riders]);
   const recent = useMemo(() => violations.slice(0, 10), [violations]);
-  function handleFlag(v: ViolationEvent) {
+
+  useEffect(() => {
+    async function loadFlagged() {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('violation_id')
+          .eq('type', 'violation')
+          .not('violation_id', 'is', null);
+
+        if (!error && data) {
+          const ids = new Set<string>(data.map((n: { violation_id: string }) => n.violation_id));
+          setFlagged(ids);
+        }
+      } catch (e) {
+        console.error('Error loading flagged violations:', e);
+      }
+    }
+    loadFlagged();
+  }, [violations]);
+
+  async function handleFlag(v: ViolationEvent) {
     if (flagged.has(v.id)) return;
+
+    // Optimistically set UI state
     setFlagged((prev) => {
       const next = new Set(prev);
       next.add(v.id);
       return next;
     });
-    pushToast({
-      title: `Flagged for Admin · ${v.riderName}`,
-      description: `${TYPE_LABEL[v.type]} · ${v.zoneName}`,
-      tone: 'default'
-    });
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          type: 'violation',
+          title: 'Flagged Violation',
+          message: `${v.riderName} breached geofence boundary (${TYPE_LABEL[v.type]} at ${v.zoneName})`,
+          rider_id: v.riderId,
+          violation_id: v.id,
+          read: false,
+          target_roles: ['admin', 'hr']
+        });
+
+      if (error) throw error;
+
+      pushToast({
+        title: `Flagged for Admin · ${v.riderName}`,
+        description: `${TYPE_LABEL[v.type]} · ${v.zoneName}`,
+        tone: 'default'
+      });
+    } catch (err: unknown) {
+      console.error('Failed to log flagged state in database:', err);
+      // Revert UI state on failure
+      setFlagged((prev) => {
+        const next = new Set(prev);
+        next.delete(v.id);
+        return next;
+      });
+      pushToast({
+        title: 'Flag failed',
+        description: err instanceof Error ? err.message : 'Could not flag violation. Please try again.',
+        tone: 'error'
+      });
+    }
   }
   return (
     <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-full shadow-sm">
@@ -58,13 +113,43 @@ export function HRViolationSummary({
         </span>
       </div>
 
+      <div className="flex gap-1.5 px-4 py-2 bg-[#FAFAF7]/50 border-b border-[#EFEAE2] shrink-0">
+        {(['all', 'flagged', 'unflagged'] as const).map((mode) => {
+          const active = filter === mode;
+          const count = mode === 'all' 
+            ? recent.length 
+            : mode === 'flagged' 
+              ? recent.filter(v => flagged.has(v.id)).length 
+              : recent.filter(v => !flagged.has(v.id)).length;
+          const label = mode === 'all' ? 'All' : mode === 'flagged' ? 'Flagged for Admin' : 'Unflagged';
+          return (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setFilter(mode)}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
+                active 
+                  ? 'bg-[#db6c00] text-white' 
+                  : 'bg-white text-[#6B6258] border border-[#EFEAE2] hover:bg-[#FAFAF7]'
+              }`}
+            >
+              {label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       <div className="p-2 space-y-1.5 overflow-y-auto ar-scroll flex-1">
         {recent.length === 0 &&
         <div className="text-center text-sm text-[#6B6258] py-10">
             No violations today. All clear.
           </div>
         }
-        {recent.map((v) => {
+        {recent.filter(v => {
+          if (filter === 'all') return true;
+          if (filter === 'flagged') return flagged.has(v.id);
+          return !flagged.has(v.id);
+        }).map((v) => {
           const rider = ridersById.get(v.riderId);
           const isFlagged = flagged.has(v.id);
           return (

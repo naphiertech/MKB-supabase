@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import { Notification, NotificationType } from '../../hooks/useNotifications';
 interface NotificationDropdownProps {
   notifications: Notification[];
-  onMarkAsRead: (id: number) => void;
+  onMarkAsRead: (id: string | number) => void;
   onMarkAllAsRead: () => void;
   onClose: () => void;
 }

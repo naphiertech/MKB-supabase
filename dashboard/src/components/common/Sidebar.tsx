@@ -13,7 +13,10 @@ import {
   Wallet,
   Star,
   Settings,
-  X } from
+  X,
+  BookOpen,
+  HelpCircle,
+  Headphones } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 export type PageKey =
@@ -40,6 +43,7 @@ interface SidebarProps {
   onOpenSettings?: () => void;
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
+  onOpenHelp?: (tab: 'guide' | 'faq' | 'support') => void;
 }
 interface NavItem {
   key: PageKey;
@@ -214,7 +218,8 @@ export function Sidebar({
   onSignOut,
   onOpenSettings,
   isMobileOpen = false,
-  onMobileClose
+  onMobileClose,
+  onOpenHelp
 }: SidebarProps) {
   const items =
   role === 'admin' ? ADMIN_ITEMS : role === 'hr' ? HR_ITEMS : PAYROLL_ITEMS;
@@ -356,6 +361,61 @@ export function Sidebar({
           </motion.div>);
 
       })}
+
+        <div className="px-2 mt-6 mb-2 text-[10px] uppercase tracking-[0.18em] text-[#6B6258]/70 font-mono">
+          Help & Support
+        </div>
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: items.length * 0.05 + 0.2 }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              onOpenHelp?.('guide');
+              if (isMobileOpen) onMobileClose?.();
+            }}
+            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] transition cursor-pointer"
+          >
+            <BookOpen className="w-[18px] h-[18px] text-[#6B6258] group-hover:text-[#1A1410] shrink-0" />
+            <span className="flex-1 text-left font-medium">User Guide</span>
+          </button>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: (items.length + 1) * 0.05 + 0.2 }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              onOpenHelp?.('faq');
+              if (isMobileOpen) onMobileClose?.();
+            }}
+            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] transition cursor-pointer"
+          >
+            <HelpCircle className="w-[18px] h-[18px] text-[#6B6258] group-hover:text-[#1A1410] shrink-0" />
+            <span className="flex-1 text-left font-medium">FAQ</span>
+          </button>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: (items.length + 2) * 0.05 + 0.2 }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              onOpenHelp?.('support');
+              if (isMobileOpen) onMobileClose?.();
+            }}
+            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] transition cursor-pointer"
+          >
+            <Headphones className="w-[18px] h-[18px] text-[#6B6258] group-hover:text-[#1A1410] shrink-0" />
+            <span className="flex-1 text-left font-medium">Contact Support</span>
+          </button>
+        </motion.div>
 
         <div className="px-2 mt-6 mb-2 text-[10px] uppercase tracking-[0.18em] text-[#6B6258]/70 font-mono">
           System

@@ -7,7 +7,7 @@ interface ModalProps {
   title?: string;
   subtitle?: string;
   /** Width preset */
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
   /** Disable closing via backdrop/Esc (useful during a critical scan). */
   dismissible?: boolean;
   children: React.ReactNode;
@@ -15,7 +15,12 @@ interface ModalProps {
 const SIZE: Record<NonNullable<ModalProps['size']>, string> = {
   sm: 'max-w-sm',
   md: 'max-w-md',
-  lg: 'max-w-2xl'
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
+  '2xl': 'max-w-5xl',
+  '3xl': 'max-w-6xl',
+  '4xl': 'max-w-7xl',
+  '5xl': 'max-w-[90vw]'
 };
 export function Modal({
   open,
@@ -56,7 +61,7 @@ export function Modal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-[#1A1410]/40 backdrop-blur-sm cursor-default" />
+            className="fixed inset-0 bg-[#1A1410]/40 backdrop-blur-sm cursor-default border-none outline-none appearance-none w-screen h-screen" />
           
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}

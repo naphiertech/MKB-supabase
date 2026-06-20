@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronRight, Clock } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Clock, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { ViolationEvent } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
@@ -6,13 +6,14 @@ interface ViolationAlertProps {
   alert: ViolationEvent;
   onView?: (riderId: string) => void;
   isNew?: boolean;
+  isFlagged?: boolean;
 }
 const TYPE_LABEL: Record<ViolationEvent['type'], string> = {
   boundary_exit: 'Boundary exit',
   boundary_enter: 'Re-entry',
   idle_excess: 'Idle > 5 min'
 };
-export function ViolationAlert({ alert, onView, isNew }: ViolationAlertProps) {
+export function ViolationAlert({ alert, onView, isNew, isFlagged }: ViolationAlertProps) {
   const now = useNow();
   return (
     <motion.div
@@ -46,6 +47,11 @@ export function ViolationAlert({ alert, onView, isNew }: ViolationAlertProps) {
           <span className="text-sm font-semibold text-[#1A1410] truncate">
             {alert.riderName}
           </span>
+          {isFlagged && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold bg-[#FFF1E0] text-[#b85a00] border border-[#db6c00]/30 shrink-0">
+              <Check className="w-2.5 h-2.5" /> Flagged
+            </span>
+          )}
           {!alert.read &&
           <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
           }

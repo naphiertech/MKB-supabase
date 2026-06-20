@@ -41,7 +41,15 @@ export function useGeolocation({
 
   useEffect(() => {
     anchorRef.current = initial;
-  }, [initial.lat, initial.lng]);
+    if (!enabled) {
+      setPosition({
+        lat: initial.lat,
+        lng: initial.lng,
+        accuracy: 8,
+        ts: Date.now()
+      });
+    }
+  }, [initial, enabled]);
 
   useEffect(() => {
     if (!enabled) return;

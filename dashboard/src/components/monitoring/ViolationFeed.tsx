@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Siren } from 'lucide-react';
+import { supabase } from '../../lib/supabaseClient';
 import type { ViolationEvent } from '../../services/types';
 import { ViolationAlert } from './ViolationAlert';
 interface ViolationFeedProps {
@@ -14,9 +15,27 @@ export function ViolationFeed({
 }: ViolationFeedProps) {
   const unread = alerts.filter((a) => !a.read).length;
   const [latestId, setLatestId] = useState<string | null>(null);
+  const [flagged, setFlagged] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (alerts.length > 0) setLatestId(alerts[0].id);
   }, [alerts.length, alerts]);
+  useEffect(() => {
+    async function loadFlagged() {
+      try {
+        const { data } = await supabase
+          .from('notifications')
+          .select('violation_id')
+          .eq('type', 'violation')
+          .not('violation_id', 'is', null);
+        if (data) {
+          setFlagged(new Set(data.map((n: { violation_id: string }) => n.violation_id)));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    loadFlagged();
+  }, [alerts]);
   return (
     <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-full min-h-[360px] shadow-sm">
       <div className="flex items-center justify-between p-4 border-b border-[#EFEAE2]">
@@ -58,7 +77,7 @@ export function ViolationFeed({
           key={a.id}
           alert={a}
           onView={onView}
-          isNew={a.id === latestId && !a.read} />
+          isNew={a.id === latestId && !a.read} isFlagged={flagged.has(a.id)} />
 
         )}
       </div>

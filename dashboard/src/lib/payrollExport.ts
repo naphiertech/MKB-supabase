@@ -1,6 +1,10 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+interface JsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: { finalY: number };
+}
+
 export interface PayslipDay {
   date: string;
   parcels: number;
@@ -97,7 +101,7 @@ export const exportParcelPayslipPDF = (
   });
 
   // Summary
-  const finalY = (doc as any).lastAutoTable.finalY + 8;
+  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 8;
   doc.setLineWidth(0.5);
   doc.line(14, finalY, 196, finalY);
 

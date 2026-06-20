@@ -23,7 +23,7 @@ interface RiderTopNavProps {
   };
   notifications: Notification[];
   unreadCount: number;
-  onMarkAsRead: (id: number) => void;
+  onMarkAsRead: (id: string | number) => void;
   onMarkAllAsRead: () => void;
   onSignOut?: () => void;
 }

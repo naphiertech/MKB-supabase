@@ -1,32 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Users as UsersIcon,
   BadgeCheck,
   AlertTriangle,
-  TrendingUp } from
-'lucide-react';
-import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
-import { getZones } from '../services/geofenceService';
-import { getAttendanceLogs, getLocalDateString } from '../services/attendanceService';
-import type { Zone, AttendanceLog } from '../services/types';
-import { StatCard } from '../components/common/StatCard';
-import { LiveMonitoringMap } from '../components/maps/LiveMonitoringMap';
-import { OnlineRiders } from '../components/monitoring/OnlineRiders';
-import { AttendanceLogs } from '../components/attendance/AttendanceLogs';
-import { ViolationFeed } from '../components/monitoring/ViolationFeed';
+  TrendingUp,
+} from "lucide-react";
+import { useRealtimeLocation } from "../hooks/useRealtimeLocation";
+import { getZones } from "../services/geofenceService";
+import {
+  getAttendanceLogs,
+  getLocalDateString,
+} from "../services/attendanceService";
+import type { Zone, AttendanceLog } from "../services/types";
+import { StatCard } from "../components/common/StatCard";
+import { LiveMonitoringMap } from "../components/maps/LiveMonitoringMap";
+import { OnlineRiders } from "../components/monitoring/OnlineRiders";
+import { AttendanceLogs } from "../components/attendance/AttendanceLogs";
+import { ViolationFeed } from "../components/monitoring/ViolationFeed";
 import {
   markAllViolationsRead,
-  markViolationRead } from
-'../services/monitoringService';
+  markViolationRead,
+} from "../services/monitoringService";
+import { StatDetailsPanel } from "../components/dashboard/StatDetailsPanels";
+
 interface AdminDashboardProps {
-  onNavigate: (page: 'monitoring' | 'attendance') => void;
+  onNavigate: (page: "monitoring" | "attendance") => void;
 }
+
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const { riders, violations } = useRealtimeLocation();
   const [focusRiderId, setFocusRiderId] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<"active_riders" | "on_duty" | "violations" | "attendance" | null>(null);
   const [, force] = useState(0);
-  const activeCount = riders.filter((r) => r.status !== 'offline').length;
-  const violationCount = riders.filter((r) => r.status === 'violation').length;
+  const activeCount = riders.filter((r) => r.status !== "offline").length;
+  const violationCount = riders.filter((r) => r.status === "violation").length;
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
 
@@ -38,11 +45,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const today = getLocalDateString();
   const todayLogs = attendanceList.filter((l) => l.date === today);
   const presentToday = todayLogs.filter(
-    (l) => l.status === 'present' || l.status === 'late'
+    (l) => l.status === "present" || l.status === "late",
   ).length;
-  const attendanceRate = todayLogs.length ?
-  Math.round(presentToday / todayLogs.length * 100) :
-  0;
+  const attendanceRate = todayLogs.length
+    ? Math.round((presentToday / todayLogs.length) * 100)
+    : 0;
   function handleViewViolation(riderId: string) {
     setFocusRiderId(riderId);
     const v = violations.find((x) => x.riderId === riderId);
@@ -58,7 +65,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         <StatCard
           label="Total Active Riders"
           value={
-          <>
+            <>
               <span className="text-[#1A1410]">{activeCount}</span>
               <span className="text-[#6B6258] text-xl"> / {riders.length}</span>
             </>
@@ -66,12 +73,14 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           sub={`${riders.length - activeCount} offline`}
           icon={UsersIcon}
           accent="blue"
+          onClick={() => setActiveModal((prev) => (prev === "active_riders" ? null : "active_riders"))}
           trend={{
-            direction: 'up',
-            value: '+2 vs yesterday'
+            direction: "up",
+            value: "+2 vs yesterday",
           }}
-          spark={[4, 6, 5, 7, 8, 7, 9, 10, 9, 11, 12]} />
-        
+          spark={[4, 6, 5, 7, 8, 7, 9, 10, 9, 11, 12]}
+        />
+
         <StatCard
           label="On Duty Today"
           value={presentToday}
@@ -79,29 +88,33 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           icon={BadgeCheck}
           accent="green"
           pulse
+          onClick={() => setActiveModal((prev) => (prev === "on_duty" ? null : "on_duty"))}
           trend={{
-            direction: 'up',
-            value: '+18% wow'
+            direction: "up",
+            value: "+18% wow",
           }}
-          spark={[3, 5, 4, 6, 8, 7, 9]} />
-        
+          spark={[3, 5, 4, 6, 8, 7, 9]}
+        />
+
         <StatCard
           label="Geofence Violations"
           value={violationCount}
-          sub={violationCount > 0 ? 'Action required' : 'All clear'}
+          sub={violationCount > 0 ? "Action required" : "All clear"}
           icon={AlertTriangle}
           accent="red"
+          onClick={() => setActiveModal((prev) => (prev === "violations" ? null : "violations"))}
           trend={{
-            direction: violationCount > 0 ? 'up' : 'flat',
-            value: violationCount > 0 ? '+1 in last hour' : 'no change',
-            positive: false
+            direction: violationCount > 0 ? "up" : "flat",
+            value: violationCount > 0 ? "+1 in last hour" : "no change",
+            positive: false,
           }}
-          spark={[1, 2, 1, 3, 2, 4, 2, 3, 1, 2, 3]} />
-        
+          spark={[1, 2, 1, 3, 2, 4, 2, 3, 1, 2, 3]}
+        />
+
         <StatCard
           label="Attendance Rate"
           value={
-          <>
+            <>
               {attendanceRate}
               <span className="text-[#6B6258] text-xl">%</span>
             </>
@@ -109,13 +122,30 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           sub="Target ≥ 92%"
           icon={TrendingUp}
           accent="amber"
+          onClick={() => setActiveModal((prev) => (prev === "attendance" ? null : "attendance"))}
           trend={{
-            direction: 'up',
-            value: '+2.3% vs yesterday'
+            direction: "up",
+            value: "+2.3% vs yesterday",
           }}
-          spark={[6, 7, 5, 8, 9, 8, 9, 10]} />
-        
+          spark={[6, 7, 5, 8, 9, 8, 9, 10]}
+        />
       </div>
+
+      {/* Expanding Inline Details Panel */}
+      {activeModal && (
+        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+          <StatDetailsPanel
+            type={activeModal}
+            onClose={() => setActiveModal(null)}
+            riders={riders}
+            zones={zonesList}
+            logs={todayLogs}
+            violations={violations}
+            onViewViolation={handleViewViolation}
+            attendanceList={attendanceList}
+          />
+        </div>
+      )}
 
       {/* Map + Online Riders */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -131,9 +161,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 </div>
               </div>
               <button
-                onClick={() => onNavigate('monitoring')}
-                className="text-xs text-[#db6c00] hover:text-[#b85a00] font-semibold">
-                
+                onClick={() => onNavigate("monitoring")}
+                className="text-xs text-[#db6c00] hover:text-[#b85a00] font-semibold"
+              >
                 Open full view →
               </button>
             </div>
@@ -142,8 +172,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 riders={riders}
                 zones={zonesList}
                 focusRiderId={focusRiderId}
-                onMarkerClick={setFocusRiderId} />
-              
+                onMarkerClick={setFocusRiderId}
+              />
             </div>
           </div>
         </div>
@@ -151,8 +181,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           <OnlineRiders
             riders={riders}
             zones={zonesList}
-            onSelectRider={setFocusRiderId} />
-          
+            onSelectRider={setFocusRiderId}
+          />
         </div>
       </div>
 
@@ -161,8 +191,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         <div className="lg:col-span-3">
           <AttendanceLogs
             logs={attendanceList}
-            onViewAll={() => onNavigate('attendance')} />
-          
+            onViewAll={() => onNavigate("attendance")}
+          />
         </div>
         <div className="lg:col-span-2">
           <ViolationFeed
@@ -171,10 +201,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             onMarkAllRead={() => {
               markAllViolationsRead();
               force((n) => n + 1);
-            }} />
-          
+            }}
+          />
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 }
