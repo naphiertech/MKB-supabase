@@ -142,8 +142,23 @@ export function PayrollReports() {
     });
   }, []);
 
-  const [cutoffLogs, setCutoffLogs] = useState<any[]>([]);
-  const [finalizedRecords, setFinalizedRecords] = useState<any[]>([]);
+  interface ParcelLogRow {
+    parcels: number;
+    daily_gross: number;
+    date: string;
+    rider_id: string;
+    riders: {
+      id: string;
+      name: string;
+      zone_id: string;
+    } | null;
+  }
+  interface FinalizedRecordRow {
+    rider_id: string;
+    status: string;
+  }
+  const [cutoffLogs, setCutoffLogs] = useState<ParcelLogRow[]>([]);
+  const [finalizedRecords, setFinalizedRecords] = useState<FinalizedRecordRow[]>([]);
   const [loadingSummary, setLoadingSummary] = useState(false);
 
   // Fetch live cutoff logs for the summary card and bar chart
@@ -163,7 +178,7 @@ export function PayrollReports() {
         if (error) throw error;
 
         if (active && data) {
-          setCutoffLogs(data);
+          setCutoffLogs(data as unknown as ParcelLogRow[]);
         }
       } catch (err) {
         console.error('Error fetching cutoff summary logs:', err);
@@ -361,7 +376,7 @@ export function PayrollReports() {
               alternateRowStyles: { fillColor: [255, 241, 224] }
             });
 
-            const finalY = (doc as any).lastAutoTable.finalY + 12;
+            const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
             doc.text(`Total Fleet Parcels : ${totalParcels.toLocaleString()} parcels`, 14, finalY);
