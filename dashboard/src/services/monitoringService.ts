@@ -10,7 +10,7 @@ import {
 interface DbRiderRow {
   id: string;
   name: string;
-  face_image_url: string | null;
+  face_image_url?: string | null;
   avatar_url: string | null;
   zone_id: string | null;
   status: string;
@@ -81,7 +81,18 @@ export async function getOnlineRiders(): Promise<Rider[]> {
   const { data, error } = await supabase
     .from('riders')
     .select(`
-      *,
+      id,
+      name,
+      avatar_url,
+      zone_id,
+      status,
+      lat,
+      lng,
+      speed,
+      shift,
+      last_ping,
+      contact,
+      mkb_id,
       zones (
         id,
         name
@@ -101,7 +112,18 @@ export async function getAllRiders(): Promise<Rider[]> {
   const { data, error } = await supabase
     .from('riders')
     .select(`
-      *,
+      id,
+      name,
+      avatar_url,
+      zone_id,
+      status,
+      lat,
+      lng,
+      speed,
+      shift,
+      last_ping,
+      contact,
+      mkb_id,
       zones (
         id,
         name

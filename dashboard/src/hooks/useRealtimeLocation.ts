@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { logViolation, updateRiderStatus } from '../services/monitoringService';
 import { haversine } from '../lib/geofenceUtils';
-import { type Rider, type ViolationEvent, type Zone } from '../services/types';
+import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
 
 interface ZoneRow {
   id: string;
@@ -17,7 +17,7 @@ interface ZoneRow {
 interface RiderRow {
   id: string;
   name: string;
-  face_image_url: string | null;
+  face_image_url?: string | null;
   avatar_url: string | null;
   zone_id: string | null;
   status: string;
@@ -90,7 +90,7 @@ export function useRealtimeLocation(): {
           center: [row.lat, row.lng] as [number, number],
           radius: row.radius,
           color: row.color,
-          status: row.status ?? undefined
+          status: (row.status as ZoneStatus) ?? undefined
         }));
 
         if (active) setZoneState(mappedZones);
@@ -99,7 +99,18 @@ export function useRealtimeLocation(): {
         const { data: rData } = await supabase
           .from('riders')
           .select(`
-            *,
+            id,
+            name,
+            avatar_url,
+            zone_id,
+            status,
+            lat,
+            lng,
+            speed,
+            shift,
+            last_ping,
+            contact,
+            mkb_id,
             zones (
               id,
               name

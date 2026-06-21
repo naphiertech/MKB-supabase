@@ -129,6 +129,56 @@ function generateMkbId() {
   return `MKB-${n}`;
 }
 
+function compressBase64Image(
+  base64Str: string,
+  maxWidth = 200,
+  maxHeight = 200,
+  quality = 0.6
+): Promise<string> {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith('data:image/')) {
+      resolve(base64Str);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+
+      // Keep aspect ratio
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(base64Str);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressed);
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+    img.src = base64Str;
+  });
+}
+
 function validate(form: FormState, mode: 'create' | 'edit'): FormErrors {
   const errors: FormErrors = {};
   if (!form.name.trim()) errors.name = 'Full name is required.';
@@ -549,7 +599,8 @@ export function UserModal({ open, user, zones, onClose, onSaved }: UserModalProp
                           reader.onload = async () => {
                             const result = reader.result;
                             if (typeof result === 'string') {
-                              setField('faceImage', result);
+                              const compressed = await compressBase64Image(result);
+                              setField('faceImage', compressed);
                               
                               // Extract descriptor
                               try {
@@ -570,7 +621,7 @@ export function UserModal({ open, user, zones, onClose, onSaved }: UserModalProp
                                       });
                                     }
                                   };
-                                  img.src = result;
+                                  img.src = compressed;
                                 }
                               } catch (err) {
                                 console.error('[Admin UserModal] Extraction failed:', err);
@@ -858,8 +909,9 @@ export function UserModal({ open, user, zones, onClose, onSaved }: UserModalProp
             `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(form.name || 'capture')}&backgroundColor=fff1e0`
           }
           onCancel={() => setCameraOpen(false)}
-          onCapture={(dataUrl, descriptor) => {
-            setField('faceImage', dataUrl);
+          onCapture={async (dataUrl, descriptor) => {
+            const compressed = await compressBase64Image(dataUrl);
+            setField('faceImage', compressed);
             setField('faceDescriptor', descriptor);
             setCameraOpen(false);
           }}
