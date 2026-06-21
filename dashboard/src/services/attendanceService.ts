@@ -38,7 +38,13 @@ interface DbAttendanceLogRow {
     avatar_url: string | null;
     face_image_url: string | null;
     zone_id: string;
-    zones: { name: string }[] | null;
+    zones: { name: string } | { name: string }[] | null;
+  } | {
+    name: string;
+    avatar_url: string | null;
+    face_image_url: string | null;
+    zone_id: string;
+    zones: { name: string } | { name: string }[] | null;
   }[] | null;
 }
 
@@ -93,8 +99,9 @@ export async function getAttendanceLogs(filters?: {
 
   // Map nested objects to match the original flat AttendanceLog shape
   let result: AttendanceLog[] = (data || []).map((row: DbAttendanceLogRow) => {
-    const rider = row.riders?.[0];
+    const rider = Array.isArray(row.riders) ? row.riders[0] : row.riders;
     const zone = rider?.zones;
+    const zoneName = Array.isArray(zone) ? zone[0]?.name : zone?.name;
     return {
       id: row.id,
       riderId: row.rider_id,
@@ -105,7 +112,7 @@ export async function getAttendanceLogs(filters?: {
       timeOut: toHHMM(row.time_out),
       hours: row.hours || 0,
       zoneId: rider?.zone_id || '',
-      zoneName: zone?.[0]?.name || 'No Zone',
+      zoneName: zoneName || 'No Zone',
       status: row.status as AttendanceStatus,
       source: row.source as 'face-scan' | 'manual',
       events: [] // DB model is structural; events are constructed dynamically via realtime location stream
