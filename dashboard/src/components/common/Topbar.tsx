@@ -41,6 +41,10 @@ const TITLES: Record<
   reviews: {
     title: 'Reviews Moderation',
     subtitle: 'Approve or delete public user reviews'
+  },
+  payroll: {
+    title: 'Payroll Checklist',
+    subtitle: 'Inspect finalized cutoff records and rider statistics'
   }
 };
 type TopbarRole = 'admin' | 'hr' | 'payroll';
