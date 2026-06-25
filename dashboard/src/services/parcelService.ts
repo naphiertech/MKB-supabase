@@ -116,8 +116,8 @@ export const getPayrollRecords = async (
   const { data, error } = await supabase
     .from('payroll_records')
     .select('*, riders(name, mkb_id, zones(name))')
-    .eq('cutoff_start', cutoffFrom)
-    .eq('cutoff_end', cutoffTo)
+    .gte('cutoff_start', cutoffFrom)
+    .lte('cutoff_start', cutoffTo)
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -131,4 +131,74 @@ export const getMyParcelLogs = async (
   cutoffTo: string
 ): Promise<ParcelLog[]> => {
   return getParcelLogs(riderId, cutoffFrom, cutoffTo);
+};
+
+export interface PayrollMetrics {
+  presentDays: number;
+  lateDays: number;
+  violationsCount: number;
+  attendanceLogs: {
+    date: string;
+    time_in: string | null;
+    time_out: string | null;
+    status: string;
+  }[];
+  violations: {
+    created_at: string;
+    type: string;
+    zone_name: string | null;
+  }[];
+}
+
+// Get attendance and violation counts/logs for a rider within a cutoff period
+export const getRiderPayrollMetrics = async (
+  riderId: string,
+  cutoffFrom: string,
+  cutoffTo: string
+): Promise<PayrollMetrics> => {
+  const { data: attendance, error: attError } = await supabase
+    .from('attendance_logs')
+    .select('date, time_in, time_out, status')
+    .eq('rider_id', riderId)
+    .gte('date', cutoffFrom)
+    .lte('date', cutoffTo);
+
+  if (attError) throw attError;
+
+  // Query violations for this rider in the cutoff range
+  const startIso = `${cutoffFrom}T00:00:00.000Z`;
+  const endIso = `${cutoffTo}T23:59:59.999Z`;
+  const { data: violations, error: violError } = await supabase
+    .from('violations')
+    .select('created_at, type, zone_name')
+    .eq('rider_id', riderId)
+    .gte('created_at', startIso)
+    .lte('created_at', endIso);
+
+  if (violError) throw violError;
+
+  const presentDays = (attendance ?? []).filter(a => a.status === 'present' || a.status === 'late').length;
+  const lateDays = (attendance ?? []).filter(a => a.status === 'late').length;
+  const violationsCount = (violations ?? []).filter(v => v.type === 'boundary_exit' || v.type === 'idle_excess').length;
+
+  return {
+    presentDays,
+    lateDays,
+    violationsCount,
+    attendanceLogs: attendance ?? [],
+    violations: violations ?? []
+  };
+};
+
+// Update payroll record status
+export const updatePayrollRecordStatus = async (
+  recordId: string,
+  status: 'pending' | 'approved' | 'paid' | 'flagged'
+): Promise<void> => {
+  const { error } = await supabase
+    .from('payroll_records')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', recordId);
+
+  if (error) throw error;
 };
