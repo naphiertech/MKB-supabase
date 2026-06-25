@@ -24,6 +24,8 @@ import {
 import { PersonalStats } from '../components/rider/PersonalStats';
 import { pushToast } from '../hooks/useToast';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
+import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
+import { AnimatePresence } from 'framer-motion';
 
 interface RiderDashboardProps {
   userId: string;
@@ -89,6 +91,27 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     timeOut: string | null;
   }>({ timeIn: null, timeOut: null });
   const { timeIn, timeOut } = attendance;
+
+  // Rider Payroll States
+  const [myPayrollRecords, setMyPayrollRecords] = useState<any[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [isPayslipOpen, setIsPayslipOpen] = useState(false);
+
+  // Load Rider's Payroll Records
+  useEffect(() => {
+    if (!actualRiderId) return;
+    const loadPayroll = async () => {
+      const { data, error } = await supabase
+        .from('payroll_records')
+        .select('*, riders(name, mkb_id, zones(name), shift)')
+        .eq('rider_id', actualRiderId)
+        .order('cutoff_start', { ascending: false });
+      if (!error && data) {
+        setMyPayrollRecords(data);
+      }
+    };
+    loadPayroll();
+  }, [actualRiderId]);
   const [scanOpen, setScanOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
 
@@ -593,6 +616,131 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         monthDays={monthDays}
         hoursThisWeek={hoursThisWeek}
         violationsThisMonth={violationsThisMonth} />
+
+      {/* 5. My Earnings & Payslips Portal */}
+      <section className="rounded-2xl border border-[#EFEAE2] bg-white p-5 space-y-4 shadow-sm">
+        <header className="flex items-center justify-between pb-3 border-b border-[#EFEAE2]">
+          <div>
+            <h2 className="text-[#1A1410] font-semibold text-base flex items-center gap-2">
+              <span className="p-1 rounded-md bg-[#FFF1E0] text-[#db6c00] shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M2.5 4A1.5 1.5 0 001 5.5V6h18v-.5A1.5 1.5 0 0017.5 4h-15zM19 8.5H1v6A1.5 1.5 0 002.5 16h15a1.5 1.5 0 001.5-1.5v-6zM3 11.25a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zm3.75-1.5a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" />
+                </svg>
+              </span>
+              My Earnings & Payslips
+            </h2>
+            <p className="text-[11px] text-[#6B6258] font-mono mt-0.5">
+              Cutoff earnings progress and historical payslips
+            </p>
+          </div>
+        </header>
+
+        {myPayrollRecords.length === 0 ? (
+          <div className="py-6 text-center text-xs text-[#6B6258] italic">
+            No payroll records generated yet. Once the payroll cutoff ends, your payslips will appear here.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Active/Latest Cutoff Progress Card */}
+            {myPayrollRecords[0] && (
+              <div className="p-4 rounded-xl border border-[#EFEAE2] bg-[#FAFAF7]/50 flex flex-col justify-between space-y-3">
+                <div>
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
+                    myPayrollRecords[0].status === 'paid' ? 'bg-emerald-50 text-emerald-700' :
+                    myPayrollRecords[0].status === 'approved' ? 'bg-sky-50 text-sky-700' :
+                    'bg-amber-50 text-amber-700'
+                  }`}>
+                    {myPayrollRecords[0].status === 'paid' ? 'Paid' : 'Pending Verification'}
+                  </span>
+                  
+                  <div className="text-[11px] font-mono text-[#6B6258] mt-1.5">
+                    Current Period
+                  </div>
+                  <div className="text-sm font-bold text-[#1A1410]">
+                    {new Date(myPayrollRecords[0].cutoff_start).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} – {new Date(myPayrollRecords[0].cutoff_end).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                </div>
+
+                <div className="flex items-baseline justify-between border-t border-[#EFEAE2] pt-3">
+                  <div>
+                    <div className="text-[10.5px] text-[#6B6258] font-mono">Delivered Parcels</div>
+                    <div className="text-base font-bold text-[#1A1410] font-mono">{myPayrollRecords[0].total_parcels} pcs</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10.5px] text-[#6B6258] font-mono">Estimated Wage</div>
+                    <div className="text-xl font-bold text-[#db6c00] font-mono">₱{(myPayrollRecords[0].gross_pay || (myPayrollRecords[0].total_parcels * (myPayrollRecords[0].rate_per_parcel || 50))).toLocaleString()}</div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSelectedRecord(myPayrollRecords[0]);
+                    setIsPayslipOpen(true);
+                  }}
+                  className="w-full h-8 bg-[#db6c00] hover:bg-[#b85a00] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition shadow-sm"
+                >
+                  View Cutoff Details
+                </button>
+              </div>
+            )}
+
+            {/* History of Payslips */}
+            <div className="space-y-2 max-h-[170px] overflow-y-auto pr-1">
+              <div className="text-[10.5px] uppercase tracking-wider text-[#6B6258] font-bold font-mono">
+                Past Payslips
+              </div>
+              {myPayrollRecords.slice(1).length === 0 ? (
+                <div className="text-xs text-[#A39988] italic py-8 text-center">
+                  No previous payslips logged.
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {myPayrollRecords.slice(1).map((rec) => (
+                    <div
+                      key={rec.id}
+                      onClick={() => {
+                        setSelectedRecord(rec);
+                        setIsPayslipOpen(true);
+                      }}
+                      className="p-2.5 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] transition cursor-pointer flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <div className="font-semibold text-[#1A1410]">
+                          {new Date(rec.cutoff_start).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} – {new Date(rec.cutoff_end).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
+                        </div>
+                        <div className="text-[10px] text-[#6B6258] font-mono">
+                          {rec.total_parcels} pcs delivered
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold font-mono text-[#1A1410]">
+                          ₱{(rec.gross_pay || (rec.total_parcels * (rec.rate_per_parcel || 50))).toLocaleString()}
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          rec.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {rec.status === 'paid' ? 'Paid' : 'Verified'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <AnimatePresence>
+        {isPayslipOpen && selectedRecord && (
+          <PayrollDetailsModal
+            isOpen={isPayslipOpen}
+            onClose={() => setIsPayslipOpen(false)}
+            record={selectedRecord}
+            role="rider"
+          />
+        )}
+      </AnimatePresence>
 
       {/* Face-scan modal */}
       <Modal
