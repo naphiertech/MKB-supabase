@@ -203,8 +203,8 @@ export function PayrollReports() {
         const { data, error } = await supabase
           .from('payroll_records')
           .select('rider_id, status')
-          .eq('cutoff_start', from)
-          .eq('cutoff_end', to);
+          .gte('cutoff_start', from)
+          .lte('cutoff_start', to);
 
         if (error) throw error;
 
