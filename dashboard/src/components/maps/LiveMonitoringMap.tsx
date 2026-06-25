@@ -3,8 +3,9 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Eye, EyeOff, Crosshair, Tag, TagsIcon } from 'lucide-react';
 import type { Rider, Zone } from '../../services/types';
-import { buildRiderIcon, renderRiderPopup } from './RiderMarker';
+import { buildRiderIcon } from './RiderMarker';
 import { GeofenceCircle } from './GeofenceCircle';
+import { reverseGeocode } from '../../lib/apiService';
 interface LiveMonitoringMapProps {
   riders: Rider[];
   zones: Zone[];
@@ -73,6 +74,72 @@ function MapController({
 
   return null;
 }
+
+function RiderPopupContent({ rider, zoneName }: { rider: Rider; zoneName: string }) {
+  const [address, setAddress] = useState('Loading address...');
+
+  useEffect(() => {
+    let active = true;
+    reverseGeocode(rider.lat, rider.lng).then((addr) => {
+      if (active) setAddress(addr);
+    });
+    return () => {
+      active = false;
+    };
+  }, [rider.lat, rider.lng]);
+
+  const statusColor =
+    rider.status === 'active'
+      ? '#16A34A'
+      : rider.status === 'idle'
+      ? '#D97706'
+      : rider.status === 'violation'
+      ? '#DC2626'
+      : '#6B6258';
+
+  return (
+    <div style={{ minWidth: '220px', color: '#1A1410' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+        <img
+          src={rider.avatar}
+          alt=""
+          style={{ width: '36px', height: '36px', borderRadius: '9999px', background: '#FAFAF7', border: '1px solid #EFEAE2' }}
+        />
+        <div>
+          <div style={{ color: '#1A1410', fontWeight: 600, fontSize: '13px' }}>{rider.name}</div>
+          <div style={{ color: '#6B6258', fontFamily: "'Geist Mono',monospace", fontSize: '11px' }}>{rider.riderCode}</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
+        <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Zone</span>
+        <span style={{ color: '#1A1410', fontSize: '12px' }}>{zoneName}</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
+        <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</span>
+        <span style={{ color: statusColor, fontSize: '12px', textTransform: 'capitalize', fontWeight: 600 }}>{rider.status}</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
+        <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Location</span>
+        <span style={{ color: '#1A1410', fontSize: '11px', maxWidth: '140px', textAlign: 'right', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+          {address}
+        </span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
+        <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Coords</span>
+        <span style={{ color: '#1A1410', fontFamily: "'Geist Mono',monospace", fontSize: '11px' }}>
+          {rider.lat.toFixed(4)}, {rider.lng.toFixed(4)}
+        </span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
+        <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Speed</span>
+        <span style={{ color: '#1A1410', fontFamily: "'Geist Mono',monospace", fontSize: '11px' }}>
+          {Math.round(rider.speed)} km/h
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function LiveMonitoringMap({
   riders,
   zones,
@@ -154,11 +221,7 @@ export function LiveMonitoringMap({
               }}>
               
               <Popup>
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: renderRiderPopup(r, zone?.name ?? '—')
-                  }} />
-                
+                <RiderPopupContent rider={r} zoneName={zone?.name ?? '—'} />
               </Popup>
             </Marker>);
 
