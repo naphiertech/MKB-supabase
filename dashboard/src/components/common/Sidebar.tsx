@@ -20,14 +20,15 @@ import {
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 export type PageKey =
-'dashboard' |
-'monitoring' |
-'geofence' |
-'attendance' |
-'reports' |
-'users' |
-'computation' |
-'reviews';
+  | 'dashboard'
+  | 'monitoring'
+  | 'geofence'
+  | 'attendance'
+  | 'reports'
+  | 'users'
+  | 'computation'
+  | 'reviews'
+  | 'payroll';
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 interface SidebarUser {
   name: string;
@@ -79,6 +80,12 @@ const ADMIN_ITEMS: NavItem[] = [
   route: '/admin/attendance'
 },
 {
+  key: 'payroll',
+  label: 'Payroll Checklist',
+  icon: Wallet,
+  route: '/admin/payroll'
+},
+{
   key: 'reports',
   label: 'Reports',
   icon: BarChart3,
@@ -115,6 +122,12 @@ const HR_ITEMS: NavItem[] = [
   label: 'Attendance',
   icon: ClipboardCheck,
   route: '/hr/attendance'
+},
+{
+  key: 'payroll',
+  label: 'Payroll Checklist',
+  icon: Wallet,
+  route: '/hr/payroll'
 },
 {
   key: 'reports',
