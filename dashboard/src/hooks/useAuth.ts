@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { type AppUser, type UserRole } from "../services/types";
 import { pushToast } from "./useToast";
+import { fetchIpLocation, logActivity } from "../lib/apiService";
 
 const STORAGE_KEY = "attenrider.session.v1";
 
@@ -262,6 +263,19 @@ export function useAuth() {
         if (loginStampErr) {
           console.error('[Auth] Failed to update login timestamp:', loginStampErr);
         }
+
+        // Record user IP & Location in activity_logs database table asynchronously
+        fetchIpLocation().then((loc) => {
+          const locationDesc = loc 
+            ? `${loc.city}, ${loc.region}, ${loc.country_name} (IP: ${loc.ip}, ISP: ${loc.org})`
+            : "Unknown Location";
+          logActivity({
+            userId: authData.user.id,
+            eventType: "login",
+            description: `User signed in from ${locationDesc}`,
+            metadata: loc ? { ip: loc.ip, city: loc.city, region: loc.region, country: loc.country_name, org: loc.org } : {}
+          });
+        });
 
         return { ok: true };
       } catch (err: unknown) {
