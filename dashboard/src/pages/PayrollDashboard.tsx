@@ -3,7 +3,6 @@ import {
   Users,
   CheckCircle2,
   AlertTriangle,
-  ChevronDown,
   ChevronRight,
   Lock,
   Calendar,
@@ -11,7 +10,9 @@ import {
   Loader2
 } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
-import { getPayrollRecords, getParcelLogs, ParcelLog } from '../services/parcelService';
+import { getPayrollRecords } from '../services/parcelService';
+import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
+import { AnimatePresence } from 'framer-motion';
 
 const MONTHS = [
   'January',
@@ -91,10 +92,17 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-export function PayrollDashboard() {
-  const [month, setMonth] = useState(4); // May (0-indexed)
-  const [half, setHalf] = useState<'first' | 'second'>('first');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+interface PayrollDashboardProps {
+  role?: 'admin' | 'hr' | 'payroll';
+}
+
+export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
+  const currentUserRole = role;
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [month, setMonth] = useState(() => new Date().getMonth());
+  const [half, setHalf] = useState<'first' | 'second'>(() =>
+    new Date().getDate() <= 15 ? 'first' : 'second'
+  );
   interface PayrollRecordRow {
     id: string;
     rider_id: string;
@@ -114,21 +122,18 @@ export function PayrollDashboard() {
   }
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecordRow[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // Day-by-day logs loaded dynamically on row expansion
-  const [expandedLogs, setExpandedLogs] = useState<Record<string, ParcelLog[]>>({});
-  const [loadingExpanded, setLoadingExpanded] = useState<Record<string, boolean>>({});
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   // Derive Cutoff Period Date range
   const cutoffFrom = useMemo(() => {
     const startDay = half === 'first' ? 1 : 16;
-    return `2026-${pad(month + 1)}-${pad(startDay)}`;
-  }, [month, half]);
+    return `${currentYear}-${pad(month + 1)}-${pad(startDay)}`;
+  }, [month, half, currentYear]);
 
   const cutoffTo = useMemo(() => {
-    const endDay = half === 'first' ? 15 : new Date(2026, month + 1, 0).getDate();
-    return `2026-${pad(month + 1)}-${pad(endDay)}`;
-  }, [month, half]);
+    const endDay = half === 'first' ? 15 : new Date(currentYear, month + 1, 0).getDate();
+    return `${currentYear}-${pad(month + 1)}-${pad(endDay)}`;
+  }, [month, half, currentYear]);
 
   // Load records from Supabase
   useEffect(() => {
@@ -144,7 +149,38 @@ export function PayrollDashboard() {
       }
     };
     loadDashboard();
-  }, [cutoffFrom, cutoffTo]);
+  }, [cutoffFrom, cutoffTo, reloadTrigger]);
+
+  // Details Modal States
+  const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<PayrollRecordRow | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Sync selected record with updated dashboard data (e.g. after approval/payment)
+  useEffect(() => {
+    if (selectedRecordForDetails) {
+      const updated = payrollRecords.find(r => r.id === selectedRecordForDetails.id);
+      if (updated) {
+        setSelectedRecordForDetails(updated);
+      }
+    }
+  }, [payrollRecords]);
+
+  const activeIndex = useMemo(() => {
+    if (!selectedRecordForDetails) return -1;
+    return payrollRecords.findIndex(r => r.id === selectedRecordForDetails.id);
+  }, [selectedRecordForDetails, payrollRecords]);
+
+  const handlePrev = () => {
+    if (activeIndex > 0) {
+      setSelectedRecordForDetails(payrollRecords[activeIndex - 1]);
+    }
+  };
+
+  const handleNext = () => {
+    if (activeIndex < payrollRecords.length - 1) {
+      setSelectedRecordForDetails(payrollRecords[activeIndex + 1]);
+    }
+  };
 
   // Compute fleet totals
   const totals = useMemo(() => {
@@ -161,38 +197,10 @@ export function PayrollDashboard() {
     };
   }, [payrollRecords]);
 
-  // Toggle expanding day breakdown
-  const toggleRow = async (riderId: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(riderId)) {
-        next.delete(riderId);
-      } else {
-        next.add(riderId);
-        if (!expandedLogs[riderId]) {
-          loadExpandedLogs(riderId);
-        }
-      }
-      return next;
-    });
-  };
-
-  const loadExpandedLogs = async (riderId: string) => {
-    setLoadingExpanded(prev => ({ ...prev, [riderId]: true }));
-    try {
-      const logs = await getParcelLogs(riderId, cutoffFrom, cutoffTo);
-      setExpandedLogs(prev => ({ ...prev, [riderId]: logs }));
-    } catch (err) {
-      console.error('Failed to load expanded logs', err);
-    } finally {
-      setLoadingExpanded(prev => ({ ...prev, [riderId]: false }));
-    }
-  };
-
   const cutoffLabel =
     half === 'first'
       ? `${MONTHS[month]} 1–15`
-      : `${MONTHS[month]} 16–${new Date(2026, month + 1, 0).getDate()}`;
+      : `${MONTHS[month]} 16–${new Date(currentYear, month + 1, 0).getDate()}`;
 
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
@@ -272,7 +280,7 @@ export function PayrollDashboard() {
                 Cutoff Period
               </div>
               <div className="text-sm font-semibold text-[#1A1410]">
-                {cutoffLabel}, 2026
+                {cutoffLabel}, {currentYear}
               </div>
             </div>
           </div>
@@ -285,7 +293,7 @@ export function PayrollDashboard() {
             >
               {MONTHS.map((m, idx) => (
                 <option key={m} value={idx}>
-                  {m} 2026
+                  {m} {currentYear}
                 </option>
               ))}
             </select>
@@ -301,7 +309,7 @@ export function PayrollDashboard() {
                 onClick={() => setHalf('second')}
                 className={`h-8 px-3 rounded text-xs font-semibold transition ${half === 'second' ? 'bg-[#db6c00] text-white shadow-sm' : 'text-[#6B6258] hover:text-[#1A1410]'}`}
               >
-                {MONTHS[month].slice(0, 3)} 16–{new Date(2026, month + 1, 0).getDate()}
+                {MONTHS[month].slice(0, 3)} 16–{new Date(currentYear, month + 1, 0).getDate()}
               </button>
             </div>
           </div>
@@ -351,7 +359,6 @@ export function PayrollDashboard() {
               </thead>
               <tbody>
                 {payrollRecords.map(r => {
-                  const isExpanded = expanded.has(r.rider_id);
                   const riderName = r.riders?.name || 'Unknown Rider';
                   const riderId = r.riders?.mkb_id || 'MKB-RIDER';
                   const zone = r.riders?.zones?.name || '—';
@@ -360,18 +367,17 @@ export function PayrollDashboard() {
                   return (
                     <Fragment key={r.id}>
                       <tr
-                        onClick={() => toggleRow(r.rider_id)}
+                        onClick={() => {
+                          setSelectedRecordForDetails(r);
+                          setIsModalOpen(true);
+                        }}
                         className={`border-b border-[#EFEAE2] cursor-pointer transition hover:bg-[#FFF1E0]/30`}
                       >
                         <td className="px-5 py-3 relative">
                           {r.status === 'flagged' && (
                             <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-500" />
                           )}
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-[#6B6258]" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-[#6B6258]" />
-                          )}
+                          <ChevronRight className="w-4 h-4 text-[#6B6258]" />
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2.5">
@@ -398,56 +404,6 @@ export function PayrollDashboard() {
                           <StatusPill status={r.status} />
                         </td>
                       </tr>
-
-                      {isExpanded && (
-                        <tr className="border-b border-[#EFEAE2] bg-[#FFF1E0]/15">
-                          <td colSpan={7} className="px-5 py-4">
-                            <div className="text-[10.5px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold mb-2.5">
-                              Day-by-day logs breakdown
-                            </div>
-
-                            {loadingExpanded[r.rider_id] ? (
-                              <div className="py-5 flex items-center gap-2 text-xs text-[#6B6258]">
-                                <Loader2 className="w-4 h-4 animate-spin text-[#db6c00]" />
-                                Loading logs breakdown...
-                              </div>
-                            ) : !expandedLogs[r.rider_id] || expandedLogs[r.rider_id].length === 0 ? (
-                              <div className="py-5 text-xs text-[#6B6258]">No daily parcel logs found.</div>
-                            ) : (
-                              <div className="overflow-x-auto rounded-lg border border-[#EFEAE2] bg-white">
-                                <table className="w-full text-[13px]">
-                                  <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2]">
-                                    <tr className="text-left text-[10px] uppercase tracking-[0.12em] text-[#6B6258] font-semibold">
-                                      <th className="px-4 py-2">Date</th>
-                                      <th className="px-4 py-2 text-center">Parcels Delivered</th>
-                                      <th className="px-4 py-2 text-right">Daily Gross</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {expandedLogs[r.rider_id].map(day => (
-                                      <tr key={day.id} className="border-b last:border-b-0 border-[#EFEAE2]">
-                                        <td className="px-4 py-1.5 font-mono text-[#1A1410]">
-                                          {new Date(day.date).toLocaleDateString('en-PH', {
-                                            month: 'long',
-                                            day: '2-digit',
-                                            year: 'numeric'
-                                          })}
-                                        </td>
-                                        <td className="px-4 py-1.5 text-center font-mono text-[#1A1410]">
-                                          {day.parcels}
-                                        </td>
-                                        <td className="px-4 py-1.5 text-right font-mono text-[#1A1410]">
-                                          {day.parcels === 0 ? '—' : `₱${day.dailyGross.toLocaleString()}`}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
                     </Fragment>
                   );
                 })}
@@ -488,6 +444,23 @@ export function PayrollDashboard() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {isModalOpen && selectedRecordForDetails && (
+          <PayrollDetailsModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            record={selectedRecordForDetails}
+            onStatusUpdated={() => setReloadTrigger(prev => prev + 1)}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            hasPrev={activeIndex > 0}
+            hasNext={activeIndex < payrollRecords.length - 1}
+            role={currentUserRole as 'admin' | 'hr' | 'payroll' | 'rider'}
+            indexLabel={`${activeIndex + 1} of ${payrollRecords.length}`}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
