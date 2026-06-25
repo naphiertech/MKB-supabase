@@ -265,7 +265,8 @@ export function App() {
         'attendance',
         'reports',
         'reviews',
-        'users'];
+        'users',
+        'payroll'];
 
       return allowed.includes(p) ? p : 'dashboard';
     }
@@ -341,6 +342,7 @@ export function App() {
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
                     {safePage === 'reviews' && <ReviewsModeration />}
+                    {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} /></ErrorBoundary>}
                   </>
                 }
                 {role === 'hr' &&
@@ -353,11 +355,12 @@ export function App() {
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'reviews' && <ReviewsModeration />}
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
+                    {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} /></ErrorBoundary>}
                   </>
                 }
                 {role === 'payroll' &&
                   <>
-                    {safePage === 'dashboard' && <PayrollDashboard />}
+                    {safePage === 'dashboard' && <ErrorBoundary><PayrollDashboard role={dashRole} /></ErrorBoundary>}
                     {safePage === 'computation' && <PayrollComputation />}
                     {safePage === 'reports' && <PayrollReports />}
                   </>
