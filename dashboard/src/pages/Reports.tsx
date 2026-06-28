@@ -23,8 +23,16 @@ import {
   type ReportFormat } from
 '../lib/reportExport';
 import { pushToast } from '../hooks/useToast';
-const SAVED = [
+const SAVED: {
+  key: ReportTemplate;
+  title: string;
+  description: string;
+  meta: string;
+  icon: typeof CalendarRange;
+  accent: string;
+}[] = [
 {
+  key: 'weekly_attendance',
   title: 'Weekly Attendance',
   description: 'Aggregate present/late/absent across all riders.',
   meta: 'Updated daily · PDF/CSV',
@@ -32,6 +40,7 @@ const SAVED = [
   accent: '#db6c00'
 },
 {
+  key: 'violation_summary',
   title: 'Violation Summary',
   description: 'Geofence boundary exits and idle excess events by rider.',
   meta: 'Updated hourly · PDF/CSV',
@@ -39,6 +48,7 @@ const SAVED = [
   accent: '#DC2626'
 },
 {
+  key: 'zone_coverage',
   title: 'Zone Coverage',
   description: 'Rider-hours per zone vs scheduled coverage targets.',
   meta: 'Updated daily · PDF',
@@ -46,6 +56,7 @@ const SAVED = [
   accent: '#f59e0b'
 },
 {
+  key: 'rider_performance',
   title: 'Rider Performance',
   description: 'Punctuality, hours, and violations per rider.',
   meta: 'Updated weekly · PDF/CSV',
@@ -124,9 +135,14 @@ export function Reports() {
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {SAVED.map((r) =>
-        <ReportCard key={r.title} {...r} />
-        )}
+        {SAVED.map(({ key, ...r }) => (
+          <ReportCard 
+            key={key} 
+            {...r} 
+            active={template === key}
+            onClick={() => setTemplate(key)}
+          />
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
