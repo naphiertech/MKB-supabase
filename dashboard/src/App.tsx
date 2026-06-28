@@ -28,7 +28,7 @@ import { supabase } from './lib/supabaseClient';
 import { useNotifications } from './hooks/useNotifications';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
-import { ProfileSettingsModal } from './components/common/ProfileSettingsModal';
+import { Settings } from './pages/Settings';
 import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
 
 const pageVariants: Variants = {
@@ -131,7 +131,6 @@ export function App() {
   const [riderPage, setRiderPage] = useState<RiderPageKey>(getInitialRiderPage());
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>('guide');
 
@@ -141,7 +140,12 @@ export function App() {
 
   // Sync state changes to URL hash
   useEffect(() => {
-    if (!session) return;
+    if (!session) {
+      if (typeof window !== 'undefined' && window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+      return;
+    }
     const role = session.role;
     const page = role === 'rider' ? riderPage : currentPage;
     if (page && typeof window !== 'undefined') {
@@ -229,24 +233,14 @@ export function App() {
   );
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
     useNotifications(allowedTypes);
-  // Synchronize initial hash on role load or reset it
-  useEffect(() => {
-    const initial = window.location.hash.replace('#/', '').replace('#', '');
-    if (initial) {
-      if (session?.role === 'rider') {
-        setRiderPage(initial as RiderPageKey);
-      } else {
-        setCurrentPage(initial as PageKey);
-      }
-    } else {
-      setCurrentPage('dashboard');
-      setRiderPage('dashboard');
-      if (typeof window !== 'undefined') {
-        window.location.hash = 'dashboard';
-      }
-    }
-    setMobileNavOpen(false);
-  }, [session?.role]);
+
+  const sidebarBadgeCounts = useMemo(() => {
+    return {
+      attendance: notifications.filter(n => !n.read && (n.type === 'attendance' || n.type === 'absent')).length,
+      monitoring: notifications.filter(n => !n.read && n.type === 'violation').length,
+    } as Partial<Record<PageKey, number>>;
+  }, [notifications]);
+
   // Unauthenticated — show login
   if (!session || !user) {
     return (
@@ -319,6 +313,7 @@ export function App() {
   const dashRole = role as 'admin' | 'hr' | 'payroll';
   // Guards: scope each role to its allowed pages
   function safePageFor(r: 'admin' | 'hr' | 'payroll', p: PageKey): PageKey {
+    if (p === 'settings') return 'settings';
     if (r === 'admin') return p;
     if (r === 'hr') {
       const allowed: PageKey[] = [
@@ -347,6 +342,8 @@ export function App() {
     setCurrentPage(p);
     setMobileNavOpen(false);
   }
+
+
   return (
     <div className="min-h-screen w-full bg-[#FAFAF7] text-[#1A1410] font-[Geist,sans-serif] flex">
       <Sidebar
@@ -359,13 +356,13 @@ export function App() {
           avatar: user.avatar
         }}
         onSignOut={signOut}
-        onOpenSettings={() => setSettingsOpen(true)}
         isMobileOpen={mobileNavOpen}
         onMobileClose={() => setMobileNavOpen(false)}
         onOpenHelp={(tab) => {
           setHelpTab(tab);
           setHelpOpen(true);
-        }} />
+        }}
+        badgeCounts={sidebarBadgeCounts} />
 
       <div className="flex-1 min-w-0 flex flex-col">
         <Topbar
@@ -392,6 +389,7 @@ export function App() {
                 exit="exit"
                 className="h-full"
               >
+                {safePage === 'settings' && <Settings />}
                 {role === 'admin' &&
                   <>
                     {safePage === 'dashboard' &&
@@ -433,7 +431,6 @@ export function App() {
         </main>
       </div>
       <Toaster position="top-right" reverseOrder={false} />
-      <ProfileSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <HelpSupportModal open={helpOpen} onClose={() => setHelpOpen(false)} defaultTab={helpTab} />
     </div>);
 
