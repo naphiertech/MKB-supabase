@@ -30,6 +30,7 @@ interface DbRiderRow {
   id: string;
   name: string;
   avatar_url: string | null;
+  face_image_url: string | null;
   zone_id: string | null;
   status: string;
   lat: number | null;
@@ -93,7 +94,7 @@ export async function ridersInZone(zoneId: string): Promise<Rider[]> {
   return (data || []).map((row: DbRiderRow) => ({
     id: row.id,
     name: row.name,
-    avatar: row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
+    avatar: row.face_image_url || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
     zoneId: row.zone_id,
     status: row.status as RiderStatus,
     lat: row.lat || 0,
