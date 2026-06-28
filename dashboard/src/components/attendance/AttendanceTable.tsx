@@ -12,6 +12,9 @@ import {
 'lucide-react';
 import type { AttendanceLog } from '../../services/types';
 import { StatusPill } from './StatusPill';
+import { exportLogsCsv } from '../../services/attendanceService';
+import { exportPDF } from '../../lib/reportExport';
+
 interface AttendanceTableProps {
   logs: AttendanceLog[];
 }
@@ -38,6 +41,38 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
       setSortAsc(true);
     }
   }
+
+  const handleExportCSV = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    exportLogsCsv(sorted, `attendance_report_${todayStr}.csv`);
+  };
+
+  const handleExportPDF = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const columns = ['Rider', 'Date', 'Time-In', 'Time-Out', 'Hours', 'Zone', 'Status', 'Source'];
+    const rows = sorted.map(l => [
+      l.riderName,
+      l.date,
+      l.timeIn || '—',
+      l.timeOut || '—',
+      `${l.hours.toFixed(1)}h`,
+      l.zoneName,
+      l.status.toUpperCase(),
+      l.source === 'face-scan' ? 'Face Scan' : 'Manual'
+    ]);
+
+    const reportData = {
+      title: 'Attendance Records Report',
+      columns,
+      rows
+    };
+
+    const from = sorted.length > 0 ? sorted[sorted.length - 1].date : 'N/A';
+    const to = sorted.length > 0 ? sorted[0].date : 'N/A';
+
+    exportPDF(reportData, `attendance_report_${todayStr}`, { from, to });
+  };
+
   return (
     <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col shadow-sm">
       <div className="flex items-center justify-between p-4 border-b border-[#EFEAE2] gap-3 flex-wrap">
@@ -50,10 +85,14 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition">
+          <button 
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition cursor-pointer">
             <Download className="w-3.5 h-3.5" /> CSV
           </button>
-          <button className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition">
+          <button 
+            onClick={handleExportPDF}
+            className="inline-flex items-center gap-1.5 px-3 h-8 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition cursor-pointer">
             <FileText className="w-3.5 h-3.5" /> PDF
           </button>
         </div>
