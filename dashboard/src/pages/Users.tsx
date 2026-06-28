@@ -14,6 +14,8 @@ import { getZones } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
 import { UserModal } from '../components/users/UserModal';
 import { useAuth } from '../hooks/useAuth';
+import { clearCachedAvatar } from '../lib/avatarCache';
+
 
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
 
@@ -339,6 +341,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                   })
                   .eq('id', userProfile.rider_id);
                 if (riderErr) throw riderErr;
+                clearCachedAvatar(userProfile.rider_id);
               }
             }
           } else {
