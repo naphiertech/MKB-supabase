@@ -132,9 +132,10 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
     [zoneCenterLat, zoneCenterLng]
   );
 
-  const { position } = useGeolocation({
+  const { position, isLoading: locationLoading } = useGeolocation({
     initial: anchor,
-    jitter: 0.00018
+    jitter: 0.00018,
+    enabled: true
   });
 
   const distance = haversine(
@@ -164,17 +165,26 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
         <h1 className="text-[#1A1410] font-semibold text-lg">My Location</h1>
       </div>
 
-      <RiderMap
-        position={position}
-        zone={zone}
-        inZone={inZone}
-        height="500px" />
-      
-      <GeofenceStatus
-        inZone={inZone}
-        zoneName={zoneName}
-        distance={distance}
-        radius={zoneRadius} />
+      {locationLoading ? (
+        <div className="h-[500px] bg-[#F5F0E8] rounded-xl border border-[#EFEAE2] animate-pulse flex flex-col items-center justify-center gap-3">
+          <MapPin className="w-6 h-6 text-[#db6c00] animate-bounce" />
+          <span className="text-[#6B6258] text-sm font-medium">Acquiring live GPS signal...</span>
+        </div>
+      ) : (
+        <>
+          <RiderMap
+            position={position}
+            zone={zone}
+            inZone={inZone}
+            height="500px" />
+          
+          <GeofenceStatus
+            inZone={inZone}
+            zoneName={zoneName}
+            distance={distance}
+            radius={zoneRadius} />
+        </>
+      )}
 
       {/* Today's Route Trail */}
       <div className="bg-white rounded-xl border border-[#EFEAE2] overflow-hidden">
