@@ -36,6 +36,7 @@ export function useGeolocation({
     accuracy: 8,
     ts: Date.now(),
   });
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const anchorRef = useRef(initial);
 
@@ -48,6 +49,7 @@ export function useGeolocation({
         accuracy: 8,
         ts: Date.now()
       });
+      setIsLoading(false);
     }
   }, [initial, enabled]);
 
@@ -69,6 +71,7 @@ export function useGeolocation({
           accuracy: 10 + Math.random() * 10,
           ts: Date.now(),
         });
+        setIsLoading(false);
       }, intervalMs);
     };
 
@@ -81,6 +84,7 @@ export function useGeolocation({
             accuracy: pos.coords.accuracy,
             ts: pos.timestamp,
           });
+          setIsLoading(false);
           setError(null);
           if (fallbackIntervalId) {
             clearInterval(fallbackIntervalId);
@@ -119,5 +123,5 @@ export function useGeolocation({
     };
   }, [enabled, jitter, intervalMs]);
 
-  return { position, error, setError };
+  return { position, error, setError, isLoading };
 }
