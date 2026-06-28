@@ -92,6 +92,13 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   }>({ timeIn: null, timeOut: null });
   const { timeIn, timeOut } = attendance;
 
+  // Real Stats from Database
+  const [stats, setStats] = useState({
+    daysPresent: 0,
+    hoursThisWeek: 0,
+    violationsThisMonth: 0
+  });
+
   // Rider Payroll States
   const [myPayrollRecords, setMyPayrollRecords] = useState<any[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
@@ -103,7 +110,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     const loadPayroll = async () => {
       const { data, error } = await supabase
         .from('payroll_records')
-        .select('*, riders(name, mkb_id, zones(name), shift)')
+        .select('*, riders(id, name, mkb_id, avatar_url, zones(name), shift)')
         .eq('rider_id', actualRiderId)
         .order('cutoff_start', { ascending: false });
       if (!error && data) {
@@ -238,6 +245,43 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           } else {
             setActiveViolation(null);
           }
+
+          // Load real stats for the current month
+          const todayDate = new Date();
+          const firstDayOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+          const firstDayStr = getLocalDateString(firstDayOfMonth);
+          
+          const dayOfWeek = todayDate.getDay();
+          const diff = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Monday is start of week
+          const firstDayOfWeek = new Date(todayDate.setDate(diff));
+          const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
+
+          const { data: monthLogs } = await supabase
+            .from('attendance_logs')
+            .select('*')
+            .eq('rider_id', resolvedRiderId)
+            .gte('date', firstDayStr);
+            
+          let presentCount = 0;
+          let weekHours = 0;
+          
+          if (monthLogs) {
+             presentCount = monthLogs.filter((l: any) => l.status === 'present' || l.status === 'late').length;
+             const weekLogs = monthLogs.filter((l: any) => l.date >= firstDayOfWeekStr);
+             weekHours = weekLogs.reduce((acc: number, log: any) => acc + (log.hours || 0), 0);
+          }
+
+          const { count: violationCount } = await supabase
+            .from('violations')
+            .select('*', { count: 'exact', head: true })
+            .eq('rider_id', resolvedRiderId)
+            .gte('created_at', firstDayOfMonth.toISOString());
+
+          setStats({
+            daysPresent: presentCount,
+            hoursThisWeek: Number(weekHours.toFixed(1)),
+            violationsThisMonth: violationCount || 0
+          });
         }
       } catch (err) {
         console.error('Error loading rider dashboard data:', err);
@@ -262,19 +306,16 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     [zoneCenterLat, zoneCenterLng]
   );
 
-  const { position } = useGeolocation({
+  const { position, isLoading: locationLoading } = useGeolocation({
     initial: anchor,
     jitter: 0.00018,
-    enabled: !!timeIn && !timeOut
+    enabled: true
   });
 
   const isOnline = !!timeIn && !timeOut;
 
   const positionToUse = useMemo(() => {
-    if (isOnline) {
-      return position;
-    }
-    if (activeViolation) {
+    if (activeViolation && !isOnline) {
       return {
         lat: activeViolation.lat,
         lng: activeViolation.lng,
@@ -282,32 +323,21 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         ts: Date.now()
       };
     }
-    return {
-      lat: zoneCenterLat,
-      lng: zoneCenterLng,
-      accuracy: 8,
-      ts: Date.now()
-    };
-  }, [isOnline, position, activeViolation, zoneCenterLat, zoneCenterLng]);
+    return position;
+  }, [isOnline, position, activeViolation]);
 
   const distanceToUse = useMemo(() => {
-    if (isOnline) {
-      return haversine(zoneCenterLat, zoneCenterLng, position.lat, position.lng);
-    }
-    if (activeViolation) {
+    if (activeViolation && !isOnline) {
       return haversine(zoneCenterLat, zoneCenterLng, activeViolation.lat, activeViolation.lng);
     }
-    return 0;
+    return haversine(zoneCenterLat, zoneCenterLng, position.lat, position.lng);
   }, [isOnline, position, activeViolation, zoneCenterLat, zoneCenterLng]);
 
   const inZoneToUse = useMemo(() => {
-    if (isOnline) {
-      return distanceToUse <= zoneRadius;
-    }
-    if (activeViolation) {
+    if (activeViolation && !isOnline) {
       return false;
     }
-    return true;
+    return distanceToUse <= zoneRadius;
   }, [isOnline, distanceToUse, zoneRadius, activeViolation]);
 
   const distance = distanceToUse;
@@ -534,9 +564,9 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
   const today = new Date();
   const monthDays = today.getDate();
-  const daysPresent = Math.max(1, monthDays - 2);
-  const hoursThisWeek = 38.5;
-  const violationsThisMonth = 0;
+  const daysPresent = stats.daysPresent;
+  const hoursThisWeek = stats.hoursThisWeek;
+  const violationsThisMonth = stats.violationsThisMonth;
 
   return (
     <div className="p-4 md:p-6 lg:p-7 max-w-6xl mx-auto space-y-5">
@@ -593,18 +623,27 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           </span>
         </header>
 
-        <RiderMap
-          position={positionToUse}
-          zone={zone}
-          inZone={inZoneToUse}
-          height="320px" />
+        {locationLoading ? (
+          <div className="h-[320px] bg-[#F5F0E8] rounded-xl border border-[#EFEAE2] animate-pulse flex flex-col items-center justify-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-[#db6c00] animate-bounce"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span className="text-[#6B6258] text-sm font-medium">Acquiring live GPS signal...</span>
+          </div>
+        ) : (
+          <>
+            <RiderMap
+              position={positionToUse}
+              zone={zone}
+              inZone={inZoneToUse}
+              height="320px" />
 
-        {(!timeIn || timeOut) && !activeViolation ? null : (
-          <GeofenceStatus
-            inZone={inZoneToUse}
-            zoneName={zoneName}
-            distance={distanceToUse}
-            radius={zoneRadius} />
+            {(!timeIn || timeOut) && !activeViolation ? null : (
+              <GeofenceStatus
+                inZone={inZoneToUse}
+                zoneName={zoneName}
+                distance={distanceToUse}
+                radius={zoneRadius} />
+            )}
+          </>
         )}
       </section>
 
