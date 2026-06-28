@@ -182,12 +182,12 @@ export function Attendance() {
         </FilterField>
         <div className="flex-1" />
         <div className="flex items-center gap-3">
-          <div className="text-xs text-[#6B6258] font-mono">
+          <div className="text-xs text-[#6B6258] font-mono mr-2">
             {filtered.length} records
           </div>
           <button
             onClick={() => setDtrModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 h-8.5 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-semibold shadow-sm transition hover:scale-102 active:scale-98">
+            className="inline-flex items-center gap-2 px-4 h-[34px] rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-bold uppercase tracking-wider shadow-[0_4px_12px_rgba(219,108,0,0.18)] hover:shadow-[0_6px_16px_rgba(219,108,0,0.3)] transition-all hover:-translate-y-0.5 active:translate-y-0 duration-150 cursor-pointer">
             <Printer className="w-3.5 h-3.5" />
             <span>Generate DTR</span>
           </button>
@@ -299,12 +299,14 @@ export function Attendance() {
               <div className="flex-1 overflow-y-auto p-8 bg-white ar-scroll" id="printable-dtr-area">
                 <style>{`
                   @media print {
-                    body {
-                      background: white !important;
-                      color: black !important;
+                    /* Hide everything in the body */
+                    body * {
+                      visibility: hidden;
                     }
-                    .print\\:hidden {
-                      display: none !important;
+                    /* Show only the printable DTR area and its children */
+                    #printable-dtr-area,
+                    #printable-dtr-area * {
+                      visibility: visible;
                     }
                     #printable-dtr-area {
                       position: absolute;
@@ -315,6 +317,8 @@ export function Attendance() {
                       margin: 0;
                       box-shadow: none;
                       border: none;
+                      background: white !important;
+                      color: black !important;
                     }
                   }
                 `}</style>
