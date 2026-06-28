@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabaseClient';
 import { logViolation, updateRiderStatus } from '../services/monitoringService';
 import { haversine } from '../lib/geofenceUtils';
 import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
+import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
+
 
 interface ZoneRow {
   id: string;
@@ -117,19 +119,29 @@ export function useRealtimeLocation(): {
             )
           `);
 
-        const mappedRiders = (rData || []).map((row: RiderRow) => ({
-          id: row.id,
-          name: row.name,
-          avatar: row.face_image_url || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
-          zoneId: row.zone_id,
-          status: row.status as Rider['status'],
-          lat: row.lat ?? 0,
-          lng: row.lng ?? 0,
-          speed: row.speed ?? 0,
-          shift: row.shift as Rider['shift'],
-          lastPing: row.last_ping ? new Date(row.last_ping).getTime() : 0,
-          phone: row.contact ?? '',
-          riderCode: row.mkb_id ?? ''
+        const mappedRiders = await Promise.all((rData || []).map(async (row: RiderRow) => {
+          let cached = getCachedAvatar(row.id);
+          if (!cached) {
+            const dbAvatar = await fetchRiderAvatar(row.id);
+            if (dbAvatar) {
+              setCachedAvatar(row.id, dbAvatar);
+              cached = dbAvatar;
+            }
+          }
+          return {
+            id: row.id,
+            name: row.name,
+            avatar: cached || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
+            zoneId: row.zone_id,
+            status: row.status as Rider['status'],
+            lat: row.lat ?? 0,
+            lng: row.lng ?? 0,
+            speed: row.speed ?? 0,
+            shift: row.shift as Rider['shift'],
+            lastPing: row.last_ping ? new Date(row.last_ping).getTime() : 0,
+            phone: row.contact ?? '',
+            riderCode: row.mkb_id ?? ''
+          };
         }));
 
         if (active) setRiderState(mappedRiders);
