@@ -417,7 +417,8 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   // Background Geolocation Synchronization Loop
   useEffect(() => {
     // loading check acts as a gate to prevent race conditions during initial database load
-    if (loading || !timeIn || timeOut || !actualRiderId) return;
+    // locationLoading check prevents logging mock initial anchor coordinates to database
+    if (loading || locationLoading || !timeIn || timeOut || !actualRiderId) return;
 
     const syncLocation = async () => {
       const currentRiderId = actualRiderIdRef.current;
@@ -441,7 +442,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     // Setup stable 30s interval
     const id = setInterval(syncLocation, 30000);
     return () => clearInterval(id);
-  }, [timeIn, timeOut, loading, actualRiderId]);
+  }, [timeIn, timeOut, loading, locationLoading, actualRiderId]);
 
   const onlineStatus =
     timeIn && !timeOut ? 'online' : 'offline';
@@ -595,9 +596,16 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
         <AttendanceButton
           action={action}
+          disabled={locationLoading}
           onClick={() =>
             openScan(action === 'time-out' ? 'time-out' : 'time-in')
           } />
+
+        {locationLoading && (
+          <p className="text-center text-xs text-[#db6c00] animate-pulse mt-3 font-mono">
+            Waiting for GPS coordinates lock...
+          </p>
+        )}
 
         <div className="mt-6">
           <AttendanceStatus
