@@ -24,6 +24,8 @@ import {
   type PayrollMetrics,
   type ParcelLog,
 } from "../../services/parcelService";
+import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from "../../lib/avatarCache";
+
 import {
   exportParcelPayslipPDF,
   exportParcelCSV,
@@ -43,6 +45,7 @@ interface PayrollDetailsModalProps {
     gross_pay: number | null;
     status: string;
     riders: {
+      id?: string;
       name: string;
       mkb_id: string;
       face_image_url?: string | null;
@@ -84,15 +87,29 @@ export function PayrollDetailsModal({
   const [dayEntries, setDayEntries] = useState<ParcelLog[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [riderAvatar, setRiderAvatar] = useState<string | null>(null);
 
   // Load metrics & logs when record changes
   useEffect(() => {
     if (!record || !isOpen) return;
 
     let active = true;
+    setRiderAvatar(null);
     const loadDetails = async () => {
       setLoading(true);
       try {
+        const riderId = record.riders?.id || record.rider_id;
+        let avatarVal = getCachedAvatar(riderId);
+        if (!avatarVal && riderId) {
+          avatarVal = await fetchRiderAvatar(riderId);
+          if (avatarVal) {
+            setCachedAvatar(riderId, avatarVal);
+          }
+        }
+        if (active) {
+          setRiderAvatar(avatarVal || record.riders?.avatar_url || null);
+        }
+
         const [fetchedMetrics, fetchedLogs] = await Promise.all([
           getRiderPayrollMetrics(
             record.rider_id,
@@ -357,13 +374,9 @@ export function PayrollDetailsModal({
             {/* Rider profile card */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-xl border border-[#EFEAE2] bg-[#FAFAF7]/50">
               <div className="w-14 h-14 rounded-full bg-white border border-[#EFEAE2] flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
-                {record.riders?.face_image_url || record.riders?.avatar_url ? (
+                {riderAvatar ? (
                   <img
-                    src={
-                      record.riders.face_image_url ||
-                      record.riders.avatar_url ||
-                      ""
-                    }
+                    src={riderAvatar}
                     alt={riderName}
                     className="w-full h-full object-cover"
                   />
