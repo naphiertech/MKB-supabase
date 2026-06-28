@@ -45,6 +45,10 @@ const TITLES: Record<
   payroll: {
     title: 'Payroll Checklist',
     subtitle: 'Inspect finalized cutoff records and rider statistics'
+  },
+  settings: {
+    title: 'Settings',
+    subtitle: 'Manage your personal details and account credentials'
   }
 };
 type TopbarRole = 'admin' | 'hr' | 'payroll';
