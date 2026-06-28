@@ -6,6 +6,8 @@ import {
   type Zone,
   type ZoneStatus
 } from './types';
+import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
+
 
 interface DbRiderRow {
   id: string;
@@ -45,11 +47,11 @@ interface DbZoneRow {
   status: string;
 }
 
-const mapRider = (row: DbRiderRow): Rider => {
+const mapRider = (row: DbRiderRow, cachedAvatar?: string | null): Rider => {
   return {
     id: row.id,
     name: row.name,
-    avatar: row.face_image_url || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
+    avatar: cachedAvatar || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
     zoneId: row.zone_id,
     status: row.status as RiderStatus,
     lat: row.lat ?? 0,
@@ -105,7 +107,19 @@ export async function getOnlineRiders(): Promise<Rider[]> {
     return [];
   }
 
-  return (data || []).map(mapRider);
+  const riders = await Promise.all((data || []).map(async (row: DbRiderRow) => {
+    let cached = getCachedAvatar(row.id);
+    if (!cached) {
+      const dbAvatar = await fetchRiderAvatar(row.id);
+      if (dbAvatar) {
+        setCachedAvatar(row.id, dbAvatar);
+        cached = dbAvatar;
+      }
+    }
+    return mapRider(row, cached);
+  }));
+
+  return riders;
 }
 
 export async function getAllRiders(): Promise<Rider[]> {
@@ -135,7 +149,19 @@ export async function getAllRiders(): Promise<Rider[]> {
     return [];
   }
 
-  return (data || []).map(mapRider);
+  const riders = await Promise.all((data || []).map(async (row: DbRiderRow) => {
+    let cached = getCachedAvatar(row.id);
+    if (!cached) {
+      const dbAvatar = await fetchRiderAvatar(row.id);
+      if (dbAvatar) {
+        setCachedAvatar(row.id, dbAvatar);
+        cached = dbAvatar;
+      }
+    }
+    return mapRider(row, cached);
+  }));
+
+  return riders;
 }
 
 export async function getZones(): Promise<Zone[]> {
