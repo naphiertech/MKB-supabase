@@ -8,16 +8,27 @@ interface ReportCardProps {
     className?: string;
   }>;
   accent: string;
+  active?: boolean;
+  onClick?: () => void;
 }
 export function ReportCard({
   title,
   description,
   meta,
   icon: Icon,
-  accent
+  accent,
+  active,
+  onClick
 }: ReportCardProps) {
   return (
-    <button className="group text-left bg-white border border-[#EFEAE2] hover:border-[#db6c00]/30 rounded-xl p-5 transition relative overflow-hidden ar-card-hover">
+    <button 
+      onClick={onClick}
+      className={`group text-left bg-white border rounded-xl p-5 transition relative overflow-hidden ar-card-hover cursor-pointer w-full ${
+        active 
+          ? 'border-[#db6c00] ring-2 ring-[#db6c00]/20 shadow-[0_4px_16px_rgba(219,108,0,0.08)]' 
+          : 'border-[#EFEAE2] hover:border-[#db6c00]/30 shadow-sm'
+      }`}
+    >
       <div className="flex items-start justify-between mb-3">
         <div
           className="w-10 h-10 rounded-lg flex items-center justify-center"
@@ -29,7 +40,7 @@ export function ReportCard({
           
           <Icon className="w-5 h-5" />
         </div>
-        <ArrowUpRight className="w-4 h-4 text-[#6B6258] group-hover:text-[#db6c00] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition" />
+        <ArrowUpRight className={`w-4 h-4 transition ${active ? 'text-[#db6c00] translate-x-0.5 -translate-y-0.5' : 'text-[#6B6258] group-hover:text-[#db6c00] group-hover:-translate-y-0.5 group-hover:translate-x-0.5'}`} />
       </div>
       <div className="text-sm font-semibold text-[#1A1410]">{title}</div>
       <div className="text-xs text-[#6B6258] mt-1 leading-relaxed">
