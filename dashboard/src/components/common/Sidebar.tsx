@@ -1,4 +1,4 @@
-import { useEffect, ComponentType } from 'react';
+import { useEffect, ComponentType, useState } from 'react';
 import {
   LayoutDashboard,
   MapPin,
@@ -7,7 +7,7 @@ import {
   Users as UsersIcon,
   Activity,
   LogOut,
-  ChevronRight,
+  ChevronDown,
   Target,
   Calculator,
   Wallet,
@@ -28,7 +28,8 @@ export type PageKey =
   | 'users'
   | 'computation'
   | 'reviews'
-  | 'payroll';
+  | 'payroll'
+  | 'settings';
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 interface SidebarUser {
   name: string;
@@ -45,128 +46,117 @@ interface SidebarProps {
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
   onOpenHelp?: (tab: 'guide' | 'faq' | 'support') => void;
+  badgeCounts?: Partial<Record<PageKey, number>>;
 }
-interface NavItem {
-  key: PageKey;
-  label: string;
-  icon: ComponentType<{
-    className?: string;
-  }>;
-  route: string;
-}
-const ADMIN_ITEMS: NavItem[] = [
-{
-  key: 'dashboard',
-  label: 'Dashboard',
-  icon: LayoutDashboard,
-  route: '/admin/dashboard'
-},
-{
-  key: 'monitoring',
-  label: 'Live Monitoring',
-  icon: MapPin,
-  route: '/admin/monitoring'
-},
-{
-  key: 'geofence',
-  label: 'Geofence / Zones',
-  icon: Target,
-  route: '/admin/geofence'
-},
-{
-  key: 'attendance',
-  label: 'Attendance',
-  icon: ClipboardCheck,
-  route: '/admin/attendance'
-},
-{
-  key: 'payroll',
-  label: 'Payroll Checklist',
-  icon: Wallet,
-  route: '/admin/payroll'
-},
-{
-  key: 'reports',
-  label: 'Reports',
-  icon: BarChart3,
-  route: '/admin/reports'
-},
-{
-  key: 'users',
-  label: 'Users',
-  icon: UsersIcon,
-  route: '/admin/users'
-},
-{
-  key: 'reviews',
-  label: 'Reviews',
-  icon: Star,
-  route: '/admin/reviews'
-}];
 
-const HR_ITEMS: NavItem[] = [
-{
-  key: 'dashboard',
-  label: 'Dashboard',
-  icon: LayoutDashboard,
-  route: '/hr/dashboard'
-},
-{
-  key: 'monitoring',
-  label: 'Monitoring',
-  icon: MapPin,
-  route: '/hr/monitoring'
-},
-{
-  key: 'attendance',
-  label: 'Attendance',
-  icon: ClipboardCheck,
-  route: '/hr/attendance'
-},
-{
-  key: 'payroll',
-  label: 'Payroll Checklist',
-  icon: Wallet,
-  route: '/hr/payroll'
-},
-{
-  key: 'reports',
-  label: 'Reports',
-  icon: BarChart3,
-  route: '/hr/reports'
-},
-{
-  key: 'users',
-  label: 'Employee Management',
-  icon: UsersIcon,
-  route: '/hr/users'
-},
-{
-  key: 'reviews',
-  label: 'Reviews',
-  icon: Star,
-  route: '/hr/reviews'
-}];
+export type SidebarItem =
+  | {
+      type: 'link';
+      key: PageKey;
+      label: string;
+      icon: ComponentType<{ className?: string }>;
+    }
+  | {
+      type: 'section';
+      title: string;
+      icon: ComponentType<{ className?: string }>;
+      items: {
+        key: PageKey;
+        label: string;
+        icon: ComponentType<{ className?: string }>;
+      }[];
+    };
 
-const PAYROLL_ITEMS: NavItem[] = [
-{
-  key: 'dashboard',
-  label: 'Dashboard',
-  icon: LayoutDashboard,
-  route: '/payroll/dashboard'
-},
-{
-  key: 'computation',
-  label: 'Salary Computation',
-  icon: Calculator,
-  route: '/payroll/computation'
-},
-{
-  key: 'reports',
-  label: 'Payroll Reports',
-  icon: Wallet,
-  route: '/payroll/reports'
-}];
+const ADMIN_ITEMS: SidebarItem[] = [
+  {
+    type: 'link',
+    key: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard
+  },
+  {
+    type: 'section',
+    title: 'Tracking & Zones',
+    icon: MapPin,
+    items: [
+      { key: 'monitoring', label: 'Live Monitoring', icon: Activity },
+      { key: 'geofence', label: 'Geofence / Zones', icon: Target }
+    ]
+  },
+  {
+    type: 'section',
+    title: 'HR & Employees',
+    icon: ClipboardCheck,
+    items: [
+      { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
+      { key: 'users', label: 'Users Registry', icon: UsersIcon },
+      { key: 'reviews', label: 'Courier Reviews', icon: Star }
+    ]
+  },
+  {
+    type: 'section',
+    title: 'Finance & Reports',
+    icon: Wallet,
+    items: [
+      { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
+      { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
+    ]
+  }
+];
+
+const HR_ITEMS: SidebarItem[] = [
+  {
+    type: 'link',
+    key: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard
+  },
+  {
+    type: 'section',
+    title: 'Tracking & Zones',
+    icon: MapPin,
+    items: [
+      { key: 'monitoring', label: 'Live Monitoring', icon: Activity }
+    ]
+  },
+  {
+    type: 'section',
+    title: 'HR & Employees',
+    icon: ClipboardCheck,
+    items: [
+      { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
+      { key: 'users', label: 'Employee Management', icon: UsersIcon },
+      { key: 'reviews', label: 'Courier Reviews', icon: Star }
+    ]
+  },
+  {
+    type: 'section',
+    title: 'Finance & Reports',
+    icon: Wallet,
+    items: [
+      { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
+      { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
+    ]
+  }
+];
+
+const PAYROLL_ITEMS: SidebarItem[] = [
+  {
+    type: 'link',
+    key: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard
+  },
+  {
+    type: 'section',
+    title: 'Compensation',
+    icon: Calculator,
+    items: [
+      { key: 'computation', label: 'Salary Computation', icon: Calculator },
+      { key: 'reports', label: 'Payroll Reports', icon: Wallet }
+    ]
+  }
+];
 
 const ROLE_LABEL: Record<SidebarRole, string> = {
   admin: 'Admin',
@@ -232,12 +222,42 @@ export function Sidebar({
   onOpenSettings,
   isMobileOpen = false,
   onMobileClose,
-  onOpenHelp
+  onOpenHelp,
+  badgeCounts
 }: SidebarProps) {
   const items =
   role === 'admin' ? ADMIN_ITEMS : role === 'hr' ? HR_ITEMS : PAYROLL_ITEMS;
   const badgeLabel = ROLE_LABEL[role];
   const a = ACCENTS[role];
+
+  // Accordion open/close states
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    'Tracking & Zones': true,
+    'HR & Employees': true,
+    'Finance & Reports': true,
+    'Compensation': true,
+  });
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
+
+  // Auto-expand the section containing the active page on load/change
+  useEffect(() => {
+    const activeSection = items.find(
+      (item) => item.type === 'section' && item.items.some((sub) => sub.key === current)
+    );
+    if (activeSection && activeSection.type === 'section') {
+      setExpandedSections((prev) => ({
+        ...prev,
+        [activeSection.title]: true
+      }));
+    }
+  }, [current, role]);
+
   // Lock body scroll while mobile drawer is open + ESC to close
   useEffect(() => {
     if (!isMobileOpen) return;
@@ -308,72 +328,114 @@ export function Sidebar({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
         <div className="px-2 mb-2 text-[10px] uppercase tracking-[0.18em] text-[#6B6258]/70 font-mono">
           Operations
         </div>
-        {items.map(({ key, label, icon: Icon }, index) => {
-        const active = current === key;
-        return (
-          <motion.div
-            key={key}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.05 + 0.2 }}
-          >
-            <button
-              onClick={() => handleNavigate(key)}
-              className={`group relative z-0 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${active ? a.text : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]'}`}>
-              
-                {active &&
-              <motion.span
-                layoutId="activeNav"
-                className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              />
-              }
-                {active &&
-              <motion.span
-                layoutId="activeBar"
-                className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${a.activeBar}`}
-                transition={{ type: "spring", stiffness: 300, damping: 30 }} />
-
-              }
-              <Icon
-              className={`w-[18px] h-[18px] ${active ? a.iconActive : 'text-[#6B6258] group-hover:text-[#1A1410]'}`} />
-            
-              <span className="flex-1 text-left font-medium">{label}</span>
-
-              <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
-                <motion.div
-                  initial={false}
-                  animate={{
-                    opacity: active ? 1 : 0,
-                    scale: active ? 1 : 0.6,
-                    x: active ? 0 : -6
-                  }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  className={`absolute ${a.chevron}`}
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </motion.div>
-
-                {key === 'monitoring' && (
-                  <motion.span
-                    initial={false}
-                    animate={{
-                      opacity: active ? 0 : 1,
-                      scale: active ? 0 : 1
-                    }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="absolute w-1.5 h-1.5 rounded-full bg-emerald-500"
-                  />
-                )}
-              </div>
-            </button>
-          </motion.div>);
-
-      })}
+        {items.map((item, index) => {
+          if (item.type === 'link') {
+            const active = current === item.key;
+            const Icon = item.icon;
+            return (
+              <motion.div
+                key={item.key}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 + 0.1 }}
+              >
+                <button
+                  onClick={() => handleNavigate(item.key)}
+                  className={`group relative z-0 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition cursor-pointer ${active ? a.text : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]'}`}>
+                  {active && (
+                    <motion.span
+                      layoutId="activeNav"
+                      className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  {active && (
+                    <motion.span
+                      layoutId="activeBar"
+                      className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${a.activeBar}`}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  <Icon className={`w-[18px] h-[18px] ${active ? a.iconActive : 'text-[#6B6258] group-hover:text-[#1A1410]'}`} />
+                  <span className="flex-1 text-left font-medium">{item.label}</span>
+                  {badgeCounts?.[item.key] ? (
+                    <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center shadow-sm">
+                      {badgeCounts[item.key]}
+                    </span>
+                  ) : null}
+                </button>
+              </motion.div>
+            );
+          } else {
+            const Icon = item.icon;
+            const expanded = !!expandedSections[item.title];
+            const hasActiveChild = item.items.some((sub) => sub.key === current);
+            const sectionBadgeSum = item.items.reduce((sum, sub) => sum + (badgeCounts?.[sub.key] || 0), 0);
+            return (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 + 0.1 }}
+                className="space-y-0.5"
+              >
+                <button
+                  onClick={() => toggleSection(item.title)}
+                  className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition cursor-pointer text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] ${hasActiveChild ? 'font-semibold text-[#1A1410]' : ''}`}>
+                  <Icon className={`w-[18px] h-[18px] ${hasActiveChild ? a.iconActive : 'text-[#6B6258] group-hover:text-[#1A1410]'}`} />
+                  <span className="flex-1 text-left font-medium">{item.title}</span>
+                  {sectionBadgeSum > 0 && !expanded && (
+                    <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center mr-1 shadow-sm animate-pulse">
+                      {sectionBadgeSum}
+                    </span>
+                  )}
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 text-[#6B6258] ${expanded ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {expanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18, ease: "easeInOut" }}
+                      className="overflow-hidden border-l border-[#EFEAE2] ml-5 pl-[14px] mt-1 space-y-1"
+                    >
+                      {item.items.map((subItem) => {
+                        const subActive = current === subItem.key;
+                        const SubIcon = subItem.icon;
+                        return (
+                          <button
+                            key={subItem.key}
+                            onClick={() => handleNavigate(subItem.key)}
+                            className={`group relative z-0 w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${subActive ? a.text : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]'}`}>
+                            {subActive && (
+                              <motion.span
+                                layoutId="activeSubNav"
+                                className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                              />
+                            )}
+                            <SubIcon className={`w-3.5 h-3.5 ${subActive ? a.iconActive : 'text-[#6B6258] group-hover:text-[#1A1410]'}`} />
+                            <span className="flex-1 text-left font-medium">{subItem.label}</span>
+                            {badgeCounts?.[subItem.key] ? (
+                              <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center ml-auto shadow-sm animate-pulse">
+                                {badgeCounts[subItem.key]}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          }
+        })}
 
         <div className="px-2 mt-6 mb-2 text-[10px] uppercase tracking-[0.18em] text-[#6B6258]/70 font-mono">
           Help & Support
@@ -467,16 +529,14 @@ export function Sidebar({
               {user.email}
             </div>
           </div>
-          {onOpenSettings && (
-            <button
+          <button
             type="button"
-            onClick={onOpenSettings}
+            onClick={onOpenSettings || (() => handleNavigate('settings'))}
             aria-label="Account settings"
             title="Account settings"
-            className="text-[#6B6258] hover:text-[#db6c00] p-1.5 rounded-md hover:bg-white transition mr-0.5">
-              <Settings className="w-4 h-4" />
-            </button>
-          )}
+            className={`p-1.5 rounded-md hover:bg-white transition mr-0.5 cursor-pointer ${current === 'settings' ? a.iconActive : 'text-[#6B6258] hover:text-[#db6c00]'}`}>
+            <Settings className="w-4 h-4" />
+          </button>
           <button
           type="button"
           onClick={onSignOut}
