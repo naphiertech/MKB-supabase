@@ -107,8 +107,28 @@ export function App() {
   }
 
   const { session, user, signOut } = useAuth();
-  const [currentPage, setCurrentPage] = useState<PageKey>('dashboard');
-  const [riderPage, setRiderPage] = useState<RiderPageKey>('dashboard');
+  const getInitialPage = (): PageKey => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#/', '').replace('#', '');
+      if (hash) {
+        return hash as PageKey;
+      }
+    }
+    return 'dashboard';
+  };
+
+  const getInitialRiderPage = (): RiderPageKey => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#/', '').replace('#', '');
+      if (hash) {
+        return hash as RiderPageKey;
+      }
+    }
+    return 'dashboard';
+  };
+
+  const [currentPage, setCurrentPage] = useState<PageKey>(getInitialPage());
+  const [riderPage, setRiderPage] = useState<RiderPageKey>(getInitialRiderPage());
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -118,6 +138,36 @@ export function App() {
   const [allRiders, setAllRiders] = useState<Rider[]>([]);
   const [allZones, setAllZones] = useState<Zone[]>([]);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+
+  // Sync state changes to URL hash
+  useEffect(() => {
+    if (!session) return;
+    const role = session.role;
+    const page = role === 'rider' ? riderPage : currentPage;
+    if (page && typeof window !== 'undefined') {
+      const currentHash = window.location.hash.replace('#/', '').replace('#', '');
+      if (currentHash !== page) {
+        window.location.hash = page;
+      }
+    }
+  }, [currentPage, riderPage, session]);
+
+  // Listen for hash changes (e.g. browser back/forward buttons)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#/', '').replace('#', '');
+      if (!hash) return;
+
+      if (session?.role === 'rider') {
+        setRiderPage((prev) => (prev !== hash ? (hash as RiderPageKey) : prev));
+      } else {
+        setCurrentPage((prev) => (prev !== hash ? (hash as PageKey) : prev));
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [session]);
 
   useEffect(() => {
     if (session) {
@@ -179,10 +229,22 @@ export function App() {
   );
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
     useNotifications(allowedTypes);
-  // Reset to dashboard whenever the role changes (e.g. switching accounts)
+  // Synchronize initial hash on role load or reset it
   useEffect(() => {
-    setCurrentPage('dashboard');
-    setRiderPage('dashboard');
+    const initial = window.location.hash.replace('#/', '').replace('#', '');
+    if (initial) {
+      if (session?.role === 'rider') {
+        setRiderPage(initial as RiderPageKey);
+      } else {
+        setCurrentPage(initial as PageKey);
+      }
+    } else {
+      setCurrentPage('dashboard');
+      setRiderPage('dashboard');
+      if (typeof window !== 'undefined') {
+        window.location.hash = 'dashboard';
+      }
+    }
     setMobileNavOpen(false);
   }, [session?.role]);
   // Unauthenticated — show login
