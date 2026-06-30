@@ -66,6 +66,24 @@ export interface AppUser {
   zoneId: string | null;
   status: UserStatus;
   lastLogin: number;
+  contact?: string | null;
+  mkbRiderId?: string | null;
+  riderId?: string | null;
+  shift?: string | null;
+  faceImage?: string | null;
+  faceDescriptor?: number[] | null;
+  province?: string | null;
+  city?: string | null;
+  barangay?: string | null;
+  zipCode?: string | null;
+  streetAddress?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  employmentType?: string | null;
+  dateOfHire?: string | null;
+  vehicleType?: string | null;
+  vehiclePlateNumber?: string | null;
+  notes?: string | null;
 }
 
 export interface RoutePoint {
