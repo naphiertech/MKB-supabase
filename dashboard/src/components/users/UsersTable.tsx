@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MoreVertical, KeyRound, Pencil, Ban } from 'lucide-react';
+import { MoreVertical, KeyRound, Pencil, Ban, User } from 'lucide-react';
 import type { AppUser, UserRole, Zone } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 interface UsersTableProps {
@@ -7,6 +7,7 @@ interface UsersTableProps {
   zones: Zone[];
   onlineUserIds: string[];
   onEdit?: (user: AppUser) => void;
+  onViewDetails?: (user: AppUser) => void;
 }
 const ROLE_STYLES: Record<
   UserRole,
@@ -54,7 +55,7 @@ const FALLBACK_ROLE_STYLE = {
   text: 'text-[#475569]',
   label: 'User'
 };
-export function UsersTable({ users, zones, onlineUserIds, onEdit }: UsersTableProps) {
+export function UsersTable({ users, zones, onlineUserIds, onEdit, onViewDetails }: UsersTableProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const now = useNow();
   return (
@@ -79,7 +80,9 @@ export function UsersTable({ users, zones, onlineUserIds, onEdit }: UsersTablePr
               return (
                 <tr
                   key={u.id}
-                  className={`border-b border-[#EFEAE2]/70 hover:bg-[#FFF1E0]/40 ${idx % 2 === 1 ? 'bg-[#FAFAF7]/40' : ''}`}>
+                  onClick={() => onViewDetails?.(u)}
+                  className={`border-b border-[#EFEAE2]/70 hover:bg-[#FFF1E0]/40 cursor-pointer ${idx % 2 === 1 ? 'bg-[#FAFAF7]/40' : ''}`}
+                >
                   
                   <td className="py-2.5 px-4">
                     <div className="flex items-center gap-2.5">
@@ -127,24 +130,33 @@ export function UsersTable({ users, zones, onlineUserIds, onEdit }: UsersTablePr
                   <td className="py-2.5 px-4 font-mono text-[#6B6258] text-xs">
                     {u.lastLogin === 0 ? 'Never' : relativeTime(u.lastLogin, now)}
                   </td>
-                  <td className="py-2.5 px-4 relative">
+                  <td className="py-2.5 px-4 relative" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() =>
-                      setOpenMenu(openMenu === u.id ? null : u.id)
+                        setOpenMenu(openMenu === u.id ? null : u.id)
                       }
-                      className="p-1.5 rounded-md text-[#6B6258] hover:text-[#db6c00] hover:bg-[#FFF1E0] transition">
-                      
+                      className="p-1.5 rounded-md text-[#6B6258] hover:text-[#db6c00] hover:bg-[#FFF1E0] transition"
+                    >
                       <MoreVertical className="w-4 h-4" />
                     </button>
-                    {openMenu === u.id &&
-                    <div className="absolute right-2 mt-1 w-44 bg-white border border-[#EFEAE2] rounded-md shadow-xl z-20 overflow-hidden">
+                    {openMenu === u.id && (
+                      <div className="absolute right-2 mt-1 w-44 bg-white border border-[#EFEAE2] rounded-md shadow-xl z-20 overflow-hidden">
                         <button
-                        onClick={() => {
-                          onEdit?.(u);
-                          setOpenMenu(null);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#1A1410] hover:bg-[#FFF1E0]">
-                        
+                          onClick={() => {
+                            onViewDetails?.(u);
+                            setOpenMenu(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#1A1410] hover:bg-[#FFF1E0]"
+                        >
+                          <User className="w-3.5 h-3.5 text-[#db6c00]" /> View Profile
+                        </button>
+                        <button
+                          onClick={() => {
+                            onEdit?.(u);
+                            setOpenMenu(null);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#1A1410] hover:bg-[#FFF1E0]"
+                        >
                           <Pencil className="w-3.5 h-3.5" /> Edit User
                         </button>
                         <button className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#1A1410] hover:bg-[#FFF1E0]">
@@ -154,7 +166,7 @@ export function UsersTable({ users, zones, onlineUserIds, onEdit }: UsersTablePr
                           <Ban className="w-3.5 h-3.5" /> Suspend
                         </button>
                       </div>
-                    }
+                    )}
                   </td>
                 </tr>);
 
