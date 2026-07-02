@@ -27,3 +27,4 @@ dist-ssr
 agents.md
 attenrider_schema.sql
 *.md
+.gstack/
