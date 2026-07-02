@@ -321,12 +321,14 @@ export function PayrollReports() {
 
         const rows = filteredRecords.map(r => {
           const zName = r.riders?.zones?.name || '—';
+          const activeRate = parseFloat(r.rate_per_parcel || 10);
+          const computedGross = r.gross_pay ? parseFloat(r.gross_pay) : (r.total_parcels * activeRate);
           return {
             riderName: r.riders?.name || 'Unknown Rider',
             zone: zName,
             totalParcels: r.total_parcels,
-            ratePerParcel: parseFloat(r.rate_per_parcel || 50),
-            grossPay: parseFloat(r.gross_pay || 0)
+            ratePerParcel: activeRate,
+            grossPay: computedGross
           };
         });
 
@@ -418,13 +420,40 @@ export function PayrollReports() {
             current.setDate(current.getDate() + 1);
           }
 
-          const logs = await getParcelLogs(rider.id, from, to);
+          const [logs, attendanceRes] = await Promise.all([
+            getParcelLogs(rider.id, from, to),
+            supabase
+              .from('attendance_logs')
+              .select('date, time_in')
+              .eq('rider_id', rider.id)
+              .gte('date', from)
+              .lte('date', to)
+          ]);
+          const attList = attendanceRes.data || [];
           const dayEntries = dates.map(date => {
             const existing = logs.find(l => l.date === date);
+            const att = attList.find(a => a.date === date);
+
+            const rawTimeIn = att?.time_in || null;
+            let calculatedRate = 10;
+            if (rawTimeIn) {
+              const d = new Date(rawTimeIn.replace(' ', 'T'));
+              if (!isNaN(d.getTime())) {
+                const hours = d.getHours();
+                const mins = d.getMinutes();
+                const totalMinutes = hours * 60 + mins;
+                if (totalMinutes <= 480) calculatedRate = 12;
+                else if (totalMinutes <= 540) calculatedRate = 11;
+              }
+            } else if (existing && existing.rate) {
+              calculatedRate = existing.rate;
+            }
+
             return {
               date,
               parcels: existing?.parcels ?? 0,
-              dailyGross: existing ? existing.parcels * rate : 0
+              rate: calculatedRate,
+              dailyGross: existing ? existing.parcels * calculatedRate : 0
             };
           });
 
@@ -494,7 +523,7 @@ export function PayrollReports() {
           log.riders?.zones?.name || '—',
           log.date,
           log.parcels,
-          parseFloat(log.rate || 50),
+          parseFloat(log.rate || 10),
           parseFloat(log.daily_gross || 0)
         ]);
 
