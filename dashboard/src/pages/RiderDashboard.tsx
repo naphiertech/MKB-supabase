@@ -6,7 +6,7 @@ import {
 '../services/types';
 import { supabase } from '../lib/supabaseClient';
 import { recordTimeIn, recordTimeOut } from '../services/attendanceService';
-import { getZones } from '../services/geofenceService';
+import { useRiderZone } from '../context/RiderZoneContext';
 import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
@@ -75,6 +75,7 @@ function getLocalDateString(d: Date = new Date()) {
 }
 
 export function RiderDashboard({ userId }: RiderDashboardProps) {
+  const { zones: allZones } = useRiderZone();
   const riderId = userId.replace(/^u-rider-/, '');
   const [actualRiderId, setActualRiderId] = useState<string>(riderId);
   const [rider, setRider] = useState<(Rider & { faceDescriptor?: number[] | null }) | null>(null);
@@ -186,28 +187,9 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           };
           setRider(mappedRider);
 
-          if (dbRider.zone_id) {
-            const { data: dbZone } = await supabase
-              .from('zones')
-              .select('*')
-              .eq('id', dbRider.zone_id)
-              .maybeSingle();
-
-            if (dbZone) {
-              setZone({
-                id: dbZone.id,
-                name: dbZone.name,
-                center: [dbZone.lat, dbZone.lng],
-                radius: dbZone.radius,
-                color: dbZone.color,
-                status: dbZone.status
-              });
-            }
-          } else {
-            const zList = await getZones();
-            if (zList.length > 0) {
-              setZone(zList[0]);
-            }
+          const resolvedZone = allZones.find(z => z.id === dbRider.zone_id) || allZones[0];
+          if (resolvedZone) {
+            setZone(resolvedZone);
           }
 
           // Fetch attendance logs for today using the resolved Rider UUID

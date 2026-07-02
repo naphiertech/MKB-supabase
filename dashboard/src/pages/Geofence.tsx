@@ -14,7 +14,7 @@ import { getAttendanceLogs } from '../services/attendanceService';
 import { ZoneSummaryCards } from '../components/geofence/ZoneSummaryCards';
 import { ZoneMapPreview } from '../components/geofence/ZoneMapPreview';
 import { ZoneListPanel } from '../components/geofence/ZoneListPanel';
-import { ZoneFormModal } from '../components/geofence/ZoneFormModal';
+import { ZoneFormPanel } from '../components/geofence/ZoneFormPanel';
 import { AssignedRidersByZone } from '../components/geofence/AssignedRidersByZone';
 import { pushToast } from '../hooks/useToast';
 import { GeofenceDetailsPanel } from '../components/geofence/GeofenceDetailsPanels';
@@ -30,8 +30,16 @@ export function Geofence() {
   const [violationsToday, setViolationsToday] = useState(0);
 
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editZoneName, setEditZoneName] = useState('');
+  const [editPin, setEditPin] = useState<{ lat: number; lng: number } | null>(null);
+  const [editRadius, setEditRadius] = useState(1000);
+  const [editStatus, setEditStatus] = useState<'active' | 'inactive'>('active');
+  const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
+  const [editZoneType, setEditZoneType] = useState<'circle' | 'polygon'>('circle');
+  const [editPolygonCoords, setEditPolygonCoords] = useState<[number, number][]>([]);
+  const [errors, setErrors] = useState<{ zoneName?: string; pin?: string; polygon?: string }>({});
   const [openGroupIds, setOpenGroupIds] = useState<Set<string>>(new Set());
   const [activeSummaryModal, setActiveSummaryModal] = useState<'total_zones' | 'active_zones' | 'riders_assigned' | 'violations_today' | null>(null);
 
@@ -105,30 +113,91 @@ export function Geofence() {
     return violationsList.filter((v) => v.ts >= startOfDay.getTime());
   }, [violationsList]);
 
-  const editingZone = editingZoneId ?
-  zonesList.find((z) => z.id === editingZoneId) ?? null :
-  null;
-
-  const editingZoneRiderIds = editingZone ?
-  ridersList.filter((r) => r.zoneId === editingZone.id).map((r) => r.id) :
-  [];
-
   function openCreate() {
     setEditingZoneId(null);
-    setModalOpen(true);
+    setEditZoneName('');
+    setEditPin(null);
+    setEditRadius(1000);
+    setEditStatus('active');
+    setSelectedRiders([]);
+    setEditZoneType('circle');
+    setEditPolygonCoords([]);
+    setErrors({});
+    setIsEditing(true);
+    setActiveZoneId(null);
   }
 
   function openEdit(zoneId: string) {
+    const zoneToEdit = zonesList.find((z) => z.id === zoneId);
+    if (!zoneToEdit) return;
     setEditingZoneId(zoneId);
-    setModalOpen(true);
+    setEditZoneName(zoneToEdit.name);
+    setEditPin(
+      zoneToEdit.zone_type === 'polygon'
+        ? null
+        : { lat: zoneToEdit.center[0], lng: zoneToEdit.center[1] }
+    );
+    setEditRadius(zoneToEdit.radius || 1000);
+    setEditStatus(zoneToEdit.status ?? 'active');
+    setEditZoneType(zoneToEdit.zone_type || 'circle');
+    setEditPolygonCoords(zoneToEdit.polygon_coordinates || []);
+
+    const assignedRiderIds = ridersList
+      .filter((r) => r.zoneId === zoneId)
+      .map((r) => r.id);
+    setSelectedRiders(assignedRiderIds);
+    setErrors({});
+    setIsEditing(true);
+    setActiveZoneId(zoneId);
   }
 
-  function closeModal() {
-    setModalOpen(false);
+  function handleCancel() {
+    setIsEditing(false);
     setEditingZoneId(null);
+    setErrors({});
   }
 
-  async function handleSave(input: ZoneInput) {
+  const handleMapClick = (lat: number, lng: number) => {
+    if (editZoneType === 'circle') {
+      setEditPin({ lat, lng });
+    } else {
+      setEditPolygonCoords((prev) => [...prev, [lat, lng]]);
+    }
+  };
+
+  async function handleSaveInline() {
+    const newErrors: { zoneName?: string; pin?: string; polygon?: string } = {};
+
+    if (!editZoneName.trim()) {
+      newErrors.zoneName = 'Zone name is required';
+    }
+    
+    if (editZoneType === 'circle') {
+      if (!editPin) {
+        newErrors.pin = 'Please click on the map to set the zone center';
+      }
+    } else {
+      if (editPolygonCoords.length < 3) {
+        newErrors.polygon = 'Please add at least 3 points on the map';
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    const input: ZoneInput = {
+      name: editZoneName.trim(),
+      lat: editZoneType === 'circle' ? editPin!.lat : null,
+      lng: editZoneType === 'circle' ? editPin!.lng : null,
+      radius: editZoneType === 'circle' ? editRadius : null,
+      status: editStatus,
+      riderIds: selectedRiders,
+      zone_type: editZoneType,
+      polygon_coordinates: editZoneType === 'polygon' ? editPolygonCoords : null,
+    };
+
     try {
       if (editingZoneId) {
         await updateZone(editingZoneId, input);
@@ -146,8 +215,9 @@ export function Geofence() {
           tone: 'success'
         });
       }
+      setIsEditing(false);
+      setEditingZoneId(null);
       refresh();
-      closeModal();
     } catch (err) {
       pushToast({
         title: 'Error saving zone',
@@ -214,16 +284,47 @@ export function Geofence() {
           <ZoneMapPreview
             zones={zonesList}
             activeZoneId={activeZoneId}
-            onSelectZone={setActiveZoneId} />
+            onSelectZone={setActiveZoneId}
+            isEditing={isEditing}
+            zoneType={editZoneType}
+            pin={editPin}
+            polygonCoords={editPolygonCoords}
+            onMapClick={handleMapClick}
+            radius={editRadius}
+          />
         </div>
         <div className="lg:col-span-2">
-          <ZoneListPanel
-            zones={zonesList}
-            riderCounts={riderCounts}
-            activeZoneId={activeZoneId}
-            onSelectZone={setActiveZoneId}
-            onEdit={openEdit}
-            onAdd={openCreate} />
+          {isEditing ? (
+            <ZoneFormPanel
+              zoneName={editZoneName}
+              setZoneName={setEditZoneName}
+              radius={editRadius}
+              setRadius={setEditRadius}
+              status={editStatus}
+              setStatus={setEditStatus}
+              selectedRiders={selectedRiders}
+              setSelectedRiders={setSelectedRiders}
+              riders={ridersList}
+              pin={editPin}
+              errors={errors}
+              onSave={handleSaveInline}
+              onCancel={handleCancel}
+              isEditMode={!!editingZoneId}
+              zoneType={editZoneType}
+              setZoneType={setEditZoneType}
+              polygonCoords={editPolygonCoords}
+              setPolygonCoords={setEditPolygonCoords}
+            />
+          ) : (
+            <ZoneListPanel
+              zones={zonesList}
+              riderCounts={riderCounts}
+              activeZoneId={activeZoneId}
+              onSelectZone={setActiveZoneId}
+              onEdit={openEdit}
+              onAdd={openCreate}
+            />
+          )}
         </div>
       </div>
 
@@ -235,18 +336,8 @@ export function Geofence() {
         violationCountByRider={violationCountByRider}
         openGroupIds={openGroupIds}
         onToggleGroup={handleToggleGroup}
-        onSelectZone={handleSelectFromTable} />
-
-
-
-      {/* Zone form modal */}
-      <ZoneFormModal
-        open={modalOpen}
-        onClose={closeModal}
-        zone={editingZone}
-        riders={ridersList}
-        initialRiderIds={editingZoneRiderIds}
-        onSave={handleSave} />
+        onSelectZone={handleSelectFromTable}
+      />
     </div>
   );
 }

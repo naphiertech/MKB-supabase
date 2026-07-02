@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   CalendarRange,
   AlertOctagon,
@@ -14,8 +14,7 @@ import {
   ViolationsByZoneChart,
   StatusMixChart } from
 '../components/reports/Charts';
-import { getZones } from '../services/geofenceService';
-import type { Zone } from '../services/types';
+import { useRiderZone } from '../context/RiderZoneContext';
 import {
   generateReport,
   ReportError,
@@ -73,10 +72,7 @@ export function Reports() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [zonesList, setZonesList] = useState<Zone[]>([]);
-  useEffect(() => {
-    getZones().then(setZonesList);
-  }, []);
+  const { zones: zonesList } = useRiderZone();
   function toggleZone(id: string) {
     setSelectedZones((prev) =>
     prev.includes(id) ? prev.filter((z) => z !== id) : [...prev, id]

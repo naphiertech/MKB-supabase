@@ -9,21 +9,25 @@ import { randomZoneColor } from '../lib/geofenceUtils';
 
 export interface ZoneInput {
   name: string;
-  lat: number;
-  lng: number;
-  radius: number;
+  lat: number | null;
+  lng: number | null;
+  radius: number | null;
   status: ZoneStatus;
   riderIds: string[];
+  zone_type: 'circle' | 'polygon';
+  polygon_coordinates?: [number, number][] | null;
 }
 
 interface DbZoneRow {
   id: string;
   name: string;
-  lat: number;
-  lng: number;
-  radius: number;
+  lat: number | null;
+  lng: number | null;
+  radius: number | null;
   color: string;
   status: string;
+  zone_type: 'circle' | 'polygon';
+  polygon_coordinates?: [number, number][] | null;
 }
 
 interface DbRiderRow {
@@ -45,10 +49,12 @@ interface DbRiderRow {
 const mapZone = (row: DbZoneRow): Zone => ({
   id: row.id,
   name: row.name,
-  center: [row.lat, row.lng],
-  radius: row.radius,
+  center: row.lat !== null && row.lng !== null ? [row.lat, row.lng] : [0, 0],
+  radius: row.radius || 0,
   color: row.color,
-  status: row.status as ZoneStatus
+  status: row.status as ZoneStatus,
+  zone_type: row.zone_type,
+  polygon_coordinates: row.polygon_coordinates || undefined
 });
 
 export async function getZones(): Promise<Zone[]> {
@@ -183,7 +189,9 @@ export async function createZone(input: ZoneInput): Promise<Zone> {
       lng: input.lng,
       radius: input.radius,
       color: randomZoneColor(),
-      status: input.status
+      status: input.status,
+      zone_type: input.zone_type,
+      polygon_coordinates: input.polygon_coordinates
     })
     .select()
     .single();
@@ -209,6 +217,8 @@ export async function updateZone(id: string, patch: Partial<ZoneInput>): Promise
   if (patch.lng !== undefined) updates.lng = patch.lng;
   if (patch.radius !== undefined) updates.radius = patch.radius;
   if (patch.status !== undefined) updates.status = patch.status;
+  if (patch.zone_type !== undefined) updates.zone_type = patch.zone_type;
+  if (patch.polygon_coordinates !== undefined) updates.polygon_coordinates = patch.polygon_coordinates;
 
   const { data, error } = await supabase
     .from('zones')

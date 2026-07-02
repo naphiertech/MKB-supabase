@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, ComponentType } from 'react';
+import { useMemo, useState, ComponentType } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Filter,
@@ -9,8 +9,7 @@ import {
   Flag } from
 'lucide-react';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
-import { getZones } from '../services/geofenceService';
-import type { Zone } from '../services/types';
+import { useRiderZone } from '../context/RiderZoneContext';
 import { LiveMonitoringMap } from '../components/maps/LiveMonitoringMap';
 import { EventTicker } from '../components/monitoring/EventTicker';
 import { useNow, relativeTime } from '../hooks/useNow';
@@ -35,11 +34,7 @@ export function LiveMonitoring() {
   const [routeDrawerOpen, setRouteDrawerOpen] = useState(false);
   const [isRouteFullscreen, setIsRouteFullscreen] = useState(false);
 
-  const [zonesList, setZonesList] = useState<Zone[]>([]);
-
-  useEffect(() => {
-    getZones().then(setZonesList);
-  }, []);
+  const { zones: zonesList } = useRiderZone();
 
   const now = useNow();
   const filtered = useMemo(() => {

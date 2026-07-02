@@ -5,15 +5,31 @@ import { haversine } from '../lib/geofenceUtils';
 import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
 
+function isPointInPolygon(point: [number, number], vs: [number, number][]) {
+  const x = point[0];
+  const y = point[1];
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i][0], yi = vs[i][1];
+    const xj = vs[j][0], yj = vs[j][1];
+    const intersect = ((yi > y) !== (yj > y))
+        && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
 
 interface ZoneRow {
   id: string;
   name: string;
-  lat: number;
-  lng: number;
-  radius: number;
+  lat: number | null;
+  lng: number | null;
+  radius: number | null;
   color: string;
   status: string | null;
+  zone_type: string | null;
+  polygon_coordinates: any | null;
 }
 
 interface RiderRow {
@@ -89,10 +105,12 @@ export function useRealtimeLocation(): {
         const mappedZones = (zData || []).map((row: ZoneRow) => ({
           id: row.id,
           name: row.name,
-          center: [row.lat, row.lng] as [number, number],
-          radius: row.radius,
+          center: [row.lat || 0, row.lng || 0] as [number, number],
+          radius: row.radius || 0,
           color: row.color,
-          status: (row.status as ZoneStatus) ?? undefined
+          status: (row.status as ZoneStatus) ?? undefined,
+          zone_type: (row.zone_type as any) ?? 'circle',
+          polygon_coordinates: row.polygon_coordinates as [number, number][] | undefined
         }));
 
         if (active) setZoneState(mappedZones);
@@ -194,13 +212,21 @@ export function useRealtimeLocation(): {
         const zone = zonesRef.current.find((z) => z.id === r.zoneId);
         
         if (zone) {
-          const distance = haversine(
-            newLocation.lat,
-            newLocation.lng,
-            zone.center[0],
-            zone.center[1]
-          );
-          const outside = distance > zone.radius;
+          let outside = false;
+          if (zone.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length > 0) {
+            outside = !isPointInPolygon(
+              [newLocation.lat, newLocation.lng],
+              zone.polygon_coordinates
+            );
+          } else {
+            const distance = haversine(
+              newLocation.lat,
+              newLocation.lng,
+              zone.center[0],
+              zone.center[1]
+            );
+            outside = distance > zone.radius;
+          }
 
           if (outside && r.status !== 'violation') {
             newStatus = 'violation';

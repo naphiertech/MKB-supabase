@@ -19,11 +19,9 @@ import { RiderTopNav, type RiderPageKey } from './components/rider/RiderTopNav';
 import { PayrollDashboard } from './pages/PayrollDashboard';
 import { PayrollComputation } from './pages/PayrollComputation';
 import { PayrollReports } from './pages/PayrollReports';
-import { getAllRiders } from './services/monitoringService';
-import { getZones } from './services/geofenceService';
-import type { Rider, Zone } from './services/types';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabaseClient';
+import { useRiderZone } from './context/RiderZoneContext';
 
 import { useNotifications } from './hooks/useNotifications';
 import { Toaster } from 'react-hot-toast';
@@ -134,8 +132,7 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>('guide');
 
-  const [allRiders, setAllRiders] = useState<Rider[]>([]);
-  const [allZones, setAllZones] = useState<Zone[]>([]);
+  const { riders: allRiders, zones: allZones } = useRiderZone();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
   // Sync state changes to URL hash
@@ -173,12 +170,7 @@ export function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [session]);
 
-  useEffect(() => {
-    if (session) {
-      getAllRiders().then(setAllRiders);
-      getZones().then(setAllZones);
-    }
-  }, [session]);
+  // Riders and zones are now loaded globally via RiderZoneContext
 
   // Real-time Presence Tracking for the logged-in user
   useEffect(() => {

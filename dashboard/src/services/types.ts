@@ -11,6 +11,8 @@ export interface Zone {
   radius: number; // meters
   color: string;
   status?: ZoneStatus;
+  zone_type?: 'circle' | 'polygon';
+  polygon_coordinates?: [number, number][];
 }
 
 export interface Rider {
