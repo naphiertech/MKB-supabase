@@ -124,15 +124,39 @@ export function PayrollDetailsModal({
         ]);
 
         if (active) {
+          const mappedLogs = fetchedLogs.map((log) => {
+            const attObj = fetchedMetrics.attendanceLogs.find(
+              (a) => a.date === log.date
+            );
+            const rawTimeIn = attObj?.time_in || null;
+            let calculatedRate = log.rate || 10;
+            if (rawTimeIn) {
+              const d = new Date(rawTimeIn.replace(" ", "T"));
+              if (!isNaN(d.getTime())) {
+                const hours = d.getHours();
+                const mins = d.getMinutes();
+                const totalMinutes = hours * 60 + mins;
+                if (totalMinutes <= 480) calculatedRate = 12;
+                else if (totalMinutes <= 540) calculatedRate = 11;
+                else calculatedRate = 10;
+              }
+            }
+            return {
+              ...log,
+              rate: calculatedRate,
+              dailyGross: log.parcels * calculatedRate,
+            };
+          });
+
           setMetrics(fetchedMetrics);
-          setDayEntries(fetchedLogs);
+          setDayEntries(mappedLogs);
 
           // Default selected day to the latest day with parcel deliveries, or just the first day in logs
-          const withDeliveries = fetchedLogs.filter((l) => l.parcels > 0);
+          const withDeliveries = mappedLogs.filter((l) => l.parcels > 0);
           if (withDeliveries.length > 0) {
             setSelectedDate(withDeliveries[withDeliveries.length - 1].date);
-          } else if (fetchedLogs.length > 0) {
-            setSelectedDate(fetchedLogs[fetchedLogs.length - 1].date);
+          } else if (mappedLogs.length > 0) {
+            setSelectedDate(mappedLogs[mappedLogs.length - 1].date);
           } else {
             setSelectedDate(null);
           }
@@ -161,8 +185,9 @@ export function PayrollDetailsModal({
   const riderMkbId = record.riders?.mkb_id || "MKB-RIDER";
   const zoneName = record.riders?.zones?.name || "Zamboanga City";
   const shiftText = record.riders?.shift || "Morning";
-  const ratePerParcel = record.rate_per_parcel ?? 50;
-  const grossPay = record.gross_pay ?? record.total_parcels * ratePerParcel;
+  const ratePerParcel = record.rate_per_parcel ?? 10;
+  const computedGrossPay = dayEntries.reduce((sum, e) => sum + e.dailyGross, 0);
+  const grossPay = record.gross_pay ?? computedGrossPay;
 
   // Status mapping
   const statusColors: Record<
@@ -269,6 +294,7 @@ export function PayrollDetailsModal({
       const mappedEntries = dayEntries.map((e) => ({
         date: e.date,
         parcels: e.parcels,
+        rate: e.rate,
         dailyGross: e.dailyGross,
       }));
       exportParcelPayslipPDF(
@@ -609,6 +635,9 @@ export function PayrollDetailsModal({
                             <th className="px-4 py-2.5 text-center font-mono">
                               Parcels
                             </th>
+                            <th className="px-4 py-2.5 text-center font-mono">
+                              Rate
+                            </th>
                             <th className="px-4 py-2.5 text-right">
                               Daily Gross
                             </th>
@@ -675,6 +704,9 @@ export function PayrollDetailsModal({
                                 </td>
                                 <td className="px-4 py-2 text-center font-mono tabular-nums text-[#1A1410]">
                                   {day.parcels}
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono tabular-nums text-[#1A1410]">
+                                  ₱{day.rate.toFixed(2)}
                                 </td>
                                 <td className="px-4 py-2 text-right font-mono tabular-nums text-[#1A1410]">
                                   {day.parcels === 0
