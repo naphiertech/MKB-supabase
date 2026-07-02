@@ -88,7 +88,8 @@ export const savePayrollRecord = async (
   cutoffFrom: string,
   cutoffTo: string,
   totalParcels: number,
-  ratePerParcel: number
+  ratePerParcel: number,
+  grossPay?: number
 ): Promise<void> => {
   const { error } = await supabase
     .from('payroll_records')
@@ -99,6 +100,7 @@ export const savePayrollRecord = async (
         cutoff_end: cutoffTo,
         total_parcels: totalParcels,
         rate_per_parcel: ratePerParcel,
+        gross_pay: grossPay ?? (totalParcels * ratePerParcel),
         status: 'pending',
         updated_at: new Date().toISOString(),
       },
@@ -115,7 +117,7 @@ export const getPayrollRecords = async (
 ) => {
   const { data, error } = await supabase
     .from('payroll_records')
-    .select('*, riders(id, name, mkb_id, avatar_url, zones(name))')
+    .select('*, riders(id, name, mkb_id, avatar_url, zone_id, zones(name))')
     .gte('cutoff_start', cutoffFrom)
     .lte('cutoff_start', cutoffTo)
     .order('created_at', { ascending: false });
