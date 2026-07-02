@@ -8,6 +8,7 @@ interface JsPDFWithAutoTable extends jsPDF {
 export interface PayslipDay {
   date: string;
   parcels: number;
+  rate?: number;
   dailyGross: number;
 }
 
@@ -34,14 +35,16 @@ export const exportParcelPayslipPDF = (
   zoneName: string,
   cutoffFrom: string,
   cutoffTo: string,
-  rate: number,
-  dayEntries: { date: string; parcels: number; dailyGross: number }[]
+  rate: number, // fallbackRate
+  dayEntries: { date: string; parcels: number; rate?: number; dailyGross: number }[]
 ) => {
   const doc = new jsPDF();
   const totalParcels = dayEntries.reduce(
     (sum, e) => sum + e.parcels, 0
   );
-  const grossPay = totalParcels * rate;
+  const grossPay = dayEntries.reduce(
+    (sum, e) => sum + e.dailyGross, 0
+  );
 
   // Header
   doc.setFontSize(14);
@@ -78,14 +81,18 @@ export const exportParcelPayslipPDF = (
   // Day-by-day table
   autoTable(doc, {
     startY: 76,
-    head: [['Date', 'Parcels Delivered', 'Daily Gross']],
-    body: dayEntries.map(e => [
-      new Date(e.date).toLocaleDateString('en-PH', {
-        month: 'long', day: '2-digit', year: 'numeric'
-      }),
-      e.parcels === 0 ? '0 (rest day)' : e.parcels.toString(),
-      e.parcels === 0 ? '—' : `₱${e.dailyGross.toLocaleString()}`,
-    ]),
+    head: [['Date', 'Parcels Delivered', 'Rate', 'Daily Gross']],
+    body: dayEntries.map(e => {
+      const activeRate = e.rate ?? rate;
+      return [
+        new Date(e.date).toLocaleDateString('en-PH', {
+          month: 'long', day: '2-digit', year: 'numeric'
+        }),
+        e.parcels === 0 ? '0 (rest day)' : e.parcels.toString(),
+        e.parcels === 0 ? '—' : `₱${activeRate.toFixed(2)}`,
+        e.parcels === 0 ? '—' : `₱${e.dailyGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      ];
+    }),
     headStyles: {
       fillColor: [219, 108, 0],
       textColor: 255,
@@ -110,17 +117,41 @@ export const exportParcelPayslipPDF = (
     `Total Parcels Delivered : ${totalParcels}`,
     14, finalY + 8
   );
-  doc.text(
-    `Rate per Parcel         : ₱${rate}.00`,
-    14, finalY + 15
-  );
+
+  // Calculate breakdown by rate
+  const parcelsByRate: Record<number, number> = {};
+  dayEntries.forEach(e => {
+    if (e.parcels > 0) {
+      const r = e.rate ?? rate;
+      parcelsByRate[r] = (parcelsByRate[r] || 0) + e.parcels;
+    }
+  });
+
+  let currentY = finalY + 15;
+  const ratesUsed = Object.keys(parcelsByRate).map(Number).sort((a, b) => b - a);
+  if (ratesUsed.length > 0) {
+    ratesUsed.forEach(r => {
+      const count = parcelsByRate[r];
+      doc.text(
+        `Rate ₱${r}.00 breakdown    : ${count} parcels @ ₱${r}.00 = ₱${(count * r).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        14, currentY
+      );
+      currentY += 7;
+    });
+  } else {
+    doc.text(
+      `Rate per Parcel         : ₱${rate}.00`,
+      14, currentY
+    );
+    currentY += 7;
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(219, 108, 0);
   doc.text(
-    `GROSS PAY               : ₱${grossPay.toLocaleString()}`,
-    14, finalY + 25
+    `GROSS PAY               : ₱${grossPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    14, currentY + 5
   );
 
   // Footer note
@@ -129,7 +160,7 @@ export const exportParcelPayslipPDF = (
   doc.setTextColor(150);
   doc.text(
     'Government deductions are processed separately outside this system.',
-    105, finalY + 38,
+    105, currentY + 18,
     { align: 'center' }
   );
 
@@ -144,35 +175,39 @@ export const exportParcelCSV = (
   mkbId: string,
   cutoffFrom: string,
   cutoffTo: string,
-  rate: number,
-  dayEntries: { date: string; parcels: number; dailyGross: number }[]
+  rate: number, // fallbackRate
+  dayEntries: { date: string; parcels: number; rate?: number; dailyGross: number }[]
 ) => {
   const totalParcels = dayEntries.reduce(
     (sum, e) => sum + e.parcels, 0
   );
-  const grossPay = totalParcels * rate;
+  const grossPay = dayEntries.reduce(
+    (sum, e) => sum + e.dailyGross, 0
+  );
 
   const metadata = [
     ['Rider Payslip — MKB Corporation'],
     ['Rider Name', riderName],
     ['Rider ID', mkbId],
     ['Cutoff Period', `${cutoffFrom} to ${cutoffTo}`],
-    ['Rate per Parcel', `₱${rate.toFixed(2)}`],
     []
   ];
 
   const headers = ['Date', 'Parcels Delivered', 'Rate per Parcel', 'Daily Gross'];
-  const rows = dayEntries.map(e => [
-    e.date,
-    e.parcels,
-    `₱${rate.toFixed(2)}`,
-    e.parcels === 0 ? '—' : `₱${e.dailyGross.toFixed(2)}`
-  ]);
+  const rows = dayEntries.map(e => {
+    const activeRate = e.rate ?? rate;
+    return [
+      e.date,
+      e.parcels,
+      `₱${activeRate.toFixed(2)}`,
+      e.parcels === 0 ? '—' : `₱${e.dailyGross.toFixed(2)}`
+    ];
+  });
 
   const totalRow = [
     'TOTAL',
     totalParcels,
-    `₱${rate.toFixed(2)}`,
+    '',
     `₱${grossPay.toFixed(2)}`
   ];
 
