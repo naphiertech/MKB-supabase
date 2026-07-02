@@ -49,11 +49,13 @@ export function PayrollComputation() {
   const [selectedRiderId, setSelectedRiderId] = useState('');
   const [cutoffFrom, setCutoffFrom] = useState(isoOffset(14));
   const [cutoffTo, setCutoffTo] = useState(isoToday());
-  const [rate, setRate] = useState(50);
+  const rate = 10;
   const [dayEntries, setDayEntries] = useState<{
     date: string;
     parcels: number;
     dailyGross: number;
+    rate: number;
+    timeIn: string | null;
     saving: boolean;
     saved: boolean;
     error: boolean;
@@ -104,14 +106,42 @@ export function PayrollComputation() {
       }
 
       try {
-        const existingLogs = await getParcelLogs(selectedRiderId, cutoffFrom, cutoffTo);
+        const [existingLogs, attendanceRes] = await Promise.all([
+          getParcelLogs(selectedRiderId, cutoffFrom, cutoffTo),
+          supabase
+            .from('attendance_logs')
+            .select('date, time_in')
+            .eq('rider_id', selectedRiderId)
+            .gte('date', cutoffFrom)
+            .lte('date', cutoffTo)
+        ]);
 
+        const attList = attendanceRes.data || [];
         const entries = dates.map(date => {
           const existing = existingLogs.find(l => l.date === date);
+          const att = attList.find(a => a.date === date);
+
+          const rawTimeIn = att?.time_in || null;
+          let calculatedRate = 10;
+          if (rawTimeIn) {
+            const d = new Date(rawTimeIn.replace(' ', 'T'));
+            if (!isNaN(d.getTime())) {
+              const hours = d.getHours();
+              const mins = d.getMinutes();
+              const totalMinutes = hours * 60 + mins;
+              if (totalMinutes <= 480) calculatedRate = 12; // before or at 8:00 AM
+              else if (totalMinutes <= 540) calculatedRate = 11; // 8:01 to 9:00 AM
+            }
+          } else if (existing && existing.rate) {
+            calculatedRate = existing.rate;
+          }
+
           return {
             date,
             parcels: existing?.parcels ?? 0,
-            dailyGross: existing ? existing.parcels * rate : 0,
+            dailyGross: existing ? existing.parcels * calculatedRate : 0,
+            rate: calculatedRate,
+            timeIn: rawTimeIn,
             saving: false,
             saved: !!existing,
             error: false,
@@ -132,17 +162,7 @@ export function PayrollComputation() {
     };
 
     loadLogs();
-  }, [selectedRiderId, cutoffFrom, cutoffTo, rate]);
-
-  // Recalculate daily gross when rate changes
-  useEffect(() => {
-    setDayEntries(prev =>
-      prev.map(e => ({
-        ...e,
-        dailyGross: e.parcels * rate
-      }))
-    );
-  }, [rate]);
+  }, [selectedRiderId, cutoffFrom, cutoffTo]);
 
   // Handle typing in input field (saves to local draft state instead of DB)
   const handleInputChange = useCallback((date: string, val: number) => {
@@ -157,18 +177,21 @@ export function PayrollComputation() {
   ) => {
     if (date > isoToday()) return;
 
+    const entry = dayEntries.find(e => e.date === date);
+    const targetRate = entry ? entry.rate : 10;
+
     setDayEntries(prev =>
-      prev.map(entry =>
-        entry.date === date
+      prev.map(item =>
+        item.date === date
           ? {
-              ...entry,
+              ...item,
               parcels,
-              dailyGross: parcels * rate,
+              dailyGross: parcels * targetRate,
               saving: true,
               saved: false,
               error: false,
             }
-          : entry
+          : item
       )
     );
 
@@ -177,28 +200,28 @@ export function PayrollComputation() {
         selectedRiderId,
         date,
         parcels,
-        rate,
+        targetRate,
         user?.id ?? ''
       );
 
       setDayEntries(prev =>
-        prev.map(entry =>
-          entry.date === date
-            ? { ...entry, saving: false, saved: true }
-            : entry
+        prev.map(item =>
+          item.date === date
+            ? { ...item, saving: false, saved: true }
+            : item
         )
       );
     } catch (err) {
       console.error('Auto-save failed', err);
       setDayEntries(prev =>
-        prev.map(entry =>
-          entry.date === date
-            ? { ...entry, saving: false, error: true }
-            : entry
+        prev.map(item =>
+          item.date === date
+            ? { ...item, saving: false, error: true }
+            : item
         )
       );
     }
-  }, [selectedRiderId, rate, user?.id]);
+  }, [selectedRiderId, dayEntries, user?.id]);
 
   // Save finalized payroll record
   const handleFinalize = async () => {
@@ -210,7 +233,8 @@ export function PayrollComputation() {
         cutoffFrom,
         cutoffTo,
         totalParcels,
-        rate
+        10, // Base/fallback rate per parcel
+        grossPay
       );
       pushToast({
         title: 'Payroll Finalized',
@@ -231,9 +255,12 @@ export function PayrollComputation() {
 
   // Computations
   const totalParcels = dayEntries.reduce((sum, e) => sum + e.parcels, 0);
-  const grossPay = totalParcels * rate;
+  const grossPay = dayEntries.reduce((sum, e) => sum + e.dailyGross, 0);
   const selectedRider = riders.find(r => r.id === selectedRiderId);
   const zoneName = selectedRider?.zones?.name || '—';
+
+  const confirmEntry = dayEntries.find(e => e.date === confirmDate);
+  const activeConfirmRate = confirmEntry ? confirmEntry.rate : 10;
 
   // Export handlers
   const handleExportPDF = () => {
@@ -245,7 +272,7 @@ export function PayrollComputation() {
         zoneName,
         cutoffFrom,
         cutoffTo,
-        rate,
+        rate, // fallbackRate (default 10)
         dayEntries
       );
       pushToast({
@@ -361,21 +388,25 @@ export function PayrollComputation() {
               </AnimatePresence>
             </div>
 
-            {/* Config Inputs */}
+            {/* Dynamic Rate Rules Notice */}
             <div className="mt-5 space-y-3.5">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
-                  Rate per Parcel (₱)
+              <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg p-3.5 space-y-2">
+                <div className="text-[10.5px] uppercase tracking-[0.14em] text-[#6B6258] font-bold">
+                  Dynamic Rate Rules
                 </div>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B6258] font-mono">₱</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={rate}
-                    onChange={e => setRate(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full h-10 pl-7 pr-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] font-mono outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
-                  />
+                <div className="text-xs space-y-1.5 text-[#1A1410]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B6258]">Early In (≤ 8:00 AM)</span>
+                    <span className="font-semibold font-mono text-emerald-600">₱12.00 / pc</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B6258]">Standard (8:01–9:00 AM)</span>
+                    <span className="font-semibold font-mono text-amber-600">₱11.00 / pc</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B6258]">Late / Fallback (≥ 9:01 AM)</span>
+                    <span className="font-semibold font-mono text-red-600">₱10.00 / pc</span>
+                  </div>
                 </div>
               </div>
 
@@ -445,11 +476,11 @@ export function PayrollComputation() {
                 <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
                   Rate Per Parcel
                 </div>
-                <div className="mt-1.5 text-lg font-bold font-mono text-[#1A1410]">
-                  ₱{rate.toFixed(2)}
+                <div className="mt-1.5 text-lg font-bold font-mono text-[#db6c00]">
+                  Dynamic
                 </div>
                 <div className="text-[10px] text-[#6B6258] font-mono mt-0.5">
-                  per delivered parcel
+                  ₱10.00 – ₱12.00 / pc
                 </div>
               </div>
 
@@ -472,7 +503,7 @@ export function PayrollComputation() {
                   </AnimatePresence>
                 </div>
                 <div className="text-[10px] text-[#db6c00] font-mono mt-0.5">
-                  = {totalParcels} parcels × ₱{rate}.00
+                  calculated from clock-in logs
                 </div>
               </div>
             </div>
@@ -558,6 +589,7 @@ export function PayrollComputation() {
                 <tr className="text-left text-[10px] uppercase tracking-[0.12em] text-[#6B6258] font-semibold">
                   <th className="px-5 py-3">Date</th>
                   <th className="px-5 py-3">Parcels Delivered</th>
+                  <th className="px-5 py-3">Rate</th>
                   <th className="px-5 py-3">Daily Gross</th>
                   <th className="px-5 py-3">Status</th>
                 </tr>
@@ -647,6 +679,9 @@ export function PayrollComputation() {
                         </div>
                       </td>
                       <td className="px-5 py-2.5 text-sm font-mono text-[#1A1410]">
+                        {entry.parcels === 0 ? '—' : `₱${entry.rate.toFixed(2)}`}
+                      </td>
+                      <td className="px-5 py-2.5 text-sm font-mono text-[#1A1410]">
                         {entry.parcels === 0 ? '—' : `₱${entry.dailyGross.toLocaleString()}`}
                       </td>
                       <td className="px-5 py-2.5 text-xs">
@@ -659,11 +694,18 @@ export function PayrollComputation() {
                             Unsaved draft
                           </span>
                         ) : (
-                          <>
-                            {entry.saving && <span className="text-amber-600 font-medium">Saving...</span>}
-                            {entry.saved && !entry.saving && <span className="text-emerald-600 font-medium">✓ Saved</span>}
-                            {entry.error && <span className="text-red-500 font-medium">Failed — retry</span>}
-                          </>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              {entry.saving && <span className="text-amber-600 font-medium">Saving...</span>}
+                              {entry.saved && !entry.saving && <span className="text-emerald-600 font-medium">✓ Saved</span>}
+                              {entry.error && <span className="text-red-500 font-medium">Failed — retry</span>}
+                            </div>
+                            {entry.timeIn && (
+                              <span className="text-[10px] text-[#6B6258] font-mono" title={`Dynamic rate calculated from clock-in time: ${entry.timeIn}`}>
+                                Time-In: {new Date(entry.timeIn.replace(' ', 'T')).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -674,6 +716,7 @@ export function PayrollComputation() {
                 <tr className="bg-[#FFF1E0]/50 font-semibold border-t-2 border-[#EFEAE2]">
                   <td className="px-5 py-3.5 text-sm text-[#1A1410]">TOTAL</td>
                   <td className="px-5 py-3.5 text-sm font-mono text-[#db6c00]">{totalParcels} parcels</td>
+                  <td className="px-5 py-3.5 text-sm font-mono text-[#6B6258]">—</td>
                   <td className="px-5 py-3.5 text-sm font-mono font-bold text-[#1A1410]">
                     ₱{grossPay.toLocaleString()}
                   </td>
@@ -724,7 +767,7 @@ export function PayrollComputation() {
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-semibold">New Gross Pay</div>
-                  <div className="text-lg font-bold text-[#db6c00] font-mono mt-0.5">₱{(confirmVal * rate).toLocaleString()}</div>
+                  <div className="text-lg font-bold text-[#db6c00] font-mono mt-0.5">₱{(confirmVal * activeConfirmRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 </div>
               </div>
 
