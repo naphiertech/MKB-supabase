@@ -181,7 +181,6 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
         'Date Joined',
         'Contact Number',
         'Employment Type',
-        'Shift',
         'Vehicle Type',
         'Vehicle Plate Number',
         'Street Address',
@@ -202,7 +201,6 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
         u.dateOfHire || '',
         u.contact || '',
         u.employmentType || '',
-        u.shift || '',
         u.vehicleType || '',
         u.vehiclePlateNumber || '',
         u.streetAddress || '',
@@ -279,16 +277,13 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                     .single();
                   
                   if (userProfile?.rider_id) {
-                    const dbShift = savedUser.shift
-                      ? savedUser.shift.charAt(0).toUpperCase() + savedUser.shift.slice(1)
-                      : null;
                     const { error: riderErr } = await supabase
                       .from('riders')
                       .update({
                         name: savedUser.name,
                         contact: savedUser.contact || null,
                         zone_id: savedUser.zoneId || null,
-                        shift: dbShift,
+                        shift: null,
                         face_registered: !!savedUser.faceImage,
                         face_image_url: savedUser.faceImage || null,
                         face_descriptor: savedUser.faceDescriptor || null,
@@ -317,10 +312,6 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                 try {
                   // 1. If role is rider, insert to public.riders first
                   if (savedUser.role === 'rider') {
-                    const dbShift = savedUser.shift
-                      ? savedUser.shift.charAt(0).toUpperCase() + savedUser.shift.slice(1)
-                      : null;
-                    
                     const { data: riderData, error: riderErr } = await supabase
                       .from('riders')
                       .insert({
@@ -329,7 +320,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                         email: savedUser.email,
                         contact: savedUser.contact || null,
                         zone_id: savedUser.zoneId || null,
-                        shift: dbShift,
+                        shift: null,
                         status: 'offline',
                         face_registered: !!savedUser.faceImage,
                         face_image_url: savedUser.faceImage || null,
