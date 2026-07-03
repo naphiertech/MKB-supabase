@@ -11,7 +11,6 @@ import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetai
 export function Attendance() {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [shiftFilter, setShiftFilter] = useState<string>('all');
   const today = getLocalDateString();
   const sevenDaysAgo = getLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
   const [dateFrom, setDateFrom] = useState<string>(sevenDaysAgo);
@@ -56,10 +55,9 @@ export function Attendance() {
       l.date >= dateFrom &&
       l.date <= dateTo && (
       zoneFilter === 'all' || l.zoneId === zoneFilter) && (
-      statusFilter === 'all' || l.status === statusFilter) && (
-      shiftFilter === 'all' || true)
+      statusFilter === 'all' || l.status === statusFilter)
     );
-  }, [attendanceList, dateFrom, dateTo, zoneFilter, statusFilter, shiftFilter]);
+  }, [attendanceList, dateFrom, dateTo, zoneFilter, statusFilter]);
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
       {/* KPIs */}
@@ -166,18 +164,6 @@ export function Attendance() {
             <option value="late">Late</option>
             <option value="absent">Absent</option>
             <option value="on_leave">On Leave</option>
-          </select>
-        </FilterField>
-        <FilterField label="Shift">
-          <select
-            value={shiftFilter}
-            onChange={(e) => setShiftFilter(e.target.value)}
-            className="att-input">
-            
-            <option value="all">All</option>
-            <option value="morning">Morning</option>
-            <option value="afternoon">Afternoon</option>
-            <option value="evening">Evening</option>
           </select>
         </FilterField>
         <div className="flex-1" />
