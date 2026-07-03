@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Phone, Mail, IdCard, MapPin, Shield } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, IdCard, MapPin } from 'lucide-react';
 import {
   type Rider,
   type Zone,
@@ -171,10 +171,6 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
         <Field label="Phone" value={rider.phone} icon={Phone} mono />
         <Field label="Rider Code" value={rider.riderCode} icon={IdCard} mono />
         <Field label="Assigned Zone" value={zone.name} icon={MapPin} />
-        <Field
-          label="Shift"
-          value={rider.shift.charAt(0).toUpperCase() + rider.shift.slice(1)}
-          icon={Shield} />
         <Field
           label="Zone Center"
           value={`${zone.center[0].toFixed(4)}, ${zone.center[1].toFixed(4)}`}
