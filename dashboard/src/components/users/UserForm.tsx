@@ -92,16 +92,6 @@ const ROLES: {
   { value: "payroll", label: "Payroll" },
 ];
 
-const SHIFTS: {
-  value: Exclude<Shift, "">;
-  label: string;
-  range: string;
-}[] = [
-  { value: "morning", label: "Morning", range: "6AM–2PM" },
-  { value: "afternoon", label: "Afternoon", range: "2PM–10PM" },
-  { value: "evening", label: "Evening", range: "10PM–6AM" },
-];
-
 const EMPTY_FORM: FormState = {
   firstName: "",
   middleName: "",
@@ -1048,38 +1038,6 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         </option>
                       ))}
                   </select>
-                </Field>
-
-                <Field
-                  label="Shift Schedule"
-                  error={errors.shift}
-                  innerRef={(el) => (fieldRefs.current.shift = el)}
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {SHIFTS.map((s) => {
-                      const active = form.shift === s.value;
-                      return (
-                        <button
-                          key={s.value}
-                          type="button"
-                          disabled={submitting}
-                          onClick={() => setField("shift", s.value)}
-                          className={`flex flex-col items-center justify-center h-12 rounded-md border text-[11px] font-semibold transition cursor-pointer ${
-                            active
-                              ? "bg-[#FFF1E0] border-[#db6c00]/40 text-[#b85a00] font-bold"
-                              : "bg-white border-[#EFEAE2] text-[#1A1410] hover:border-[#db6c00]/30"
-                          }`}
-                        >
-                          <span>{s.label}</span>
-                          <span
-                            className={`text-[10px] font-mono ${active ? "text-[#b85a00]/80" : "text-[#6B6258]"}`}
-                          >
-                            {s.range}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
                 </Field>
 
                 {/* Vehicle Type & Plate Details */}
