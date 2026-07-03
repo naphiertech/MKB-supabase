@@ -195,7 +195,7 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
               Today's Route
             </h3>
             <p className="text-xs text-[#888] mt-0.5">
-              Your shift trail · {new Date().toLocaleDateString()}
+              Your duty trail · {new Date().toLocaleDateString()}
             </p>
           </div>
           {routeStats && (
@@ -215,7 +215,7 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
                 No route recorded yet
               </p>
               <p className="text-xs text-[#888]">
-                Your route will appear here once your shift starts and GPS tracking begins
+                Your route will appear here once you clock in and GPS tracking begins
               </p>
             </div>
           ) : (
