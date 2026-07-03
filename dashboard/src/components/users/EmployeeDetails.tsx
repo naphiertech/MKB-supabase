@@ -22,6 +22,20 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabaseClient';
 
+function formatTimeString(dateStr: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    const formatted = dateStr.includes(' ') && !dateStr.includes('T')
+      ? dateStr.replace(' ', 'T')
+      : dateStr;
+    const d = new Date(formatted);
+    if (isNaN(d.getTime())) return '—';
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  } catch {
+    return '—';
+  }
+}
+
 interface EmployeeDetailsProps {
   user: AppUser;
   zones: Zone[];
@@ -48,7 +62,18 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
           .order('date', { ascending: false });
 
         if (!error && data && active) {
-          const mappedLogs: AttendanceLog[] = data.map((log: any) => ({
+          const mappedLogs: AttendanceLog[] = (data as {
+            id: string;
+            rider_id: string;
+            date: string;
+            time_in: string | null;
+            time_out: string | null;
+            hours: number | null;
+            zone_id: string | null;
+            status: string;
+            source: string | null;
+            events?: AttendanceLog['events'];
+          }[]).map((log) => ({
             id: log.id,
             riderId: log.rider_id,
             riderName: user.name,
@@ -59,8 +84,8 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
             hours: log.hours || 0,
             zoneId: log.zone_id || '',
             zoneName: '',
-            status: log.status,
-            source: log.source || 'manual',
+            status: log.status as AttendanceLog['status'],
+            source: (log.source || 'manual') as AttendanceLog['source'],
             events: log.events || []
           }));
           setLogs(mappedLogs);
@@ -228,7 +253,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
         margin: { left: 14, right: 14 }
       });
 
-      const nextY1 = (doc as any).lastAutoTable.finalY + 10;
+      const nextY1 = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
 
       // Section 2: Contact & Address Details
       doc.setFontSize(11);
@@ -256,7 +281,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
         margin: { left: 14, right: 14 }
       });
 
-      const nextY2 = (doc as any).lastAutoTable.finalY + 10;
+      const nextY2 = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
 
       // Section 3: Vehicle Specs, Emergency Info, and Remarks
       doc.setFontSize(11);
@@ -282,7 +307,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
         margin: { left: 14, right: 14 }
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY + 20;
+      const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
 
       // Verification Signature Block
       doc.setFontSize(9);
@@ -803,22 +828,22 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                                   ? 'bg-indigo-50 text-indigo-700 border border-indigo-500/10'
                                   : 'bg-red-50 text-red-700 border border-red-500/10'
                         }`}>
-                          {selectedDayLog.id === '' ? 'No Shift Log' : selectedDayLog.status}
+                          {selectedDayLog.id === '' ? 'No Attendance Log' : selectedDayLog.status}
                         </span>
                       </div>
                       {selectedDayLog.id !== '' ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           <div>
                             <span className="text-[#6B6258] block text-[9px] uppercase font-bold tracking-wider">Clock In</span>
-                            <span className="font-mono font-bold text-[#1A1410]">{selectedDayLog.timeIn || '—'}</span>
+                            <span className="font-mono font-bold text-[#1A1410]">{formatTimeString(selectedDayLog.timeIn)}</span>
                           </div>
                           <div>
                             <span className="text-[#6B6258] block text-[9px] uppercase font-bold tracking-wider">Clock Out</span>
-                            <span className="font-mono font-bold text-[#1A1410]">{selectedDayLog.timeOut || '—'}</span>
+                            <span className="font-mono font-bold text-[#1A1410]">{formatTimeString(selectedDayLog.timeOut)}</span>
                           </div>
                           <div>
-                            <span className="text-[#6B6258] block text-[9px] uppercase font-bold tracking-wider">Shift Hours</span>
-                            <span className="font-semibold text-[#1A1410]">{selectedDayLog.hours ? `${selectedDayLog.hours} hrs` : '—'}</span>
+                            <span className="text-[#6B6258] block text-[9px] uppercase font-bold tracking-wider">Hours Worked</span>
+                            <span className="font-semibold text-[#1A1410]">{selectedDayLog.hours ? `${Number(selectedDayLog.hours).toFixed(2)} hrs` : '—'}</span>
                           </div>
                         </div>
                       ) : (
