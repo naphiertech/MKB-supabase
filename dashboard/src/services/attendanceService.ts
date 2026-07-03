@@ -115,9 +115,80 @@ export async function getAttendanceLogs(filters?: {
       zoneName: zoneName || 'No Zone',
       status: row.status as AttendanceStatus,
       source: row.source as 'face-scan' | 'manual',
-      events: [] // DB model is structural; events are constructed dynamically via realtime location stream
+      events: []
     };
   });
+
+  // Fetch matching violations to build historical timelines
+  const riderIds = result.map(r => r.riderId);
+  const dates = result.map(r => r.date).filter(Boolean);
+
+  if (riderIds.length > 0 && dates.length > 0) {
+    try {
+      const minDate = dates.reduce((a, b) => a < b ? a : b);
+      const maxDate = dates.reduce((a, b) => a > b ? a : b);
+
+      const { data: dbViolations } = await supabase
+        .from('violations')
+        .select('rider_id, zone_name, type, created_at')
+        .in('rider_id', riderIds)
+        .gte('created_at', `${minDate}T00:00:00Z`)
+        .lte('created_at', `${maxDate}T23:59:59Z`);
+
+      result = result.map(log => {
+        const logEvents: AttendanceLog['events'] = [];
+
+        // 1. Add clock-in enter event if timeIn exists
+        if (log.timeIn) {
+          logEvents.push({
+            ts: log.timeIn,
+            type: 'enter',
+            zone: log.zoneName
+          });
+        }
+
+        // 2. Add geofence exit violations for this rider on this date
+        if (dbViolations && dbViolations.length > 0) {
+          const matchingViolations = dbViolations.filter(v => {
+            if (v.rider_id !== log.riderId) return false;
+            const vDate = (v.created_at || '').split('T')[0] || (v.created_at || '').split(' ')[0];
+            return vDate === log.date;
+          });
+
+          matchingViolations.forEach(v => {
+            logEvents.push({
+              ts: toHHMM(v.created_at) || '00:00',
+              type: 'exit',
+              zone: v.zone_name || log.zoneName
+            });
+          });
+        }
+
+        // Sort events chronologically by timestamp string
+        logEvents.sort((a, b) => a.ts.localeCompare(b.ts));
+
+        return {
+          ...log,
+          events: logEvents
+        };
+      });
+    } catch (err) {
+      console.error('Error fetching geofence events for logs:', err);
+    }
+  } else {
+    // If no logs, fallback to clock-in only
+    result = result.map(log => {
+      const logEvents: AttendanceLog['events'] = [];
+      if (log.timeIn) {
+        logEvents.push({
+          ts: log.timeIn,
+          type: 'enter',
+          zone: log.zoneName
+        });
+      }
+      return { ...log, events: logEvents };
+    });
+  }
 
   // Safe in-memory filtering for zoneId to handle nested relational bounds robustly
   if (filters?.zoneId) {
