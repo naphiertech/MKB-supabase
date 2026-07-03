@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { getAllRiders } from '../services/monitoringService';
 import { getZones } from '../services/geofenceService';
 import type { Rider, Zone } from '../services/types';
@@ -19,7 +19,7 @@ export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [zones, setZones] = useState<Zone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!session) return;
     setIsLoading(true);
     try {
@@ -31,7 +31,7 @@ export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session]);
 
   useEffect(() => {
     if (session) {
@@ -40,10 +40,17 @@ export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setRiders([]);
       setZones([]);
     }
-  }, [session]);
+  }, [session, fetchData]);
+
+  const value = useMemo(() => ({
+    riders,
+    zones,
+    isLoading,
+    refreshData: fetchData
+  }), [riders, zones, isLoading, fetchData]);
 
   return (
-    <RiderZoneContext.Provider value={{ riders, zones, isLoading, refreshData: fetchData }}>
+    <RiderZoneContext.Provider value={value}>
       {children}
     </RiderZoneContext.Provider>
   );
