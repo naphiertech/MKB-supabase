@@ -931,7 +931,7 @@ export function Settings() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
                         <h4 className="text-xs font-semibold text-[#1A1410]">Attendance Logs</h4>
-                        <p className="text-[10px] text-[#6B6258] leading-relaxed">Get notified on late check-ins or absent shifts.</p>
+                        <p className="text-[10px] text-[#6B6258] leading-relaxed">Get notified on late check-ins or absences.</p>
                       </div>
                       <button
                         type="button"
