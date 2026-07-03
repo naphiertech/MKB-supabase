@@ -52,13 +52,15 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
 
   const loadData = async () => {
     try {
-      const zList = await getZones();
-      setZonesList(zList);
+      const [zList, { data: dbUsers, error }] = await Promise.all([
+        getZones(),
+        supabase
+          .from('users')
+          .select('*, riders(*)')
+          .order('full_name', { ascending: true })
+      ]);
 
-      const { data: dbUsers, error } = await supabase
-        .from('users')
-        .select('*, riders(*)')
-        .order('full_name', { ascending: true });
+      setZonesList(zList);
 
       if (!error && dbUsers) {
         const mapped: AppUser[] = dbUsers.map((u: {
