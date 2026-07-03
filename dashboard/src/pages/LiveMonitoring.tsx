@@ -26,7 +26,6 @@ export function LiveMonitoring() {
   const [collapsed, setCollapsed] = useState(false);
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [shiftFilter, setShiftFilter] = useState<string>('all');
   const [focusRiderId, setFocusRiderId] = useState<string | null>(null);
   
   const [selectedRiderRoute, setSelectedRiderRoute] = useState<RoutePoint[]>([]);
@@ -41,10 +40,9 @@ export function LiveMonitoring() {
     return riders.filter(
       (r) =>
       (zoneFilter === 'all' || r.zoneId === zoneFilter) && (
-      statusFilter === 'all' || r.status === statusFilter) && (
-      shiftFilter === 'all' || r.shift === shiftFilter)
+      statusFilter === 'all' || r.status === statusFilter)
     );
-  }, [riders, zoneFilter, statusFilter, shiftFilter]);
+  }, [riders, zoneFilter, statusFilter]);
   const focused = riders.find((r) => r.id === focusRiderId);
   const focusedZone = focused ?
   zonesList.find((z) => z.id === focused.zoneId) :
@@ -124,29 +122,6 @@ export function LiveMonitoring() {
                 {
                   v: 'violation',
                   l: 'Violation'
-                }]
-                } />
-              
-                <FilterRow
-                label="Shift"
-                value={shiftFilter}
-                onChange={setShiftFilter}
-                options={[
-                {
-                  v: 'all',
-                  l: 'All'
-                },
-                {
-                  v: 'morning',
-                  l: 'Morning'
-                },
-                {
-                  v: 'afternoon',
-                  l: 'Afternoon'
-                },
-                {
-                  v: 'evening',
-                  l: 'Evening'
                 }]
                 } />
               
