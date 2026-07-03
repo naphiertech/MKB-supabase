@@ -101,7 +101,7 @@ export function PersonalStats({
       <StatTile
         label="Hours · This Week"
         value={hoursThisWeek.toFixed(1)}
-        sub="Logged across active shifts"
+        sub="Total clock-in hours"
         icon={Hourglass}
         tone="brand" />
       
