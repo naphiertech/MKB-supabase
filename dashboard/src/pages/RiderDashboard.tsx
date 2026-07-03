@@ -74,6 +74,27 @@ function getLocalDateString(d: Date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+interface PayrollRecord {
+  id: string;
+  rider_id: string;
+  cutoff_start: string;
+  cutoff_end: string;
+  total_parcels: number;
+  rate_per_parcel: number | null;
+  gross_pay: number | null;
+  status: string;
+  created_at?: string;
+  riders: {
+    id?: string;
+    name: string;
+    mkb_id: string;
+    face_image_url?: string | null;
+    avatar_url?: string | null;
+    zones?: { name: string } | null;
+    shift?: string | null;
+  } | null;
+}
+
 export function RiderDashboard({ userId }: RiderDashboardProps) {
   const { zones: allZones } = useRiderZone();
   const riderId = userId.replace(/^u-rider-/, '');
@@ -101,8 +122,8 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   });
 
   // Rider Payroll States
-  const [myPayrollRecords, setMyPayrollRecords] = useState<any[]>([]);
-  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
+  const [myPayrollRecords, setMyPayrollRecords] = useState<PayrollRecord[]>([]);
+  const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
   const [isPayslipOpen, setIsPayslipOpen] = useState(false);
 
   // Load Rider's Payroll Records
@@ -194,39 +215,6 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
           // Fetch attendance logs for today using the resolved Rider UUID
           const todayStr = getLocalDateString();
-          const { data: attLog } = await supabase
-            .from('attendance_logs')
-            .select('*')
-            .eq('rider_id', resolvedRiderId)
-            .eq('date', todayStr)
-            .maybeSingle();
-
-          if (attLog) {
-            setAttendance({
-              timeIn: attLog.time_in ? toHHMM(attLog.time_in) : null,
-              timeOut: attLog.time_out ? toHHMM(attLog.time_out) : null,
-            });
-          }
-
-          // Fetch the latest unread violation for the active rider
-          const { data: violationData } = await supabase
-            .from('violations')
-            .select('*')
-            .eq('rider_id', resolvedRiderId)
-            .eq('read', false)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (violationData && violationData.lat && violationData.lng) {
-            setActiveViolation({
-              lat: violationData.lat,
-              lng: violationData.lng,
-              zoneName: violationData.zone_name || 'Talon-Talon'
-            });
-          } else {
-            setActiveViolation(null);
-          }
 
           // Load real stats for the current month
           const todayDate = new Date();
@@ -238,27 +226,69 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           const firstDayOfWeek = new Date(todayDate.setDate(diff));
           const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
 
-          const { data: monthLogs } = await supabase
-            .from('attendance_logs')
-            .select('*')
-            .eq('rider_id', resolvedRiderId)
-            .gte('date', firstDayStr);
-            
+          const [attLogRes, violationRes, monthLogsRes, violationCountRes] = await Promise.all([
+            supabase
+              .from('attendance_logs')
+              .select('*')
+              .eq('rider_id', resolvedRiderId)
+              .eq('date', todayStr)
+              .maybeSingle(),
+            supabase
+              .from('violations')
+              .select('*')
+              .eq('rider_id', resolvedRiderId)
+              .eq('read', false)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            supabase
+              .from('attendance_logs')
+              .select('*')
+              .eq('rider_id', resolvedRiderId)
+              .gte('date', firstDayStr),
+            supabase
+              .from('violations')
+              .select('*', { count: 'exact', head: true })
+              .eq('rider_id', resolvedRiderId)
+              .gte('created_at', firstDayOfMonth.toISOString())
+          ]);
+
+          const attLog = attLogRes.data;
+          if (attLog) {
+            setAttendance({
+              timeIn: attLog.time_in ? toHHMM(attLog.time_in) : null,
+              timeOut: attLog.time_out ? toHHMM(attLog.time_out) : null,
+            });
+          }
+
+          const violationData = violationRes.data;
+          if (violationData && violationData.lat && violationData.lng) {
+            setActiveViolation({
+              lat: violationData.lat,
+              lng: violationData.lng,
+              zoneName: violationData.zone_name || 'Talon-Talon'
+            });
+          } else {
+            setActiveViolation(null);
+          }
+
+          const monthLogs = monthLogsRes.data;
           let presentCount = 0;
           let weekHours = 0;
           
           if (monthLogs) {
-             presentCount = monthLogs.filter((l: any) => l.status === 'present' || l.status === 'late').length;
-             const weekLogs = monthLogs.filter((l: any) => l.date >= firstDayOfWeekStr);
-             weekHours = weekLogs.reduce((acc: number, log: any) => acc + (log.hours || 0), 0);
+             const typedLogs = monthLogs as { status: string; date: string; hours: number | null }[];
+             for (const log of typedLogs) {
+               if (log.status === 'present' || log.status === 'late') {
+                 presentCount++;
+               }
+               if (log.date >= firstDayOfWeekStr) {
+                 weekHours += (log.hours || 0);
+               }
+             }
           }
 
-          const { count: violationCount } = await supabase
-            .from('violations')
-            .select('*', { count: 'exact', head: true })
-            .eq('rider_id', resolvedRiderId)
-            .gte('created_at', firstDayOfMonth.toISOString());
-
+          const violationCount = violationCountRes.count;
           setStats({
             daysPresent: presentCount,
             hoursThisWeek: Number(weekHours.toFixed(1)),
@@ -273,7 +303,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     }
 
     loadRiderAndZone();
-  }, [userId, riderId]);
+  }, [userId, riderId, allZones]);
 
   const zoneCenterLat = zone?.center[0] ?? 6.9214;
   const zoneCenterLng = zone?.center[1] ?? 122.0790;
@@ -338,8 +368,8 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           id: 'seed-1',
           ts: '06:58',
           kind: 'note',
-          label: 'Shift assignment received',
-          detail: `Zone ${zoneName} · ${rider.shift.charAt(0).toUpperCase() + rider.shift.slice(1)} shift`
+          label: 'Zone assignment received',
+          detail: `Assigned Zone · ${zoneName}`
         }
       ]);
     }
@@ -477,7 +507,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         ]);
         pushToast({
           title: 'Time-In recorded',
-          description: `Welcome on shift, ${currentRider.name.split(' ')[0]}.`,
+          description: `Welcome on duty, ${currentRider.name.split(' ')[0]}.`,
           tone: 'success'
         });
       }).catch((err) => {
@@ -505,7 +535,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             ts: stamp,
             kind: 'time_out',
             label: 'Time-Out recorded (Facial Recognition)',
-            detail: `Shift duration · ${currentTimeIn ? diffPretty(currentTimeIn, new Date(result.capturedAt)) : '—'}`
+            detail: `Active duration · ${currentTimeIn ? diffPretty(currentTimeIn, new Date(result.capturedAt)) : '—'}`
           },
           ...prev
         ]);
@@ -569,7 +599,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           </div>
           <h2 className="text-[#1A1410] font-semibold text-lg sm:text-xl tracking-tight mt-1">
             {action === 'time-in' ?
-              'Ready to start your shift?' :
+              'Ready to clock in?' :
               action === 'time-out' ?
                 "Wrapping up? Let's clock you out." :
                 'You are all done for today.'}
