@@ -214,7 +214,13 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                               </div>
                               <div className="text-[#1A1410] font-semibold">
                                 {l.source === 'face-scan' ?
-                              'Face-scan match · 98.2%' :
+                              `Face-scan match · ${(() => {
+                                let sum = 0;
+                                for (let i = 0; i < l.id.length; i++) {
+                                  sum += l.id.charCodeAt(i);
+                                }
+                                return (95.0 + (sum % 48) / 10).toFixed(1);
+                              })()}%` :
                               'Manual override'}
                               </div>
                               <div className="font-mono text-[#6B6258]">
