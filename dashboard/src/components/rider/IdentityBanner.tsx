@@ -79,17 +79,17 @@ const SHIFT_THEME: Record<
   not_started: {
     text: 'text-[#6B6258]',
     ring: 'border-[#EFEAE2] bg-white',
-    label: 'Shift · Not Started'
+    label: 'Duty · Not Started'
   },
   on_duty: {
     text: 'text-[#b85a00]',
     ring: 'border-[#db6c00]/40 bg-[#FFF1E0]',
-    label: 'Shift · On Duty'
+    label: 'Duty · On Duty'
   },
   completed: {
     text: 'text-emerald-700',
     ring: 'border-emerald-500/30 bg-emerald-50',
-    label: 'Shift · Completed'
+    label: 'Duty · Completed'
   }
 };
 export function IdentityBanner({
