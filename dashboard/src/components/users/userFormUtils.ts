@@ -124,7 +124,6 @@ export function validate(form: FormState, mode: 'create' | 'edit'): FormErrors {
   if (form.role === 'rider') {
     if (!form.mkbRiderId.trim()) errors.mkbRiderId = 'MKB Rider ID is required.';
     if (!form.zoneId) errors.zoneId = 'Assigned zone is required.';
-    if (!form.shift) errors.shift = 'Shift is required.';
     if (!form.faceImage) errors.faceImage = 'Face registration is required.';
     if (!form.province) errors.province = 'Province is required.';
     if (!form.city) errors.city = 'City/Municipality is required.';
