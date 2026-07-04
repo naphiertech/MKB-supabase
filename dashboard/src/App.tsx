@@ -100,10 +100,6 @@ export function App() {
     window.location.pathname !== '' && 
     window.location.pathname !== '/index.html';
 
-  if (isNotFound) {
-    return <NotFound />;
-  }
-
   const { session, user, signOut } = useAuth();
   const getInitialPage = (): PageKey => {
     if (typeof window !== 'undefined') {
@@ -232,6 +228,11 @@ export function App() {
       monitoring: notifications.filter(n => !n.read && n.type === 'violation').length,
     } as Partial<Record<PageKey, number>>;
   }, [notifications]);
+
+  // If route is 404
+  if (isNotFound) {
+    return <NotFound />;
+  }
 
   // Unauthenticated — show login
   if (!session || !user) {
@@ -364,7 +365,8 @@ export function App() {
           onMarkAsRead={markAsRead}
           onMarkAllAsRead={markAllAsRead}
           role={dashRole}
-          onMenuClick={() => setMobileNavOpen(true)} />
+          onMenuClick={() => setMobileNavOpen(true)}
+          onNavigate={handleNavigate} />
 
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
