@@ -18,22 +18,13 @@ import {
   Calendar
 } from 'lucide-react';
 import type { AppUser, Zone, AttendanceLog } from '../../services/types';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { supabase } from '../../lib/supabaseClient';
+import { exportEmployeeProfileCard, exportEmployeeDTR } from '../../lib/employeeExport';
 
 function formatTimeString(dateStr: string | null): string {
   if (!dateStr) return '—';
-  try {
-    const formatted = dateStr.includes(' ') && !dateStr.includes('T')
-      ? dateStr.replace(' ', 'T')
-      : dateStr;
-    const d = new Date(formatted);
-    if (isNaN(d.getTime())) return '—';
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  } catch {
-    return '—';
-  }
+  const d = new Date(dateStr.replace(' ', 'T'));
+  return isNaN(d.getTime()) ? '—' : d.toTimeString().slice(0, 5);
 }
 
 interface EmployeeDetailsProps {
@@ -207,121 +198,22 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
   const [selectedDayLog, setSelectedDayLog] = useState<AttendanceLog | null>(null);
 
   const handleExportPDF = () => {
-    try {
-      const doc = new jsPDF();
+    exportEmployeeProfileCard({
+      user,
+      zoneName,
+      formattedHireDate,
+      formattedLastLogin
+    });
+  };
 
-      // Title & Header branding
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(219, 108, 0); // MKB Orange
-      doc.text('MKB CORPORATION - EMPLOYEE PROFILE CARD', 14, 20);
-
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(107, 98, 88); // Charcoal Gray
-      doc.text(`Generated on ${new Date().toLocaleDateString()} | MKB Logistics Registry`, 14, 25);
-      
-      // Line separator
-      doc.setDrawColor(239, 234, 226);
-      doc.setLineWidth(0.5);
-      doc.line(14, 28, 196, 28);
-
-      // Section 1: Basic Information
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(26, 20, 16);
-      doc.text('1. Basic Profile & Employment', 14, 36);
-
-      const basicInfoRows = [
-        ['Full Name', user.name || '—'],
-        ['Role / Title', (user.role || '—').toUpperCase()],
-        ['Employee ID (MKB ID)', user.mkbRiderId || '—'],
-        ['Employment Type', user.employmentType || '—'],
-        ['Date Joined / Hire', formattedHireDate],
-        ['Assigned Operational Zone', zoneName],
-        ['Shift Assignment', user.shift || '—'],
-        ['Account Registry Status', user.status || '—']
-      ];
-
-      autoTable(doc, {
-        startY: 40,
-        head: [['Field / Property', 'Registered Value']],
-        body: basicInfoRows,
-        theme: 'striped',
-        headStyles: { fillColor: [219, 108, 0], textColor: 255 },
-        styles: { fontSize: 9, font: 'helvetica' },
-        margin: { left: 14, right: 14 }
-      });
-
-      const nextY1 = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
-
-      // Section 2: Contact & Address Details
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('2. Contact Info & Residential Address', 14, nextY1);
-
-      const contactAddressRows = [
-        ['Primary Email', user.email || '—'],
-        ['Phone Number', user.contact || '—'],
-        ['Last Active Time', formattedLastLogin],
-        ['Street Address', user.streetAddress || '—'],
-        ['Barangay', user.barangay || '—'],
-        ['City', user.city || '—'],
-        ['Province', user.province || '—'],
-        ['Zip Code', user.zipCode || '—']
-      ];
-
-      autoTable(doc, {
-        startY: nextY1 + 4,
-        head: [['Property', 'Details']],
-        body: contactAddressRows,
-        theme: 'striped',
-        headStyles: { fillColor: [219, 108, 0], textColor: 255 },
-        styles: { fontSize: 9, font: 'helvetica' },
-        margin: { left: 14, right: 14 }
-      });
-
-      const nextY2 = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
-
-      // Section 3: Vehicle Specs, Emergency Info, and Remarks
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.text('3. Operations, Emergency & Onboarding Notes', 14, nextY2);
-
-      const vehicleEmergencyRows = [
-        ['Vehicle Type / Class', isRider ? (user.vehicleType || '—') : 'Not applicable'],
-        ['Vehicle License Plate', isRider ? (user.vehiclePlateNumber || '—') : 'Not applicable'],
-        ['Emergency Contact Person', user.emergencyContactName || '—'],
-        ['Emergency Contact Phone', user.emergencyContactPhone || '—'],
-        ['Biometric Scan Enrolled', user.faceImage ? 'Yes (Enrolled)' : 'No (Pending)'],
-        ['Onboarding Notes / Remarks', user.notes || 'No remarks recorded']
-      ];
-
-      autoTable(doc, {
-        startY: nextY2 + 4,
-        head: [['Operation/HR Item', 'Status / Detail']],
-        body: vehicleEmergencyRows,
-        theme: 'striped',
-        headStyles: { fillColor: [219, 108, 0], textColor: 255 },
-        styles: { fontSize: 9, font: 'helvetica' },
-        margin: { left: 14, right: 14 }
-      });
-
-      const finalY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
-
-      // Verification Signature Block
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Employee Signature:', 14, finalY);
-      doc.line(14, finalY + 8, 80, finalY + 8);
-
-      doc.text('Authorized Administrator:', 120, finalY);
-      doc.line(120, finalY + 8, 186, finalY + 8);
-
-      doc.save(`MKB_Profile_Card_${(user.name || 'employee').replace(/\s+/g, '_')}.pdf`);
-    } catch (err) {
-      console.error('Failed to export profile PDF:', err);
-    }
+  const handleDownloadDTR = () => {
+    exportEmployeeDTR({
+      riderName: user.name,
+      riderRole: user.role || 'rider',
+      zoneName,
+      calendarDate,
+      logs
+    });
   };
 
   return (
@@ -348,6 +240,16 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
         </div>
 
         <div className="flex gap-2 shrink-0">
+          {isRider && (
+            <button
+              type="button"
+              onClick={handleDownloadDTR}
+              className="px-3.5 h-9 rounded-md border border-[#EFEAE2] bg-white text-[#1A1410] hover:bg-[#FAFAF7] text-sm font-semibold transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+            >
+              <FileText className="w-4 h-4 text-[#db6c00]" />
+              Export DTR
+            </button>
+          )}
           <button
             type="button"
             onClick={handleExportPDF}
