@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { BadgeCheck, Clock, UserMinus, PalmtreeIcon, Printer, X } from 'lucide-react';
+import { BadgeCheck, Clock, UserMinus, PalmtreeIcon, Printer, X, FileText, Upload, Download } from 'lucide-react';
 import { getAttendanceLogs, getLocalDateString } from '../services/attendanceService';
 import { getZones } from '../services/geofenceService';
 import type { AttendanceLog, Zone } from '../services/types';
@@ -7,6 +7,9 @@ import { StatCard } from '../components/common/StatCard';
 import { AttendanceTable } from '../components/attendance/AttendanceTable';
 import { supabase } from '../lib/supabaseClient';
 import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetailsPanels';
+import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/dtrParserService';
+import { toast } from 'react-hot-toast';
+import { exportEmployeeDTR } from '../lib/employeeExport';
 
 export function Attendance() {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
@@ -26,6 +29,14 @@ export function Attendance() {
   const [dtrDateFrom, setDtrDateFrom] = useState<string>(sevenDaysAgo);
   const [dtrDateTo, setDtrDateTo] = useState<string>(today);
   const [ridersList, setRidersList] = useState<{ id: string; name: string; mkb_id?: string }[]>([]);
+
+  // DTR Import states
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [parsingStatus, setParsingStatus] = useState<string>('');
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsedLogs, setParsedLogs] = useState<ParsedDTRLog[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     getAttendanceLogs().then(setAttendanceList);
@@ -58,6 +69,65 @@ export function Attendance() {
       statusFilter === 'all' || l.status === statusFilter)
     );
   }, [attendanceList, dateFrom, dateTo, zoneFilter, statusFilter]);
+
+  const handleDownloadDTR = (riderId: string) => {
+    const selectedDtrRider = ridersList.find(r => r.id === riderId);
+    if (!selectedDtrRider) return;
+
+    const riderZone = zonesList[0]?.name || 'Talon-Talon';
+    const start = new Date(dtrDateFrom);
+    const riderLogs = attendanceList.filter(l => l.riderId === riderId);
+
+    exportEmployeeDTR({
+      riderName: selectedDtrRider.name,
+      riderRole: 'RIDER',
+      zoneName: riderZone,
+      calendarDate: start,
+      logs: riderLogs
+    });
+  };
+
+  const handleProcessImport = async () => {
+    if (!importFile) return;
+    setIsParsing(true);
+    setParsingStatus('Loading document...');
+    try {
+      const logs = await parseDTRPdf(importFile, ridersList, setParsingStatus);
+      setParsedLogs(logs);
+      if (logs.length === 0) {
+        toast.error('No attendance records parsed from PDF. Please check file format.');
+      } else {
+        toast.success(`Successfully parsed ${logs.length} attendance records!`);
+      }
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(err);
+      toast.error(`Import failed: ${errorMsg}`);
+    } finally {
+      setIsParsing(false);
+      setParsingStatus('');
+    }
+  };
+
+  const handleSaveImported = async () => {
+    setIsSaving(true);
+    try {
+      const { count, error } = await saveImportedLogs(parsedLogs);
+      if (error) throw error;
+      toast.success(`Successfully saved ${count} records to database!`);
+      setImportModalOpen(false);
+      setImportFile(null);
+      setParsedLogs([]);
+      getAttendanceLogs().then(setAttendanceList);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(err);
+      toast.error(`Save failed: ${errorMsg}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
       {/* KPIs */}
@@ -171,6 +241,13 @@ export function Attendance() {
           <div className="text-xs text-[#6B6258] font-mono mr-2">
             {filtered.length} records
           </div>
+          <button
+            onClick={() => setImportModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 h-[34px] rounded-lg border border-[#EFEAE2] bg-white text-[#1A1410] hover:bg-[#FAFAF7] text-xs font-bold uppercase tracking-wider shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0 duration-150 cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#db6c00]" />
+            <span>Import DTR PDF</span>
+          </button>
           <button
             onClick={() => setDtrModalOpen(true)}
             className="inline-flex items-center gap-2 px-4 h-[34px] rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-bold uppercase tracking-wider shadow-[0_4px_12px_rgba(219,108,0,0.18)] hover:shadow-[0_6px_16px_rgba(219,108,0,0.3)] transition-all hover:-translate-y-0.5 active:translate-y-0 duration-150 cursor-pointer">
@@ -404,11 +481,11 @@ export function Attendance() {
                   Close
                 </button>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => handleDownloadDTR(dtrRiderId)}
                   disabled={!dtrRiderId}
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-[#db6c00] hover:bg-[#c45f00] disabled:opacity-50 rounded-lg shadow-sm transition-colors">
-                  <Printer className="w-4 h-4" />
-                  <span>Print DTR</span>
+                  <Download className="w-4 h-4" />
+                  <span>Download DTR (PDF)</span>
                 </button>
               </div>
 
@@ -416,16 +493,154 @@ export function Attendance() {
           </div>
         );
       })()}
+
+      {/* DTR Import Modal */}
+      {importModalOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#1A1410]/40 backdrop-blur-sm" onClick={() => { if (!isParsing && !isSaving) setImportModalOpen(false); }} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-[#EFEAE2] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden z-10 animate-in fade-in duration-200">
+            <div className="p-4 border-b border-[#EFEAE2] bg-[#FAFAF7] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Upload className="w-4 h-4 text-[#db6c00]" />
+                <span className="text-sm font-bold text-[#1A1410]">Import DTR PDF</span>
+              </div>
+              <button
+                disabled={isParsing || isSaving}
+                onClick={() => setImportModalOpen(false)}
+                className="p-1 rounded-md text-[#6B6258] hover:text-[#1A1410] hover:bg-gray-100 transition disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="border-2 border-dashed border-[#EFEAE2] rounded-xl p-6 flex flex-col items-center justify-center bg-[#FAFAF7] hover:bg-[#FAFAF7]/50 transition">
+                <FileText className="w-8 h-8 text-[#db6c00]/60 mb-2" />
+                <p className="text-xs font-semibold text-[#1A1410] mb-1">Upload Rider DTR PDF</p>
+                <p className="text-[10px] text-[#6B6258] mb-3">Accepts official double-column DTR PDF sheets</p>
+                
+                <input
+                  type="file"
+                  accept=".pdf"
+                  disabled={isParsing || isSaving}
+                  onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                  id="dtr-pdf-upload"
+                />
+                <label
+                  htmlFor="dtr-pdf-upload"
+                  className="px-4 py-1.5 rounded-lg border border-[#EFEAE2] bg-white text-[#1A1410] hover:bg-gray-50 text-xs font-semibold shadow-sm cursor-pointer transition disabled:opacity-50"
+                >
+                  Choose File
+                </label>
+                {importFile && (
+                  <p className="text-xs text-[#db6c00] font-mono mt-3 font-semibold">
+                    Selected: {importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
+              </div>
+
+              {importFile && parsedLogs.length === 0 && (
+                <button
+                  onClick={handleProcessImport}
+                  disabled={isParsing}
+                  className="w-full h-9 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-bold uppercase tracking-wider transition disabled:opacity-50"
+                >
+                  {isParsing ? 'Processing...' : 'Parse DTR PDF'}
+                </button>
+              )}
+
+              {isParsing && (
+                <div className="flex flex-col items-center justify-center py-6 space-y-3">
+                  <div className="w-6 h-6 border-2 border-[#db6c00] border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs text-[#6B6258] font-medium">{parsingStatus}</p>
+                </div>
+              )}
+
+              {parsedLogs.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#EFEAE2] pb-2">
+                    <span className="text-xs font-bold text-[#1A1410]">Extracted DTR Logs Preview</span>
+                    <span className="text-[10px] text-[#6B6258] font-mono bg-gray-100 px-2 py-0.5 rounded">
+                      {parsedLogs.length} logs found
+                    </span>
+                  </div>
+                  
+                  <div className="border border-[#EFEAE2] rounded-lg overflow-hidden max-h-60 overflow-y-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-[#FAFAF7] text-[10px] text-[#6B6258] uppercase font-bold tracking-wider sticky top-0 border-b border-[#EFEAE2]">
+                        <tr>
+                          <th className="p-2 border-r border-[#EFEAE2]">Rider</th>
+                          <th className="p-2 border-r border-[#EFEAE2]">Date</th>
+                          <th className="p-2 border-r border-[#EFEAE2] text-center">In</th>
+                          <th className="p-2 border-r border-[#EFEAE2] text-center">Out</th>
+                          <th className="p-2 border-r border-[#EFEAE2] text-center">Hours</th>
+                          <th className="p-2 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#EFEAE2] text-[11px] font-mono">
+                        {parsedLogs.map((log, idx) => (
+                          <tr key={idx} className="hover:bg-[#FAFAF7]">
+                            <td className="p-2 border-r border-[#EFEAE2] font-sans font-semibold text-[#1A1410]">
+                              {log.riderName}
+                            </td>
+                            <td className="p-2 border-r border-[#EFEAE2]">
+                              {log.date}
+                            </td>
+                            <td className="p-2 border-r border-[#EFEAE2] text-center text-emerald-600">
+                              {log.timeIn || '—'}
+                            </td>
+                            <td className="p-2 border-r border-[#EFEAE2] text-center text-amber-600">
+                              {log.timeOut || '—'}
+                            </td>
+                            <td className="p-2 border-r border-[#EFEAE2] text-center font-bold">
+                              {log.hours.toFixed(2)}h
+                            </td>
+                            <td className="p-2 text-center font-sans font-bold">
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase ${
+                                log.status === 'present' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                              }`}>
+                                {log.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-[#EFEAE2] bg-[#FAFAF7] flex justify-end gap-3">
+              <button
+                disabled={isParsing || isSaving}
+                onClick={() => {
+                  setImportModalOpen(false);
+                  setImportFile(null);
+                  setParsedLogs([]);
+                }}
+                className="px-4 py-2 text-xs font-semibold text-[#6B6258] hover:text-[#1A1410] hover:bg-[#F5F0E8] rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              {parsedLogs.length > 0 && (
+                <button
+                  disabled={isSaving}
+                  onClick={handleSaveImported}
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#db6c00] hover:bg-[#c45f00] rounded-lg shadow-sm transition-colors"
+                >
+                  {isSaving ? 'Saving...' : 'Confirm Import & Save'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>);
 
 }
-function FilterField({
-  label,
-  children
-
-
-
-}: {label: string;children: React.ReactNode;}) {
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1 font-mono">
