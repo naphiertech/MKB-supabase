@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import type { AppUser, Zone, AttendanceLog } from '../../services/types';
 import { supabase } from '../../lib/supabaseClient';
-import { exportEmployeeProfileCard, exportEmployeeDTR } from '../../lib/employeeExport';
+import { exportEmployeeProfileCard, exportEmployeeDTR } from '../../lib/exports/employeeExport';
 
 function formatTimeString(dateStr: string | null): string {
   if (!dateStr) return '—';
