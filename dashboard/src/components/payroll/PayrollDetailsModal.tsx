@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   X,
@@ -29,7 +29,7 @@ import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from "../../lib/av
 import {
   exportParcelPayslipPDF,
   exportParcelCSV,
-} from "../../lib/payrollExport";
+} from "../../lib/exports/payrollExport";
 import { pushToast } from "../../hooks/useToast";
 
 interface PayrollDetailsModalProps {
@@ -179,6 +179,27 @@ export function PayrollDetailsModal({
     };
   }, [record, isOpen]);
 
+  // Group parcels by rate
+  const rateBreakdown = useMemo(() => {
+    if (!isOpen || !record) return [];
+    const groups: Record<number, { parcels: number; gross: number }> = {};
+    dayEntries.forEach((e) => {
+      if (e.parcels > 0) {
+        const r = e.rate || (record.rate_per_parcel ?? 10);
+        if (!groups[r]) {
+          groups[r] = { parcels: 0, gross: 0 };
+        }
+        groups[r].parcels += e.parcels;
+        groups[r].gross += e.dailyGross;
+      }
+    });
+    return Object.entries(groups).map(([rateKey, val]) => ({
+      rate: Number(rateKey),
+      parcels: val.parcels,
+      gross: val.gross,
+    })).sort((a, b) => b.rate - a.rate);
+  }, [dayEntries, record, isOpen]);
+
   if (!isOpen || !record) return null;
 
   const riderName = record.riders?.name || "Unknown Rider";
@@ -323,7 +344,7 @@ export function PayrollDetailsModal({
 
   return (
     <div
-      className={`fixed inset-0 z-[1200] overflow-y-auto flex items-center justify-center md:justify-end p-4 md:p-8 ${role !== "rider" ? "md:left-64" : ""}`}
+      className={`fixed inset-0 z-[1200] flex items-center justify-center md:justify-end p-4 md:p-6 lg:p-8 ${role !== "rider" ? "md:left-64" : ""}`}
     >
       {/* Backdrop */}
       <motion.div
@@ -340,7 +361,7 @@ export function PayrollDetailsModal({
         animate={{ opacity: 1, x: 0, scale: 1 }}
         exit={{ opacity: 0, x: 120, scale: 0.98 }}
         transition={{ type: "spring", damping: 28, stiffness: 220 }}
-        className="relative bg-white border border-[#EFEAE2] shadow-2xl rounded-2xl w-full max-w-6xl xl:max-w-7xl overflow-hidden z-10 font-[Geist,sans-serif] flex flex-col max-h-[90vh]"
+        className="relative bg-white border border-[#EFEAE2] shadow-2xl rounded-2xl w-full max-w-[95vw] lg:max-w-[92vw] xl:max-w-[85vw] 2xl:max-w-[80vw] overflow-hidden z-10 font-[Geist,sans-serif] flex flex-col h-[92vh] max-h-[92vh]"
       >
         {/* Modal Header */}
         <div className="px-5 py-3.5 border-b border-[#EFEAE2] flex items-center justify-between shrink-0 bg-[#FAFAF7]">
@@ -394,7 +415,7 @@ export function PayrollDetailsModal({
         </div>
 
         {/* Modal Content - Scrollable grid */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12">
+        <div className="flex-1 overflow-y-auto lg:overflow-hidden grid grid-cols-1 lg:grid-cols-12">
           {/* LEFT SIDE: Employee Details and Daily Logs (Col 1-8) */}
           <div className="lg:col-span-8 p-5 space-y-5 border-r border-[#EFEAE2] overflow-y-auto">
             {/* Rider profile card */}
@@ -762,13 +783,24 @@ export function PayrollDetailsModal({
                     <span className="font-mono tabular-nums text-[#1A1410]">
                       {phpFmt(grossPay)}
                     </span>
-                  </div>
-                  <div className="pl-3 text-[11px] text-[#6B6258]/80 flex justify-between font-mono">
-                    <span>
-                      ({record.total_parcels} parcels @ {phpFmt(ratePerParcel)}
-                      /pc)
-                    </span>
-                  </div>
+                  </div>                  {rateBreakdown.length === 0 ? (
+                    <div className="pl-3 text-[11px] text-[#6B6258]/80 flex justify-between font-mono">
+                      <span>
+                        ({record.total_parcels} parcels @ {phpFmt(ratePerParcel)}/pc)
+                      </span>
+                    </div>
+                  ) : (
+                    rateBreakdown.map((b) => (
+                      <div key={b.rate} className="pl-3 text-[11px] text-[#6B6258]/80 flex justify-between font-mono">
+                        <span>
+                          ({b.parcels} parcels @ {phpFmt(b.rate)}/pc)
+                        </span>
+                        <span className="tabular-nums">
+                          {phpFmt(b.gross)}
+                        </span>
+                      </div>
+                    ))
+                  )}
                   <div className="flex justify-between pt-1 border-t border-[#EFEAE2] font-semibold text-xs text-[#1A1410]">
                     <span>Total Earnings</span>
                     <span className="font-mono tabular-nums">
