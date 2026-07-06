@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetailsPanels';
 import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/dtrParserService';
 import { toast } from 'react-hot-toast';
-import { exportEmployeeDTR } from '../lib/employeeExport';
+import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 
 export function Attendance() {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
