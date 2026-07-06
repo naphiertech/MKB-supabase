@@ -24,9 +24,9 @@ import {
   exportParcelPayslipPDF,
   exportParcelCSV,
   exportCutoffSummaryCSV,
-} from '../lib/payrollExport';
+} from '../lib/exports/payrollExport';
 import { pushToast } from '../hooks/useToast';
-import * as XLSX from 'xlsx';
+import { exportXLSXFile } from '../lib/exports/excelHelper';
 import autoTable from 'jspdf-autotable';
 
 type PayrollTemplate = 'cutoff_summary' | 'individual_payslips' | 'parcel_logs';
@@ -97,27 +97,6 @@ function csvEscape(cell: string | number | null | undefined): string {
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
-
-function exportXLSXFile(
-  title: string,
-  columns: string[],
-  rows: (string | number)[][],
-  filename: string
-) {
-  const aoa = [columns, ...rows];
-  const sheet = XLSX.utils.aoa_to_sheet(aoa);
-  sheet['!cols'] = columns.map((col, i) => {
-    const maxLen = Math.max(
-      col.length,
-      ...rows.map(r => String(r[i] ?? '').length)
-    );
-    return { wch: Math.min(40, Math.max(10, maxLen + 2)) };
-  });
-  const book = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(book, sheet, title.slice(0, 31));
-  XLSX.writeFile(book, `${filename}.xlsx`);
-}
-
 export function PayrollReports() {
   const [ridersList, setRidersList] = useState<Rider[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
@@ -325,27 +304,40 @@ export function PayrollReports() {
           const computedGross = r.gross_pay ? parseFloat(r.gross_pay) : (r.total_parcels * activeRate);
           return {
             riderName: r.riders?.name || 'Unknown Rider',
+            riderId: r.riders?.mkb_id || '—',
             zone: zName,
             totalParcels: r.total_parcels,
             ratePerParcel: activeRate,
+            flagged: r.status === 'flagged' ? 'YES' : 'NO',
             grossPay: computedGross
           };
         });
 
         if (format === 'csv') {
-          exportCutoffSummaryCSV(rows, cutoffLabel);
+          exportCutoffSummaryCSV(
+            rows.map(r => ({
+              riderName: r.riderName,
+              zone: r.zone,
+              totalParcels: r.totalParcels,
+              ratePerParcel: r.ratePerParcel,
+              grossPay: r.grossPay
+            })),
+            cutoffLabel
+          );
         } else if (format === 'xlsx') {
-          exportXLSXFile(
+          await exportXLSXFile(
             'Cutoff Summary',
-            ['Rider', 'Zone', 'Total Parcels', 'Rate per Parcel', 'Gross Pay'],
+            ['Rider', 'Rider ID', 'Zone', 'Total Parcels', 'Flagged', 'Total Gross Pay'],
             rows.map(r => [
               r.riderName,
+              r.riderId,
               r.zone,
               r.totalParcels,
-              r.ratePerParcel,
+              r.flagged,
               r.grossPay
             ]),
-            `attenrider_cutoff_summary_${from}_${to}`
+            `attenrider_cutoff_summary_${from}_${to}`,
+            '/files/MKB_Cutoff_Summary_Payroll_Template.xlsx'
           );
         } else {
           // pdf: Use jsPDF with autoTable to list finalized cutoff totals
@@ -361,8 +353,6 @@ export function PayrollReports() {
             doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
             doc.text(`Period: ${from} to ${to}`, 105, 27, { align: 'center' });
-
-            XLSX.utils; // check compiler
 
             autoTable(doc, {
               startY: 35,
@@ -528,11 +518,12 @@ export function PayrollReports() {
         ]);
 
         if (format === 'xlsx') {
-          exportXLSXFile(
+          await exportXLSXFile(
             'Parcel Log',
             cols,
             rows,
-            `attenrider_parcel_log_${from}_${to}`
+            `attenrider_parcel_log_${from}_${to}`,
+            '/files/MKB_Raw_Parcel_Delivery_Logs.xlsx'
           );
         } else {
           // PDF / CSV exports raw logs as CSV
