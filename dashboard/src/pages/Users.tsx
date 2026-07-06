@@ -9,7 +9,6 @@ import {
   Wallet,
   Download
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { createClient } from '@supabase/supabase-js';
 import { type AppUser, type UserRole, type UserStatus, type Zone } from '../services/types';
 import { supabase } from '../lib/supabaseClient';
@@ -19,6 +18,7 @@ import { UserForm } from '../components/users/UserForm';
 import { EmployeeDetails } from '../components/users/EmployeeDetails';
 import { useAuth } from '../hooks/useAuth';
 import { clearCachedAvatar } from '../lib/avatarCache';
+import { exportXLSXFile } from '../lib/exports/excelHelper';
 
 
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
@@ -171,63 +171,29 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
     [q, roleFilter, statusFilter, userList, onlineUserIds]
   );
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     try {
-      const headers = [
-        'Name',
-        'Email',
-        'Role',
-        'Employee ID',
-        'Date Joined',
-        'Contact Number',
-        'Employment Type',
-        'Vehicle Type',
-        'Vehicle Plate Number',
-        'Street Address',
-        'Barangay',
-        'City',
-        'Province',
-        'Zip Code',
-        'Emergency Contact Name',
-        'Emergency Contact Phone',
-        'Account Status'
-      ];
+      const headers = ['Name', 'Email', 'Role', 'Status', 'Contact', 'Zone'];
       
-      const rows = filtered.map(u => [
-        u.name || '',
-        u.email || '',
-        u.role || '',
-        u.mkbRiderId || '',
-        u.dateOfHire || '',
-        u.contact || '',
-        u.employmentType || '',
-        u.vehicleType || '',
-        u.vehiclePlateNumber || '',
-        u.streetAddress || '',
-        u.barangay || '',
-        u.city || '',
-        u.province || '',
-        u.zipCode || '',
-        u.emergencyContactName || '',
-        u.emergencyContactPhone || '',
-        u.status || ''
-      ]);
-
-      const aoa = [headers, ...rows];
-      const sheet = XLSX.utils.aoa_to_sheet(aoa);
-      
-      // Auto-fit column widths
-      sheet['!cols'] = headers.map((col, i) => {
-        const maxLen = Math.max(
-          col.length,
-          ...rows.map(r => String(r[i] ?? '').length)
-        );
-        return { wch: Math.min(45, Math.max(10, maxLen + 2)) };
+      const rows = filtered.map(u => {
+        const zoneName = zonesList.find(z => z.id === u.zoneId)?.name || '—';
+        return [
+          u.name || '',
+          u.email || '',
+          u.role || '',
+          u.status || '',
+          u.contact || '',
+          zoneName
+        ];
       });
 
-      const book = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(book, sheet, 'Employee Registry');
-      XLSX.writeFile(book, `MKB_Employee_Registry_${new Date().toISOString().split('T')[0]}.xlsx`);
+      await exportXLSXFile(
+        'Employee Registry',
+        headers,
+        rows,
+        `MKB_Employee_Registry_${new Date().toISOString().split('T')[0]}`,
+        '/files/MKB_Employee_Registry_Template.xlsx'
+      );
     } catch (err) {
       console.error('Failed to export registry:', err);
     }
