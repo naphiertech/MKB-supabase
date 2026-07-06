@@ -7,7 +7,7 @@ import {
   upsertParcelLog,
   savePayrollRecord,
 } from '../services/parcelService';
-import { exportParcelPayslipPDF, exportParcelCSV } from '../lib/payrollExport';
+import { exportParcelPayslipPDF, exportParcelCSV } from '../lib/exports/payrollExport';
 import { pushToast } from '../hooks/useToast';
 import {
   FileDown,
