@@ -57,6 +57,8 @@ export interface ViolationEvent {
   read: boolean;
   lat?: number;
   lng?: number;
+  resolved?: boolean;
+  resolvedAt?: number;
 }
 
 export interface AppUser {

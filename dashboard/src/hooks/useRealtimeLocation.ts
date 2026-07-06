@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { logViolation, updateRiderStatus } from '../services/monitoringService';
+import { updateRiderStatus } from '../services/monitoringService';
 import { haversine } from '../lib/geofenceUtils';
 import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
@@ -58,6 +58,8 @@ interface ViolationRow {
   lat: number | null;
   lng: number | null;
   riders: { name: string } | null;
+  resolved: boolean;
+  resolved_at: string | null;
 }
 
 interface LocationRow {
@@ -187,7 +189,9 @@ export function useRealtimeLocation(): {
             type: row.type as ViolationEvent['type'],
             read: row.read,
             lat: row.lat ?? undefined,
-            lng: row.lng ?? undefined
+            lng: row.lng ?? undefined,
+            resolved: row.resolved,
+            resolvedAt: row.resolved_at ? new Date(row.resolved_at).getTime() : undefined
           };
         });
 
@@ -231,49 +235,16 @@ export function useRealtimeLocation(): {
           if (outside && r.status !== 'violation') {
             newStatus = 'violation';
             
-            // 1. Log violation row into Supabase violations table
-            logViolation({
-              riderId: r.id,
-              zoneId: zone.id,
-              zoneName: zone.name,
-              lat: newLocation.lat,
-              lng: newLocation.lng,
-              type: 'boundary_exit'
-            }).catch(err => console.error('Failed to log geofence violation:', err));
-
-            // 2. Persist the violation status on public.riders table
+            // Persist the violation status on public.riders table.
+            // The DB trigger handles inserting a row to violations table automatically.
             updateRiderStatus(r.id, 'violation', newLocation.lat, newLocation.lng)
               .catch(err => console.error('Failed to update rider status to violation:', err));
-
-            // 3. Construct live alert event
-            const evt: ViolationEvent = {
-              id: `v-live-${Date.now()}-${r.id}`,
-              riderId: r.id,
-              riderName: r.name,
-              zoneName: zone.name,
-              ts: Date.now(),
-              type: 'boundary_exit',
-              read: false,
-              lat: newLocation.lat,
-              lng: newLocation.lng
-            };
-
-            // 4. Notify all operational observers (audio alert / header indicators)
-            listeners.forEach((l) => l(evt));
-
-            // 5. Prepend immediately to the active violations list
-            setViolationState((prevVs) => {
-              // Throttles coordinate noise updates within 5s
-              if (prevVs.some(v => v.riderId === r.id && v.type === 'boundary_exit' && Date.now() - v.ts < 5000)) {
-                return prevVs;
-              }
-              return [evt, ...prevVs].slice(0, 50);
-            });
 
           } else if (!outside && r.status === 'violation') {
             newStatus = 'active';
 
-            // Reset back to active status in database
+            // Reset back to active status in database.
+            // The DB trigger handles setting resolved = true automatically.
             updateRiderStatus(r.id, 'active', newLocation.lat, newLocation.lng)
               .catch(err => console.error('Failed to resolve geofence boundary:', err));
           }
@@ -307,8 +278,13 @@ export function useRealtimeLocation(): {
           type: newViolation.type as ViolationEvent['type'],
           read: newViolation.read,
           lat: newViolation.lat ?? undefined,
-          lng: newViolation.lng ?? undefined
+          lng: newViolation.lng ?? undefined,
+          resolved: newViolation.resolved,
+          resolvedAt: newViolation.resolved_at ? new Date(newViolation.resolved_at).getTime() : undefined
         };
+
+        // Notify observers in real-time
+        listeners.forEach((l) => l(evt));
 
         setViolationState((prevVs) => {
           if (prevVs.some((v) => v.id === evt.id)) return prevVs;
@@ -316,6 +292,22 @@ export function useRealtimeLocation(): {
         });
 
         return currentRiders;
+      });
+    };
+
+    // Event Handler: Update live violations resolved on backend
+    const handleViolationUpdate = (updatedViolation: ViolationRow) => {
+      setViolationState((prevVs) => {
+        return prevVs.map((v) => {
+          if (v.id === updatedViolation.id) {
+            return {
+              ...v,
+              resolved: updatedViolation.resolved,
+              resolvedAt: updatedViolation.resolved_at ? new Date(updatedViolation.resolved_at).getTime() : undefined
+            };
+          }
+          return v;
+        });
       });
     };
 
@@ -335,6 +327,13 @@ export function useRealtimeLocation(): {
         { event: 'INSERT', schema: 'public', table: 'violations' },
         (payload) => {
           handleViolationInsert(payload.new as unknown as ViolationRow);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'violations' },
+        (payload) => {
+          handleViolationUpdate(payload.new as unknown as ViolationRow);
         }
       )
       .subscribe();

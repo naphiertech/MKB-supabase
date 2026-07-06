@@ -137,9 +137,7 @@ export function HRViolationSummary({
             </button>
           );
         })}
-      </div>
-
-      <div className="p-2 space-y-1.5 overflow-y-auto ar-scroll flex-1">
+      </div>      <div className="p-2 space-y-1.5 overflow-y-auto ar-scroll flex-1">
         {recent.length === 0 &&
         <div className="text-center text-sm text-[#6B6258] py-10">
             No violations today. All clear.
@@ -152,11 +150,26 @@ export function HRViolationSummary({
         }).map((v) => {
           const rider = ridersById.get(v.riderId);
           const isFlagged = flagged.has(v.id);
+
+          // Calculate active or resolved duration
+          const end = v.resolved && v.resolvedAt ? v.resolvedAt : now;
+          const diffMs = end - v.ts;
+          const diffMins = Math.round(diffMs / 60000);
+          const durationText = v.resolved
+            ? `Outside for ${diffMins} min${diffMins !== 1 ? 's' : ''} (Resolved)`
+            : `Outside for ${diffMins} min${diffMins !== 1 ? 's' : ''} (Active)`;
+
           return (
             <div
               key={v.id}
-              className={`flex items-start gap-3 p-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] ${isFlagged ? 'border-l-2 border-l-[#db6c00]' : ''}`}>
-              
+              className={`flex items-start gap-3 p-3 rounded-lg border border-[#EFEAE2] transition ${
+                v.resolved 
+                  ? 'border-l-2 border-l-emerald-500 bg-emerald-50/10 opacity-80' 
+                  : isFlagged 
+                    ? 'border-l-2 border-l-[#db6c00] bg-[#FAFAF7]' 
+                    : 'border-l-2 border-l-red-500 bg-red-50/5'
+              }`}
+            >
               <img
                 src={rider?.avatar ?? ''}
                 alt=""
@@ -173,12 +186,20 @@ export function HRViolationSummary({
                     </span>
                   }
                 </div>
-                <div className="text-[11px] text-[#6B6258] mt-0.5">
+                <div className="text-[11px] text-[#6B6258] mt-0.5 flex flex-wrap items-center">
                   <span className="text-[#1A1410] font-medium">
                     {TYPE_LABEL[v.type]}
                   </span>
                   <span className="text-[#6B6258]/60 mx-1.5">·</span>
                   <span>{v.zoneName}</span>
+                  {v.type === 'boundary_exit' && (
+                    <>
+                      <span className="text-[#6B6258]/60 mx-1.5">·</span>
+                      <span className={v.resolved ? "text-emerald-600 font-semibold" : "text-red-500 font-bold"}>
+                        {durationText}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[#6B6258] font-mono">
                   <span>{relativeTime(v.ts, now)}</span>
@@ -191,16 +212,18 @@ export function HRViolationSummary({
               </div>
               <button
                 onClick={() => handleFlag(v)}
-                disabled={isFlagged}
-                className={`inline-flex items-center gap-1 self-center px-2.5 h-7 rounded-md text-xs font-semibold border transition shrink-0 ${isFlagged ? 'bg-[#FFF1E0]/50 text-[#b85a00]/70 border-[#db6c00]/20 cursor-not-allowed' : 'bg-[#db6c00] hover:bg-[#b85a00] text-white border-[#db6c00]'}`}>
-                
+                disabled={isFlagged || v.resolved}
+                className={`inline-flex items-center gap-1 self-center px-2.5 h-7 rounded-md text-xs font-semibold border transition shrink-0 ${
+                  isFlagged || v.resolved
+                    ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : 'bg-[#db6c00] hover:bg-[#b85a00] text-white border-[#db6c00]'
+                }`}
+              >
                 <Flag className="w-3 h-3" />
-                {isFlagged ? 'Flagged' : 'Flag for Admin'}
+                {isFlagged ? 'Flagged' : v.resolved ? 'Resolved' : 'Flag for Admin'}
               </button>
             </div>);
-
         })}
       </div>
     </div>);
-
 }

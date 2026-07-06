@@ -35,6 +35,8 @@ interface DbViolationRow {
   lat: number | null;
   lng: number | null;
   riders: { name: string } | null;
+  resolved: boolean;
+  resolved_at: string | null;
 }
 
 interface DbZoneRow {
@@ -75,7 +77,9 @@ const mapViolation = (row: DbViolationRow): ViolationEvent => {
     type: row.type as 'boundary_exit' | 'boundary_enter' | 'idle_excess',
     read: row.read,
     lat: row.lat ?? undefined,
-    lng: row.lng ?? undefined
+    lng: row.lng ?? undefined,
+    resolved: row.resolved,
+    resolvedAt: row.resolved_at ? new Date(row.resolved_at).getTime() : undefined
   };
 };
 
