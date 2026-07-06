@@ -13,7 +13,7 @@ import {
 import type { AttendanceLog } from '../../services/types';
 import { StatusPill } from './StatusPill';
 import { exportLogsCsv } from '../../services/attendanceService';
-import { exportPDF } from '../../lib/reportExport';
+import { exportPDF } from '../../lib/exports/reportExport';
 
 interface AttendanceTableProps {
   logs: AttendanceLog[];
