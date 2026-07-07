@@ -29,7 +29,8 @@ export type PageKey =
   | 'computation'
   | 'reviews'
   | 'payroll'
-  | 'settings';
+  | 'settings'
+  | 'audit_logs';
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 interface SidebarUser {
   name: string;
@@ -90,7 +91,8 @@ const ADMIN_ITEMS: SidebarItem[] = [
     items: [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
       { key: 'users', label: 'Users Registry', icon: UsersIcon },
-      { key: 'reviews', label: 'Courier Reviews', icon: Star }
+      { key: 'reviews', label: 'Courier Reviews', icon: Star },
+      { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]
   },
   {
@@ -126,7 +128,8 @@ const HR_ITEMS: SidebarItem[] = [
     items: [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
       { key: 'users', label: 'Employee Management', icon: UsersIcon },
-      { key: 'reviews', label: 'Courier Reviews', icon: Star }
+      { key: 'reviews', label: 'Courier Reviews', icon: Star },
+      { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]
   },
   {
@@ -256,7 +259,7 @@ export function Sidebar({
         [activeSection.title]: true
       }));
     }
-  }, [current, role]);
+  }, [current, items]);
 
   // Lock body scroll while mobile drawer is open + ESC to close
   useEffect(() => {

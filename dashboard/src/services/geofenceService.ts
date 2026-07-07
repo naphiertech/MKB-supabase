@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { logActivity } from '../lib/apiService';
 import {
   type Zone,
   type ZoneStatus,
@@ -203,6 +204,12 @@ export async function createZone(input: ZoneInput): Promise<Zone> {
 
   const newZone = mapZone(data);
 
+  logActivity({
+    eventType: 'zone_created',
+    description: `Created new zone: "${newZone.name}" (${newZone.zone_type}) with radius ${newZone.radius}m.`,
+    metadata: { zone_id: newZone.id, name: newZone.name, radius: newZone.radius, zone_type: newZone.zone_type }
+  }).catch(err => console.warn('Failed to log zone creation:', err));
+
   if (input.riderIds && input.riderIds.length > 0) {
     await assignRidersToZone(newZone.id, input.riderIds);
   }
@@ -233,6 +240,12 @@ export async function updateZone(id: string, patch: Partial<ZoneInput>): Promise
   }
 
   const updated = mapZone(data);
+
+  logActivity({
+    eventType: 'zone_updated',
+    description: `Updated zone "${updated.name}" settings.`,
+    metadata: { zone_id: id, patch }
+  }).catch(err => console.warn('Failed to log zone update:', err));
 
   // Handle rider list re-allocations
   if (patch.riderIds !== undefined) {
@@ -289,6 +302,12 @@ export async function deleteZone(id: string): Promise<{
     console.error('Error deleting zone from database:', error);
     return { zone: null, unassignedRiderIds: [] };
   }
+
+  logActivity({
+    eventType: 'zone_deleted',
+    description: `Deleted zone "${zoneToDelete.name}". Unassigned ${unassignedRiderIds.length} riders.`,
+    metadata: { zone_id: id, name: zoneToDelete.name, unassigned_riders_count: unassignedRiderIds.length }
+  }).catch(err => console.warn('Failed to log zone deletion:', err));
 
   return { zone: zoneToDelete, unassignedRiderIds };
 }

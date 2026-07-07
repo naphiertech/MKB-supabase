@@ -12,6 +12,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import { type AppUser, type UserRole, type UserStatus, type Zone } from '../services/types';
 import { supabase } from '../lib/supabaseClient';
+import { logActivity } from '../lib/apiService';
 import { getZones } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
 import { UserForm } from '../components/users/UserForm';
@@ -234,6 +235,12 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                   .eq('id', savedUser.id);
                 if (userErr) throw userErr;
 
+                logActivity({
+                  eventType: 'user_updated',
+                  description: `Updated user profile for "${savedUser.name}" (${savedUser.role}).`,
+                  metadata: { user_id: savedUser.id, name: savedUser.name, role: savedUser.role, status: savedUser.status }
+                }).catch(err => console.warn('Failed to log user update:', err));
+
                 // If the user's role is rider, also synchronize the riders table details
                 if (savedUser.role === 'rider') {
                   const { data: userProfile } = await supabase
@@ -355,6 +362,12 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                     });
 
                   if (profileErr) throw profileErr;
+
+                  logActivity({
+                    eventType: 'user_created',
+                    description: `Registered new user profile: "${savedUser.name}" with role: ${savedUser.role}.`,
+                    metadata: { user_id: authUser.id, name: savedUser.name, role: savedUser.role }
+                  }).catch(err => console.warn('Failed to log user creation:', err));
 
                 } catch (transactionErr) {
                   // Transaction rollback: clean up the newly created rider record if anything fails

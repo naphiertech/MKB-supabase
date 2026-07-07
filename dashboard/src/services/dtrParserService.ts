@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { logActivity } from '../lib/apiService';
 
 export interface ParsedDTRLog {
   riderId: string;
@@ -329,6 +330,14 @@ export async function saveImportedLogs(logs: ParsedDTRLog[]): Promise<{ count: n
   const { error } = await supabase
     .from('attendance_logs')
     .upsert(dbPayloads, { onConflict: 'rider_id,date' });
+
+  if (!error) {
+    logActivity({
+      eventType: 'dtr_import',
+      description: `Manually imported and upserted ${dbPayloads.length} rider attendance records via DTR PDF parser.`,
+      metadata: { count: dbPayloads.length }
+    }).catch(err => console.warn('Failed to log DTR import:', err));
+  }
 
   return {
     count: dbPayloads.length,

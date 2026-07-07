@@ -50,6 +50,10 @@ const TITLES: Record<
   settings: {
     title: 'Settings',
     subtitle: 'Manage your personal details and account credentials'
+  },
+  audit_logs: {
+    title: 'Audit Logs',
+    subtitle: 'Security history and administrative activity trail'
   }
 };
 type TopbarRole = 'admin' | 'hr' | 'payroll';

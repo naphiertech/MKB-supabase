@@ -46,6 +46,15 @@ export async function fetchIpLocation(): Promise<IpLocationData | null> {
   }
 }
 
+export interface LogMetadata {
+  ip?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  org?: string;
+  [key: string]: unknown;
+}
+
 /**
  * DB Activity Logger: Logs unmodifiable user/system operations to public.activity_logs
  */
@@ -54,13 +63,19 @@ export async function logActivity(params: {
   riderId?: string | null;
   eventType: string;
   description: string;
-  metadata?: Record<string, any>;
+  metadata?: LogMetadata;
 }) {
   try {
+    let finalUserId = params.userId;
+    if (!finalUserId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      finalUserId = user?.id || null;
+    }
+
     const { error } = await supabase
       .from('activity_logs')
       .insert({
-        user_id: params.userId || null,
+        user_id: finalUserId,
         rider_id: params.riderId || null,
         event_type: params.eventType,
         description: params.description,
@@ -73,3 +88,53 @@ export async function logActivity(params: {
     console.warn('[ActivityLog] Failed to log activity:', err);
   }
 }
+
+export interface ActivityLog {
+  id: string;
+  user_id: string | null;
+  rider_id: string | null;
+  event_type: string;
+  description: string;
+  metadata: LogMetadata;
+  created_at: string;
+  users?: {
+    full_name: string;
+    email: string;
+    role: string;
+  } | null;
+  riders?: {
+    name: string;
+    mkb_id: string;
+  } | null;
+}
+
+export async function getActivityLogs(): Promise<ActivityLog[]> {
+  const { data, error } = await supabase
+    .from('activity_logs')
+    .select(`
+      id,
+      user_id,
+      rider_id,
+      event_type,
+      description,
+      metadata,
+      created_at,
+      users (
+        full_name,
+        email,
+        role
+      ),
+      riders (
+        name,
+        mkb_id
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching activity logs:', error);
+    return [];
+  }
+  return (data || []) as unknown as ActivityLog[];
+}
+
