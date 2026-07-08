@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import ExcelJS from 'exceljs';
 
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable: { finalY: number };
@@ -256,4 +257,201 @@ export const exportCutoffSummaryCSV = (
   const csv = '\uFEFF' + lines.map(row => row.map(csvEscape).join(',')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   downloadBlob(blob, `${filename}.csv`);
+};
+
+export const exportParcelPayslipXLSX = async (
+  riderName: string,
+  _mkbId: string,
+  cutoffFrom: string,
+  cutoffTo: string,
+  dayEntries: PayslipDay[],
+  atmNumber = 'N/A',
+  adjustments: {
+    otherEarnings?: number;
+    fmPickupCount?: number;
+    deductions?: number;
+    lateOnhold?: number;
+    lateRemittance?: number;
+  } = {}
+) => {
+  try {
+    const response = await fetch('/files/MKB_PAYSLIP_Template.xlsx');
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const arrayBuffer = await response.arrayBuffer();
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(arrayBuffer);
+    const ws = wb.worksheets[0];
+    if (!ws) throw new Error("Worksheet not found in template");
+
+    // Populate Rider details
+    ws.getCell('C4').value = riderName;
+    ws.getCell('C5').value = 'N/A'; // Dummy Account
+    ws.getCell('C6').value = atmNumber || 'N/A';
+
+    const totalDays = dayEntries.length;
+    const originalDaysCount = 7;
+    const extraDays = totalDays - originalDaysCount;
+
+    // Insert extra rows and shift merged ranges if needed
+    if (extraDays > 0) {
+      const mergesToShift: { original: string; shifted: string }[] = [];
+      const allMerges = [...(ws.model.merges || [])];
+
+      allMerges.forEach((rangeStr) => {
+        const parts = rangeStr.split(':');
+        if (parts.length !== 2) return;
+        const [startCell, endCell] = parts;
+        const startMatch = startCell.match(/^([A-Z]+)(\d+)$/);
+        if (!startMatch) return;
+        const startRow = parseInt(startMatch[2], 10);
+        
+        if (startRow >= 16) {
+          const shiftCell = (cell: string) => {
+            const match = cell.match(/^([A-Z]+)(\d+)$/);
+            if (!match) return cell;
+            const col = match[1];
+            const row = parseInt(match[2], 10);
+            return `${col}${row + extraDays}`;
+          };
+          
+          mergesToShift.push({
+            original: rangeStr,
+            shifted: `${shiftCell(startCell)}:${shiftCell(endCell)}`,
+          });
+        }
+      });
+
+      // Unmerge original cells at or below row 16 before inserting rows
+      mergesToShift.forEach((m) => {
+        try {
+          ws.unMergeCells(m.original);
+        } catch (err) {
+          console.warn('Failed to unmerge cell range:', m.original, err);
+        }
+      });
+
+      ws.insertRows(16, Array(extraDays).fill([]), 'down');
+      
+      // Copy formatting and formulas from Row 15 to the new rows
+      const sourceRow = ws.getRow(15);
+      for (let i = 0; i < extraDays; i++) {
+        const targetRowNum = 16 + i;
+        const targetRow = ws.getRow(targetRowNum);
+        targetRow.height = sourceRow.height;
+        sourceRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          const targetCell = targetRow.getCell(colNumber);
+          targetCell.style = cell.style;
+
+          const val = cell.value;
+          if (val && typeof val === 'object' && (val as any).formula) {
+            const shiftedFormula = (val as any).formula.replace(/([A-Z]+)15/g, `$1${targetRowNum}`);
+            targetCell.value = { formula: shiftedFormula };
+          } else {
+            targetCell.value = val;
+          }
+        });
+        targetRow.commit();
+      }
+
+      // Re-merge shifted cell ranges
+      mergesToShift.forEach((m) => {
+        try {
+          ws.mergeCells(m.shifted);
+        } catch (err) {
+          console.warn('Failed to merge cell range:', m.shifted, err);
+        }
+      });
+    }
+
+    const startDayRow = 9;
+    const lastDayRow = 9 + totalDays - 1;
+    const subTotalRow = lastDayRow + 1;
+    const otherEarningsRow = lastDayRow + 2;
+    const fmPickUpRow = lastDayRow + 3;
+    const deductionsRow = lastDayRow + 4;
+    const lateOnholdRow = lastDayRow + 5;
+    const lateRemittanceRow = lastDayRow + 6;
+    const atmRow = lastDayRow + 7;
+    const totalRow = lastDayRow + 8;
+
+    // Update To date formula in header
+    ws.getCell('L6').value = { formula: `C${lastDayRow}` };
+
+    // Fill in dates and parcel counts
+    dayEntries.forEach((entry, idx) => {
+      const rowNum = startDayRow + idx;
+      const dateVal = new Date(entry.date);
+      ws.getCell(`C${rowNum}`).value = dateVal;
+
+      // Initialize all parcel counts as 0 to overwrite default template values
+      ws.getCell(`D${rowNum}`).value = 0;
+      ws.getCell(`F${rowNum}`).value = 0;
+      ws.getCell(`H${rowNum}`).value = 0;
+      ws.getCell(`J${rowNum}`).value = 0;
+      ws.getCell(`L${rowNum}`).value = 0;
+      ws.getCell(`N${rowNum}`).value = 0;
+
+      // Distribute parcels based on rate (12 early, 11 standard, 10 late)
+      const entryRate = entry.rate ?? 10;
+      if (entryRate === 12) {
+        ws.getCell(`F${rowNum}`).value = entry.parcels;
+      } else if (entryRate === 11) {
+        ws.getCell(`J${rowNum}`).value = entry.parcels;
+      } else {
+        ws.getCell(`N${rowNum}`).value = entry.parcels;
+      }
+    });
+
+    // Update Sub Total formulas
+    ws.getCell(`D${subTotalRow}`).value = { formula: `SUM(D${startDayRow}:D${lastDayRow})` };
+    ws.getCell(`E${subTotalRow}`).value = { formula: `SUM(E${startDayRow}:E${lastDayRow})` };
+    ws.getCell(`F${subTotalRow}`).value = { formula: `SUM(F${startDayRow}:F${lastDayRow})` };
+    ws.getCell(`G${subTotalRow}`).value = { formula: `SUM(G${startDayRow}:G${lastDayRow})` };
+    ws.getCell(`H${subTotalRow}`).value = { formula: `SUM(H${startDayRow}:H${lastDayRow})` };
+    ws.getCell(`I${subTotalRow}`).value = { formula: `SUM(I${startDayRow}:I${lastDayRow})` };
+    ws.getCell(`J${subTotalRow}`).value = { formula: `SUM(J${startDayRow}:J${lastDayRow})` };
+    ws.getCell(`K${subTotalRow}`).value = { formula: `SUM(K${startDayRow}:K${lastDayRow})` };
+    ws.getCell(`L${subTotalRow}`).value = { formula: `SUM(L${startDayRow}:L${lastDayRow})` };
+    ws.getCell(`M${subTotalRow}`).value = { formula: `SUM(M${startDayRow}:M${lastDayRow})` };
+    ws.getCell(`N${subTotalRow}`).value = { formula: `SUM(N${startDayRow}:N${lastDayRow})` };
+    ws.getCell(`O${subTotalRow}`).value = { formula: `SUM(O${startDayRow}:O${lastDayRow})` };
+    ws.getCell(`P${subTotalRow}`).value = { formula: `SUM(P${startDayRow}:P${lastDayRow})` };
+
+    // Write dynamic adjustments values to cells
+    ws.getCell(`D${otherEarningsRow}`).value = (adjustments.otherEarnings ?? 0) / 5;
+    ws.getCell(`C${fmPickUpRow}`).value = adjustments.fmPickupCount ?? 0;
+    ws.getCell(`N${deductionsRow}`).value = adjustments.deductions ?? 0;
+    ws.getCell(`C${lateOnholdRow}`).value = adjustments.lateOnhold ?? 0;
+    ws.getCell(`C${lateRemittanceRow}`).value = adjustments.lateRemittance ?? 0;
+
+    // Update other formulas
+    ws.getCell(`N${otherEarningsRow}`).value = { formula: `D${otherEarningsRow}*5` };
+    ws.getCell(`N${fmPickUpRow}`).value = { formula: `C${fmPickUpRow}*3` };
+    
+    const lateOnholdFormula = `C${lateOnholdRow}+C${lateRemittanceRow}+K${lateOnholdRow}+K${lateRemittanceRow}`;
+    ws.getCell(`N${lateOnholdRow}`).value = { formula: lateOnholdFormula };
+    ws.getCell(`N${lateRemittanceRow}`).value = { formula: lateOnholdFormula };
+
+    // ATM Credited = (Sub Total + Other + FM) - (Deductions + Late Onhold + Late Remittance)
+    ws.getCell(`N${atmRow}`).value = { formula: `SUM(D${subTotalRow}:N${fmPickUpRow})-SUM(N${deductionsRow}:P${lateRemittanceRow})` };
+
+    // TOTAL = SUM(D${subTotalRow}:N${fmPickUpRow}) - SUM(N${deductionsRow}:P${atmRow})
+    ws.getCell(`N${totalRow}`).value = { formula: `SUM(D${subTotalRow}:N${fmPickUpRow})-SUM(N${deductionsRow}:P${atmRow})` };
+
+    // Generate buffer and trigger download
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payslip_${riderName.replace(/\s+/g, '_')}_${cutoffFrom}_${cutoffTo}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('Failed to export Excel payslip using template:', err);
+    throw err;
+  }
 };
