@@ -4,17 +4,15 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Calendar,
   CheckCircle2,
   AlertTriangle,
-  Clock,
   Printer,
   Download,
-  Shield,
   Loader2,
   User as UserIcon,
   MapPin,
   Building,
+  FileSpreadsheet,
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import {
@@ -29,31 +27,44 @@ import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from "../../lib/av
 import {
   exportParcelPayslipPDF,
   exportParcelCSV,
+  exportParcelPayslipXLSX,
 } from "../../lib/exports/payrollExport";
 import { pushToast } from "../../hooks/useToast";
+import { PayrollMetricsGrid } from "./PayrollMetricsGrid";
+import { SelectedDayDetails } from "./SelectedDayDetails";
+import { AttendanceLogsTable } from "./AttendanceLogsTable";
+import { PayslipSlipCard } from "./PayslipSlipCard";
+
+export interface PayrollRecordShape {
+  id: string;
+  rider_id: string;
+  cutoff_start: string;
+  cutoff_end: string;
+  total_parcels: number;
+  rate_per_parcel: number | null;
+  gross_pay: number | null;
+  status: string;
+  other_earnings?: number;
+  fm_pickup_count?: number;
+  deductions?: number;
+  late_onhold?: number;
+  late_remittance?: number;
+  riders: {
+    id?: string;
+    name: string;
+    mkb_id: string;
+    face_image_url?: string | null;
+    avatar_url?: string | null;
+    zones?: { name: string } | null;
+    shift?: string | null;
+    notes?: string | null;
+  } | null;
+}
 
 interface PayrollDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  record: {
-    id: string;
-    rider_id: string;
-    cutoff_start: string;
-    cutoff_end: string;
-    total_parcels: number;
-    rate_per_parcel: number | null;
-    gross_pay: number | null;
-    status: string;
-    riders: {
-      id?: string;
-      name: string;
-      mkb_id: string;
-      face_image_url?: string | null;
-      avatar_url?: string | null;
-      zones?: { name: string } | null;
-      shift?: string | null;
-    } | null;
-  } | null;
+  record: PayrollRecordShape | null;
   onStatusUpdated?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -63,12 +74,6 @@ interface PayrollDetailsModalProps {
   indexLabel?: string; // e.g. "3 of 12"
 }
 
-function phpFmt(n: number) {
-  return `₱${n.toLocaleString("en-PH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 export function PayrollDetailsModal({
   isOpen,
@@ -88,6 +93,14 @@ export function PayrollDetailsModal({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [riderAvatar, setRiderAvatar] = useState<string | null>(null);
+
+  // Option B: Dynamic adjustments states
+  const [otherEarnings, setOtherEarnings] = useState(0);
+  const [fmPickupCount, setFmPickupCount] = useState(0);
+  const [deductions, setDeductions] = useState(0);
+  const [lateOnhold, setLateOnhold] = useState(0);
+  const [lateRemittance, setLateRemittance] = useState(0);
+  const [isSavingAdjustments, setIsSavingAdjustments] = useState(false);
 
   // Load metrics & logs when record changes
   useEffect(() => {
@@ -124,12 +137,22 @@ export function PayrollDetailsModal({
         ]);
 
         if (active) {
-          const mappedLogs = fetchedLogs.map((log) => {
+          const dates: string[] = [];
+          const start = new Date(record.cutoff_start);
+          const end = new Date(record.cutoff_end);
+          const current = new Date(start);
+          while (current <= end) {
+            dates.push(current.toISOString().split("T")[0]);
+            current.setDate(current.getDate() + 1);
+          }
+
+          const mappedLogs = dates.map((date) => {
+            const existing = fetchedLogs.find((l) => l.date === date);
             const attObj = fetchedMetrics.attendanceLogs.find(
-              (a) => a.date === log.date
+              (a) => a.date === date
             );
             const rawTimeIn = attObj?.time_in || null;
-            let calculatedRate = log.rate || 10;
+            let calculatedRate = existing?.rate || 10;
             if (rawTimeIn) {
               const d = new Date(rawTimeIn.replace(" ", "T"));
               if (!isNaN(d.getTime())) {
@@ -141,15 +164,26 @@ export function PayrollDetailsModal({
                 else calculatedRate = 10;
               }
             }
+            const parcels = existing?.parcels ?? 0;
             return {
-              ...log,
+              id: existing?.id || "",
+              riderId: record.rider_id,
+              date,
+              parcels,
               rate: calculatedRate,
-              dailyGross: log.parcels * calculatedRate,
+              dailyGross: parcels * calculatedRate,
             };
           });
 
           setMetrics(fetchedMetrics);
           setDayEntries(mappedLogs);
+
+          // Option B: Initialize adjustments state from record
+          setOtherEarnings(Number(record.other_earnings ?? 0));
+          setFmPickupCount(Number(record.fm_pickup_count ?? 0));
+          setDeductions(Number(record.deductions ?? 0));
+          setLateOnhold(Number(record.late_onhold ?? 0));
+          setLateRemittance(Number(record.late_remittance ?? 0));
 
           // Default selected day to the latest day with parcel deliveries, or just the first day in logs
           const withDeliveries = mappedLogs.filter((l) => l.parcels > 0);
@@ -270,11 +304,70 @@ export function PayrollDetailsModal({
   const avgDailyParcels =
     presentCount > 0 ? record.total_parcels / presentCount : 0;
 
-  // Payslip Slip - Deductions are locked to 0.00 as requested
-  const lateDeduction = 0;
-  const violationDeduction = 0;
-  const totalDeductions = 0;
-  const netSalary = grossPay - totalDeductions;
+  const handleSaveAdjustments = async () => {
+    setIsSavingAdjustments(true);
+    try {
+      const { error } = await supabase
+        .from("payroll_records")
+        .update({
+          other_earnings: otherEarnings,
+          fm_pickup_count: fmPickupCount,
+          deductions,
+          late_onhold: lateOnhold,
+          late_remittance: lateRemittance,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", record.id);
+
+      if (error) throw error;
+
+      // Log this action to activity_logs
+      await supabase.from("activity_logs").insert({
+        user_id: (await supabase.auth.getUser()).data.user?.id || null,
+        event_type: "payroll_adjustments_update",
+        description: `Updated payroll adjustments for ${riderName} (${record.cutoff_start} to ${record.cutoff_end})`,
+        metadata: {
+          record_id: record.id,
+          adjustments: {
+            other_earnings: otherEarnings,
+            fm_pickup_count: fmPickupCount,
+            deductions,
+            late_onhold: lateOnhold,
+            late_remittance: lateRemittance,
+          },
+        },
+      });
+
+      pushToast({
+        title: "Adjustments Saved",
+        description: `Successfully updated adjustments for ${riderName}.`,
+        tone: "success",
+      });
+      if (onStatusUpdated) onStatusUpdated();
+    } catch (err) {
+      console.error("[PayrollDetailsModal] Failed to save adjustments:", err);
+      pushToast({
+        title: "Save failed",
+        description: "An error occurred while saving adjustments.",
+        tone: "error",
+      });
+    } finally {
+      setIsSavingAdjustments(false);
+    }
+  };
+
+  // Payslip Slip - Option B: Dynamic calculations
+  const lateDeduction = lateOnhold + lateRemittance;
+  const totalEarnings = grossPay + otherEarnings + (fmPickupCount * 3);
+  const totalDeductions = deductions + lateDeduction;
+  const netSalary = totalEarnings - totalDeductions;
+
+  const isAdjustmentsChanged =
+    otherEarnings !== Number(record.other_earnings ?? 0) ||
+    fmPickupCount !== Number(record.fm_pickup_count ?? 0) ||
+    deductions !== Number(record.deductions ?? 0) ||
+    lateOnhold !== Number(record.late_onhold ?? 0) ||
+    lateRemittance !== Number(record.late_remittance ?? 0);
 
   // Action updates status in database
   const handleUpdateStatus = async (
@@ -336,6 +429,53 @@ export function PayrollDetailsModal({
       console.error("[PayrollDetailsModal] PDF export failed:", err);
       pushToast({
         title: "PDF Export failed",
+        description: "Please try again.",
+        tone: "error",
+      });
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const mappedEntries = dayEntries.map((e) => ({
+        date: e.date,
+        parcels: e.parcels,
+        rate: e.rate,
+        dailyGross: e.dailyGross,
+      }));
+
+      let atmNumber = 'N/A';
+      const notesStr = record.riders?.notes || '';
+      const match = notesStr.match(/ATM\s*Number:\s*(\d+)/i) || notesStr.match(/ATM:\s*(\d+)/i) || notesStr.match(/ATM\s*#?\s*(\d+)/i);
+      if (match) {
+        atmNumber = match[1];
+      }
+
+      await exportParcelPayslipXLSX(
+        riderName,
+        riderMkbId,
+        record.cutoff_start,
+        record.cutoff_end,
+        mappedEntries,
+        atmNumber,
+        {
+          otherEarnings,
+          fmPickupCount,
+          deductions,
+          lateOnhold,
+          lateRemittance
+        }
+      );
+
+      pushToast({
+        title: "Excel Exported",
+        description: `Payslip spreadsheet downloaded for ${riderName}`,
+        tone: "success",
+      });
+    } catch (err) {
+      console.error("[PayrollDetailsModal] Excel export failed:", err);
+      pushToast({
+        title: "Excel Export failed",
         description: "Please try again.",
         tone: "error",
       });
@@ -478,269 +618,33 @@ export function PayrollDetailsModal({
             ) : (
               <>
                 {/* Metrics Cards Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 bg-emerald-50/50 border border-emerald-500/10 rounded-xl">
-                    <div className="text-[10px] uppercase tracking-wider text-emerald-800 font-semibold mb-1">
-                      Present Days
-                    </div>
-                    <div className="text-2xl font-bold text-emerald-950 font-mono">
-                      {presentCount}{" "}
-                      <span className="text-xs font-normal text-emerald-800 font-sans">
-                        days
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-amber-50/50 border border-amber-500/10 rounded-xl">
-                    <div className="text-[10px] uppercase tracking-wider text-amber-800 font-semibold mb-1">
-                      Late Days
-                    </div>
-                    <div className="text-2xl font-bold text-amber-950 font-mono">
-                      {lateCount}{" "}
-                      <span className="text-xs font-normal text-amber-800 font-sans">
-                        days
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-red-50/50 border border-red-500/10 rounded-xl">
-                    <div className="text-[10px] uppercase tracking-wider text-red-800 font-semibold mb-1">
-                      Geofence Alerts
-                    </div>
-                    <div className="text-2xl font-bold text-red-950 font-mono">
-                      {violationCount}{" "}
-                      <span className="text-xs font-normal text-red-800 font-sans">
-                        events
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-sky-50/50 border border-sky-500/10 rounded-xl">
-                    <div className="text-[10px] uppercase tracking-wider text-sky-800 font-semibold mb-1">
-                      Avg Daily Parcels
-                    </div>
-                    <div className="text-2xl font-bold text-sky-950 font-mono">
-                      {avgDailyParcels.toFixed(1)}{" "}
-                      <span className="text-xs font-normal text-sky-800 font-sans">
-                        pcs
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <PayrollMetricsGrid
+                  presentCount={presentCount}
+                  lateCount={lateCount}
+                  violationCount={violationCount}
+                  avgDailyParcels={avgDailyParcels}
+                />
 
                 {/* Day Details Timeline Banner */}
-                {selectedDate && (
-                  <div className="p-4 border border-[#EFEAE2] rounded-xl space-y-3 bg-[#FAFAF7]">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-bold text-[#1A1410] flex items-center gap-1.5">
-                        <Calendar className="w-4 h-4 text-[#db6c00]" />
-                        {new Date(selectedDate).toLocaleDateString("en-PH", {
-                          weekday: "long",
-                          month: "long",
-                          day: "2-digit",
-                          year: "numeric",
-                        })}
-                      </div>
-                      <span className="text-[11px] font-mono text-[#6B6258]">
-                        Day Details
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-2 border-y border-[#EFEAE2] text-xs">
-                      <div>
-                        <div className="text-[#6B6258] mb-0.5">Clock In</div>
-                        <div className="font-semibold font-mono text-[#1A1410] flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-[#db6c00]" />
-                          {selectedDayAtt?.time_in ? (
-                            new Date(
-                              selectedDayAtt.time_in.replace(" ", "T"),
-                            ).toLocaleTimeString("en-PH", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          ) : (
-                            <span className="text-[#A39988] font-sans font-normal">
-                              —
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-[#6B6258] mb-0.5">Clock Out</div>
-                        <div className="font-semibold font-mono text-[#1A1410] flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-[#db6c00]" />
-                          {selectedDayAtt?.time_out ? (
-                            new Date(
-                              selectedDayAtt.time_out.replace(" ", "T"),
-                            ).toLocaleTimeString("en-PH", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          ) : (
-                            <span className="text-[#A39988] font-sans font-normal">
-                              —
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-[#6B6258] mb-0.5">Late Time</div>
-                        <div className="font-semibold text-[#1A1410]">
-                          {selectedDayAtt?.status === "late" ? (
-                            <span className="text-amber-600 font-semibold">
-                              Flagged Late
-                            </span>
-                          ) : selectedDayAtt?.status === "present" ? (
-                            <span className="text-emerald-600">On Time</span>
-                          ) : (
-                            <span className="text-[#A39988] font-normal">
-                              —
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-[#6B6258] mb-0.5">Delivered</div>
-                        <div className="font-semibold font-mono text-[#1A1410]">
-                          {selectedDayLog?.parcels ?? 0} pcs
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Show Geofence boundary exits for selected day */}
-                    {selectedDayViolations.length > 0 ? (
-                      <div className="flex items-start gap-2 text-xs bg-red-50 text-red-700 border border-red-200/50 rounded-lg p-2.5">
-                        <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-bold">
-                            Geofence Boundary Exits:
-                          </span>{" "}
-                          Logged {selectedDayViolations.length} boundary exit
-                          alert{selectedDayViolations.length > 1 ? "s" : ""}{" "}
-                          during shift hours.{" "}
-                          <span className="text-red-900">
-                            (
-                            {selectedDayViolations
-                              .map((v) => v.zone_name)
-                              .join(", ")}
-                            )
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        No geofence infractions or boundary alerts recorded on
-                        this day.
-                      </div>
-                    )}
-                  </div>
-                )}
+                <SelectedDayDetails
+                  selectedDate={selectedDate}
+                  selectedDayAtt={selectedDayAtt || null}
+                  selectedDayLog={selectedDayLog || null}
+                  selectedDayViolations={selectedDayViolations}
+                />
 
                 {/* Daily Breakdown Table */}
                 <div className="space-y-2">
-                  <div className="text-[11px] uppercase tracking-wider text-[#6B6258] font-bold">
+                  <div className="text-[11px] uppercase tracking-wider text-[#6B6258] font-bold font-sans">
                     Daily Log Breakdown
                   </div>
-
-                  <div className="border border-[#EFEAE2] rounded-xl overflow-hidden bg-white">
-                    <div className="max-h-[220px] overflow-y-auto">
-                      <table className="w-full text-xs text-left border-collapse">
-                        <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2] sticky top-0 z-10">
-                          <tr className="text-[10px] uppercase text-[#6B6258] font-bold">
-                            <th className="px-4 py-2.5">Date</th>
-                            <th className="px-4 py-2.5 text-center">Status</th>
-                            <th className="px-4 py-2.5 text-center font-mono">
-                              Parcels
-                            </th>
-                            <th className="px-4 py-2.5 text-center font-mono">
-                              Rate
-                            </th>
-                            <th className="px-4 py-2.5 text-right">
-                              Daily Gross
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#EFEAE2]">
-                          {dayEntries.map((day) => {
-                            const isSelected = day.date === selectedDate;
-                            const dayAtt = metrics?.attendanceLogs.find(
-                              (a) => a.date === day.date,
-                            );
-
-                            // Check for violations on this day
-                            const hasViol = metrics?.violations.some((v) => {
-                              try {
-                                return (
-                                  new Date(v.created_at)
-                                    .toISOString()
-                                    .split("T")[0] === day.date &&
-                                  (v.type === "boundary_exit" ||
-                                    v.type === "idle_excess")
-                                );
-                              } catch {
-                                return false;
-                              }
-                            });
-
-                            return (
-                              <tr
-                                key={day.id}
-                                onClick={() => setSelectedDate(day.date)}
-                                className={`cursor-pointer transition ${isSelected ? "bg-[#FFF1E0]/50 font-semibold" : "hover:bg-[#FAFAF7]/60"}`}
-                              >
-                                <td className="px-4 py-2 font-mono text-[#1A1410]">
-                                  {new Date(day.date).toLocaleDateString(
-                                    "en-PH",
-                                    {
-                                      month: "long",
-                                      day: "2-digit",
-                                      year: "numeric",
-                                    },
-                                  )}
-                                </td>
-                                <td className="px-4 py-2 text-center">
-                                  {dayAtt?.status === "present" ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-500/10">
-                                      Present
-                                    </span>
-                                  ) : dayAtt?.status === "late" ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-50 text-amber-700 border border-amber-500/10">
-                                      Late
-                                    </span>
-                                  ) : (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-gray-50 text-gray-500 border border-gray-200">
-                                      No Attendance
-                                    </span>
-                                  )}
-
-                                  {hasViol && (
-                                    <span className="ml-1.5 px-1 py-0.5 rounded text-[10px] bg-red-50 text-red-600 border border-red-100">
-                                      GPS Alert
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-2 text-center font-mono tabular-nums text-[#1A1410]">
-                                  {day.parcels}
-                                </td>
-                                <td className="px-4 py-2 text-center font-mono tabular-nums text-[#1A1410]">
-                                  ₱{day.rate.toFixed(2)}
-                                </td>
-                                <td className="px-4 py-2 text-right font-mono tabular-nums text-[#1A1410]">
-                                  {day.parcels === 0
-                                    ? "—"
-                                    : phpFmt(day.dailyGross)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <AttendanceLogsTable
+                    dayEntries={dayEntries}
+                    selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
+                    attendanceLogs={metrics?.attendanceLogs || []}
+                    violations={metrics?.violations || []}
+                  />
                 </div>
               </>
             )}
@@ -748,116 +652,29 @@ export function PayrollDetailsModal({
 
           {/* RIGHT SIDE: Payslip Slip Voucher (Col 9-12) */}
           <div className="lg:col-span-4 p-5 bg-[#FAFAF7] flex flex-col justify-between overflow-y-auto">
-            {/* Payslip Slip Card */}
-            <div className="border border-[#EFEAE2] bg-white rounded-xl p-5 shadow-sm space-y-4">
-              <div className="text-center space-y-1 pb-4 border-b border-[#EFEAE2] border-dashed">
-                <div className="inline-flex p-1.5 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/20 mb-1">
-                  <Shield className="w-5 h-5 text-[#db6c00]" />
-                </div>
-                <h4 className="text-xs uppercase tracking-[0.2em] font-extrabold text-[#1A1410]">
-                  MKB Corporation
-                </h4>
-                <p className="text-[10px] text-[#6B6258] font-mono">
-                  Cutoff:{" "}
-                  {new Date(record.cutoff_start).toLocaleDateString("en-PH", {
-                    month: "short",
-                    day: "numeric",
-                  })}{" "}
-                  –{" "}
-                  {new Date(record.cutoff_end).toLocaleDateString("en-PH", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </p>
-              </div>
-
-              {/* Earnings Section */}
-              <div className="space-y-2">
-                <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
-                  Earnings
-                </div>
-                <div className="text-xs space-y-1.5">
-                  <div className="flex justify-between">
-                    <span className="text-[#6B6258]">Base Delivery Pay</span>
-                    <span className="font-mono tabular-nums text-[#1A1410]">
-                      {phpFmt(grossPay)}
-                    </span>
-                  </div>                  {rateBreakdown.length === 0 ? (
-                    <div className="pl-3 text-[11px] text-[#6B6258]/80 flex justify-between font-mono">
-                      <span>
-                        ({record.total_parcels} parcels @ {phpFmt(ratePerParcel)}/pc)
-                      </span>
-                    </div>
-                  ) : (
-                    rateBreakdown.map((b) => (
-                      <div key={b.rate} className="pl-3 text-[11px] text-[#6B6258]/80 flex justify-between font-mono">
-                        <span>
-                          ({b.parcels} parcels @ {phpFmt(b.rate)}/pc)
-                        </span>
-                        <span className="tabular-nums">
-                          {phpFmt(b.gross)}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                  <div className="flex justify-between pt-1 border-t border-[#EFEAE2] font-semibold text-xs text-[#1A1410]">
-                    <span>Total Earnings</span>
-                    <span className="font-mono tabular-nums">
-                      {phpFmt(grossPay)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Deductions Section (Deductions set to 0.00 as per instructions) */}
-              <div className="space-y-2 pt-2">
-                <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
-                  Deductions
-                </div>
-                <div className="text-xs space-y-1.5">
-                  <div className="flex justify-between">
-                    <span className="text-[#6B6258]">Late Penalties</span>
-                    <span className="font-mono tabular-nums text-[#6B6258]">
-                      {phpFmt(lateDeduction)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#6B6258]">Geofence Violations</span>
-                    <span className="font-mono tabular-nums text-[#6B6258]">
-                      {phpFmt(violationDeduction)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-1 border-t border-[#EFEAE2] font-semibold text-xs text-[#1A1410]">
-                    <span>Total Deductions</span>
-                    <span className="font-mono tabular-nums text-[#6B6258]">
-                      {phpFmt(totalDeductions)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Total Salary Pinned */}
-              <div className="pt-4 border-t border-dashed border-[#EFEAE2] flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
-                    Net Take-Home
-                  </div>
-                  <div className="text-[10.5px] text-[#A39988] font-mono leading-none mt-0.5">
-                    Gross Pay less deductions
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-xl font-bold text-[#db6c00] font-mono tabular-nums">
-                    {phpFmt(netSalary)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-center text-[10px] text-[#A39988] italic pt-1">
-                Generated dynamically via AttenRider System.
-              </div>
-            </div>
+            <PayslipSlipCard
+              record={record}
+              role={role}
+              grossPay={grossPay}
+              rateBreakdown={rateBreakdown}
+              ratePerParcel={ratePerParcel}
+              otherEarnings={otherEarnings}
+              setOtherEarnings={setOtherEarnings}
+              fmPickupCount={fmPickupCount}
+              setFmPickupCount={setFmPickupCount}
+              deductions={deductions}
+              setDeductions={setDeductions}
+              lateOnhold={lateOnhold}
+              setLateOnhold={setLateOnhold}
+              lateRemittance={lateRemittance}
+              setLateRemittance={setLateRemittance}
+              totalEarnings={totalEarnings}
+              totalDeductions={totalDeductions}
+              netSalary={netSalary}
+              isAdjustmentsChanged={isAdjustmentsChanged}
+              isSavingAdjustments={isSavingAdjustments}
+              handleSaveAdjustments={handleSaveAdjustments}
+            />
 
             {/* Manager Actions / Rider actions */}
             <div className="mt-5 space-y-2 shrink-0">
@@ -913,10 +730,18 @@ export function PayrollDetailsModal({
                   <div className="flex gap-2">
                     <button
                       onClick={handleExportPDF}
-                      className="flex-1 h-9 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                      className="flex-1 h-9 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
                       <Printer className="w-3.5 h-3.5 text-[#db6c00]" />
-                      Print / PDF
+                      PDF
+                    </button>
+
+                    <button
+                      onClick={handleExportExcel}
+                      className="flex-1 h-9 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      Excel
                     </button>
 
                     <button
@@ -947,7 +772,7 @@ export function PayrollDetailsModal({
                           });
                         }
                       }}
-                      className="h-9 px-3 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-xs font-semibold flex items-center justify-center transition"
+                      className="h-9 px-2 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-[11px] font-semibold flex items-center justify-center transition"
                       title="Export CSV"
                     >
                       <Download className="w-3.5 h-3.5 text-[#6B6258]" />
@@ -963,6 +788,14 @@ export function PayrollDetailsModal({
                   >
                     <Download className="w-3.5 h-3.5" />
                     Download Payslip PDF
+                  </button>
+
+                  <button
+                    onClick={handleExportExcel}
+                    className="w-full h-9 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    Download Payslip Excel
                   </button>
 
                   <p className="text-[10px] text-[#A39988] text-center">
