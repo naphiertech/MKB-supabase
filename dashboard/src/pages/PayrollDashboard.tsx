@@ -114,9 +114,15 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
     status: string;
     created_at: string;
     updated_at: string;
+    other_earnings?: number;
+    fm_pickup_count?: number;
+    deductions?: number;
+    late_onhold?: number;
+    late_remittance?: number;
     riders: {
       name: string;
       mkb_id: string;
+      notes: string | null;
       zones: { name: string } | null;
     } | null;
   }
@@ -159,11 +165,11 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
   useEffect(() => {
     if (selectedRecordForDetails) {
       const updated = payrollRecords.find(r => r.id === selectedRecordForDetails.id);
-      if (updated) {
+      if (updated && updated !== selectedRecordForDetails) {
         setSelectedRecordForDetails(updated);
       }
     }
-  }, [payrollRecords]);
+  }, [payrollRecords, selectedRecordForDetails]);
 
   const activeIndex = useMemo(() => {
     if (!selectedRecordForDetails) return -1;
