@@ -117,7 +117,7 @@ export const getPayrollRecords = async (
 ) => {
   const { data, error } = await supabase
     .from('payroll_records')
-    .select('*, riders(id, name, mkb_id, avatar_url, zone_id, zones(name))')
+    .select('*, riders(id, name, mkb_id, avatar_url, zone_id, notes, zones(name))')
     .gte('cutoff_start', cutoffFrom)
     .lte('cutoff_start', cutoffTo)
     .order('created_at', { ascending: false });
