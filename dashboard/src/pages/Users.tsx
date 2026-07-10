@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { type AppUser, type UserRole, type UserStatus, type Zone } from '../services/types';
-import { supabase } from '../lib/supabaseClient';
 import { logActivity } from '../lib/apiService';
 import { getZones } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
@@ -20,6 +19,16 @@ import { EmployeeDetails } from '../components/users/EmployeeDetails';
 import { useAuth } from '../hooks/useAuth';
 import { clearCachedAvatar } from '../lib/avatarCache';
 import { exportXLSXFile } from '../lib/exports/excelHelper';
+import { toast } from 'react-hot-toast';
+import {
+  getUsersAndRiders,
+  updateUserProfile,
+  getUserRiderId,
+  updateRiderProfile,
+  createRiderProfile,
+  deleteRiderProfile,
+  createUserProfile
+} from '../services/userService';
 
 
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
@@ -53,17 +62,14 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
 
   const loadData = async () => {
     try {
-      const [zList, { data: dbUsers, error }] = await Promise.all([
+      const [zList, dbUsers] = await Promise.all([
         getZones(),
-        supabase
-          .from('users')
-          .select('*, riders(*)')
-          .order('full_name', { ascending: true })
+        getUsersAndRiders()
       ]);
 
       setZonesList(zList);
 
-      if (!error && dbUsers) {
+      if (dbUsers) {
         const mapped: AppUser[] = dbUsers.map((u: {
           id: string;
           full_name: string;
@@ -134,6 +140,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
       }
     } catch (err) {
       console.error('Error loading users:', err);
+      toast.error('Failed to load users list');
     } finally {
       setLoading(false);
     }
@@ -221,19 +228,15 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             onSaved={async (savedUser, mode) => {
               if (mode === 'edit') {
                 // Update the profile first in public.users
-                const { error: userErr } = await supabase
-                  .from('users')
-                  .update({
-                    full_name: savedUser.name,
-                    status: savedUser.status,
-                    role: savedUser.role,
-                    contact: savedUser.contact || null,
-                    employment_type: savedUser.employmentType || null,
-                    date_of_hire: savedUser.dateOfHire || null,
-                    notes: savedUser.notes || null
-                  })
-                  .eq('id', savedUser.id);
-                if (userErr) throw userErr;
+                await updateUserProfile(savedUser.id, {
+                  name: savedUser.name,
+                  status: savedUser.status,
+                  role: savedUser.role,
+                  contact: savedUser.contact,
+                  employmentType: savedUser.employmentType,
+                  dateOfHire: savedUser.dateOfHire,
+                  notes: savedUser.notes
+                });
 
                 logActivity({
                   eventType: 'user_updated',
@@ -243,40 +246,29 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
 
                 // If the user's role is rider, also synchronize the riders table details
                 if (savedUser.role === 'rider') {
-                  const { data: userProfile } = await supabase
-                    .from('users')
-                    .select('rider_id')
-                    .eq('id', savedUser.id)
-                    .single();
+                  const riderId = await getUserRiderId(savedUser.id);
                   
-                  if (userProfile?.rider_id) {
-                    const { error: riderErr } = await supabase
-                      .from('riders')
-                      .update({
-                        name: savedUser.name,
-                        contact: savedUser.contact || null,
-                        zone_id: savedUser.zoneId || null,
-                        shift: null,
-                        face_registered: !!savedUser.faceImage,
-                        face_image_url: savedUser.faceImage || null,
-                        face_descriptor: savedUser.faceDescriptor || null,
-                        face_registered_at: savedUser.faceDescriptor ? new Date().toISOString() : null,
-                        province: savedUser.province || null,
-                        city: savedUser.city || null,
-                        barangay: savedUser.barangay || null,
-                        zip_code: savedUser.zipCode || null,
-                        street_address: savedUser.streetAddress || null,
-                        emergency_contact_name: savedUser.emergencyContactName || null,
-                        emergency_contact_phone: savedUser.emergencyContactPhone || null,
-                        employment_type: savedUser.employmentType || null,
-                        date_of_hire: savedUser.dateOfHire || null,
-                        vehicle_type: savedUser.vehicleType || null,
-                        vehicle_plate_number: savedUser.vehiclePlateNumber || null,
-                        notes: savedUser.notes || null
-                      })
-                      .eq('id', userProfile.rider_id);
-                    if (riderErr) throw riderErr;
-                    clearCachedAvatar(userProfile.rider_id);
+                  if (riderId) {
+                    await updateRiderProfile(riderId, {
+                      name: savedUser.name,
+                      contact: savedUser.contact,
+                      zoneId: savedUser.zoneId,
+                      faceImage: savedUser.faceImage,
+                      faceDescriptor: savedUser.faceDescriptor,
+                      province: savedUser.province,
+                      city: savedUser.city,
+                      barangay: savedUser.barangay,
+                      zipCode: savedUser.zipCode,
+                      streetAddress: savedUser.streetAddress,
+                      emergencyContactName: savedUser.emergencyContactName,
+                      emergencyContactPhone: savedUser.emergencyContactPhone,
+                      employmentType: savedUser.employmentType,
+                      dateOfHire: savedUser.dateOfHire,
+                      vehicleType: savedUser.vehicleType,
+                      vehiclePlateNumber: savedUser.vehiclePlateNumber,
+                      notes: savedUser.notes
+                    });
+                    clearCachedAvatar(riderId);
                   }
                 }
               } else {
@@ -285,38 +277,27 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                 try {
                   // 1. If role is rider, insert to public.riders first
                   if (savedUser.role === 'rider') {
-                    const { data: riderData, error: riderErr } = await supabase
-                      .from('riders')
-                      .insert({
-                        name: savedUser.name,
-                        mkb_id: savedUser.mkbRiderId || `MKB-${Math.floor(1000 + Math.random() * 9000)}`,
-                        email: savedUser.email,
-                        contact: savedUser.contact || null,
-                        zone_id: savedUser.zoneId || null,
-                        shift: null,
-                        status: 'offline',
-                        face_registered: !!savedUser.faceImage,
-                        face_image_url: savedUser.faceImage || null,
-                        face_descriptor: savedUser.faceDescriptor || null,
-                        face_registered_at: savedUser.faceDescriptor ? new Date().toISOString() : null,
-                        province: savedUser.province || null,
-                        city: savedUser.city || null,
-                        barangay: savedUser.barangay || null,
-                        zip_code: savedUser.zipCode || null,
-                        street_address: savedUser.streetAddress || null,
-                        emergency_contact_name: savedUser.emergencyContactName || null,
-                        emergency_contact_phone: savedUser.emergencyContactPhone || null,
-                        employment_type: savedUser.employmentType || null,
-                        date_of_hire: savedUser.dateOfHire || null,
-                        vehicle_type: savedUser.vehicleType || null,
-                        vehicle_plate_number: savedUser.vehiclePlateNumber || null,
-                        notes: savedUser.notes || null
-                      })
-                      .select('id')
-                      .single();
-
-                    if (riderErr) throw riderErr;
-                    generatedRiderId = riderData.id;
+                    generatedRiderId = await createRiderProfile({
+                      name: savedUser.name,
+                      email: savedUser.email,
+                      mkbRiderId: savedUser.mkbRiderId || undefined,
+                      contact: savedUser.contact,
+                      zoneId: savedUser.zoneId,
+                      faceImage: savedUser.faceImage,
+                      faceDescriptor: savedUser.faceDescriptor,
+                      province: savedUser.province,
+                      city: savedUser.city,
+                      barangay: savedUser.barangay,
+                      zipCode: savedUser.zipCode,
+                      streetAddress: savedUser.streetAddress,
+                      emergencyContactName: savedUser.emergencyContactName,
+                      emergencyContactPhone: savedUser.emergencyContactPhone,
+                      employmentType: savedUser.employmentType,
+                      dateOfHire: savedUser.dateOfHire,
+                      vehicleType: savedUser.vehicleType,
+                      vehiclePlateNumber: savedUser.vehiclePlateNumber,
+                      notes: savedUser.notes
+                    });
                   }
 
                   // 2. Instantiate an isolated Supabase client in-memory ONLY to avoid active Admin session hijacking
@@ -346,22 +327,16 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                   }
 
                   // 4. Insert the final user profile into public.users referencing the Auth UUID
-                  const { error: profileErr } = await supabase
-                    .from('users')
-                    .insert({
-                      id: authUser.id,
-                      full_name: savedUser.name,
-                      email: savedUser.email,
-                      role: savedUser.role,
-                      contact: savedUser.contact || null,
-                      rider_id: generatedRiderId,
-                      status: savedUser.status || 'active',
-                      employment_type: savedUser.employmentType || null,
-                      date_of_hire: savedUser.dateOfHire || null,
-                      notes: savedUser.notes || null
-                    });
-
-                  if (profileErr) throw profileErr;
+                  await createUserProfile(authUser.id, generatedRiderId, {
+                    name: savedUser.name,
+                    email: savedUser.email,
+                    role: savedUser.role,
+                    contact: savedUser.contact,
+                    status: savedUser.status || 'active',
+                    employmentType: savedUser.employmentType,
+                    dateOfHire: savedUser.dateOfHire,
+                    notes: savedUser.notes
+                  });
 
                   logActivity({
                     eventType: 'user_created',
@@ -372,7 +347,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                 } catch (transactionErr) {
                   // Transaction rollback: clean up the newly created rider record if anything fails
                   if (generatedRiderId) {
-                    await supabase.from('riders').delete().eq('id', generatedRiderId);
+                    await deleteRiderProfile(generatedRiderId);
                   }
                   throw transactionErr;
                 }
