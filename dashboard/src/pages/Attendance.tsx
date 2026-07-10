@@ -27,8 +27,7 @@ export function Attendance() {
   const [dtrModalOpen, setDtrModalOpen] = useState(false);
   const [dtrRiderId, setDtrRiderId] = useState('');
   const [dtrDateFrom, setDtrDateFrom] = useState<string>(sevenDaysAgo);
-  const [dtrDateTo, setDtrDateTo] = useState<string>(today);
-  const [ridersList, setRidersList] = useState<{ id: string; name: string; mkb_id?: string }[]>([]);
+  const [ridersList, setRidersList] = useState<{ id: string; name: string; mkb_id?: string; zoneName?: string }[]>([]);
 
   // DTR Import states
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -45,21 +44,44 @@ export function Attendance() {
     // Fetch riders for DTR picker
     supabase
       .from('riders')
-      .select('id, name, mkb_id')
+      .select('id, name, mkb_id, zones(name)')
       .order('name')
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching riders:', error);
+          toast.error('Failed to load riders list');
+          return;
+        }
         if (data) {
-          setRidersList(data.map((r: { id: string; name: string; mkb_id?: string }) => ({ id: r.id, name: r.name, mkb_id: r.mkb_id })));
+          setRidersList(data.map((r: {
+            id: string;
+            name: string;
+            mkb_id?: string;
+            zones: { name: string } | { name: string }[] | null;
+          }) => {
+            const zName = Array.isArray(r.zones) ? r.zones[0]?.name : r.zones?.name;
+            return {
+              id: r.id,
+              name: r.name,
+              mkb_id: r.mkb_id,
+              zoneName: zName || 'Zamboanga City'
+            };
+          }));
         }
       });
   }, []);
-  const todayLogs = attendanceList.filter((l) => l.date === today);
-  const kpis = {
-    present: todayLogs.filter((l) => l.status === 'present').length,
-    late: todayLogs.filter((l) => l.status === 'late').length,
-    absent: todayLogs.filter((l) => l.status === 'absent').length,
-    onLeave: todayLogs.filter((l) => l.status === 'on_leave').length
-  };
+  const todayLogs = useMemo(() => {
+    return attendanceList.filter((l) => l.date === today);
+  }, [attendanceList, today]);
+
+  const kpis = useMemo(() => {
+    return {
+      present: todayLogs.filter((l) => l.status === 'present').length,
+      late: todayLogs.filter((l) => l.status === 'late').length,
+      absent: todayLogs.filter((l) => l.status === 'absent').length,
+      onLeave: todayLogs.filter((l) => l.status === 'on_leave').length
+    };
+  }, [todayLogs]);
   const filtered = useMemo(() => {
     return attendanceList.filter(
       (l) =>
@@ -74,7 +96,7 @@ export function Attendance() {
     const selectedDtrRider = ridersList.find(r => r.id === riderId);
     if (!selectedDtrRider) return;
 
-    const riderZone = zonesList[0]?.name || 'Talon-Talon';
+    const riderZone = selectedDtrRider.zoneName || 'Zamboanga City';
     const start = new Date(dtrDateFrom);
     const riderLogs = attendanceList.filter(l => l.riderId === riderId);
 
@@ -290,18 +312,22 @@ export function Attendance() {
       {dtrModalOpen && (() => {
         const selectedDtrRider = ridersList.find(r => r.id === dtrRiderId);
         
-        // Compute DTR dates
+        // Compute DTR dates for the entire month
         const dtrDays = (() => {
-          if (!dtrDateFrom || !dtrDateTo) return [];
-          const dates: { dateString: string; displayDate: string }[] = [];
+          if (!dtrDateFrom) return [];
           const start = new Date(dtrDateFrom);
-          const end = new Date(dtrDateTo);
-          const current = new Date(start);
-          while (current <= end) {
-            const dateString = current.toISOString().split('T')[0];
-            const displayDate = current.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
-            dates.push({ dateString, displayDate });
-            current.setDate(current.getDate() + 1);
+          const year = start.getFullYear();
+          const month = start.getMonth();
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          
+          const dates: { dayNum: number; dateString: string; displayDate: string }[] = [];
+          for (let day = 1; day <= 31; day++) {
+            const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            dates.push({
+              dayNum: day,
+              dateString,
+              displayDate: day <= daysInMonth ? `${day}` : ''
+            });
           }
           return dates;
         })();
@@ -333,20 +359,20 @@ export function Attendance() {
                       ))}
                     </select>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-[#6B6258] font-mono uppercase">Dates:</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-[#6B6258] font-mono uppercase">Month:</span>
                     <input
-                      type="date"
-                      value={dtrDateFrom}
-                      onChange={(e) => setDtrDateFrom(e.target.value)}
-                      className="att-input w-28 text-[11px]"
-                    />
-                    <span className="text-[#6B6258]">-</span>
-                    <input
-                      type="date"
-                      value={dtrDateTo}
-                      onChange={(e) => setDtrDateTo(e.target.value)}
-                      className="att-input w-28 text-[11px]"
+                      type="month"
+                      value={dtrDateFrom ? dtrDateFrom.substring(0, 7) : ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val) {
+                          const [year, month] = val.split('-');
+                          const firstDay = `${year}-${month}-01`;
+                          setDtrDateFrom(firstDay);
+                        }
+                      }}
+                      className="att-input w-36 text-xs"
                     />
                   </div>
                 </div>
@@ -387,80 +413,138 @@ export function Attendance() {
                 `}</style>
                 
                 {selectedDtrRider ? (
-                  <div className="space-y-6 max-w-lg mx-auto font-sans text-slate-900">
+                  <div className="max-w-md mx-auto bg-white border border-slate-400 p-6 shadow-sm font-serif text-slate-800 text-[10px] space-y-4">
+                    {/* CS Form Info & Header */}
+                    <div className="flex justify-between items-start text-[8px] text-slate-500 font-sans">
+                      <span>Civil Service Form No. 48</span>
+                      <span className="font-mono">MKB-LOGISTICS</span>
+                    </div>
+
                     <div className="text-center space-y-1">
-                      <h2 className="text-lg font-bold uppercase tracking-wider text-slate-800">Daily Time Record</h2>
-                      <p className="text-[10px] text-slate-500 tracking-widest uppercase">MKB Corporation</p>
+                      <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">DAILY TIME RECORD</h2>
+                      <div className="w-full border-b border-black pt-1" />
+                      <p className="text-[9px] uppercase font-bold tracking-normal pt-1 text-slate-800">{selectedDtrRider.name}</p>
+                      <p className="text-[7.5px] italic text-slate-500">(Name)</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-xs border-b border-t border-slate-900 py-3">
-                      <div>
-                        <span className="text-slate-500">Employee:</span>
-                        <p className="font-bold text-sm uppercase">{selectedDtrRider.name}</p>
-                        <p className="font-mono text-[10px] text-slate-500">{selectedDtrRider.mkb_id || 'RIDER-CODE'}</p>
+                    <div className="space-y-1.5 font-sans text-[9px]">
+                      <div className="flex justify-between border-b border-slate-300 pb-1">
+                        <span className="text-slate-500">Position:</span>
+                        <span className="font-bold uppercase text-slate-800">RIDER</span>
                       </div>
-                      <div className="text-right">
-                        <span className="text-slate-500">For Period:</span>
-                        <p className="font-bold text-xs">
-                          {new Date(dtrDateFrom).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
-                        <p className="text-[10px] text-slate-400">to</p>
-                        <p className="font-bold text-xs">
-                          {new Date(dtrDateTo).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
+                      <div className="flex justify-between border-b border-slate-300 pb-1">
+                        <span className="text-slate-500">Area of Assignment:</span>
+                        <span className="font-bold uppercase text-slate-800">{selectedDtrRider.zoneName || 'Zamboanga City'}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-slate-300 pb-1">
+                        <span className="text-slate-500">For the Month of:</span>
+                        <span className="font-bold text-slate-800">
+                          {new Date(dtrDateFrom).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                        </span>
                       </div>
                     </div>
 
-                    <table className="w-full text-xs text-left border-collapse border border-slate-900">
+                    {/* DTR Grid Table */}
+                    <table className="w-full text-center border-collapse border border-black font-mono text-[8px]">
                       <thead>
-                        <tr className="bg-slate-50 uppercase tracking-wider text-[9px] border-b border-slate-900">
-                          <th className="border-r border-slate-900 p-2 font-semibold">Date</th>
-                          <th className="border-r border-slate-900 p-2 font-semibold text-center">Arrival</th>
-                          <th className="border-r border-slate-900 p-2 font-semibold text-center">Departure</th>
-                          <th className="border-r border-slate-900 p-2 font-semibold text-center">Hours</th>
-                          <th className="border-r border-slate-900 p-2 font-semibold text-center">Status</th>
-                          <th className="p-2 font-semibold text-center">Signature</th>
+                        <tr className="border-b border-black bg-slate-50">
+                          <th rowSpan={2} className="border-r border-black p-1 align-middle font-bold text-[8px]">DAY</th>
+                          <th colSpan={2} className="border-b border-r border-black p-0.5 font-bold text-[8px]">A.M.</th>
+                          <th colSpan={2} className="border-b border-r border-black p-0.5 font-bold text-[8px]">P.M.</th>
+                          <th colSpan={2} className="border-b border-r border-black p-0.5 font-bold text-[8px]">OVERTIME</th>
+                          <th colSpan={2} className="p-0.5 font-bold text-[8px]">UNDERTIME</th>
+                        </tr>
+                        <tr className="border-b border-black bg-slate-50 text-[7.5px]">
+                          <th className="border-r border-black p-0.5 font-bold">IN</th>
+                          <th className="border-r border-black p-0.5 font-bold">OUT</th>
+                          <th className="border-r border-black p-0.5 font-bold">IN</th>
+                          <th className="border-r border-black p-0.5 font-bold">OUT</th>
+                          <th className="border-r border-black p-0.5 font-bold">IN</th>
+                          <th className="border-r border-black p-0.5 font-bold">OUT</th>
+                          <th className="border-r border-black p-0.5 font-bold">HRS</th>
+                          <th className="p-0.5 font-bold">MIN</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dtrDays.map(day => {
-                          const log = attendanceList.find(l => l.riderId === dtrRiderId && l.date === day.dateString);
+                          const log = day.displayDate 
+                            ? attendanceList.find(l => l.riderId === dtrRiderId && l.date === day.dateString)
+                            : null;
+
+                          let amIn = '—';
+                          let amOut = '—';
+                          let pmIn = '—';
+                          let pmOut = '—';
+                          let otIn = '—';
+                          let otOut = '—';
+                          const utHrs = '—';
+                          const utMin = '—';
+
+                          if (log) {
+                            if (log.status === 'on_leave') {
+                              amIn = 'LEAVE';
+                              amOut = 'LEAVE';
+                              pmIn = 'LEAVE';
+                              pmOut = 'LEAVE';
+                            } else if (log.status === 'absent') {
+                              amIn = 'ABSENT';
+                              amOut = 'ABSENT';
+                              pmIn = 'ABSENT';
+                              pmOut = 'ABSENT';
+                            } else {
+                              if (log.timeIn) {
+                                const hour = parseInt(log.timeIn.split(':')[0], 10);
+                                if (hour < 12) {
+                                  amIn = log.timeIn;
+                                } else {
+                                  pmIn = log.timeIn;
+                                }
+                              }
+                              if (log.timeOut) {
+                                const hour = parseInt(log.timeOut.split(':')[0], 10);
+                                if (hour < 12) {
+                                  amOut = log.timeOut;
+                                } else {
+                                  pmOut = log.timeOut;
+                                }
+                              }
+                              if (log.hours > 8) {
+                                otIn = '17:00';
+                                otOut = log.timeOut || '—';
+                              }
+                            }
+                          }
+
                           return (
-                            <tr key={day.dateString} className="border-b border-slate-900/40 font-mono text-[11px]">
-                              <td className="border-r border-slate-900 p-1.5 tabular-nums">
-                                {day.displayDate}
-                              </td>
-                              <td className="border-r border-slate-900 p-1.5 tabular-nums text-center">
-                                {log?.timeIn || (log?.status === 'on_leave' ? 'LEAVE' : '—')}
-                              </td>
-                              <td className="border-r border-slate-900 p-1.5 tabular-nums text-center">
-                                {log?.timeOut || (log?.status === 'on_leave' ? 'LEAVE' : '—')}
-                              </td>
-                              <td className="border-r border-slate-900 p-1.5 tabular-nums font-semibold text-center">
-                                {log ? `${log.hours.toFixed(1)}h` : '0.0h'}
-                              </td>
-                              <td className="border-r border-slate-900 p-1.5 uppercase text-[9px] text-center font-sans">
-                                {log?.status || 'absent'}
-                              </td>
-                              <td className="p-1.5"></td>
+                            <tr key={day.dateString} className="border-b border-black/30 font-mono text-[8px] h-[18px] leading-tight">
+                              <td className="border-r border-black font-sans font-semibold bg-slate-50/50">{day.dayNum}</td>
+                              <td className={`border-r border-black ${amIn === 'LEAVE' ? 'text-indigo-600 font-sans font-bold text-[7px]' : amIn === 'ABSENT' ? 'text-red-500 font-sans font-bold text-[7px]' : ''}`}>{amIn}</td>
+                              <td className={`border-r border-black ${amOut === 'LEAVE' ? 'text-indigo-600 font-sans font-bold text-[7px]' : amOut === 'ABSENT' ? 'text-red-500 font-sans font-bold text-[7px]' : ''}`}>{amOut}</td>
+                              <td className={`border-r border-black ${pmIn === 'LEAVE' ? 'text-indigo-600 font-sans font-bold text-[7px]' : pmIn === 'ABSENT' ? 'text-red-500 font-sans font-bold text-[7px]' : ''}`}>{pmIn}</td>
+                              <td className={`border-r border-black ${pmOut === 'LEAVE' ? 'text-indigo-600 font-sans font-bold text-[7px]' : pmOut === 'ABSENT' ? 'text-red-500 font-sans font-bold text-[7px]' : ''}`}>{pmOut}</td>
+                              <td className="border-r border-black">{otIn}</td>
+                              <td className="border-r border-black">{otOut}</td>
+                              <td className="border-r border-black">{utHrs}</td>
+                              <td className="p-0.5">{utMin}</td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
 
-                    <div className="pt-8 space-y-4 text-xs">
+                    {/* Bottom Certification Info */}
+                    <div className="pt-4 space-y-4 text-[9px] font-sans">
                       <p className="text-center italic leading-relaxed text-slate-500">
                         "I certify on my honor that the above is a true and correct record of the hours of service rendered, corresponding to the time of arrival and departure."
                       </p>
-                      <div className="grid grid-cols-2 gap-8 pt-8">
+                      <div className="grid grid-cols-2 gap-6 pt-4">
                         <div className="text-center space-y-1">
-                          <div className="border-b border-slate-900 h-6 w-3/4 mx-auto" />
-                          <span className="text-[9px] text-slate-500 uppercase">Employee Signature</span>
+                          <div className="border-b border-black h-5 w-3/4 mx-auto" />
+                          <span className="text-[7.5px] text-slate-500 uppercase font-bold">Rider Signature</span>
                         </div>
                         <div className="text-center space-y-1">
-                          <div className="border-b border-slate-900 h-6 w-3/4 mx-auto" />
-                          <span className="text-[9px] text-slate-500 uppercase">Verified by Supervisor</span>
+                          <div className="border-b border-black h-5 w-3/4 mx-auto" />
+                          <span className="text-[7.5px] text-slate-500 uppercase font-bold">Verified by Supervisor</span>
                         </div>
                       </div>
                     </div>
