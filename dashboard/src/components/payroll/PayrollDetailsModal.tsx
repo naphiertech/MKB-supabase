@@ -30,6 +30,7 @@ import {
   exportParcelPayslipXLSX,
 } from "../../lib/exports/payrollExport";
 import { pushToast } from "../../hooks/useToast";
+import { logActivity } from "../../lib/apiService";
 import { PayrollMetricsGrid } from "./PayrollMetricsGrid";
 import { SelectedDayDetails } from "./SelectedDayDetails";
 import { AttendanceLogsTable } from "./AttendanceLogsTable";
@@ -322,9 +323,8 @@ export function PayrollDetailsModal({
       if (error) throw error;
 
       // Log this action to activity_logs
-      await supabase.from("activity_logs").insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id || null,
-        event_type: "payroll_adjustments_update",
+      await logActivity({
+        eventType: "payroll_adjustments_update",
         description: `Updated payroll adjustments for ${riderName} (${record.cutoff_start} to ${record.cutoff_end})`,
         metadata: {
           record_id: record.id,
@@ -378,9 +378,8 @@ export function PayrollDetailsModal({
       await updatePayrollRecordStatus(record.id, newStatus);
 
       // Log this action to activity_logs
-      await supabase.from("activity_logs").insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id || null,
-        event_type: "payroll_status_update",
+      await logActivity({
+        eventType: "payroll_status_update",
         description: `Updated payroll status for ${riderName} (${record.cutoff_start} to ${record.cutoff_end}) to ${newStatus}`,
         metadata: { record_id: record.id, new_status: newStatus },
       });
