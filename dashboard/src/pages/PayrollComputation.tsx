@@ -76,10 +76,19 @@ export function PayrollComputation() {
   // Load all riders from Supabase on mount
   useEffect(() => {
     const loadRiders = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('riders')
         .select('id, name, mkb_id, zones(name)')
         .order('name');
+      if (error) {
+        console.error('Error loading riders:', error);
+        pushToast({
+          title: 'Error loading riders',
+          description: 'Failed to load riders list.',
+          tone: 'error'
+        });
+        return;
+      }
       if (data) {
         setRiders(data as unknown as RiderRow[]);
         if (data.length > 0) setSelectedRiderId(data[0].id);
