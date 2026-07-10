@@ -13,6 +13,7 @@ import { StatCard } from '../components/common/StatCard';
 import { getPayrollRecords } from '../services/parcelService';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
 import { AnimatePresence } from 'framer-motion';
+import { pushToast } from '../hooks/useToast';
 
 const MONTHS = [
   'January',
@@ -150,6 +151,11 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
         setPayrollRecords(records);
       } catch (err) {
         console.error('Failed to load payroll records', err);
+        pushToast({
+          title: 'Error loading payroll',
+          description: 'Failed to load cutoff records from Supabase.',
+          tone: 'error'
+        });
       } finally {
         setLoading(false);
       }
