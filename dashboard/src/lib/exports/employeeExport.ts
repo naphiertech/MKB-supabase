@@ -8,6 +8,9 @@ interface JsPDFWithAutoTable extends jsPDF {
 
 function formatDtrTimeString(dateStr: string | null): string {
   if (!dateStr) return '';
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(dateStr)) {
+    return dateStr.slice(0, 5);
+  }
   const d = new Date(dateStr.replace(' ', 'T'));
   return isNaN(d.getTime()) ? '' : d.toTimeString().slice(0, 5);
 }
