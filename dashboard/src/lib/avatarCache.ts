@@ -45,7 +45,9 @@ export function setCachedAvatar(riderId: string, avatar: string): void {
 export function clearCachedAvatar(riderId: string): void {
   try {
     localStorage.removeItem(CACHE_PREFIX + riderId);
-  } catch (e) {}
+  } catch (e) {
+    // Ignore Storage Errors
+  }
 }
 
 /**
