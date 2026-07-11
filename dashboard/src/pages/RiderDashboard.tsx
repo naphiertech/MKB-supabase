@@ -4,7 +4,13 @@ import {
   type Rider,
   type Zone } from
 '../services/types';
-import { supabase } from '../lib/supabaseClient';
+import {
+  getRiderPayrollHistory,
+  cacheRiderFaceDescriptor,
+  getRiderUserMapping,
+  getRiderFullProfile,
+  getRiderDashboardStats
+} from '../services/riderService';
 import { recordTimeIn, recordTimeOut } from '../services/attendanceService';
 import { useRiderZone } from '../context/RiderZoneContext';
 import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
@@ -130,13 +136,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   useEffect(() => {
     if (!actualRiderId) return;
     const loadPayroll = async () => {
-      const { data, error } = await supabase
-        .from('payroll_records')
-        .select('*, riders(id, name, mkb_id, avatar_url, zones(name), shift)')
-        .eq('rider_id', actualRiderId)
-        .order('cutoff_start', { ascending: false });
-      if (!error && data) {
-        setMyPayrollRecords(data);
+      try {
+        const data = await getRiderPayrollHistory(actualRiderId);
+        setMyPayrollRecords(data as unknown as PayrollRecord[]);
+      } catch (err) {
+        console.error('Failed to load payroll records:', err);
       }
     };
     loadPayroll();
@@ -151,18 +155,9 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
       if (!actualRiderId) return;
       console.log('[RiderDashboard] Fallback calculated face descriptor. Saving to database...', actualRiderId);
       try {
-        const { error: updateErr } = await supabase
-          .rpc('cache_rider_face_descriptor', {
-            p_rider_id: actualRiderId,
-            p_descriptor: descriptor
-          });
-        
-        if (updateErr) {
-          console.error('[RiderDashboard] Failed to auto-cache face descriptor to Supabase:', updateErr);
-        } else {
-          console.log('[RiderDashboard] Successfully cached face descriptor to Supabase.');
-          setRider(prev => prev ? { ...prev, faceDescriptor: descriptor } : null);
-        }
+        await cacheRiderFaceDescriptor(actualRiderId, descriptor);
+        console.log('[RiderDashboard] Successfully cached face descriptor to Supabase.');
+        setRider(prev => prev ? { ...prev, faceDescriptor: descriptor } : null);
       } catch (err) {
         console.error('[RiderDashboard] Exception while caching face descriptor:', err);
       }
@@ -175,22 +170,14 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         setLoading(true);
 
         // Retrieve the linked rider_id using the logged-in Auth UUID
-        const { data: dbUser } = await supabase
-          .from('users')
-          .select('rider_id')
-          .eq('id', userId)
-          .maybeSingle();
+        const dbUser = await getRiderUserMapping(userId);
 
         const resolvedRiderId = dbUser?.rider_id || riderId;
         setActualRiderId(resolvedRiderId);
 
-        const { data: dbRider, error } = await supabase
-          .from('riders')
-          .select('*')
-          .eq('id', resolvedRiderId)
-          .maybeSingle();
+        const dbRider = await getRiderFullProfile(resolvedRiderId);
 
-        if (!error && dbRider) {
+        if (dbRider) {
           const mappedRider: Rider & { faceDescriptor?: number[] | null } = {
             id: dbRider.id,
             name: dbRider.name,
@@ -226,34 +213,18 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           const firstDayOfWeek = new Date(todayDate.setDate(diff));
           const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
 
-          const [attLogRes, violationRes, monthLogsRes, violationCountRes] = await Promise.all([
-            supabase
-              .from('attendance_logs')
-              .select('*')
-              .eq('rider_id', resolvedRiderId)
-              .eq('date', todayStr)
-              .maybeSingle(),
-            supabase
-              .from('violations')
-              .select('*')
-              .eq('rider_id', resolvedRiderId)
-              .eq('read', false)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle(),
-            supabase
-              .from('attendance_logs')
-              .select('*')
-              .eq('rider_id', resolvedRiderId)
-              .gte('date', firstDayStr),
-            supabase
-              .from('violations')
-              .select('*', { count: 'exact', head: true })
-              .eq('rider_id', resolvedRiderId)
-              .gte('created_at', firstDayOfMonth.toISOString())
-          ]);
+          const {
+            todayAttendance: attLog,
+            latestViolation: violationData,
+            monthAttendance: monthLogs,
+            monthViolationCount: violationCount
+          } = await getRiderDashboardStats(
+            resolvedRiderId,
+            todayStr,
+            firstDayStr,
+            firstDayOfMonth.toISOString()
+          );
 
-          const attLog = attLogRes.data;
           if (attLog) {
             setAttendance({
               timeIn: attLog.time_in ? toHHMM(attLog.time_in) : null,
@@ -261,7 +232,6 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             });
           }
 
-          const violationData = violationRes.data;
           if (violationData && violationData.lat && violationData.lng) {
             setActiveViolation({
               lat: violationData.lat,
@@ -272,7 +242,6 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             setActiveViolation(null);
           }
 
-          const monthLogs = monthLogsRes.data;
           let presentCount = 0;
           let weekHours = 0;
           
@@ -288,7 +257,6 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
              }
           }
 
-          const violationCount = violationCountRes.count;
           setStats({
             daysPresent: presentCount,
             hoursThisWeek: Number(weekHours.toFixed(1)),
