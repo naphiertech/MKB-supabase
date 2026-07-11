@@ -12,13 +12,16 @@ import {
   Users,
   Package
 } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
+import { getRiderAttendanceInDateRange } from '../services/attendanceService';
 import { getZones } from '../services/geofenceService';
 import { getAllRiders } from '../services/monitoringService';
 import type { Rider, Zone } from '../services/types';
 import {
   getParcelLogs,
-  getPayrollRecords,
+  getParcelLogsSummary,
+  getPayrollRecordsSummary,
+  getParcelLogsDetails,
+  getPayrollRecords
 } from '../services/parcelService';
 import {
   exportParcelPayslipPDF,
@@ -148,13 +151,7 @@ export function PayrollReports() {
     const fetchSummaryData = async () => {
       setLoadingSummary(true);
       try {
-        const { data, error } = await supabase
-          .from('parcel_logs')
-          .select('parcels, daily_gross, date, rider_id, riders(id, name, zone_id)')
-          .gte('date', from)
-          .lte('date', to);
-
-        if (error) throw error;
+        const data = await getParcelLogsSummary(from, to);
 
         if (active && data) {
           setCutoffLogs(data as unknown as ParcelLogRow[]);
@@ -179,13 +176,7 @@ export function PayrollReports() {
 
     const fetchFinalized = async () => {
       try {
-        const { data, error } = await supabase
-          .from('payroll_records')
-          .select('rider_id, status')
-          .gte('cutoff_start', from)
-          .lte('cutoff_start', to);
-
-        if (error) throw error;
+        const data = await getPayrollRecordsSummary(from, to);
 
         if (active && data) {
           setFinalizedRecords(data);
@@ -410,16 +401,10 @@ export function PayrollReports() {
             current.setDate(current.getDate() + 1);
           }
 
-          const [logs, attendanceRes] = await Promise.all([
+          const [logs, attList] = await Promise.all([
             getParcelLogs(rider.id, from, to),
-            supabase
-              .from('attendance_logs')
-              .select('date, time_in')
-              .eq('rider_id', rider.id)
-              .gte('date', from)
-              .lte('date', to)
+            getRiderAttendanceInDateRange(rider.id, from, to)
           ]);
-          const attList = attendanceRes.data || [];
           const dayEntries = dates.map(date => {
             const existing = logs.find(l => l.date === date);
             const att = attList.find(a => a.date === date);
@@ -478,23 +463,14 @@ export function PayrollReports() {
         });
 
       } else if (template === 'parcel_logs') {
-        // Raw Daily Parcel Logs from Supabase
-        let query = supabase
-          .from('parcel_logs')
-          .select('*, riders(name, mkb_id, zones(name))')
-          .gte('date', from)
-          .lte('date', to);
-
+        const filterOpts: { riderId?: string; riderIds?: string[] } = {};
         if (bulkMode === 'single' && singleRiderId) {
-          query = query.eq('rider_id', singleRiderId);
+          filterOpts.riderId = singleRiderId;
         } else if (selectedZones.length > 0) {
-          // Join filters on zone via rider
-          const riderIds = targetRiders.map(r => r.id);
-          query = query.in('rider_id', riderIds);
+          filterOpts.riderIds = targetRiders.map(r => r.id);
         }
-
-        const { data, error } = await query.order('date', { ascending: true });
-        if (error) throw error;
+ 
+        const data = await getParcelLogsDetails(from, to, filterOpts);
 
         if (!data || data.length === 0) {
           pushToast({
