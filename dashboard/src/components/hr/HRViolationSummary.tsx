@@ -3,7 +3,7 @@ import { AlertTriangle, Flag, Check } from 'lucide-react';
 import type { ViolationEvent, Rider } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 import { pushToast } from '../../hooks/useToast';
-import { supabase } from '../../lib/supabaseClient';
+import { getFlaggedViolationIds, createNotificationAlert } from '../../services/notificationService';
 interface HRViolationSummaryProps {
   violations: ViolationEvent[];
   riders: Rider[];
@@ -30,16 +30,8 @@ export function HRViolationSummary({
   useEffect(() => {
     async function loadFlagged() {
       try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('violation_id')
-          .eq('type', 'violation')
-          .not('violation_id', 'is', null);
-
-        if (!error && data) {
-          const ids = new Set<string>(data.map((n: { violation_id: string }) => n.violation_id));
-          setFlagged(ids);
-        }
+        const ids = await getFlaggedViolationIds();
+        setFlagged(ids);
       } catch (e) {
         console.error('Error loading flagged violations:', e);
       }
@@ -58,19 +50,14 @@ export function HRViolationSummary({
     });
 
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          type: 'violation',
-          title: 'Flagged Violation',
-          message: `${v.riderName} breached geofence boundary (${TYPE_LABEL[v.type]} at ${v.zoneName})`,
-          rider_id: v.riderId,
-          violation_id: v.id,
-          read: false,
-          target_roles: ['admin', 'hr']
-        });
-
-      if (error) throw error;
+      await createNotificationAlert({
+        type: 'violation',
+        title: 'Flagged Violation',
+        message: `${v.riderName} breached geofence boundary (${TYPE_LABEL[v.type]} at ${v.zoneName})`,
+        riderId: v.riderId,
+        violationId: v.id,
+        targetRoles: ['admin', 'hr']
+      });
 
       pushToast({
         title: `Flagged for Admin · ${v.riderName}`,
