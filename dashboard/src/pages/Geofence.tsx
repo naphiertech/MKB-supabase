@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import * as turf from '@turf/turf';
+import type { Feature, Polygon, MultiPolygon } from 'geojson';
 
 import { type Zone, type Rider, type ViolationEvent, type AttendanceLog } from '../services/types';
 import {
@@ -39,6 +41,7 @@ export function Geofence() {
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
   const [editZoneType, setEditZoneType] = useState<'circle' | 'polygon'>('circle');
   const [editPolygonCoords, setEditPolygonCoords] = useState<[number, number][]>([]);
+  const [editColor, setEditColor] = useState('#db6c00');
   const [errors, setErrors] = useState<{ zoneName?: string; pin?: string; polygon?: string }>({});
   const [openGroupIds, setOpenGroupIds] = useState<Set<string>>(new Set());
   const [activeSummaryModal, setActiveSummaryModal] = useState<'total_zones' | 'active_zones' | 'riders_assigned' | 'violations_today' | null>(null);
@@ -122,6 +125,12 @@ export function Geofence() {
     setSelectedRiders([]);
     setEditZoneType('circle');
     setEditPolygonCoords([]);
+    
+    // Choose first unused color from AVAILABLE_COLORS
+    const used = zonesList.map(z => z.color);
+    const firstFree = ['#db6c00', '#2563EB', '#059669', '#DC2626', '#7C3AED', '#D97706', '#0D9488', '#EC4899'].find(c => !used.includes(c)) || '#db6c00';
+    setEditColor(firstFree);
+
     setErrors({});
     setIsEditing(true);
     setActiveZoneId(null);
@@ -141,6 +150,7 @@ export function Geofence() {
     setEditStatus(zoneToEdit.status ?? 'active');
     setEditZoneType(zoneToEdit.zone_type || 'circle');
     setEditPolygonCoords(zoneToEdit.polygon_coordinates || []);
+    setEditColor(zoneToEdit.color || '#db6c00');
 
     const assignedRiderIds = ridersList
       .filter((r) => r.zoneId === zoneId)
@@ -187,6 +197,20 @@ export function Geofence() {
       return;
     }
 
+    let finalPolygonCoords = editPolygonCoords;
+    if (editZoneType === 'polygon') {
+      const subtracted = subtractOverlappingZones(editPolygonCoords, zonesList, editingZoneId);
+      if (subtracted.length < 3) {
+        pushToast({
+          title: 'Invalid shape',
+          description: 'The zone is completely covered or overlaps too much with existing zones.',
+          tone: 'error'
+        });
+        return;
+      }
+      finalPolygonCoords = subtracted;
+    }
+
     const input: ZoneInput = {
       name: editZoneName.trim(),
       lat: editZoneType === 'circle' ? editPin!.lat : null,
@@ -195,7 +219,8 @@ export function Geofence() {
       status: editStatus,
       riderIds: selectedRiders,
       zone_type: editZoneType,
-      polygon_coordinates: editZoneType === 'polygon' ? editPolygonCoords : null,
+      polygon_coordinates: editZoneType === 'polygon' ? finalPolygonCoords : null,
+      color: editColor,
     };
 
     try {
@@ -291,6 +316,7 @@ export function Geofence() {
             polygonCoords={editPolygonCoords}
             onMapClick={handleMapClick}
             radius={editRadius}
+            color={editColor}
           />
         </div>
         <div className="lg:col-span-2">
@@ -314,6 +340,9 @@ export function Geofence() {
               setZoneType={setEditZoneType}
               polygonCoords={editPolygonCoords}
               setPolygonCoords={setEditPolygonCoords}
+              color={editColor}
+              setColor={setEditColor}
+              usedColors={zonesList.filter(z => z.id !== editingZoneId).map(z => z.color)}
             />
           ) : (
             <ZoneListPanel
@@ -340,4 +369,126 @@ export function Geofence() {
       />
     </div>
   );
+}
+
+/**
+ * Subtracts overlapping areas of existing zones from the drawn polygon.
+ */
+function subtractOverlappingZones(
+  newCoords: [number, number][],
+  existingZones: Zone[],
+  currentEditingId: string | null
+): [number, number][] {
+  if (newCoords.length < 3) return newCoords;
+
+  // 1. Format coordinates to Turf LNG, LAT and close the loop
+  const formattedNew = [...newCoords];
+  if (
+    formattedNew[0][0] !== formattedNew[formattedNew.length - 1][0] ||
+    formattedNew[0][1] !== formattedNew[formattedNew.length - 1][1]
+  ) {
+    formattedNew.push(formattedNew[0]);
+  }
+  const newLngLat = formattedNew.map(([lat, lng]) => [lng, lat]);
+
+  let currentTurfPoly: Feature<Polygon>;
+  try {
+    currentTurfPoly = turf.polygon([newLngLat]);
+  } catch (err) {
+    console.error('Failed to create Turf polygon:', err);
+    return newCoords;
+  }
+
+  // 2. Subtract each other zone's area
+  for (const zone of existingZones) {
+    if (zone.id === currentEditingId) continue;
+
+    let obstaclePoly: Feature<Polygon> | null = null;
+
+    if (zone.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length >= 3) {
+      const obstacleCoords = [...zone.polygon_coordinates];
+      if (
+        obstacleCoords[0][0] !== obstacleCoords[obstacleCoords.length - 1][0] ||
+        obstacleCoords[0][1] !== obstacleCoords[obstacleCoords.length - 1][1]
+      ) {
+        obstacleCoords.push(obstacleCoords[0]);
+      }
+      const obstacleLngLat = obstacleCoords.map(([lat, lng]) => [lng, lat]);
+      try {
+        obstaclePoly = turf.polygon([obstacleLngLat]);
+      } catch (err) {
+        console.warn('Failed to parse existing polygon:', zone.name, err);
+        continue;
+      }
+    } else if (zone.zone_type === 'circle' && zone.center) {
+      try {
+        obstaclePoly = turf.circle(
+          [zone.center[1], zone.center[0]], // [lng, lat]
+          zone.radius / 1000, // km
+          { steps: 64, units: 'kilometers' }
+        );
+      } catch (err) {
+        console.warn('Failed to parse existing circle:', zone.name, err);
+        continue;
+      }
+    }
+
+    if (obstaclePoly) {
+      try {
+        let diff: Feature<Polygon | MultiPolygon> | null = null;
+        // Turf v7 vs v6 compatible invocation
+        try {
+          diff = turf.difference(turf.featureCollection([currentTurfPoly, obstaclePoly]));
+        } catch (e) {
+          try {
+            type Turf6DiffFn = (p1: Feature<Polygon>, p2: Feature<Polygon>) => Feature<Polygon | MultiPolygon> | null;
+            diff = (turf.difference as unknown as Turf6DiffFn)(currentTurfPoly, obstaclePoly);
+          } catch (e2) {
+            console.error('Difference failed:', e2);
+            continue;
+          }
+        }
+
+        if (!diff) {
+          console.warn('New zone completely overlaps an existing zone!');
+          return [];
+        }
+
+        // If split into multiple pieces (MultiPolygon), select the largest contiguous area
+        if (diff.geometry.type === 'MultiPolygon') {
+          const multiCoords = diff.geometry.coordinates as number[][][][];
+          let maxArea = 0;
+          let bestPoly: Feature<Polygon> | null = null;
+          for (const polyCoords of multiCoords) {
+            const p = turf.polygon(polyCoords);
+            const a = turf.area(p);
+            if (a > maxArea) {
+              maxArea = a;
+              bestPoly = p;
+            }
+          }
+          if (bestPoly) {
+            currentTurfPoly = bestPoly;
+          }
+        } else if (diff.geometry.type === 'Polygon') {
+          currentTurfPoly = diff as Feature<Polygon>;
+        }
+      } catch (err) {
+        console.error('Turf operation error:', err);
+      }
+    }
+  }
+
+  // 3. Convert back to Leaflet [lat, lng][] (removing closing coordinate)
+  try {
+    const finalCoords = currentTurfPoly.geometry.coordinates[0];
+    const leafletCoords = finalCoords.map((coord) => [coord[1], coord[0]]) as [number, number][];
+    if (leafletCoords.length > 3) {
+      leafletCoords.pop();
+    }
+    return leafletCoords;
+  } catch (err) {
+    console.error('Failed to translate Turf coordinates:', err);
+    return newCoords;
+  }
 }
