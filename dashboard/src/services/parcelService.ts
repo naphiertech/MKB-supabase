@@ -255,3 +255,22 @@ export const getParcelLogsDetails = async (
   return data || [];
 };
 
+// Bulk upsert daily parcel logs for multiple riders
+export const bulkUpsertParcelLogs = async (
+  logs: {
+    rider_id: string;
+    date: string;
+    parcels: number;
+    rate: number;
+    daily_gross: number;
+    created_by: string;
+  }[]
+): Promise<void> => {
+  const { error } = await supabase
+    .from('parcel_logs')
+    .upsert(logs, { onConflict: 'rider_id,date' });
+
+  if (error) throw error;
+};
+
+
