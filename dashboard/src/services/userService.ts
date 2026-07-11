@@ -169,3 +169,81 @@ export const createUserProfile = async (userId: string, riderId: string | null, 
 
   if (error) throw error;
 };
+
+// Fetch search index zones and users in parallel
+export const getSearchIndexData = async () => {
+  const [zonesRes, usersRes] = await Promise.all([
+    supabase.from('zones').select('id, name'),
+    supabase.from('users').select('id, full_name, role, contact, riders(zone_id, mkb_id)')
+  ]);
+
+  if (zonesRes.error) throw zonesRes.error;
+  if (usersRes.error) throw usersRes.error;
+
+  return {
+    zones: zonesRes.data || [],
+    users: usersRes.data || []
+  };
+};
+
+// Fetch phone number (contact) from users table
+export const getUserContactInfo = async (userId: string): Promise<string> => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('contact')
+    .eq('id', userId)
+    .single();
+
+  if (error) throw error;
+  return data?.contact || '';
+};
+
+// Update user settings profile in users table
+export const updateUserSettingsProfile = async (
+  userId: string,
+  input: { fullName: string; email: string; phone: string }
+): Promise<void> => {
+  const { error } = await supabase
+    .from('users')
+    .update({
+      full_name: input.fullName,
+      email: input.email.trim(),
+      contact: input.phone.trim()
+    })
+    .eq('id', userId);
+
+  if (error) throw error;
+};
+
+// Update Supabase Auth profile details and credentials
+export const updateUserAuthCredentials = async (input: {
+  email?: string;
+  password?: string;
+  fullName: string;
+}): Promise<void> => {
+  const authUpdates: { email?: string; password?: string; data: { full_name: string } } = {
+    email: input.email,
+    data: { full_name: input.fullName }
+  };
+
+  if (input.password) {
+    authUpdates.password = input.password;
+  }
+
+  const { error } = await supabase.auth.updateUser(authUpdates);
+  if (error) throw error;
+};
+
+// Fetch user profile record by ID
+export const getUserProfileById = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+};
+
+
