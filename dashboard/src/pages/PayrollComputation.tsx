@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '../lib/supabaseClient';
+import { getRidersLookup } from '../services/riderService';
+import { getRiderAttendanceInDateRange } from '../services/attendanceService';
 import { useAuth } from '../hooks/useAuth';
 import {
   getParcelLogs,
@@ -76,22 +77,17 @@ export function PayrollComputation() {
   // Load all riders from Supabase on mount
   useEffect(() => {
     const loadRiders = async () => {
-      const { data, error } = await supabase
-        .from('riders')
-        .select('id, name, mkb_id, zones(name)')
-        .order('name');
-      if (error) {
+      try {
+        const data = await getRidersLookup();
+        setRiders(data as unknown as RiderRow[]);
+        if (data.length > 0) setSelectedRiderId(data[0].id);
+      } catch (error) {
         console.error('Error loading riders:', error);
         pushToast({
           title: 'Error loading riders',
           description: 'Failed to load riders list.',
           tone: 'error'
         });
-        return;
-      }
-      if (data) {
-        setRiders(data as unknown as RiderRow[]);
-        if (data.length > 0) setSelectedRiderId(data[0].id);
       }
     };
     loadRiders();
@@ -115,17 +111,10 @@ export function PayrollComputation() {
       }
 
       try {
-        const [existingLogs, attendanceRes] = await Promise.all([
+        const [existingLogs, attList] = await Promise.all([
           getParcelLogs(selectedRiderId, cutoffFrom, cutoffTo),
-          supabase
-            .from('attendance_logs')
-            .select('date, time_in')
-            .eq('rider_id', selectedRiderId)
-            .gte('date', cutoffFrom)
-            .lte('date', cutoffTo)
+          getRiderAttendanceInDateRange(selectedRiderId, cutoffFrom, cutoffTo)
         ]);
-
-        const attList = attendanceRes.data || [];
         const entries = dates.map(date => {
           const existing = existingLogs.find(l => l.date === date);
           const att = attList.find(a => a.date === date);
