@@ -344,13 +344,13 @@ export function useRealtimeLocation(): {
 
   const ridersWithUnreadViolations = useMemo(() => {
     return riderState.map((r) => {
-      const unreadV = violationState.find((v) => v.riderId === r.id && !v.read);
-      if (unreadV) {
+      const activeV = violationState.find((v) => v.riderId === r.id && !v.resolved);
+      if (activeV) {
         return {
           ...r,
           status: 'violation' as const,
-          lat: r.lat === 0 || r.status === 'offline' ? (unreadV.lat ?? r.lat) : r.lat,
-          lng: r.lng === 0 || r.status === 'offline' ? (unreadV.lng ?? r.lng) : r.lng,
+          lat: r.lat === 0 || r.status === 'offline' ? (activeV.lat ?? r.lat) : r.lat,
+          lng: r.lng === 0 || r.status === 'offline' ? (activeV.lng ?? r.lng) : r.lng,
         };
       }
       return r;
