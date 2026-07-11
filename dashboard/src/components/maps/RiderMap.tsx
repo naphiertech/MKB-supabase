@@ -216,7 +216,9 @@ export function RiderMap({
         
         <span className="text-[#1A1410] font-medium">{zone.name}</span>
         <span className="text-[#A39988] font-mono">·</span>
-        <span className="text-[#6B6258] font-mono">{zone.radius}m</span>
+        <span className="text-[#6B6258] font-mono">
+          {zone.zone_type === 'polygon' ? 'Polygon' : `${zone.radius}m`}
+        </span>
       </div>
 
       {/* Coords pill */}
