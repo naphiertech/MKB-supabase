@@ -100,11 +100,17 @@ export function ZoneListPanel({
                           {status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                      <div className="text-xs text-[#6B6258] mt-0.5">
-                        {zone.radius}m radius
+                      <div className="text-xs text-[#6B6258] mt-0.5 font-medium flex items-center gap-1.5">
+                        {zone.zone_type === 'polygon' ? (
+                          <span className="inline-flex items-center text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-md">
+                            Polygon geofence
+                          </span>
+                        ) : (
+                          `${zone.radius}m radius`
+                        )}
                       </div>
                       <div className="text-[10px] text-[#6B6258] font-mono mt-0.5 truncate">
-                        {formatLatLng(zone.center)}
+                        {zone.zone_type === 'polygon' ? 'Centroid: ' : ''}{formatLatLng(zone.center)}
                       </div>
                       <div className="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#FFF1E0] border border-[#db6c00]/25 text-[10px] font-semibold text-[#b85a00]">
                         {riders} {riders === 1 ? 'rider' : 'riders'}
