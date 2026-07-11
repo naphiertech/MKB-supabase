@@ -25,7 +25,21 @@ interface ZoneFormPanelProps {
   setZoneType: (t: 'circle' | 'polygon') => void;
   polygonCoords: [number, number][];
   setPolygonCoords: (coords: [number, number][] | ((prev: [number, number][]) => [number, number][])) => void;
+  color: string;
+  setColor: (c: string) => void;
+  usedColors: string[];
 }
+
+const AVAILABLE_COLORS = [
+  { value: '#db6c00', label: 'Orange', bg: 'bg-[#db6c00]', ring: 'ring-[#db6c00]' },
+  { value: '#2563EB', label: 'Blue', bg: 'bg-[#2563EB]', ring: 'ring-[#2563EB]' },
+  { value: '#059669', label: 'Green', bg: 'bg-[#059669]', ring: 'ring-[#059669]' },
+  { value: '#DC2626', label: 'Red', bg: 'bg-[#DC2626]', ring: 'ring-[#DC2626]' },
+  { value: '#7C3AED', label: 'Purple', bg: 'bg-[#7C3AED]', ring: 'ring-[#7C3AED]' },
+  { value: '#D97706', label: 'Yellow', bg: 'bg-[#D97706]', ring: 'ring-[#D97706]' },
+  { value: '#0D9488', label: 'Teal', bg: 'bg-[#0D9488]', ring: 'ring-[#0D9488]' },
+  { value: '#EC4899', label: 'Pink', bg: 'bg-[#EC4899]', ring: 'ring-[#EC4899]' }
+];
 
 export function ZoneFormPanel({
   zoneName,
@@ -46,6 +60,9 @@ export function ZoneFormPanel({
   setZoneType,
   polygonCoords,
   setPolygonCoords,
+  color,
+  setColor,
+  usedColors,
 }: ZoneFormPanelProps) {
   const [riderDropdownOpen, setRiderDropdownOpen] = useState(false);
   const [riderSearch, setRiderSearch] = useState('');
@@ -132,16 +149,22 @@ export function ZoneFormPanel({
                 ? 'bg-red-50 border-red-500/20 text-red-900 animate-pulse'
                 : 'bg-[#FFF1E0] border-[#db6c00]/20 text-[#b85a00]'
           }`}>
-            {polygonCoords.length >= 3 ? (
-              <div className="flex items-center justify-between">
-                <span className="font-semibold font-mono text-[11px]">
-                  Polygon closed with {polygonCoords.length} points
-                </span>
+            <div className="flex items-center justify-between">
+              <span className="font-semibold font-mono text-[11px]">
+                {polygonCoords.length >= 3 
+                  ? `Polygon shape: ${polygonCoords.length} points` 
+                  : `Points added: ${polygonCoords.length} / 3 minimum`}
+              </span>
+              {polygonCoords.length > 0 && (
                 <div className="flex gap-1.5">
                   <button
                     type="button"
                     onClick={handleUndoPoint}
-                    className="p-1 rounded hover:bg-emerald-500/10 text-emerald-700 transition"
+                    className={`p-1 rounded transition ${
+                      polygonCoords.length >= 3 
+                        ? 'hover:bg-emerald-500/10 text-emerald-700' 
+                        : 'hover:bg-[#db6c00]/10 text-[#db6c00]'
+                    }`}
                     title="Undo last point"
                   >
                     <Undo size={13} />
@@ -155,35 +178,14 @@ export function ZoneFormPanel({
                     <Trash2 size={13} />
                   </button>
                 </div>
-              </div>
-            ) : (
-              <div>
-                <p className="font-medium">
-                  👉 Click on the left map to add corners of your custom shape geofence.
-                </p>
-                <p className="text-[10px] text-[#888] mt-1 font-mono">
-                  Points added: {polygonCoords.length} / 3 minimum
-                </p>
-                {polygonCoords.length > 0 && (
-                  <div className="mt-2 flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={handleUndoPoint}
-                      className="px-2 py-0.5 rounded border border-[#EFEAE2] hover:bg-white text-[10px] font-semibold text-[#6B6258] flex items-center gap-1"
-                    >
-                      <Undo size={10} /> Undo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearPoints}
-                      className="px-2 py-0.5 rounded border border-red-200 hover:bg-red-50 text-[10px] font-semibold text-red-600 flex items-center gap-1"
-                    >
-                      <Trash2 size={10} /> Clear
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
+            
+            <p className="mt-1 text-[10.5px] opacity-80">
+              {polygonCoords.length >= 3 
+                ? '👉 Click the map to add more corners (4, 5, or more) to shape your custom geofence.' 
+                : '👉 Click on the left map to add corners of your custom shape geofence.'}
+            </p>
           </div>
         )}
 
@@ -206,6 +208,45 @@ export function ZoneFormPanel({
           {errors.zoneName && (
             <p className="text-[11px] text-red-600 mt-1 font-medium">{errors.zoneName}</p>
           )}
+        </div>
+
+        {/* Zone Color Selector */}
+        <div>
+          <label className="text-[10px] font-semibold text-[#6B6258] tracking-widest uppercase block mb-1.5 font-mono">
+            Geofence Color
+          </label>
+          <div className="flex flex-wrap gap-2.5">
+            {AVAILABLE_COLORS.map((c) => {
+              const isUsed = usedColors.includes(c.value);
+              const isSelected = color === c.value;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  disabled={isUsed}
+                  onClick={() => setColor(c.value)}
+                  title={isUsed ? `${c.label} (Used by another zone)` : c.label}
+                  className={`w-8 h-8 rounded-full ${c.bg} relative flex items-center justify-center transition-all ${
+                    isUsed 
+                      ? 'opacity-20 cursor-not-allowed border border-dashed border-gray-400' 
+                      : 'hover:scale-110 cursor-pointer shadow-sm active:scale-95'
+                  } ${
+                    isSelected ? `ring-2 ring-offset-2 ${c.ring}` : ''
+                  }`}
+                >
+                  {isSelected && (
+                    <span className="w-1.5 h-1.5 bg-white rounded-full" />
+                  )}
+                  {isUsed && (
+                    <span className="text-[8px] font-bold text-white">🔒</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[9.5px] text-[#888] mt-1 font-mono">
+            * Unique color required. Locked colors are used by other zones.
+          </p>
         </div>
 
         {/* Radius slider (Circle geofences only) */}
