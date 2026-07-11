@@ -122,7 +122,9 @@ function ZonesTableDetail({ zones, onFocusZone }: ZonesTableDetailProps) {
                 <td className="px-4 py-3 font-mono text-[#6B6258]">
                   {zone.center[0].toFixed(5)}, {zone.center[1].toFixed(5)}
                 </td>
-                <td className="px-4 py-3 text-[#6B6258] font-mono">{zone.radius.toLocaleString()} m</td>
+                <td className="px-4 py-3 text-[#6B6258] font-mono">
+                  {zone.zone_type === 'polygon' ? 'Custom Polygon' : `${zone.radius.toLocaleString()} m`}
+                </td>
                 <td className="px-4 py-3">
                   {(zone.status ?? 'active') === 'active' ? (
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
