@@ -9,6 +9,7 @@ import { getRiderUserMapping, getRiderFullProfile } from '../services/riderServi
 import { getZones } from '../services/geofenceService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { RiderMap } from '../components/maps/RiderMap';
+import { isPointInPolygon } from '../lib/geofenceUtils';
 import { GeofenceStatus } from '../components/rider/GeofenceStatus';
 import { RouteTrailMap } from '../components/maps/RouteTrailMap';
 import { 
@@ -122,14 +123,21 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
     enabled: true
   });
 
-  const distance = haversine(
-    zoneCenterLat,
-    zoneCenterLng,
-    position.lat,
-    position.lng
-  );
+  const distance = useMemo(() => {
+    return haversine(
+      zoneCenterLat,
+      zoneCenterLng,
+      position.lat,
+      position.lng
+    );
+  }, [zoneCenterLat, zoneCenterLng, position]);
 
-  const inZone = distance <= zoneRadius;
+  const inZone = useMemo(() => {
+    if (zone?.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length > 0) {
+      return isPointInPolygon([position.lat, position.lng], zone.polygon_coordinates);
+    }
+    return distance <= zoneRadius;
+  }, [distance, zoneRadius, zone, position]);
 
   if (loading || !rider || !zone) {
     return <DashboardSkeleton page="monitoring" role="rider" />;

@@ -13,6 +13,7 @@ import {
 } from '../services/riderService';
 import { recordTimeIn, recordTimeOut } from '../services/attendanceService';
 import { useRiderZone } from '../context/RiderZoneContext';
+import { isPointInPolygon } from '../lib/geofenceUtils';
 import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
@@ -317,8 +318,13 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     if (activeViolation && !isOnline) {
       return false;
     }
+    if (zone?.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length > 0) {
+      const lat = activeViolation && !isOnline ? activeViolation.lat : position.lat;
+      const lng = activeViolation && !isOnline ? activeViolation.lng : position.lng;
+      return isPointInPolygon([lat, lng], zone.polygon_coordinates);
+    }
     return distanceToUse <= zoneRadius;
-  }, [isOnline, distanceToUse, zoneRadius, activeViolation]);
+  }, [isOnline, distanceToUse, zoneRadius, activeViolation, zone, position]);
 
   const distance = distanceToUse;
   const inZone = inZoneToUse;
