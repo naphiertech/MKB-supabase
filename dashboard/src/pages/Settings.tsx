@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { getUserContactInfo, updateUserSettingsProfile, updateUserAuthCredentials } from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { pushToast } from '../hooks/useToast';
 import { 
@@ -144,16 +144,8 @@ export function Settings() {
 
     // Fetch phone number (contact) from users table
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('contact')
-        .eq('id', userId)
-        .single();
-      if (!error && data?.contact) {
-        setPhone(data.contact);
-      } else {
-        setPhone('');
-      }
+      const contactVal = await getUserContactInfo(userId);
+      setPhone(contactVal);
     } catch (e) {
       console.error('Failed to load contact info:', e);
       setPhone('');
@@ -267,29 +259,18 @@ export function Settings() {
       const userId = session.id;
 
       // 1. Update Supabase Auth profile
-      const authUpdates: { email?: string; password?: string; data: { full_name: string } } = {
+      await updateUserAuthCredentials({
         email: email !== user?.email ? email.trim() : undefined,
-        data: { full_name: fullName }
-      };
-
-      if (password) {
-        authUpdates.password = password;
-      }
-
-      const { error: authErr } = await supabase.auth.updateUser(authUpdates);
-      if (authErr) throw authErr;
+        password: password || undefined,
+        fullName
+      });
 
       // 2. Synchronize with public.users table
-      const { error: dbErr } = await supabase
-        .from('users')
-        .update({
-          full_name: fullName,
-          email: email.trim(),
-          contact: phone.trim()
-        })
-        .eq('id', userId);
-
-      if (dbErr) throw dbErr;
+      await updateUserSettingsProfile(userId, {
+        fullName,
+        email,
+        phone
+      });
 
       // 3. Save mocked fields to localStorage
       localStorage.setItem(`lang_${userId}`, preferredLanguage);
