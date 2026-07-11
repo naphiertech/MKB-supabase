@@ -5,7 +5,7 @@ import { getZones } from '../services/geofenceService';
 import type { AttendanceLog, Zone } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
 import { AttendanceTable } from '../components/attendance/AttendanceTable';
-import { supabase } from '../lib/supabaseClient';
+import { getRidersLookup } from '../services/riderService';
 import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetailsPanels';
 import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/dtrParserService';
 import { toast } from 'react-hot-toast';
@@ -42,32 +42,26 @@ export function Attendance() {
     getZones().then(setZonesList);
     
     // Fetch riders for DTR picker
-    supabase
-      .from('riders')
-      .select('id, name, mkb_id, zones(name)')
-      .order('name')
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('Error fetching riders:', error);
-          toast.error('Failed to load riders list');
-          return;
-        }
-        if (data) {
-          setRidersList(data.map((r: {
-            id: string;
-            name: string;
-            mkb_id?: string;
-            zones: { name: string } | { name: string }[] | null;
-          }) => {
-            const zName = Array.isArray(r.zones) ? r.zones[0]?.name : r.zones?.name;
-            return {
-              id: r.id,
-              name: r.name,
-              mkb_id: r.mkb_id,
-              zoneName: zName || 'Zamboanga City'
-            };
-          }));
-        }
+    getRidersLookup()
+      .then((data) => {
+        setRidersList(data.map((r: {
+          id: string;
+          name: string;
+          mkb_id?: string;
+          zones: { name: string } | { name: string }[] | null;
+        }) => {
+          const zName = Array.isArray(r.zones) ? r.zones[0]?.name : r.zones?.name;
+          return {
+            id: r.id,
+            name: r.name,
+            mkb_id: r.mkb_id,
+            zoneName: zName || 'Zamboanga City'
+          };
+        }));
+      })
+      .catch((error) => {
+        console.error('Error fetching riders:', error);
+        toast.error('Failed to load riders list');
       });
   }, []);
   const todayLogs = useMemo(() => {
