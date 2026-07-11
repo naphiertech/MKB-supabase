@@ -3,8 +3,8 @@ import { Bell, Search, Menu, X, ChevronRight } from 'lucide-react';
 import type { PageKey } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
-import { supabase } from '../../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
+import { getSearchIndexData } from '../../services/userService';
 const TITLES: Record<
   PageKey,
   {
@@ -140,34 +140,24 @@ export function Topbar({
   const loadSearchData = useCallback(async () => {
     if (hasLoadedData) return;
     try {
-      const [zonesRes, usersRes] = await Promise.all([
-        supabase.from('zones').select('id, name'),
-        supabase.from('users').select('id, full_name, role, contact, riders(zone_id, mkb_id)')
-      ]);
+      const { zones: zonesData, users: usersData } = await getSearchIndexData();
 
-      if (zonesRes.error) throw zonesRes.error;
-      if (usersRes.error) throw usersRes.error;
+      setZones(zonesData.map(z => ({ id: z.id, name: z.name })));
 
-      if (zonesRes.data) {
-        setZones(zonesRes.data.map(z => ({ id: z.id, name: z.name })));
-      }
-
-      if (usersRes.data) {
-        const mappedRiders = (usersRes.data as unknown as DbSearchUser[])
-          .filter((u) => u.role === 'rider')
-          .map((u) => {
-            const rData = (Array.isArray(u.riders) ? u.riders[0] : (u.riders || {})) as { zone_id: string | null; mkb_id: string | null };
-            const zName = (zonesRes.data || []).find((z: { id: string; name: string }) => z.id === rData.zone_id)?.name || 'Unassigned';
-            return {
-              id: u.id,
-              name: u.full_name,
-              contact: u.contact || '',
-              mkbId: rData.mkb_id || '',
-              zoneName: zName
-            };
-          });
-        setRiders(mappedRiders);
-      }
+      const mappedRiders = (usersData as unknown as DbSearchUser[])
+        .filter((u) => u.role === 'rider')
+        .map((u) => {
+          const rData = (Array.isArray(u.riders) ? u.riders[0] : (u.riders || {})) as { zone_id: string | null; mkb_id: string | null };
+          const zName = (zonesData || []).find((z: { id: string; name: string }) => z.id === rData.zone_id)?.name || 'Unassigned';
+          return {
+            id: u.id,
+            name: u.full_name,
+            contact: u.contact || '',
+            mkbId: rData.mkb_id || '',
+            zoneName: zName
+          };
+        });
+      setRiders(mappedRiders);
       setHasLoadedData(true);
     } catch (err) {
       console.error('Failed to load search index:', err);
