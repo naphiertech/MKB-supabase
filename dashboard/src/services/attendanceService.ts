@@ -370,3 +370,21 @@ export function exportLogsCsv(
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return csv;
 }
+
+// Fetch rider attendance logs in date range
+export const getRiderAttendanceInDateRange = async (
+  riderId: string,
+  from: string,
+  to: string
+) => {
+  const { data, error } = await supabase
+    .from('attendance_logs')
+    .select('date, time_in')
+    .eq('rider_id', riderId)
+    .gte('date', from)
+    .lte('date', to);
+
+  if (error) throw error;
+  return data || [];
+};
+
