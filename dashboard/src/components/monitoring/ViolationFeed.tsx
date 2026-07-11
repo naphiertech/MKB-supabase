@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Siren } from 'lucide-react';
-import { supabase } from '../../lib/supabaseClient';
+import { getFlaggedViolationIds } from '../../services/notificationService';
 import type { ViolationEvent } from '../../services/types';
 import { ViolationAlert } from './ViolationAlert';
 interface ViolationFeedProps {
@@ -22,14 +22,8 @@ export function ViolationFeed({
   useEffect(() => {
     async function loadFlagged() {
       try {
-        const { data } = await supabase
-          .from('notifications')
-          .select('violation_id')
-          .eq('type', 'violation')
-          .not('violation_id', 'is', null);
-        if (data) {
-          setFlagged(new Set(data.map((n: { violation_id: string }) => n.violation_id)));
-        }
+        const ids = await getFlaggedViolationIds();
+        setFlagged(ids);
       } catch (e) {
         console.error(e);
       }
