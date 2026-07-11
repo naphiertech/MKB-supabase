@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { getReviews, approveReview, deleteReview } from '../services/reviewService';
 import { Star, Trash2, CheckCircle2, Clock, MessageSquare, ThumbsUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
@@ -28,13 +28,8 @@ export function ReviewsModeration() {
   const loadReviews = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setReviews(data || []);
+      const data = await getReviews();
+      setReviews(data as DBReview[] || []);
     } catch (err: unknown) {
       console.error('Error fetching reviews:', err);
       toast.error('Failed to load reviews.');
@@ -50,12 +45,7 @@ export function ReviewsModeration() {
   const handleApprove = async (id: string) => {
     setActioningId(id);
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .update({ status: 'approved' })
-        .eq('id', id);
-
-      if (error) throw error;
+      await approveReview(id);
       
       toast.success('Review approved successfully!');
       // Update local state
@@ -74,12 +64,7 @@ export function ReviewsModeration() {
     if (!confirm('Are you sure you want to permanently delete this review?')) return;
     setActioningId(id);
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await deleteReview(id);
 
       toast.success('Review deleted permanently.');
       // Remove from local state
