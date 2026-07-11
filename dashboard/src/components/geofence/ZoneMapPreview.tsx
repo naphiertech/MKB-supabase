@@ -73,6 +73,7 @@ interface ZoneMapPreviewProps {
   polygonCoords?: [number, number][];
   onMapClick?: (lat: number, lng: number) => void;
   radius?: number;
+  color?: string;
 }
 
 export function ZoneMapPreview({
@@ -85,6 +86,7 @@ export function ZoneMapPreview({
   polygonCoords = [],
   onMapClick,
   radius = 1000,
+  color = '#db6c00',
 }: ZoneMapPreviewProps) {
   const mapRef = useRef<L.Map | null>(null);
   const activeZone = zones.find((z) => z.id === activeZoneId) ?? null;
@@ -162,8 +164,8 @@ export function ZoneMapPreview({
                     center={[pin.lat, pin.lng]}
                     radius={radius}
                     pathOptions={{
-                      color: '#db6c00',
-                      fillColor: '#db6c00',
+                      color: color,
+                      fillColor: color,
                       fillOpacity: 0.15,
                       dashArray: '6 4',
                       weight: 2,
@@ -177,8 +179,8 @@ export function ZoneMapPreview({
                   <Polygon
                     positions={polygonCoords}
                     pathOptions={{
-                      color: '#db6c00',
-                      fillColor: '#db6c00',
+                      color: color,
+                      fillColor: color,
                       fillOpacity: 0.15,
                       dashArray: '6 4',
                       weight: 2,
