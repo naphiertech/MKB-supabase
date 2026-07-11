@@ -17,6 +17,7 @@ export interface ZoneInput {
   riderIds: string[];
   zone_type: 'circle' | 'polygon';
   polygon_coordinates?: [number, number][] | null;
+  color?: string;
 }
 
 interface DbZoneRow {
@@ -47,16 +48,27 @@ interface DbRiderRow {
   mkb_id: string;
 }
 
-const mapZone = (row: DbZoneRow): Zone => ({
-  id: row.id,
-  name: row.name,
-  center: row.lat !== null && row.lng !== null ? [row.lat, row.lng] : [0, 0],
-  radius: row.radius || 0,
-  color: row.color,
-  status: row.status as ZoneStatus,
-  zone_type: row.zone_type,
-  polygon_coordinates: row.polygon_coordinates || undefined
-});
+const mapZone = (row: DbZoneRow): Zone => {
+  let center: [number, number] = [0, 0];
+  if (row.lat !== null && row.lng !== null) {
+    center = [row.lat, row.lng];
+  } else if (row.polygon_coordinates && row.polygon_coordinates.length > 0) {
+    const latSum = row.polygon_coordinates.reduce((sum, c) => sum + c[0], 0);
+    const lngSum = row.polygon_coordinates.reduce((sum, c) => sum + c[1], 0);
+    center = [latSum / row.polygon_coordinates.length, lngSum / row.polygon_coordinates.length];
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    center,
+    radius: row.radius || 0,
+    color: row.color,
+    status: row.status as ZoneStatus,
+    zone_type: row.zone_type,
+    polygon_coordinates: row.polygon_coordinates || undefined
+  };
+};
 
 export async function getZones(): Promise<Zone[]> {
   const { data, error } = await supabase
@@ -189,7 +201,7 @@ export async function createZone(input: ZoneInput): Promise<Zone> {
       lat: input.lat,
       lng: input.lng,
       radius: input.radius,
-      color: randomZoneColor(),
+      color: input.color || randomZoneColor(),
       status: input.status,
       zone_type: input.zone_type,
       polygon_coordinates: input.polygon_coordinates
@@ -226,6 +238,7 @@ export async function updateZone(id: string, patch: Partial<ZoneInput>): Promise
   if (patch.status !== undefined) updates.status = patch.status;
   if (patch.zone_type !== undefined) updates.zone_type = patch.zone_type;
   if (patch.polygon_coordinates !== undefined) updates.polygon_coordinates = patch.polygon_coordinates;
+  if (patch.color !== undefined) updates.color = patch.color;
 
   const { data, error } = await supabase
     .from('zones')
