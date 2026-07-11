@@ -5,8 +5,8 @@ import {
   type Zone,
   type AppUser } from
 '../services/types';
-import { supabase } from '../lib/supabaseClient';
-import { getZones } from '../services/geofenceService';
+import { getUserProfileById } from '../services/userService';
+import { getRiderFullProfile } from '../services/riderService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 
 interface RiderProfileProps {
@@ -49,14 +49,9 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
       try {
         setLoading(true);
 
-        // Fetch public.users by Auth UUID (userId)
-        const { data: dbUser, error: userErr } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
+        const dbUser = await getUserProfileById(userId);
 
-        if (!userErr && dbUser) {
+        if (dbUser) {
           setUser({
             id: dbUser.id,
             name: dbUser.full_name,
@@ -70,13 +65,9 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
 
           // Fetch public.riders using user's linked rider_id
           const resolvedRiderId = dbUser.rider_id || riderId;
-          const { data: dbRider, error: riderErr } = await supabase
-            .from('riders')
-            .select('*')
-            .eq('id', resolvedRiderId)
-            .maybeSingle();
+          const dbRider = await getRiderFullProfile(resolvedRiderId);
 
-          if (!riderErr && dbRider) {
+          if (dbRider) {
             const mappedRider: Rider = {
               id: dbRider.id,
               name: dbRider.name,
@@ -93,33 +84,21 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
             };
             setRider(mappedRider);
 
-            if (dbRider.zone_id) {
-              const { data: dbZone } = await supabase
-                .from('zones')
-                .select('*')
-                .eq('id', dbRider.zone_id)
-                .maybeSingle();
-
-              if (dbZone) {
-                setZone({
-                  id: dbZone.id,
-                  name: dbZone.name,
-                  center: [dbZone.lat, dbZone.lng],
-                  radius: dbZone.radius,
-                  color: dbZone.color,
-                  status: dbZone.status
-                });
-              }
-            } else {
-              const zList = await getZones();
-              if (zList.length > 0) {
-                setZone(zList[0]);
-              }
+            if (dbRider.zones) {
+              const dbZone = dbRider.zones;
+              setZone({
+                id: dbZone.id,
+                name: dbZone.name,
+                center: [dbZone.lat, dbZone.lng],
+                radius: dbZone.radius,
+                color: dbZone.color,
+                status: dbZone.status
+              });
             }
           }
         }
-      } catch (err) {
-        console.error('Error loading rider profile details:', err);
+      } catch (e) {
+        console.error('Failed to load profile data:', e);
       } finally {
         setLoading(false);
       }
