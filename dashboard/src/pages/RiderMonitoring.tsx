@@ -5,7 +5,7 @@ import {
   type Rider,
   type Zone } from
 '../services/types';
-import { supabase } from '../lib/supabaseClient';
+import { getRiderUserMapping, getRiderFullProfile } from '../services/riderService';
 import { getZones } from '../services/geofenceService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { RiderMap } from '../components/maps/RiderMap';
@@ -40,23 +40,14 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
       try {
         setLoading(true);
 
-        // Retrieve the linked rider_id using the logged-in Auth UUID
-        const { data: dbUser } = await supabase
-          .from('users')
-          .select('rider_id')
-          .eq('id', userId)
-          .maybeSingle();
+        const dbUser = await getRiderUserMapping(userId);
 
         const resolvedRiderId = dbUser?.rider_id || riderId;
         setActualRiderId(resolvedRiderId);
 
-        const { data: dbRider, error } = await supabase
-          .from('riders')
-          .select('*')
-          .eq('id', resolvedRiderId)
-          .maybeSingle();
+        const dbRider = await getRiderFullProfile(resolvedRiderId);
 
-        if (!error && dbRider) {
+        if (dbRider) {
           const mappedRider: Rider = {
             id: dbRider.id,
             name: dbRider.name,
@@ -73,23 +64,16 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
           };
           setRider(mappedRider);
 
-          if (dbRider.zone_id) {
-            const { data: dbZone } = await supabase
-              .from('zones')
-              .select('*')
-              .eq('id', dbRider.zone_id)
-              .maybeSingle();
-
-            if (dbZone) {
-              setZone({
-                id: dbZone.id,
-                name: dbZone.name,
-                center: [dbZone.lat, dbZone.lng],
-                radius: dbZone.radius,
-                color: dbZone.color,
-                status: dbZone.status
-              });
-            }
+          if (dbRider.zones) {
+            const dbZone = dbRider.zones;
+            setZone({
+              id: dbZone.id,
+              name: dbZone.name,
+              center: [dbZone.lat, dbZone.lng],
+              radius: dbZone.radius,
+              color: dbZone.color,
+              status: dbZone.status
+            });
           } else {
             const zList = await getZones();
             if (zList.length > 0) {
