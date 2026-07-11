@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRidersLookup } from '../services/riderService';
 import { getRiderAttendanceInDateRange } from '../services/attendanceService';
-import { useAuth } from '../hooks/useAuth';
 import {
   getParcelLogs,
   upsertParcelLog,
   savePayrollRecord,
 } from '../services/parcelService';
+import { BulkParcelUploadModal } from '../components/payroll/BulkParcelUploadModal';
+import { useAuth } from '../hooks/useAuth';
 import { exportParcelPayslipPDF, exportParcelCSV } from '../lib/exports/payrollExport';
 import { pushToast } from '../hooks/useToast';
 import {
@@ -64,6 +65,8 @@ export function PayrollComputation() {
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Unsaved draft states to prevent automatic saves on keystroke
   const [editingDate, setEditingDate] = useState<string | null>(null);
@@ -160,7 +163,7 @@ export function PayrollComputation() {
     };
 
     loadLogs();
-  }, [selectedRiderId, cutoffFrom, cutoffTo]);
+  }, [selectedRiderId, cutoffFrom, cutoffTo, refreshKey]);
 
   // Handle typing in input field (saves to local draft state instead of DB)
   const handleInputChange = useCallback((date: string, val: number) => {
@@ -316,14 +319,25 @@ export function PayrollComputation() {
         {/* Left Panel: Rider selector + Settings */}
         <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-                <UserIcon className="w-4 h-4 text-[#db6c00]" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
+                  <UserIcon className="w-4 h-4 text-[#db6c00]" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-[#1A1410]">Select Rider</div>
+                  <div className="text-[11px] text-[#6B6258] font-mono">{riders.length} total</div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm font-semibold text-[#1A1410]">Select Rider</div>
-                <div className="text-[11px] text-[#6B6258] font-mono">{riders.length} total</div>
-              </div>
+              
+              <button
+                type="button"
+                onClick={() => setBulkImportOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-[#FFF1E0] hover:bg-[#db6c00]/20 border border-[#db6c00]/10 hover:border-[#db6c00]/30 text-[#db6c00] text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Import Excel
+              </button>
             </div>
 
             {/* Dropdown */}
@@ -795,6 +809,14 @@ export function PayrollComputation() {
           </div>
         )}
       </AnimatePresence>
+
+      <BulkParcelUploadModal
+        isOpen={bulkImportOpen}
+        onClose={() => setBulkImportOpen(false)}
+        riders={riders}
+        onUploadSuccess={() => setRefreshKey(k => k + 1)}
+        currentUserId={user?.id}
+      />
     </div>
   );
 }
