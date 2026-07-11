@@ -204,3 +204,54 @@ export const updatePayrollRecordStatus = async (
 
   if (error) throw error;
 };
+
+// Fetch parcel logs in date range for all riders
+export const getParcelLogsSummary = async (from: string, to: string) => {
+  const { data, error } = await supabase
+    .from('parcel_logs')
+    .select('parcels, daily_gross, date, rider_id, riders(id, name, zone_id)')
+    .gte('date', from)
+    .lte('date', to);
+
+  if (error) throw error;
+  return data || [];
+};
+
+// Fetch payroll records status summaries in date range
+export const getPayrollRecordsSummary = async (from: string, to: string) => {
+  const { data, error } = await supabase
+    .from('payroll_records')
+    .select('rider_id, status')
+    .gte('cutoff_start', from)
+    .lte('cutoff_start', to);
+
+  if (error) throw error;
+  return data || [];
+};
+
+// Fetch dynamic filtered parcel logs details with linked rider & zone profiles
+export const getParcelLogsDetails = async (
+  from: string,
+  to: string,
+  filters?: {
+    riderId?: string;
+    riderIds?: string[];
+  }
+) => {
+  let query = supabase
+    .from('parcel_logs')
+    .select('*, riders(name, mkb_id, zones(name))')
+    .gte('date', from)
+    .lte('date', to);
+
+  if (filters?.riderId) {
+    query = query.eq('rider_id', filters.riderId);
+  } else if (filters?.riderIds && filters.riderIds.length > 0) {
+    query = query.in('rider_id', filters.riderIds);
+  }
+
+  const { data, error } = await query.order('date', { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+
