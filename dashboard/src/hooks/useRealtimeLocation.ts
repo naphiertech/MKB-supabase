@@ -27,9 +27,9 @@ interface ZoneRow {
   lng: number | null;
   radius: number | null;
   color: string;
-  status: string | null;
-  zone_type: string | null;
-  polygon_coordinates: any | null;
+  status: ZoneStatus | null;
+  zone_type: 'circle' | 'polygon' | null;
+  polygon_coordinates: [number, number][] | null;
 }
 
 interface RiderRow {
@@ -104,16 +104,28 @@ export function useRealtimeLocation(): {
           .from('zones')
           .select('*');
         
-        const mappedZones = (zData || []).map((row: ZoneRow) => ({
-          id: row.id,
-          name: row.name,
-          center: [row.lat || 0, row.lng || 0] as [number, number],
-          radius: row.radius || 0,
-          color: row.color,
-          status: (row.status as ZoneStatus) ?? undefined,
-          zone_type: (row.zone_type as any) ?? 'circle',
-          polygon_coordinates: row.polygon_coordinates as [number, number][] | undefined
-        }));
+        const mappedZones = (zData || []).map((row: ZoneRow) => {
+          let center: [number, number] = [0, 0];
+          if (row.lat !== null && row.lng !== null) {
+            center = [row.lat, row.lng];
+          } else if (row.polygon_coordinates && row.polygon_coordinates.length > 0) {
+            const polyCoords = row.polygon_coordinates;
+            const latSum = polyCoords.reduce((sum, c) => sum + c[0], 0);
+            const lngSum = polyCoords.reduce((sum, c) => sum + c[1], 0);
+            center = [latSum / polyCoords.length, lngSum / polyCoords.length];
+          }
+          
+          return {
+            id: row.id,
+            name: row.name,
+            center,
+            radius: row.radius || 0,
+            color: row.color,
+            status: row.status ?? undefined,
+            zone_type: row.zone_type ?? 'circle',
+            polygon_coordinates: row.polygon_coordinates || undefined
+          };
+        });
 
         if (active) setZoneState(mappedZones);
 
