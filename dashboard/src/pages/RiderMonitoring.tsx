@@ -67,13 +67,24 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
 
           if (dbRider.zones) {
             const dbZone = dbRider.zones;
+            let center: [number, number] = [0, 0];
+            if (dbZone.lat !== null && dbZone.lng !== null) {
+              center = [dbZone.lat, dbZone.lng];
+            } else if (dbZone.polygon_coordinates && dbZone.polygon_coordinates.length > 0) {
+              const polyCoords = dbZone.polygon_coordinates as [number, number][];
+              const latSum = polyCoords.reduce((sum: number, c: [number, number]) => sum + c[0], 0);
+              const lngSum = polyCoords.reduce((sum: number, c: [number, number]) => sum + c[1], 0);
+              center = [latSum / polyCoords.length, lngSum / polyCoords.length];
+            }
             setZone({
               id: dbZone.id,
               name: dbZone.name,
-              center: [dbZone.lat, dbZone.lng],
-              radius: dbZone.radius,
+              center,
+              radius: dbZone.radius || 0,
               color: dbZone.color,
-              status: dbZone.status
+              status: dbZone.status,
+              zone_type: dbZone.zone_type,
+              polygon_coordinates: dbZone.polygon_coordinates || undefined
             });
           } else {
             const zList = await getZones();
