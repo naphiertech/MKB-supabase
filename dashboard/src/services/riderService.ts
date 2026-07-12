@@ -130,3 +130,26 @@ export const getRidersLookup = async () => {
   return data || [];
 };
 
+// Fetch violations for a specific rider within a month
+export const getRiderViolationsForMonth = async (riderId: string, startOfMonthStr: string) => {
+  const { data, error } = await supabase
+    .from('violations')
+    .select('*')
+    .eq('rider_id', riderId)
+    .gte('created_at', startOfMonthStr)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+};
+
+// Update specific rider contact phone number
+export const updateRiderContact = async (riderId: string, contactPhone: string) => {
+  const { error } = await supabase
+    .from('riders')
+    .update({ contact: contactPhone })
+    .eq('id', riderId);
+
+  if (error) throw error;
+};
+
