@@ -1,41 +1,43 @@
 import { MapPin, Sun, Sunrise, Moon, Sunset } from 'lucide-react';
 import { motion } from 'framer-motion';
+
 export type RiderOnlineStatus = 'online' | 'offline' | 'break';
-export type ShiftStatus = 'not_started' | 'on_duty' | 'completed';
+
 interface IdentityBannerProps {
   name: string;
   zoneName: string;
   date: Date;
   onlineStatus: RiderOnlineStatus;
-  shiftStatus: ShiftStatus;
 }
+
 function greetingFor(date: Date) {
   const h = date.getHours();
   if (h < 5)
-  return {
-    text: 'Working late',
-    Icon: Moon
-  };
+    return {
+      text: 'Working late',
+      Icon: Moon
+    };
   if (h < 12)
-  return {
-    text: 'Good morning',
-    Icon: Sunrise
-  };
+    return {
+      text: 'Good morning',
+      Icon: Sunrise
+    };
   if (h < 17)
-  return {
-    text: 'Good afternoon',
-    Icon: Sun
-  };
+    return {
+      text: 'Good afternoon',
+      Icon: Sun
+    };
   if (h < 20)
-  return {
-    text: 'Good evening',
-    Icon: Sunset
-  };
+    return {
+      text: 'Good evening',
+      Icon: Sunset
+    };
   return {
     text: 'Good evening',
     Icon: Moon
   };
 }
+
 const ONLINE_THEME: Record<
   RiderOnlineStatus,
   {
@@ -44,8 +46,8 @@ const ONLINE_THEME: Record<
     text: string;
     label: string;
     pulse: boolean;
-  }> =
-{
+  }
+> = {
   online: {
     dot: 'bg-emerald-500',
     ring: 'border-emerald-500/30 bg-emerald-50',
@@ -68,52 +70,28 @@ const ONLINE_THEME: Record<
     pulse: false
   }
 };
-const SHIFT_THEME: Record<
-  ShiftStatus,
-  {
-    text: string;
-    ring: string;
-    label: string;
-  }> =
-{
-  not_started: {
-    text: 'text-[#6B6258]',
-    ring: 'border-[#EFEAE2] bg-white',
-    label: 'Duty · Not Started'
-  },
-  on_duty: {
-    text: 'text-[#b85a00]',
-    ring: 'border-[#db6c00]/40 bg-[#FFF1E0]',
-    label: 'Duty · On Duty'
-  },
-  completed: {
-    text: 'text-emerald-700',
-    ring: 'border-emerald-500/30 bg-emerald-50',
-    label: 'Duty · Completed'
-  }
-};
+
 export function IdentityBanner({
   name,
   zoneName,
   date,
-  onlineStatus,
-  shiftStatus
+  onlineStatus
 }: IdentityBannerProps) {
   const { text, Icon } = greetingFor(date);
   const firstName = name.split(' ')[0];
   const ot = ONLINE_THEME[onlineStatus];
-  const st = SHIFT_THEME[shiftStatus];
   const dateStr = date.toLocaleDateString('en-PH', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric'
   });
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
       className="relative overflow-hidden rounded-2xl border border-[#EFEAE2] bg-gradient-to-br from-[#FFF1E0] via-white to-white p-5 sm:p-6 shadow-sm"
     >
       {/* Decorative accents */}
@@ -142,36 +120,24 @@ export function IdentityBanner({
           </span>
 
           <span
-            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${ot.ring} text-sm`}>
-            
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${ot.ring} text-sm`}
+          >
             <span className="relative flex w-2 h-2">
-              {ot.pulse &&
-              <span
-                className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${ot.dot}`} />
-
-              }
-              <span
-                className={`relative inline-flex rounded-full h-2 w-2 ${ot.dot}`} />
-              
+              {ot.pulse && (
+                <span
+                  className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${ot.dot}`}
+                />
+              )}
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${ot.dot}`} />
             </span>
             <span
-              className={`${ot.text} text-[11px] uppercase tracking-[0.16em] font-semibold`}>
-              
+              className={`${ot.text} text-[11px] uppercase tracking-[0.16em] font-semibold`}
+            >
               {ot.label}
-            </span>
-          </span>
-
-          <span
-            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${st.ring} text-sm`}>
-            
-            <span
-              className={`${st.text} text-[11px] uppercase tracking-[0.16em] font-semibold`}>
-              
-              {st.label}
             </span>
           </span>
         </div>
       </div>
-    </motion.div>);
-
+    </motion.div>
+  );
 }
