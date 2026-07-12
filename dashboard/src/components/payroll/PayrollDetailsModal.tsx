@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import {
   X,
@@ -418,6 +419,13 @@ export function PayrollDetailsModal({
         record.cutoff_end,
         ratePerParcel,
         mappedEntries,
+        {
+          otherEarnings,
+          fmPickupCount,
+          deductions,
+          lateOnhold,
+          lateRemittance
+        }
       );
       pushToast({
         title: "PDF Exported",
@@ -481,26 +489,24 @@ export function PayrollDetailsModal({
     }
   };
 
-  return (
-    <div
-      className={`fixed inset-0 z-[1200] flex items-center justify-center md:justify-end p-4 md:p-6 lg:p-8 ${role !== "rider" ? "md:left-64" : ""}`}
-    >
+  return createPortal(
+    <>
       {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-[#1A1410]/20 backdrop-blur-sm"
+        className="fixed inset-0 bg-[#1A1410]/25 backdrop-blur-sm z-[1200]"
       />
 
-      {/* Modal Container */}
+      {/* Drawer Container */}
       <motion.div
-        initial={{ opacity: 0, x: 120, scale: 0.98 }}
-        animate={{ opacity: 1, x: 0, scale: 1 }}
-        exit={{ opacity: 0, x: 120, scale: 0.98 }}
-        transition={{ type: "spring", damping: 28, stiffness: 220 }}
-        className="relative bg-white border border-[#EFEAE2] shadow-2xl rounded-2xl w-full max-w-[95vw] lg:max-w-[92vw] xl:max-w-[85vw] 2xl:max-w-[80vw] overflow-hidden z-10 font-[Geist,sans-serif] flex flex-col h-[92vh] max-h-[92vh]"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3, ease: "easeOut" }}
+        className="fixed top-0 bottom-0 right-0 h-full w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-[70vw] 2xl:max-w-[60vw] bg-white border-l border-[#EFEAE2] shadow-[0_0_50px_rgba(26,20,16,0.15)] flex flex-col z-[1201] font-[Geist,sans-serif]"
       >
         {/* Modal Header */}
         <div className="px-5 py-3.5 border-b border-[#EFEAE2] flex items-center justify-between shrink-0 bg-[#FAFAF7]">
@@ -758,6 +764,13 @@ export function PayrollDetailsModal({
                             record.cutoff_end,
                             ratePerParcel,
                             mappedEntries,
+                            {
+                              otherEarnings,
+                              fmPickupCount,
+                              deductions,
+                              lateOnhold,
+                              lateRemittance
+                            }
                           );
                           pushToast({
                             title: "CSV Exported",
@@ -807,6 +820,7 @@ export function PayrollDetailsModal({
           </div>
         </div>
       </motion.div>
-    </div>
+    </>,
+    document.body
   );
 }
