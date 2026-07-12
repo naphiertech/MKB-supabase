@@ -37,7 +37,14 @@ export const exportParcelPayslipPDF = (
   cutoffFrom: string,
   cutoffTo: string,
   rate: number, // fallbackRate
-  dayEntries: { date: string; parcels: number; rate?: number; dailyGross: number }[]
+  dayEntries: { date: string; parcels: number; rate?: number; dailyGross: number }[],
+  adjustments: {
+    otherEarnings?: number;
+    fmPickupCount?: number;
+    deductions?: number;
+    lateOnhold?: number;
+    lateRemittance?: number;
+  } = {}
 ) => {
   const doc = new jsPDF();
   const totalParcels = dayEntries.reduce(
@@ -46,6 +53,16 @@ export const exportParcelPayslipPDF = (
   const grossPay = dayEntries.reduce(
     (sum, e) => sum + e.dailyGross, 0
   );
+
+  const otherEarnings = adjustments.otherEarnings ?? 0;
+  const fmPickupCount = adjustments.fmPickupCount ?? 0;
+  const fmPickupPay = fmPickupCount * 3;
+  const totalEarnings = grossPay + otherEarnings + fmPickupPay;
+  const generalDeductions = adjustments.deductions ?? 0;
+  const lateOnhold = adjustments.lateOnhold ?? 0;
+  const lateRemittance = adjustments.lateRemittance ?? 0;
+  const totalDeductions = generalDeductions + lateOnhold + lateRemittance;
+  const netTakeHome = totalEarnings - totalDeductions;
 
   // Header
   doc.setFontSize(14);
@@ -147,12 +164,63 @@ export const exportParcelPayslipPDF = (
     currentY += 7;
   }
 
+  currentY += 3;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(0);
+
+  if (otherEarnings > 0 || fmPickupCount > 0) {
+    doc.text(`Base Delivery Pay       : ₱${grossPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+    currentY += 7;
+    if (otherEarnings > 0) {
+      doc.text(`Other Earnings          : ₱${otherEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+      currentY += 7;
+    }
+    if (fmPickupCount > 0) {
+      doc.text(`FM Pick Up (${fmPickupCount} pcs)      : ₱${fmPickupPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+      currentY += 7;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAL EARNINGS          : ₱${totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+    doc.setFont('helvetica', 'normal');
+    currentY += 9;
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAL EARNINGS          : ₱${grossPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+    doc.setFont('helvetica', 'normal');
+    currentY += 9;
+  }
+
+  if (totalDeductions > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('DEDUCTIONS', 14, currentY);
+    doc.setFont('helvetica', 'normal');
+    currentY += 7;
+    if (generalDeductions > 0) {
+      doc.text(`General Deductions      : ₱${generalDeductions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+      currentY += 7;
+    }
+    if (lateOnhold > 0) {
+      doc.text(`Late Onhold             : ₱${lateOnhold.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+      currentY += 7;
+    }
+    if (lateRemittance > 0) {
+      doc.text(`Late Remittance         : ₱${lateRemittance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+      currentY += 7;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.text(`TOTAL DEDUCTIONS        : ₱${totalDeductions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
+    doc.setFont('helvetica', 'normal');
+    currentY += 9;
+  }
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(219, 108, 0);
   doc.text(
-    `GROSS PAY               : ₱${grossPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    14, currentY + 5
+    `NET TAKE-HOME           : ₱${netTakeHome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    14, currentY + 3
   );
 
   // Footer note
@@ -161,7 +229,7 @@ export const exportParcelPayslipPDF = (
   doc.setTextColor(150);
   doc.text(
     'Government deductions are processed separately outside this system.',
-    105, currentY + 18,
+    105, currentY + 16,
     { align: 'center' }
   );
 
@@ -177,7 +245,14 @@ export const exportParcelCSV = (
   cutoffFrom: string,
   cutoffTo: string,
   rate: number, // fallbackRate
-  dayEntries: { date: string; parcels: number; rate?: number; dailyGross: number }[]
+  dayEntries: { date: string; parcels: number; rate?: number; dailyGross: number }[],
+  adjustments: {
+    otherEarnings?: number;
+    fmPickupCount?: number;
+    deductions?: number;
+    lateOnhold?: number;
+    lateRemittance?: number;
+  } = {}
 ) => {
   const totalParcels = dayEntries.reduce(
     (sum, e) => sum + e.parcels, 0
@@ -185,6 +260,16 @@ export const exportParcelCSV = (
   const grossPay = dayEntries.reduce(
     (sum, e) => sum + e.dailyGross, 0
   );
+
+  const otherEarnings = adjustments.otherEarnings ?? 0;
+  const fmPickupCount = adjustments.fmPickupCount ?? 0;
+  const fmPickupPay = fmPickupCount * 3;
+  const totalEarnings = grossPay + otherEarnings + fmPickupPay;
+  const generalDeductions = adjustments.deductions ?? 0;
+  const lateOnhold = adjustments.lateOnhold ?? 0;
+  const lateRemittance = adjustments.lateRemittance ?? 0;
+  const totalDeductions = generalDeductions + lateOnhold + lateRemittance;
+  const netTakeHome = totalEarnings - totalDeductions;
 
   const metadata = [
     ['Rider Payslip — MKB Corporation'],
@@ -205,19 +290,25 @@ export const exportParcelCSV = (
     ];
   });
 
-  const totalRow = [
-    'TOTAL',
-    totalParcels,
-    '',
-    `₱${grossPay.toFixed(2)}`
-  ];
-
   const lines = [
     ...metadata,
     headers,
     ...rows,
     [],
-    totalRow
+    ['TOTALS & ADJUSTMENTS'],
+    ['Total Parcels Delivered', totalParcels],
+    ['Gross Delivery Pay', `₱${grossPay.toFixed(2)}`],
+    ['Other Earnings', `₱${otherEarnings.toFixed(2)}`],
+    [`FM Pick Up (${fmPickupCount} pcs)`, `₱${fmPickupPay.toFixed(2)}`],
+    ['TOTAL EARNINGS', `₱${totalEarnings.toFixed(2)}`],
+    [],
+    ['Deductions'],
+    ['General Deductions', `₱${generalDeductions.toFixed(2)}`],
+    ['Late Onhold', `₱${lateOnhold.toFixed(2)}`],
+    ['Late Remittance', `₱${lateRemittance.toFixed(2)}`],
+    ['TOTAL DEDUCTIONS', `₱${totalDeductions.toFixed(2)}`],
+    [],
+    ['NET TAKE-HOME PAY', `₱${netTakeHome.toFixed(2)}`]
   ];
 
   const csv = '\uFEFF' + lines.map(row => row.map(csvEscape).join(',')).join('\r\n');
