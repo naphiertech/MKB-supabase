@@ -2,8 +2,9 @@ import {
   CalendarCheck,
   Hourglass,
   ShieldCheck,
-  AlertTriangle } from
-'lucide-react';
+  AlertTriangle
+} from 'lucide-react';
+
 interface StatProps {
   label: string;
   value: string | number;
@@ -11,7 +12,9 @@ interface StatProps {
   icon: typeof CalendarCheck;
   tone: 'emerald' | 'brand' | 'amber';
   positive?: boolean;
+  onClick?: () => void;
 }
+
 const TONE: Record<
   StatProps['tone'],
   {
@@ -19,8 +22,8 @@ const TONE: Record<
     iconText: string;
     iconRing: string;
     topBar: string;
-  }> =
-{
+  }
+> = {
   emerald: {
     iconBg: 'bg-emerald-50',
     iconText: 'text-emerald-600',
@@ -40,17 +43,28 @@ const TONE: Record<
     topBar: 'bg-amber-500'
   }
 };
+
 function StatTile({
   label,
   value,
   sub,
   icon: Icon,
   tone,
-  positive
+  positive,
+  onClick
 }: StatProps) {
   const t = TONE[tone];
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm ar-card-hover">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={`relative overflow-hidden rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm text-left w-full transition-all focus:outline-none focus:ring-2 focus:ring-[#db6c00]/30 ${
+        onClick
+          ? 'hover:shadow-md hover:border-[#db6c00]/30 cursor-pointer active:scale-[0.98]'
+          : ''
+      }`}
+    >
       <div className={`absolute top-0 left-0 right-0 h-[2px] ${t.topBar}`} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -62,31 +76,41 @@ function StatTile({
           </div>
         </div>
         <span
-          className={`flex items-center justify-center w-9 h-9 rounded-lg ${t.iconBg} ${t.iconText} ring-1 ${t.iconRing}`}>
-          
+          className={`flex items-center justify-center w-9 h-9 rounded-lg ${t.iconBg} ${t.iconText} ring-1 ${t.iconRing}`}
+        >
           <Icon className="w-4 h-4" />
         </span>
       </div>
       <div
-        className={`mt-2 text-[11px] ${positive ? 'text-emerald-600' : 'text-[#6B6258]'} font-mono font-medium`}>
-        
+        className={`mt-2 text-[11px] ${
+          positive ? 'text-emerald-600' : 'text-[#6B6258]'
+        } font-mono font-medium`}
+      >
         {positive && '● '}
         {sub}
       </div>
-    </div>);
-
+    </button>
+  );
 }
+
 interface PersonalStatsProps {
   daysPresent: number;
   monthDays: number;
   hoursThisWeek: number;
   violationsThisMonth: number;
+  onDaysClick?: () => void;
+  onHoursClick?: () => void;
+  onViolationsClick?: () => void;
 }
+
 export function PersonalStats({
   daysPresent,
   monthDays,
   hoursThisWeek,
-  violationsThisMonth
+  violationsThisMonth,
+  onDaysClick,
+  onHoursClick,
+  onViolationsClick
 }: PersonalStatsProps) {
   const noViolations = violationsThisMonth === 0;
   return (
@@ -94,29 +118,36 @@ export function PersonalStats({
       <StatTile
         label="Days Present · This Month"
         value={`${daysPresent} / ${monthDays}`}
-        sub={`${Math.round(daysPresent / Math.max(monthDays, 1) * 100)}% attendance rate`}
+        sub={`${Math.round(
+          (daysPresent / Math.max(monthDays, 1)) * 100
+        )}% attendance rate`}
         icon={CalendarCheck}
-        tone="emerald" />
-      
+        tone="emerald"
+        onClick={onDaysClick}
+      />
+
       <StatTile
         label="Hours · This Week"
         value={hoursThisWeek.toFixed(1)}
         sub="Total clock-in hours"
         icon={Hourglass}
-        tone="brand" />
-      
+        tone="brand"
+        onClick={onHoursClick}
+      />
+
       <StatTile
         label="Violations · This Month"
         value={violationsThisMonth}
         sub={
-        noViolations ?
-        'Clean record — keep it up' :
-        'Review with your supervisor'
+          noViolations
+            ? 'Clean record — keep it up'
+            : 'Review with your supervisor'
         }
         icon={noViolations ? ShieldCheck : AlertTriangle}
         tone={noViolations ? 'emerald' : 'amber'}
-        positive={noViolations} />
-      
-    </section>);
-
+        positive={noViolations}
+        onClick={onViolationsClick}
+      />
+    </section>
+  );
 }
