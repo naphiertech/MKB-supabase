@@ -126,6 +126,110 @@ export const getPayrollRecords = async (
   return data ?? [];
 };
 
+export interface PaginatedPayrollParams {
+  cutoffFrom: string;
+  cutoffTo: string;
+  page: number; // 1-indexed
+  pageSize: number;
+  search?: string;
+  statusFilter?: string;
+  zoneFilter?: string;
+  sortBy?: 'riderName' | 'total_parcels' | 'gross_pay' | 'net_pay' | 'status';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface PaginatedPayrollResult {
+  records: any[];
+  totalCount: number;
+}
+
+// Get paginated, searched, filtered, and sorted payroll records for dashboard
+export const getPaginatedPayrollRecords = async (params: PaginatedPayrollParams): Promise<PaginatedPayrollResult> => {
+  const {
+    cutoffFrom,
+    cutoffTo,
+    page,
+    pageSize,
+    search,
+    statusFilter,
+    zoneFilter,
+    sortBy = 'riderName',
+    sortOrder = 'asc'
+  } = params;
+
+  // 1. Build base query with exact count
+  // We use riders!inner to allow filtering on relation attributes (name, mkb_id, zone_id)
+  let query = supabase
+    .from('payroll_records')
+    .select('*, riders!inner(id, name, mkb_id, avatar_url, zone_id, notes, zones(name))', { count: 'exact' })
+    .gte('cutoff_start', cutoffFrom)
+    .lte('cutoff_start', cutoffTo);
+
+  // 2. Filter by status
+  if (statusFilter && statusFilter !== 'all') {
+    query = query.eq('status', statusFilter.toLowerCase());
+  }
+
+  // 3. Filter by zone
+  if (zoneFilter && zoneFilter !== 'all') {
+    query = query.eq('riders.zone_id', zoneFilter);
+  }
+
+  // 4. Search by Rider Name or MKB ID or Zone Name
+  if (search && search.trim() !== '') {
+    const s = search.trim();
+    let matchingZoneIds: string[] = [];
+    try {
+      const { data: zonesData } = await supabase
+        .from('zones')
+        .select('id')
+        .ilike('name', `%${s}%`);
+      if (zonesData && zonesData.length > 0) {
+        matchingZoneIds = zonesData.map(z => z.id);
+      }
+    } catch (e) {
+      console.error('Failed to lookup matching zones:', e);
+    }
+
+    let orCondition = `name.ilike.%${s}%,mkb_id.ilike.%${s}%`;
+    if (matchingZoneIds.length > 0) {
+      const zoneInString = matchingZoneIds.map(id => `"${id}"`).join(',');
+      orCondition += `,zone_id.in.(${zoneInString})`;
+    }
+    
+    query = query.or(orCondition, { foreignTable: 'riders' });
+  }
+
+  // 5. Sorting
+  if (sortBy === 'riderName') {
+    query = query.order('name', { foreignTable: 'riders', ascending: sortOrder === 'asc' });
+  } else if (sortBy === 'total_parcels') {
+    query = query.order('total_parcels', { ascending: sortOrder === 'asc' });
+  } else if (sortBy === 'gross_pay') {
+    query = query.order('gross_pay', { ascending: sortOrder === 'asc' });
+  } else if (sortBy === 'status') {
+    query = query.order('status', { ascending: sortOrder === 'asc' });
+  } else if (sortBy === 'net_pay') {
+    // Database does not store net_pay, fallback to gross_pay ordering
+    query = query.order('gross_pay', { ascending: sortOrder === 'asc' });
+  } else {
+    query = query.order('created_at', { ascending: false });
+  }
+
+  // 6. Pagination range
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize - 1;
+  query = query.range(start, end);
+
+  const { data, count, error } = await query;
+  if (error) throw error;
+
+  return {
+    records: data ?? [],
+    totalCount: count ?? 0
+  };
+};
+
 // Get parcel logs for a rider for their own view
 export const getMyParcelLogs = async (
   riderId: string,
