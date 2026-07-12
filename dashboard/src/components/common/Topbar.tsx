@@ -57,6 +57,12 @@ const TITLES: Record<
     subtitle: 'Security history and administrative activity trail'
   }
 };
+const ALLOWED_PAGES_BY_ROLE: Record<TopbarRole, PageKey[]> = {
+  admin: ['dashboard', 'monitoring', 'geofence', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs'],
+  hr: ['dashboard', 'monitoring', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs'],
+  payroll: ['dashboard', 'computation', 'reports', 'settings']
+};
+
 type TopbarRole = 'admin' | 'hr' | 'payroll';
 interface DbSearchUser {
   id: string;
@@ -127,15 +133,18 @@ export function Topbar({
   const [hasLoadedData, setHasLoadedData] = useState(false);
 
   const SCREENS = useMemo(() => {
-    return Object.keys(TITLES).map((key) => {
-      const pKey = key as PageKey;
-      return {
-        key: pKey,
-        title: TITLES[pKey].title,
-        subtitle: TITLES[pKey].subtitle
-      };
-    });
-  }, []);
+    const allowed = ALLOWED_PAGES_BY_ROLE[role] || [];
+    return Object.keys(TITLES)
+      .filter((key) => allowed.includes(key as PageKey))
+      .map((key) => {
+        const pKey = key as PageKey;
+        return {
+          key: pKey,
+          title: TITLES[pKey].title,
+          subtitle: TITLES[pKey].subtitle
+        };
+      });
+  }, [role]);
 
   const loadSearchData = useCallback(async () => {
     if (hasLoadedData) return;
@@ -190,16 +199,22 @@ export function Topbar({
   }, [searchQuery, SCREENS]);
 
   const filteredRiders = useMemo(() => {
+    const allowed = ALLOWED_PAGES_BY_ROLE[role] || [];
+    if (!allowed.includes('users')) return [];
+
     if (!searchQuery) return [];
     const q = searchQuery.toLowerCase();
     return riders.filter(r => r.name.toLowerCase().includes(q) || r.mkbId?.toLowerCase().includes(q));
-  }, [searchQuery, riders]);
+  }, [searchQuery, riders, role]);
 
   const filteredZones = useMemo(() => {
+    const allowed = ALLOWED_PAGES_BY_ROLE[role] || [];
+    if (!allowed.includes('geofence')) return [];
+
     if (!searchQuery) return [];
     const q = searchQuery.toLowerCase();
     return zones.filter(z => z.name.toLowerCase().includes(q));
-  }, [searchQuery, zones]);
+  }, [searchQuery, zones, role]);
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
