@@ -9,7 +9,8 @@ import {
   cacheRiderFaceDescriptor,
   getRiderUserMapping,
   getRiderFullProfile,
-  getRiderDashboardStats
+  getRiderDashboardStats,
+  getRiderViolationsForMonth
 } from '../services/riderService';
 import { recordTimeIn, recordTimeOut } from '../services/attendanceService';
 import { useRiderZone } from '../context/RiderZoneContext';
@@ -128,6 +129,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     violationsThisMonth: 0
   });
 
+  const [monthAttendanceLogs, setMonthAttendanceLogs] = useState<any[]>([]);
+  const [violationsList, setViolationsList] = useState<any[]>([]);
+  const [loadingViolations, setLoadingViolations] = useState(false);
+  const [activeStatModal, setActiveStatModal] = useState<'days' | 'hours' | 'violations' | null>(null);
+
   // Rider Payroll States
   const [myPayrollRecords, setMyPayrollRecords] = useState<PayrollRecord[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
@@ -146,6 +152,49 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     };
     loadPayroll();
   }, [actualRiderId]);
+
+  const handleViolationsClick = async () => {
+    setActiveStatModal('violations');
+    if (!actualRiderId) return;
+    try {
+      setLoadingViolations(true);
+      const todayDate = new Date();
+      const firstDayOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+      const firstDayStr = getLocalDateString(firstDayOfMonth);
+      const data = await getRiderViolationsForMonth(actualRiderId, firstDayStr);
+      setViolationsList(data);
+    } catch (err) {
+      console.error('Failed to load violations:', err);
+    } finally {
+      setLoadingViolations(false);
+    }
+  };
+
+  const getWeeklyBreakdown = () => {
+    const todayDate = new Date();
+    const dayOfWeek = todayDate.getDay();
+    const diff = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    
+    // Create new Date objects to avoid mutating reference in loop
+    const monday = new Date(todayDate.getFullYear(), todayDate.getMonth(), diff);
+    
+    const days = [];
+    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateStr = getLocalDateString(d);
+      const log = monthAttendanceLogs.find(l => l.date === dateStr);
+      days.push({
+        name: weekdays[i],
+        dateLabel: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        hours: log ? (log.hours || 0) : 0,
+        status: log ? log.status : 'no_log'
+      });
+    }
+    return days;
+  };
   const [scanOpen, setScanOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
 
@@ -233,7 +282,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             });
           }
 
-          if (violationData && violationData.lat && violationData.lng) {
+          if (violationData && !violationData.resolved && violationData.lat && violationData.lng) {
             setActiveViolation({
               lat: violationData.lat,
               lng: violationData.lng,
@@ -258,6 +307,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
              }
           }
 
+          setMonthAttendanceLogs(monthLogs || []);
           setStats({
             daysPresent: presentCount,
             hoursThisWeek: Number(weekHours.toFixed(1)),
@@ -432,12 +482,6 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
   const onlineStatus =
     timeIn && !timeOut ? 'online' : 'offline';
-  const shiftStatus =
-    timeIn && !timeOut ?
-      'on_duty' :
-      timeIn && timeOut ?
-        'completed' :
-        'not_started';
 
   function openScan(next: 'time-in' | 'time-out') {
     setPendingAction(next);
@@ -562,8 +606,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         name={rider.name}
         zoneName={zoneName}
         date={today}
-        onlineStatus={onlineStatus}
-        shiftStatus={shiftStatus} />
+        onlineStatus={onlineStatus} />
 
       {/* 2. Time-In/Out hero panel */}
       <section className="rounded-2xl border border-[#EFEAE2] bg-white p-6 sm:p-8 shadow-sm">
@@ -648,7 +691,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         daysPresent={daysPresent}
         monthDays={monthDays}
         hoursThisWeek={hoursThisWeek}
-        violationsThisMonth={violationsThisMonth} />
+        violationsThisMonth={violationsThisMonth}
+        onDaysClick={() => setActiveStatModal('days')}
+        onHoursClick={() => setActiveStatModal('hours')}
+        onViolationsClick={handleViolationsClick} />
 
       {/* 5. My Earnings & Payslips Portal */}
       <section className="rounded-2xl border border-[#EFEAE2] bg-white p-5 space-y-4 shadow-sm">
@@ -832,6 +878,192 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                 Cancel
               </button>
           }
+        </div>
+      </Modal>
+
+      {/* Attendance Days Modal */}
+      <Modal
+        open={activeStatModal === 'days'}
+        onClose={() => setActiveStatModal(null)}
+        title="Attendance Records · This Month"
+        subtitle="Detailed log of your clock-ins, clock-outs, and daily status."
+        size="lg"
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          {monthAttendanceLogs.length === 0 ? (
+            <p className="text-sm text-[#6B6258] text-center py-6">
+              No attendance logs found for this month.
+            </p>
+          ) : (
+            <div className="divide-y divide-[#EFEAE2] border border-[#EFEAE2] rounded-xl overflow-hidden bg-white">
+              {monthAttendanceLogs.map((log, index) => {
+                const isLate = log.status === 'late';
+                const isPresent = log.status === 'present';
+                const isAbsent = log.status === 'absent';
+                const isLeave = log.status === 'on_leave';
+                
+                let badgeClass = 'bg-gray-50 text-gray-700 border-gray-200';
+                let badgeText = log.status;
+                if (isPresent) {
+                  badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200/50';
+                  badgeText = 'Present';
+                } else if (isLate) {
+                  badgeClass = 'bg-amber-50 text-amber-700 border-amber-200/50';
+                  badgeText = 'Late';
+                } else if (isAbsent) {
+                  badgeClass = 'bg-red-50 text-red-700 border-red-200/50';
+                  badgeText = 'Absent';
+                } else if (isLeave) {
+                  badgeClass = 'bg-blue-50 text-blue-700 border-blue-200/50';
+                  badgeText = 'On Leave';
+                }
+
+                const d = new Date(log.date);
+                const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+                return (
+                  <div key={log.id || index} className="p-3.5 flex items-center justify-between text-sm hover:bg-[#FAFAF7] transition-colors">
+                    <div>
+                      <div className="font-semibold text-[#1A1410]">{dateLabel}</div>
+                      <div className="text-xs text-[#6B6258] font-mono mt-0.5">
+                        {log.time_in ? format12h(toHHMM(log.time_in) || '00:00') : '—'} – {log.time_out ? format12h(toHHMM(log.time_out) || '00:00') : '—'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider ${badgeClass}`}>
+                        {badgeText}
+                      </span>
+                      <span className="font-semibold font-mono text-sm text-[#1A1410]">
+                        {log.hours ? `${log.hours.toFixed(1)} hrs` : '—'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Weekly Hours Modal */}
+      <Modal
+        open={activeStatModal === 'hours'}
+        onClose={() => setActiveStatModal(null)}
+        title="Weekly Work Hours Breakdown"
+        subtitle="Clock-in hours recorded day-by-day for the current week."
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 bg-[#FFF1E0] border border-[#db6c00]/20 rounded-xl flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#b85a00] uppercase tracking-wider">
+              Total Hours This Week
+            </span>
+            <span className="text-xl font-bold font-mono text-[#db6c00]">
+              {stats.hoursThisWeek.toFixed(1)} hrs
+            </span>
+          </div>
+
+          <div className="space-y-3.5">
+            {getWeeklyBreakdown().map((day, idx) => {
+              const isFutureOrEmpty = day.hours === 0 && day.status === 'no_log';
+              return (
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-medium">
+                    <span className="text-[#1A1410]">
+                      {day.name} <span className="text-[#6B6258] font-mono font-normal">({day.dateLabel})</span>
+                    </span>
+                    <span className="font-semibold font-mono text-[#1A1410]">
+                      {day.hours.toFixed(1)} hrs
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
+                        isFutureOrEmpty
+                          ? 'from-gray-300 to-gray-300'
+                          : 'from-[#db6c00]/60 to-[#db6c00]'
+                      }`}
+                      style={{ width: `${Math.min(100, (day.hours / 8) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Violations Details Modal */}
+      <Modal
+        open={activeStatModal === 'violations'}
+        onClose={() => setActiveStatModal(null)}
+        title="Geofence Violations Details"
+        subtitle="Review of your geofence warning logs for this month."
+        size="lg"
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          {loadingViolations ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-3">
+              <div className="w-8 h-8 rounded-full border-4 border-[#db6c00] border-t-transparent animate-spin" />
+              <span className="text-xs text-[#6B6258] font-medium font-mono animate-pulse">
+                Fetching geofence log...
+              </span>
+            </div>
+          ) : violationsList.length === 0 ? (
+            <div className="py-8 text-center space-y-2">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+              </div>
+              <h3 className="text-sm font-semibold text-[#1A1410]">Clean Record</h3>
+              <p className="text-xs text-[#6B6258] max-w-xs mx-auto">
+                Excellent! You have zero geofence violations recorded for this month. Keep up the great work!
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {violationsList.map((v, idx) => {
+                const date = new Date(v.created_at);
+                const dateLabel = date.toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                });
+
+                return (
+                  <div key={v.id || idx} className="p-3.5 rounded-xl border border-[#EFEAE2] bg-white hover:border-[#db6c00]/30 hover:shadow-sm transition flex items-start gap-3">
+                    <span className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${
+                      v.resolved ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600 animate-pulse'
+                    }`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm text-[#1A1410]">
+                          {v.type === 'boundary_exit' ? 'Boundary Exit Alert' : v.type === 'idle_excess' ? 'Excess Idle Warning' : 'Geofence Violation'}
+                        </span>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                          v.resolved ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                        }`}>
+                          {v.resolved ? 'Resolved' : 'Active'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-[#6B6258] mt-1 font-medium">
+                        Zone: {v.zone_name || 'Talon-Talon'}
+                      </div>
+                      <div className="text-[11px] text-[#6B6258]/80 font-mono mt-0.5 flex items-center justify-between">
+                        <span>{dateLabel}</span>
+                        {v.lat && v.lng && (
+                          <span>GPS: {v.lat.toFixed(5)}, {v.lng.toFixed(5)}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </Modal>
     </div>);
