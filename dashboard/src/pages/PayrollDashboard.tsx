@@ -4,16 +4,23 @@ import {
   CheckCircle2,
   AlertTriangle,
   ChevronRight,
+  ChevronLeft,
   Lock,
   Calendar,
   Layers,
-  Loader2
+  Loader2,
+  Search,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
-import { getPayrollRecords } from '../services/parcelService';
+import { getPayrollRecords, getPaginatedPayrollRecords } from '../services/parcelService';
+import { getZones } from '../services/geofenceService';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
 import { AnimatePresence } from 'framer-motion';
 import { pushToast } from '../hooks/useToast';
+import type { Zone } from '../services/types';
 
 const MONTHS = [
   'January',
@@ -131,6 +138,27 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
   const [loading, setLoading] = useState(false);
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Search states
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [zoneFilter, setZoneFilter] = useState('all');
+  const [allZones, setAllZones] = useState<Zone[]>([]);
+
+  // Sorting states
+  const [sortBy, setSortBy] = useState<'riderName' | 'total_parcels' | 'gross_pay' | 'net_pay' | 'status'>('riderName');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Multi-select state
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
+
   // Derive Cutoff Period Date range
   const cutoffFrom = useMemo(() => {
     const startDay = half === 'first' ? 1 : 16;
@@ -142,13 +170,69 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
     return `${currentYear}-${pad(month + 1)}-${pad(endDay)}`;
   }, [month, half, currentYear]);
 
-  // Load records from Supabase
+  // Search Debounce Effect
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset page on new search
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Load Zones List for Filter
+  useEffect(() => {
+    async function loadZones() {
+      try {
+        const zonesData = await getZones();
+        setAllZones(zonesData);
+      } catch (err) {
+        console.error('Failed to load zones for filters', err);
+      }
+    }
+    loadZones();
+  }, []);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, zoneFilter, half, month]);
+
+  // Load paginated records from Supabase
   useEffect(() => {
     const loadDashboard = async () => {
       setLoading(true);
       try {
-        const records: PayrollRecordRow[] = await getPayrollRecords(cutoffFrom, cutoffTo);
-        setPayrollRecords(records);
+        const { records, totalCount: count } = await getPaginatedPayrollRecords({
+          cutoffFrom,
+          cutoffTo,
+          page,
+          pageSize,
+          search: debouncedSearch,
+          statusFilter,
+          zoneFilter,
+          sortBy,
+          sortOrder
+        });
+
+        // Client-side sort fallback for net_pay since database ordering was gross_pay
+        const sortedRecords = [...records];
+        if (sortBy === 'net_pay') {
+          sortedRecords.sort((a, b) => {
+            const getNet = (r: PayrollRecordRow) => {
+              const gross = r.gross_pay ?? 0;
+              const other = Number(r.other_earnings ?? 0);
+              const fm = Number(r.fm_pickup_count ?? 0) * 3;
+              const deduct = Number(r.deductions ?? 0) + Number(r.late_onhold ?? 0) + Number(r.late_remittance ?? 0);
+              return gross + other + fm - deduct;
+            };
+            const netA = getNet(a);
+            const netB = getNet(b);
+            return sortOrder === 'asc' ? netA - netB : netB - netA;
+          });
+        }
+
+        setPayrollRecords(sortedRecords);
+        setTotalCount(count);
       } catch (err) {
         console.error('Failed to load payroll records', err);
         pushToast({
@@ -161,7 +245,7 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
       }
     };
     loadDashboard();
-  }, [cutoffFrom, cutoffTo, reloadTrigger]);
+  }, [cutoffFrom, cutoffTo, page, pageSize, debouncedSearch, statusFilter, zoneFilter, sortBy, sortOrder, reloadTrigger]);
 
   // Details Modal States
   const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<PayrollRecordRow | null>(null);
@@ -194,20 +278,79 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
     }
   };
 
-  // Compute fleet totals
+  // Sorting handlers
+  const handleSort = (column: 'riderName' | 'total_parcels' | 'gross_pay' | 'net_pay' | 'status') => {
+    if (sortBy === column) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+    setPage(1); // Reset page on new sort
+  };
+
+  const renderSortIcon = (column: 'riderName' | 'total_parcels' | 'gross_pay' | 'net_pay' | 'status') => {
+    if (sortBy !== column) return <ArrowUpDown className="w-3 h-3 text-[#A39988] transition-colors ml-1.5 shrink-0 opacity-40 group-hover:opacity-100" />;
+    return sortOrder === 'asc' 
+      ? <ChevronUp className="w-3.5 h-3.5 text-[#db6c00] ml-1.5 shrink-0" />
+      : <ChevronDown className="w-3.5 h-3.5 text-[#db6c00] ml-1.5 shrink-0" />;
+  };
+
+  // Multi-select handlers
+  const handleToggleSelectAll = () => {
+    if (selectedRecordIds.size === payrollRecords.length && payrollRecords.length > 0) {
+      setSelectedRecordIds(new Set());
+    } else {
+      setSelectedRecordIds(new Set(payrollRecords.map(r => r.id)));
+    }
+  };
+
+  const handleToggleSelectRow = (id: string) => {
+    const next = new Set(selectedRecordIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    setSelectedRecordIds(next);
+  };
+
+  const [allCutoffRecords, setAllCutoffRecords] = useState<PayrollRecordRow[]>([]);
+
+  // Fetch all records for the cutoff period to compute fleet totals (for cards)
+  useEffect(() => {
+    const loadAllRecords = async () => {
+      try {
+        const records = await getPayrollRecords(cutoffFrom, cutoffTo);
+        setAllCutoffRecords(records);
+      } catch (err) {
+        console.error('Failed to load all cutoff records:', err);
+      }
+    };
+    loadAllRecords();
+  }, [cutoffFrom, cutoffTo, reloadTrigger]);
+
+  // Compute fleet totals based on all records in cutoff
   const totals = useMemo(() => {
-    const totalGross = payrollRecords.reduce((s, r) => s + (r.gross_pay ?? 0), 0);
-    const totalParcels = payrollRecords.reduce((s, r) => s + (r.total_parcels || 0), 0);
-    const flagged = payrollRecords.filter(r => r.status === 'flagged').length;
-    const complete = payrollRecords.filter(r => r.status !== 'flagged').length;
+    const totalGross = allCutoffRecords.reduce((s, r) => s + (r.gross_pay ?? 0), 0);
+    const totalNet = allCutoffRecords.reduce((s, r) => {
+      const other = Number(r.other_earnings ?? 0);
+      const fm = Number(r.fm_pickup_count ?? 0) * 3;
+      const deduct = Number(r.deductions ?? 0) + Number(r.late_onhold ?? 0) + Number(r.late_remittance ?? 0);
+      return s + ((r.gross_pay ?? 0) + other + fm - deduct);
+    }, 0);
+    const totalParcels = allCutoffRecords.reduce((s, r) => s + (r.total_parcels || 0), 0);
+    const flagged = allCutoffRecords.filter(r => r.status === 'flagged').length;
+    const complete = allCutoffRecords.filter(r => r.status === 'paid').length;
 
     return {
       totalGross,
+      totalNet,
       totalParcels,
       flagged,
       complete
     };
-  }, [payrollRecords]);
+  }, [allCutoffRecords]);
 
   const cutoffLabel =
     half === 'first'
@@ -231,11 +374,11 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           label="Riders This Cutoff"
-          value={payrollRecords.length}
+          value={allCutoffRecords.length}
           sub={`Active payroll · ${cutoffLabel}`}
           icon={Users}
           accent="amber"
-          spark={[12, 14, 16, 18, 19, 20, payrollRecords.length]}
+          spark={[12, 14, 16, 18, 19, 20, allCutoffRecords.length]}
         />
         
         <StatCard
@@ -253,16 +396,16 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
         />
         
         <StatCard
-          label="Total Gross Payroll"
-          value={phpFmt(totals.totalGross)}
-          sub="Ready for payout"
+          label="Total Net Payroll"
+          value={phpFmt(totals.totalNet)}
+          sub={`Gross Total: ${phpFmt(totals.totalGross)}`}
           icon={CheckCircle2}
           accent="green"
           trend={{
             direction: 'up',
-            value: `${payrollRecords.length} processed riders`
+            value: `${allCutoffRecords.length} processed riders`
           }}
-          spark={[60000, 70000, 85000, 95000, 105000, totals.totalGross]}
+          spark={[60000, 70000, 85000, 95000, 105000, totals.totalNet]}
         />
         
         <StatCard
@@ -328,18 +471,120 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
         </div>
       </div>
 
+      {/* Bulk Actions Banner */}
+      {selectedRecordIds.size > 0 && (
+        <div className="p-3 px-4 rounded-xl border border-[#db6c00]/30 bg-[#FFF1E0]/50 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#db6c00] text-white text-[10px] font-bold">
+              {selectedRecordIds.size}
+            </span>
+            <span className="text-xs font-semibold text-[#b85a00]">
+              Riders selected for bulk actions
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              disabled
+              className="h-8 px-3 rounded-lg border border-[#EFEAE2] bg-white/50 text-[#A39988] text-xs font-semibold cursor-not-allowed"
+              title="Bulk Export coming soon"
+            >
+              Bulk Export
+            </button>
+            <button
+              disabled
+              className="h-8 px-3 rounded-lg border border-[#EFEAE2] bg-white/50 text-[#A39988] text-xs font-semibold cursor-not-allowed"
+              title="Bulk Approval coming soon"
+            >
+              Bulk Approve
+            </button>
+            <button
+              disabled
+              className="h-8 px-3 rounded-lg bg-[#db6c00]/40 text-white text-xs font-semibold cursor-not-allowed"
+              title="Bulk Pay coming soon"
+            >
+              Bulk Pay
+            </button>
+            <button 
+              onClick={() => setSelectedRecordIds(new Set())}
+              className="h-8 px-2.5 text-[#6B6258] hover:text-[#1A1410] text-xs font-semibold transition"
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Table */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden">
+      <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-sm">
         <div className="px-5 py-4 border-b border-[#EFEAE2] flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold text-[#1A1410]">Rider Payroll List</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-[#1A1410]">Rider Payroll List</span>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FAFAF7] border border-[#EFEAE2] text-[9px] font-medium text-[#6B6258]">
+                <Lock className="w-2.5 h-2.5" /> Read-only
+              </span>
+            </div>
             <div className="text-[11px] text-[#6B6258] font-mono mt-0.5">
-              {payrollRecords.length} records · {cutoffLabel} · Click rows to inspect daily breakdowns
+              {totalCount} records · {cutoffLabel} · Click rows or chevron to inspect daily breakdowns
             </div>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#FFF1E0] border border-[#db6c00]/30 text-[10px] uppercase tracking-wider font-semibold text-[#db6c00]">
-            <Lock className="w-3 h-3" /> Read-only
-          </span>
+        </div>
+
+        {/* Table Control Bar */}
+        <div className="px-5 py-3 border-b border-[#EFEAE2] bg-[#FAFAF7]/50 flex flex-col md:flex-row items-center gap-3 justify-between">
+          {/* Search Input */}
+          <div className="relative w-full md:w-72">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#A39988]" />
+            <input
+              type="text"
+              placeholder="Search rider name, ID, zone..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 h-9 rounded-lg bg-white border border-[#EFEAE2] text-xs text-[#1A1410] placeholder:text-[#A39988] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
+            />
+            {search && (
+              <button 
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-2 text-xs font-semibold text-[#A39988] hover:text-[#1A1410]"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
+            {/* Zone Filter */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">Zone:</span>
+              <select
+                value={zoneFilter}
+                onChange={e => setZoneFilter(e.target.value)}
+                className="h-9 px-2.5 rounded-lg bg-white border border-[#EFEAE2] text-xs text-[#1A1410] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 cursor-pointer"
+              >
+                <option value="all">All Zones</option>
+                {allZones.map(z => (
+                  <option key={z.id} value={z.id}>{z.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="h-9 px-2.5 rounded-lg bg-white border border-[#EFEAE2] text-xs text-[#1A1410] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 cursor-pointer font-mono text-[11px]"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="paid">Paid</option>
+                <option value="flagged">Flagged</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         {loading && (
@@ -356,17 +601,62 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
         )}
 
         {!loading && payrollRecords.length > 0 && (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[600px] overflow-y-auto relative">
             <table className="w-full text-sm">
-              <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2]">
+              <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2] sticky top-0 z-10 shadow-sm">
                 <tr className="text-left text-[10px] uppercase tracking-[0.12em] text-[#6B6258] font-semibold">
-                  <th className="px-5 py-3 w-8"></th>
-                  <th className="px-3 py-3">Rider</th>
-                  <th className="px-3 py-3">Zone</th>
-                  <th className="px-3 py-3 text-right">Parcels Delivered</th>
-                  <th className="px-3 py-3 text-right">Rate per Parcel</th>
-                  <th className="px-3 py-3 text-right">Gross Pay</th>
-                  <th className="px-3 py-3 pr-5">Status</th>
+                  <th className="px-5 py-3 w-16 bg-[#FAFAF7]">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={payrollRecords.length > 0 && selectedRecordIds.size === payrollRecords.length}
+                        onChange={handleToggleSelectAll}
+                        className="rounded border-[#EFEAE2] text-[#db6c00] focus:ring-[#db6c00] h-3.5 w-3.5 cursor-pointer accent-[#db6c00]"
+                      />
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('riderName')}
+                    className="px-3 py-3 cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                  >
+                    <div className="flex items-center">
+                      Rider {renderSortIcon('riderName')}
+                    </div>
+                  </th>
+                  <th className="px-3 py-3 bg-[#FAFAF7]">Zone</th>
+                  <th 
+                    onClick={() => handleSort('total_parcels')}
+                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                  >
+                    <div className="flex items-center justify-end">
+                      Parcels {renderSortIcon('total_parcels')}
+                    </div>
+                  </th>
+                  <th className="px-3 py-3 text-right bg-[#FAFAF7]">Rate</th>
+                  <th 
+                    onClick={() => handleSort('gross_pay')}
+                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                  >
+                    <div className="flex items-center justify-end">
+                      Gross Pay {renderSortIcon('gross_pay')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('net_pay')}
+                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                  >
+                    <div className="flex items-center justify-end">
+                      Net Pay {renderSortIcon('net_pay')}
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('status')}
+                    className="px-3 py-3 pr-5 cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                  >
+                    <div className="flex items-center">
+                      Status {renderSortIcon('status')}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -376,6 +666,12 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
                   const zone = r.riders?.zones?.name || '—';
                   const ratePerParcel = r.rate_per_parcel ?? 50;
 
+                  const grossPay = r.gross_pay ?? 0;
+                  const otherEarnings = Number(r.other_earnings ?? 0);
+                  const fmPickupPay = Number(r.fm_pickup_count ?? 0) * 3;
+                  const totalDeductions = Number(r.deductions ?? 0) + Number(r.late_onhold ?? 0) + Number(r.late_remittance ?? 0);
+                  const netPay = grossPay + otherEarnings + fmPickupPay - totalDeductions;
+
                   return (
                     <Fragment key={r.id}>
                       <tr
@@ -383,13 +679,21 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
                           setSelectedRecordForDetails(r);
                           setIsModalOpen(true);
                         }}
-                        className={`border-b border-[#EFEAE2] cursor-pointer transition hover:bg-[#FFF1E0]/30`}
+                        className={`border-b border-[#EFEAE2] cursor-pointer transition hover:bg-[#FFF1E0]/20`}
                       >
-                        <td className="px-5 py-3 relative">
+                        <td className="px-5 py-3 relative" onClick={e => e.stopPropagation()}>
                           {r.status === 'flagged' && (
                             <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-500" />
                           )}
-                          <ChevronRight className="w-4 h-4 text-[#6B6258]" />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedRecordIds.has(r.id)}
+                              onChange={() => handleToggleSelectRow(r.id)}
+                              className="rounded border-[#EFEAE2] text-[#db6c00] focus:ring-[#db6c00] h-3.5 w-3.5 cursor-pointer accent-[#db6c00]"
+                            />
+                            <ChevronRight className="w-4 h-4 text-[#6B6258] hover:text-[#db6c00] transition-colors" />
+                          </div>
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2.5">
@@ -409,8 +713,11 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
                         <td className="px-3 py-3 text-right font-mono tabular-nums text-[#6B6258]">
                           ₱{ratePerParcel.toFixed(2)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold text-[#1A1410]">
-                          {phpFmt(r.gross_pay ?? 0)}
+                        <td className="px-3 py-3 text-right font-mono tabular-nums text-[#6B6258]">
+                          {phpFmt(grossPay)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold text-[#db6c00]">
+                          {phpFmt(netPay)}
                         </td>
                         <td className="px-3 py-3 pr-5">
                           <StatusPill status={r.status} />
@@ -424,15 +731,68 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
           </div>
         )}
 
+        {/* Pagination Footer Controls */}
+        {!loading && payrollRecords.length > 0 && (
+          <div className="px-5 py-3.5 border-t border-[#EFEAE2] bg-[#FAFAF7]/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#6B6258]">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <span>Show:</span>
+                <select
+                  value={pageSize}
+                  onChange={e => {
+                    setPageSize(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="h-7 px-2.5 rounded border border-[#EFEAE2] bg-white text-xs outline-none cursor-pointer focus:border-[#db6c00]"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>riders</span>
+              </div>
+              <span>
+                Showing {totalCount === 0 ? 0 : (page - 1) * pageSize + 1} to {Math.min(page * pageSize, totalCount)} of {totalCount} riders
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage(p => Math.max(p - 1, 1))}
+                className="h-8 px-2.5 rounded-lg border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] font-semibold flex items-center justify-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Prev
+              </button>
+              <span className="font-medium text-[#1A1410]">
+                Page {page} of {Math.max(Math.ceil(totalCount / pageSize), 1)}
+              </span>
+              <button
+                disabled={page >= Math.ceil(totalCount / pageSize)}
+                onClick={() => setPage(p => Math.min(p + 1, Math.ceil(totalCount / pageSize)))}
+                className="h-8 px-2.5 rounded-lg border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] font-semibold flex items-center justify-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Footer Summary Pinned Section */}
         {!loading && payrollRecords.length > 0 && (
           <div className="px-5 py-4 border-t border-[#EFEAE2] bg-[#FFF1E0]/30 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
-                Total Gross Payroll
+                Total Net Payroll
               </div>
               <div className="text-xl font-bold text-[#db6c00] font-mono tabular-nums">
-                {phpFmt(totals.totalGross)}
+                {phpFmt(totals.totalNet)}
+              </div>
+              <div className="text-[10.5px] text-[#6B6258] mt-0.5 font-mono">
+                Gross Total: {phpFmt(totals.totalGross)}
               </div>
             </div>
             <div>
@@ -450,7 +810,7 @@ export function PayrollDashboard({ role = 'payroll' }: PayrollDashboardProps) {
               </div>
               <div className="text-xl font-bold text-[#1A1410] font-mono tabular-nums">
                 {totals.complete}{' '}
-                <span className="text-sm text-[#6B6258] font-normal">/ {payrollRecords.length}</span>
+                <span className="text-sm text-[#6B6258] font-normal">/ {allCutoffRecords.length}</span>
               </div>
             </div>
           </div>
