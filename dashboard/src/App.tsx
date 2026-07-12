@@ -283,7 +283,7 @@ export function App() {
               >
                 {riderPage === 'dashboard' && <RiderDashboard userId={user.id} />}
                 {riderPage === 'attendance' &&
-                  <RiderAttendance onBack={() => setRiderPage('dashboard')} />
+                  <RiderAttendance userId={user.id} onBack={() => setRiderPage('dashboard')} />
                 }
                 {riderPage === 'monitoring' &&
                   <RiderMonitoring
