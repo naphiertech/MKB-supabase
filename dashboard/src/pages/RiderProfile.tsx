@@ -1,41 +1,24 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Phone, Mail, IdCard, MapPin } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, IdCard, MapPin, Edit3, Check, X, Lock, Eye, EyeOff } from 'lucide-react';
+import { MapContainer, TileLayer, Polygon, Circle } from 'react-leaflet';
 import {
   type Rider,
   type Zone,
-  type AppUser } from
-'../services/types';
-import { getUserProfileById } from '../services/userService';
-import { getRiderFullProfile } from '../services/riderService';
+  type AppUser } from '../services/types';
+import { getUserProfileById, updateUserAuthCredentials } from '../services/userService';
+import { getRiderFullProfile, updateRiderContact } from '../services/riderService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
+import { pushToast } from '../hooks/useToast';
 
 interface RiderProfileProps {
   userId: string;
   onBack: () => void;
 }
 
-function Field({
-  label,
-  value,
-  icon: Icon,
-  mono
-}: {label: string;value: string;icon: typeof Phone;mono?: boolean;}) {
-  return (
-    <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#EFEAE2] hover:border-[#db6c00]/30 transition-colors">
-      <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#FFF1E0] text-[#db6c00] ring-1 ring-[#db6c00]/20 shrink-0">
-        <Icon className="w-4 h-4" />
-      </span>
-      <div className="min-w-0">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono">
-          {label}
-        </div>
-        <div className={`mt-0.5 text-sm text-[#1A1410] truncate ${mono ? 'font-mono' : ''}`}>
-          {value}
-        </div>
-      </div>
-    </div>
-  );
-}
+const MAP_TILE = {
+  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  attribution: '&copy; OpenStreetMap &copy; CARTO'
+};
 
 export function RiderProfile({ userId, onBack }: RiderProfileProps) {
   const riderId = userId.replace(/^u-rider-/, '');
@@ -43,6 +26,18 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Edit Phone States
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+
+  // Password Change States
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -63,7 +58,6 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
             lastLogin: dbUser.last_login ? new Date(dbUser.last_login).getTime() : 0
           });
 
-          // Fetch public.riders using user's linked rider_id
           const resolvedRiderId = dbUser.rider_id || riderId;
           const dbRider = await getRiderFullProfile(resolvedRiderId);
 
@@ -83,16 +77,28 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
               riderCode: dbRider.mkb_id
             };
             setRider(mappedRider);
+            setPhoneInput(dbRider.contact || '');
 
             if (dbRider.zones) {
               const dbZone = dbRider.zones;
+              let center: [number, number] = [0, 0];
+              if (dbZone.lat !== null && dbZone.lng !== null) {
+                center = [dbZone.lat, dbZone.lng];
+              } else if (dbZone.polygon_coordinates && dbZone.polygon_coordinates.length > 0) {
+                const polyCoords = dbZone.polygon_coordinates as [number, number][];
+                const latSum = polyCoords.reduce((sum: number, c: [number, number]) => sum + c[0], 0);
+                const lngSum = polyCoords.reduce((sum: number, c: [number, number]) => sum + c[1], 0);
+                center = [latSum / polyCoords.length, lngSum / polyCoords.length];
+              }
               setZone({
                 id: dbZone.id,
                 name: dbZone.name,
-                center: [dbZone.lat, dbZone.lng],
-                radius: dbZone.radius,
+                center,
+                radius: dbZone.radius || 0,
                 color: dbZone.color,
-                status: dbZone.status
+                status: dbZone.status,
+                zone_type: dbZone.zone_type,
+                polygon_coordinates: dbZone.polygon_coordinates || undefined
               });
             }
           }
@@ -107,15 +113,84 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
     loadData();
   }, [userId, riderId]);
 
+  const handleSavePhone = async () => {
+    if (!rider) return;
+    try {
+      setIsSavingPhone(true);
+      await updateRiderContact(rider.id, phoneInput);
+      setRider(prev => prev ? { ...prev, phone: phoneInput } : null);
+      setIsEditingPhone(false);
+      pushToast({
+        title: 'Contact updated',
+        description: 'Your mobile phone number has been updated successfully.',
+        tone: 'success'
+      });
+    } catch (err) {
+      console.error('Failed to update contact:', err);
+      pushToast({
+        title: 'Update failed',
+        description: 'Failed to update contact. Please try again.',
+        tone: 'error'
+      });
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      pushToast({
+        title: 'Mismatch passwords',
+        description: 'New password and confirmation do not match.',
+        tone: 'error'
+      });
+      return;
+    }
+    if (newPassword.length < 6) {
+      pushToast({
+        title: 'Password too short',
+        description: 'Password must be at least 6 characters.',
+        tone: 'error'
+      });
+      return;
+    }
+
+    try {
+      setIsSavingPassword(true);
+      await updateUserAuthCredentials({ password: newPassword, fullName: user?.name || '' });
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowPasswordForm(false);
+      pushToast({
+        title: 'Password updated',
+        description: 'Your login credentials have been successfully updated.',
+        tone: 'success'
+      });
+    } catch (err) {
+      console.error('Failed to update password:', err);
+      pushToast({
+        title: 'Update failed',
+        description: 'Could not change password. Try logging in again.',
+        tone: 'error'
+      });
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
   if (loading || !rider || !zone) {
     return <DashboardSkeleton page="profile" role="rider" />;
   }
 
+
+
   return (
-    <div className="p-4 md:p-6 lg:p-7 max-w-3xl mx-auto space-y-5">
+    <div className="p-4 md:p-6 lg:p-7 max-w-5xl mx-auto space-y-6">
+      {/* Header */}
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-sm text-[#6B6258] hover:text-[#1A1410] transition-colors">
+        className="inline-flex items-center gap-1.5 text-sm text-[#6B6258] hover:text-[#1A1410] transition-colors"
+      >
         <ArrowLeft className="w-4 h-4" />
         Back to dashboard
       </button>
@@ -126,17 +201,18 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
         <img
           src={rider.avatar}
           alt={`${rider.name} avatar`}
-          className="relative w-20 h-20 rounded-2xl border border-[#EFEAE2] bg-white shadow-sm" />
+          className="relative w-20 h-20 rounded-2xl border border-[#EFEAE2] bg-white shadow-sm"
+        />
         
         <div className="relative min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
             Courier · MKB Corporation
           </div>
-          <h1 className="text-2xl font-semibold text-[#1A1410] truncate">
+          <h1 className="text-2xl font-semibold text-[#1A1410] truncate mt-0.5">
             {rider.name}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-mono">
-            <span className="px-2 py-0.5 rounded-md bg-[#DCFCE7] text-[#16A34A] border border-[#16A34A]/25 uppercase tracking-wider">
+            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/50 uppercase tracking-wider font-semibold">
               {user?.status ?? 'active'}
             </span>
             <span className="text-[#6B6258]">{rider.riderCode}</span>
@@ -144,30 +220,247 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
         </div>
       </div>
 
-      {/* Details */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="Email" value={user?.email ?? '—'} icon={Mail} mono />
-        <Field label="Phone" value={rider.phone} icon={Phone} mono />
-        <Field label="Rider Code" value={rider.riderCode} icon={IdCard} mono />
-        <Field label="Assigned Zone" value={zone.name} icon={MapPin} />
-        <Field
-          label="Zone Center"
-          value={`${zone.center[0].toFixed(4)}, ${zone.center[1].toFixed(4)}`}
-          icon={MapPin}
-          mono />
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        {/* Left Column: Account Details */}
+        <div className="lg:col-span-7 space-y-5">
+          <div className="rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm space-y-4">
+            <h2 className="text-[#1A1410] font-semibold text-base">Account Settings</h2>
+            
+            <div className="space-y-3">
+              {/* Email */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#EFEAE2]">
+                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 text-[#6B6258] ring-1 ring-gray-200 shrink-0">
+                  <Mail className="w-4 h-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
+                    Email Address
+                  </div>
+                  <div className="mt-0.5 text-sm text-[#6B6258] font-mono truncate">
+                    {user?.email ?? '—'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Phone (Editable) */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#EFEAE2] hover:border-[#db6c00]/20 transition-colors">
+                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#FFF1E0] text-[#db6c00] ring-1 ring-[#db6c00]/25 shrink-0">
+                  <Phone className="w-4 h-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
+                    Contact Phone
+                  </div>
+                  
+                  {isEditingPhone ? (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <input
+                        type="tel"
+                        value={phoneInput}
+                        onChange={e => setPhoneInput(e.target.value)}
+                        disabled={isSavingPhone}
+                        className="h-8 px-2.5 rounded border border-[#EFEAE2] text-sm font-mono w-full max-w-xs focus:outline-none focus:border-[#db6c00] disabled:bg-gray-50"
+                      />
+                      <button
+                        onClick={handleSavePhone}
+                        disabled={isSavingPhone}
+                        className="w-8 h-8 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition-colors shrink-0"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setPhoneInput(rider.phone);
+                          setIsEditingPhone(false);
+                        }}
+                        disabled={isSavingPhone}
+                        className="w-8 h-8 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition-colors shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <span className="text-sm text-[#1A1410] font-mono">
+                        {rider.phone || 'No phone registered'}
+                      </span>
+                      <button
+                        onClick={() => setIsEditingPhone(true)}
+                        className="p-1 rounded-md text-[#6B6258] hover:text-[#db6c00] hover:bg-[#FFF1E0] transition"
+                        title="Edit Phone"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Rider Code */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#EFEAE2]">
+                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 text-[#6B6258] ring-1 ring-gray-200 shrink-0">
+                  <IdCard className="w-4 h-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
+                    MKB Code
+                  </div>
+                  <div className="mt-0.5 text-sm text-[#1A1410] font-mono">
+                    {rider.riderCode}
+                  </div>
+                </div>
+              </div>
+
+
+            </div>
+
+            {/* Password section */}
+            <div className="pt-3 border-t border-[#EFEAE2]/60">
+              {showPasswordForm ? (
+                <div className="space-y-3.5 bg-gray-50/50 p-4 rounded-xl border border-[#EFEAE2]">
+                  <h3 className="text-xs font-semibold text-[#1A1410] uppercase tracking-wider">Update Password</h3>
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <input
+                        type={showPass ? 'text' : 'password'}
+                        placeholder="New Password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        disabled={isSavingPassword}
+                        className="h-9 px-3 rounded border border-[#EFEAE2] text-sm w-full focus:outline-none focus:border-[#db6c00] pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(!showPass)}
+                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      placeholder="Confirm New Password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      disabled={isSavingPassword}
+                      className="h-9 px-3 rounded border border-[#EFEAE2] text-sm w-full focus:outline-none focus:border-[#db6c00]"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => {
+                        setShowPasswordForm(false);
+                        setNewPassword('');
+                        setConfirmPassword('');
+                      }}
+                      disabled={isSavingPassword}
+                      className="px-3 h-8 rounded text-xs text-[#6B6258] bg-white border border-[#EFEAE2] hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUpdatePassword}
+                      disabled={isSavingPassword}
+                      className="px-3 h-8 rounded text-xs text-white bg-[#db6c00] hover:bg-[#b85a00] flex items-center gap-1.5"
+                    >
+                      {isSavingPassword && <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />}
+                      Save Password
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowPasswordForm(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#db6c00] hover:text-[#b85a00] uppercase tracking-wider mt-1 focus:outline-none"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  Change Account Password
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Visual Geofence Map */}
+        <div className="lg:col-span-5 space-y-5">
+          <div className="rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-[#1A1410] font-semibold text-base">Assigned Geofence Map</h2>
+              <p className="text-xs text-[#6B6258] mt-0.5">
+                Riders must remain inside this boundary.
+              </p>
+            </div>
+
+            <div className="relative rounded-xl overflow-hidden border border-[#EFEAE2] h-[240px] bg-gray-50">
+              <MapContainer
+                center={[zone.center[0], zone.center[1]]}
+                zoom={14}
+                scrollWheelZoom={false}
+                zoomControl={false}
+                attributionControl={false}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer url={MAP_TILE.url} attribution={MAP_TILE.attribution} />
+                
+                {zone.zone_type === 'polygon' && zone.polygon_coordinates ? (
+                  <Polygon
+                    positions={zone.polygon_coordinates}
+                    pathOptions={{
+                      color: zone.color,
+                      fillColor: zone.color,
+                      fillOpacity: 0.15,
+                      weight: 2
+                    }}
+                  />
+                ) : (
+                  <Circle
+                    center={zone.center}
+                    radius={zone.radius}
+                    pathOptions={{
+                      color: zone.color,
+                      fillColor: zone.color,
+                      fillOpacity: 0.15,
+                      weight: 2
+                    }}
+                  />
+                )}
+              </MapContainer>
+
+              <div className="absolute top-3 left-3 z-[400] flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-sm border border-[#EFEAE2] text-xs shadow-sm">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: zone.color }} />
+                <span className="text-[#1A1410] font-semibold">{zone.name}</span>
+                <span className="text-[#6B6258] font-mono text-[10px]">
+                  {zone.zone_type === 'polygon' ? 'Polygon' : `${zone.radius}m`}
+                </span>
+              </div>
+
+              <div className="absolute bottom-3 left-3 z-[400] px-2 py-1 rounded-md bg-white/95 backdrop-blur-sm border border-[#EFEAE2] text-[10px] text-[#6B6258] font-mono">
+                Center: {zone.center[0].toFixed(4)}, {zone.center[1].toFixed(4)}
+              </div>
+            </div>
+
+            <div className="text-[11px] text-[#6B6258]/80 leading-relaxed font-medium bg-[#FAFAF7] p-3 rounded-xl border border-[#EFEAE2]/60 flex items-start gap-2">
+              <MapPin className="w-4 h-4 text-[#db6c00] shrink-0 mt-0.5" />
+              <span>
+                Your GPS position is verified against this boundary. Being outside the boundary triggers boundary exit warnings automatically.
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Face enrollment info */}
       <div className="rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm">
-        <h2 className="text-[#1A1410] font-semibold text-base">
-          Face Enrollment
-        </h2>
+        <h2 className="text-[#1A1410] font-semibold text-base">Face Enrollment</h2>
         <p className="text-sm text-[#6B6258] mt-1">
           Your face template is enrolled and used to verify every time-in and
           time-out. To re-enroll (e.g. after a major appearance change), contact
           your dispatcher.
         </p>
         <div className="mt-3 flex items-center gap-2">
-          <span className="px-2 py-1 rounded-md bg-[#DCFCE7] text-[#16A34A] border border-[#16A34A]/25 text-[11px] uppercase tracking-wider font-mono">
+          <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/50 text-[11px] uppercase tracking-wider font-semibold">
             ● Enrolled
           </span>
           <span className="text-[11px] text-[#6B6258] font-mono">
