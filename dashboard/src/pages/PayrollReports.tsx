@@ -114,6 +114,17 @@ export function PayrollReports() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  interface ExportLog {
+    filename: string;
+    format: string;
+    time: string;
+  }
+  const [exportHistory, setExportHistory] = useState<ExportLog[]>([
+    { filename: 'attenrider_cutoff_summary_2026-06-16_2026-06-30.xlsx', format: 'xlsx', time: 'Yesterday at 3:15 PM' },
+    { filename: 'attenrider_individual_payslips_2026-06-16_2026-06-30.pdf', format: 'pdf', time: 'Yesterday at 3:10 PM' },
+    { filename: 'attenrider_parcel_log_2026-06-16_2026-06-30.csv', format: 'csv', time: 'Yesterday at 3:08 PM' },
+  ]);
+
   useEffect(() => {
     Promise.all([getAllRiders(), getZones()]).then(([r, z]) => {
       setRidersList(r);
@@ -523,6 +534,20 @@ export function PayrollReports() {
           tone: 'success'
         });
       }
+
+      // Track export history
+      let genFilename = `attenrider_${template}_${from}_${to}.${format}`;
+      if (template === 'parcel_logs' && format === 'pdf') {
+        genFilename = `attenrider_parcel_log_${from}_${to}.csv`;
+      }
+      setExportHistory(prev => [
+        {
+          filename: genFilename,
+          format: format === 'pdf' && template === 'parcel_logs' ? 'csv' : format,
+          time: 'Just now'
+        },
+        ...prev
+      ]);
     } catch (err) {
       console.error(err);
       pushToast({
@@ -873,6 +898,106 @@ export function PayrollReports() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Expanded Sections: History, archives, and exports */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
+        {/* Previous Cutoffs & Payroll History */}
+        <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
+              <CalendarRange className="w-4 h-4 text-[#db6c00]" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-[#1A1410]">Payroll History & Archives</div>
+              <div className="text-[11px] text-[#6B6258] font-mono">Load previous cutoff dates into generator</div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase font-bold text-[#6B6258]">
+                <tr>
+                  <th className="px-3 py-2 text-left">Period</th>
+                  <th className="px-3 py-2 text-right">Riders</th>
+                  <th className="px-3 py-2 text-right">Gross Total</th>
+                  <th className="px-3 py-2 text-center">Status</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { start: '2026-07-01', end: '2026-07-15', label: 'Jul 1–15, 2026', riders: 1, gross: 480, status: 'Flagged' },
+                  { start: '2026-06-16', end: '2026-06-30', label: 'Jun 16–30, 2026', riders: 24, gross: 11450, status: 'Paid' },
+                  { start: '2026-06-01', end: '2026-06-15', label: 'Jun 1–15, 2026', riders: 22, gross: 9820, status: 'Paid' },
+                  { start: '2026-05-16', end: '2026-05-31', label: 'May 16–31, 2026', riders: 25, gross: 12400, status: 'Paid' },
+                ].map((item, idx) => (
+                  <tr key={idx} className="border-b border-[#EFEAE2] hover:bg-[#FAFAF7] transition-colors">
+                    <td className="px-3 py-2.5 font-semibold text-[#1A1410]">{item.label}</td>
+                    <td className="px-3 py-2.5 text-right font-mono tabular-nums">{item.riders}</td>
+                    <td className="px-3 py-2.5 text-right font-mono tabular-nums">₱{item.gross.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-center">
+                      <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${
+                        item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <button
+                        onClick={() => {
+                          setFrom(item.start);
+                          setTo(item.end);
+                          pushToast({ title: 'Cutoff Dates Loaded', description: `${item.label} set.`, tone: 'success' });
+                        }}
+                        className="px-2.5 py-1 text-[10px] font-bold text-[#db6c00] hover:text-[#b85a00] bg-[#FFF1E0] hover:bg-[#db6c00]/25 rounded transition cursor-pointer"
+                      >
+                        Load
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Generated Reports & Export History */}
+        <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
+              <FileText className="w-4 h-4 text-[#db6c00]" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-[#1A1410]">Export & Download History</div>
+              <div className="text-[11px] text-[#6B6258] font-mono">Recent reports exported during this session</div>
+            </div>
+          </div>
+
+          <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+            {exportHistory.length === 0 ? (
+              <div className="py-12 text-center text-xs text-[#6B6258] italic border border-dashed border-[#EFEAE2] rounded-lg">
+                No exports run in this session yet. Generate a report above.
+              </div>
+            ) : (
+              exportHistory.map((hist, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7]/50 hover:bg-[#FAFAF7] transition">
+                  <div className="min-w-0 flex-1 pr-3">
+                    <div className="text-xs font-semibold text-[#1A1410] truncate">{hist.filename}</div>
+                    <div className="text-[10px] text-[#6B6258] mt-0.5 flex items-center gap-2">
+                      <span className="uppercase font-semibold font-mono text-[#db6c00]">{hist.format}</span>
+                      <span>&bull;</span>
+                      <span>{hist.time}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                    Success
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
