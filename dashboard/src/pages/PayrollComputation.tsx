@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRidersLookup } from '../services/riderService';
 import { getRiderAttendanceInDateRange } from '../services/attendanceService';
@@ -16,13 +16,29 @@ import {
   FileSpreadsheet,
   Calculator,
   User as UserIcon,
-  Check,
-  ChevronsUpDown,
   Lock,
   Sparkles,
   Loader2,
-  X
+  X,
+  Calendar
 } from 'lucide-react';
+import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/RiderPayrollList';
+import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
+
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
+];
 
 function pad(n: number) {
   return String(n).padStart(2, '0');
@@ -33,14 +49,9 @@ function isoToday(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function isoOffset(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 export function PayrollComputation() {
   const { user } = useAuth();
+
   interface RiderRow {
     id: string;
     name: string;
@@ -48,9 +59,63 @@ export function PayrollComputation() {
     zones: { name: string } | null;
   }
   const [riders, setRiders] = useState<RiderRow[]>([]);
+  
+  // Workspace states
+  const [activeRider, setActiveRider] = useState<PayrollRecordRow | null>(null);
   const [selectedRiderId, setSelectedRiderId] = useState('');
-  const [cutoffFrom, setCutoffFrom] = useState(isoOffset(14));
-  const [cutoffTo, setCutoffTo] = useState(isoToday());
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Cutoff period selectors (shared)
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [month, setMonth] = useState(() => new Date().getMonth());
+  const [half, setHalf] = useState<'first' | 'second'>(() =>
+    new Date().getDate() <= 15 ? 'first' : 'second'
+  );
+
+  const cutoffFrom = useMemo(() => {
+    const startDay = half === 'first' ? 1 : 16;
+    return `${currentYear}-${pad(month + 1)}-${pad(startDay)}`;
+  }, [month, half, currentYear]);
+
+  const cutoffTo = useMemo(() => {
+    const endDay = half === 'first' ? 15 : new Date(currentYear, month + 1, 0).getDate();
+    return `${currentYear}-${pad(month + 1)}-${pad(endDay)}`;
+  }, [month, half, currentYear]);
+
+  const cutoffLabel = useMemo(() => {
+    return half === 'first'
+      ? `${MONTHS[month]} 1–15`
+      : `${MONTHS[month]} 16–${new Date(currentYear, month + 1, 0).getDate()}`;
+  }, [month, half, currentYear]);
+
+  // Details Modal States
+  const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<PayrollRecordRow | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [recordsInPage, setRecordsInPage] = useState<PayrollRecordRow[]>([]);
+
+  const activeIndex = useMemo(() => {
+    if (!selectedRecordForDetails) return -1;
+    return recordsInPage.findIndex(r => r.id === selectedRecordForDetails.id);
+  }, [selectedRecordForDetails, recordsInPage]);
+
+  const handlePrev = () => {
+    if (activeIndex > 0) {
+      setSelectedRecordForDetails(recordsInPage[activeIndex - 1]);
+    }
+  };
+
+  const handleNext = () => {
+    if (activeIndex < recordsInPage.length - 1) {
+      setSelectedRecordForDetails(recordsInPage[activeIndex + 1]);
+    }
+  };
+
+  const handleOpenDetails = (record: PayrollRecordRow, allRecords: PayrollRecordRow[]) => {
+    setSelectedRecordForDetails(record);
+    setRecordsInPage(allRecords);
+    setIsModalOpen(true);
+  };
+
   const rate = 10;
   const [dayEntries, setDayEntries] = useState<{
     date: string;
@@ -64,7 +129,6 @@ export function PayrollComputation() {
   }[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -83,7 +147,6 @@ export function PayrollComputation() {
       try {
         const data = await getRidersLookup();
         setRiders(data as unknown as RiderRow[]);
-        if (data.length > 0) setSelectedRiderId(data[0].id);
       } catch (error) {
         console.error('Error loading riders:', error);
         pushToast({
@@ -239,9 +302,10 @@ export function PayrollComputation() {
       );
       pushToast({
         title: 'Payroll Finalized',
-        description: `${selectedRider?.name} · ${totalParcels} parcels · ₱${grossPay.toLocaleString()}`,
+        description: `${selectedRider?.name} · {totalParcels} parcels · ₱${grossPay.toLocaleString()}`,
         tone: 'success'
       });
+      setReloadTrigger(prev => prev + 1);
     } catch (err) {
       console.error('Failed to finalize record', err);
       pushToast({
@@ -313,469 +377,454 @@ export function PayrollComputation() {
 
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
-      {/* Selector and Settings Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        
-        {/* Left Panel: Rider selector + Settings */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-                  <UserIcon className="w-4 h-4 text-[#db6c00]" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-[#1A1410]">Select Rider</div>
-                  <div className="text-[11px] text-[#6B6258] font-mono">{riders.length} total</div>
-                </div>
+
+      {/* Shared Cutoff Selection Header */}
+      <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-[#db6c00]" />
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+                Cutoff Period
               </div>
-              
+              <div className="text-sm font-semibold text-[#1A1410]">
+                {cutoffLabel}, {currentYear}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={month}
+              onChange={e => setMonth(Number(e.target.value))}
+              disabled={!!activeRider}
+              className="h-9 px-3 pr-8 rounded-md bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 font-mono cursor-pointer disabled:opacity-50"
+            >
+              {MONTHS.map((m, idx) => (
+                <option key={m} value={idx}>
+                  {m} {currentYear}
+                </option>
+              ))}
+            </select>
+
+            <div className="inline-flex rounded-md border border-[#EFEAE2] bg-[#FAFAF7] p-0.5">
+              <button
+                onClick={() => setHalf('first')}
+                disabled={!!activeRider}
+                className={`h-8 px-3 rounded text-xs font-semibold transition disabled:opacity-50 ${half === 'first' ? 'bg-[#db6c00] text-white shadow-sm' : 'text-[#6B6258] hover:text-[#1A1410]'}`}
+              >
+                {MONTHS[month].slice(0, 3)} 1–15
+              </button>
+              <button
+                onClick={() => setHalf('second')}
+                disabled={!!activeRider}
+                className={`h-8 px-3 rounded text-xs font-semibold transition disabled:opacity-50 ${half === 'second' ? 'bg-[#db6c00] text-white shadow-sm' : 'text-[#6B6258] hover:text-[#1A1410]'}`}
+              >
+                {MONTHS[month].slice(0, 3)} 16–{new Date(currentYear, month + 1, 0).getDate()}
+              </button>
+            </div>
+
+            {/* Bulk Upload Button (only in list view) */}
+            {!activeRider && (
               <button
                 type="button"
                 onClick={() => setBulkImportOpen(true)}
-                className="px-3 py-1.5 rounded-lg bg-[#FFF1E0] hover:bg-[#db6c00]/20 border border-[#db6c00]/10 hover:border-[#db6c00]/30 text-[#db6c00] text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm"
+                className="h-9 px-3.5 rounded-lg bg-[#FFF1E0] hover:bg-[#db6c00]/20 border border-[#db6c00]/10 hover:border-[#db6c00]/30 text-[#db6c00] text-xs font-bold transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 Import Excel
               </button>
-            </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-            {/* Dropdown */}
-            <div className="relative">
+      {!activeRider ? (
+        /* View A: Rider Payroll List */
+        <RiderPayrollList
+          cutoffFrom={cutoffFrom}
+          cutoffTo={cutoffTo}
+          role="payroll"
+          reloadTrigger={reloadTrigger}
+          onStatusUpdated={() => setReloadTrigger(prev => prev + 1)}
+          onComputeRider={(record) => {
+            setSelectedRiderId(record.rider_id);
+            setActiveRider(record);
+          }}
+          onOpenDetails={handleOpenDetails}
+        />
+      ) : (
+        /* View B: Active Rider Workspace */
+        <div className="space-y-5">
+          {/* Active Rider Header Navigation */}
+          <div className="flex items-center justify-between bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setActiveRider(null)}
+                className="h-9 px-3.5 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer text-[#1A1410]"
+              >
+                &larr; Back to Rider List
+              </button>
+              <div>
+                <div className="text-sm font-bold text-[#1A1410]">
+                  Computing for {activeRider.riders?.name}
+                </div>
+                <div className="text-[11px] text-[#6B6258] font-mono">
+                  {activeRider.riders?.mkb_id} &bull; {activeRider.riders?.zones?.name || 'No Zone'}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setPickerOpen(v => !v)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] hover:border-[#db6c00]/40 transition text-left"
+                onClick={() => handleOpenDetails(activeRider, [activeRider])}
+                className="h-9 px-3.5 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold text-[#1A1410] transition inline-flex items-center gap-1.5 cursor-pointer"
               >
-                <div className="w-9 h-9 rounded-full bg-[#FFF1E0] border border-[#EFEAE2] flex items-center justify-center shrink-0">
-                  <UserIcon className="w-5 h-5 text-[#db6c00]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-[#1A1410] truncate">
-                    {selectedRider?.name || 'Choose a rider...'}
-                  </div>
-                  <div className="text-[11px] font-mono text-[#6B6258] truncate">
-                    {selectedRider?.mkb_id || 'MKB-000'} · {zoneName}
-                  </div>
-                </div>
-                <ChevronsUpDown className="w-4 h-4 text-[#6B6258] shrink-0" />
+                Open Details Drawer
               </button>
+            </div>
+          </div>
 
-              <AnimatePresence>
-                {pickerOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -5, scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute z-[1020] mt-1.5 w-full max-h-72 overflow-y-auto bg-white border border-[#EFEAE2] rounded-lg shadow-lg"
-                  >
-                    {riders.map(r => {
-                      const selected = r.id === selectedRiderId;
-                      const rZone = r.zones?.name || '—';
-                      return (
-                        <button
-                          key={r.id}
-                          onClick={() => {
-                            setSelectedRiderId(r.id);
-                            setPickerOpen(false);
-                          }}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-[#FFF1E0]/60 transition ${selected ? 'bg-[#FFF1E0]/80' : ''}`}
+          {/* Selector and Settings Panel */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Left Panel: Selected Rider summary */}
+            <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
+                      <UserIcon className="w-4 h-4 text-[#db6c00]" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-[#1A1410]">Rider Profile</div>
+                      <div className="text-[11px] text-[#6B6258] font-mono">{activeRider.riders?.mkb_id}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2]">
+                  <div className="w-9 h-9 rounded-full bg-[#FFF1E0] border border-[#EFEAE2] flex items-center justify-center shrink-0">
+                    <UserIcon className="w-5 h-5 text-[#db6c00]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-[#1A1410] truncate">
+                      {activeRider.riders?.name}
+                    </div>
+                    <div className="text-[11px] font-mono text-[#6B6258] truncate">
+                      {activeRider.riders?.zones?.name || 'No Zone'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dynamic Rate Rules Notice */}
+                <div className="mt-5 space-y-3.5">
+                  <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg p-3.5 space-y-2">
+                    <div className="text-[10.5px] uppercase tracking-[0.14em] text-[#6B6258] font-bold">
+                      Dynamic Rate Rules
+                    </div>
+                    <div className="text-xs space-y-1.5 text-[#1A1410]">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#6B6258]">Early In (≤ 8:00 AM)</span>
+                        <span className="font-semibold font-mono text-emerald-600">₱12.00 / pc</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#6B6258]">Standard (8:01–9:00 AM)</span>
+                        <span className="font-semibold font-mono text-amber-600">₱11.00 / pc</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[#6B6258]">Late / Fallback (≥ 9:01 AM)</span>
+                        <span className="font-semibold font-mono text-red-600">₱10.00 / pc</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Panel: Computation & Summary */}
+            <div className="lg:col-span-2 bg-white border border-[#EFEAE2] rounded-xl overflow-hidden flex flex-col justify-between">
+              <div>
+                <div className="px-5 py-4 border-b border-[#EFEAE2] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
+                      <Calculator className="w-4 h-4 text-[#db6c00]" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-[#1A1410]">Salary Computation</div>
+                      <div className="text-[11px] text-[#6B6258] font-mono">
+                        {cutoffFrom} → {cutoffTo} &bull; auto-saving logs
+                      </div>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-[#db6c00] bg-[#FFF1E0] border border-[#db6c00]/30 uppercase tracking-wider">
+                    <Lock className="w-3 h-3" /> Auto-Saving
+                  </span>
+                </div>
+
+                {/* Summaries */}
+                <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="rounded-lg p-3.5 border bg-[#FAFAF7] border-[#EFEAE2]">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+                      Parcels Delivered
+                    </div>
+                    <div className="mt-1.5 text-lg font-bold font-mono text-[#1A1410]">
+                      {totalParcels}
+                    </div>
+                    <div className="text-[10px] text-[#6B6258] font-mono mt-0.5">
+                      this cutoff period
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg p-3.5 border bg-[#FAFAF7] border-[#EFEAE2]">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+                      Rate Per Parcel
+                    </div>
+                    <div className="mt-1.5 text-lg font-bold font-mono text-[#db6c00]">
+                      Dynamic
+                    </div>
+                    <div className="text-[10px] text-[#6B6258] font-mono mt-0.5">
+                      ₱10.00 – ₱12.00 / pc
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg p-3.5 border bg-[#FFF1E0]/60 border-[#db6c00]/30">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+                      Gross Pay
+                    </div>
+                    <div className="mt-1 flex items-center justify-between">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={grossPay}
+                          initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.25 }}
+                          className="text-2xl font-bold text-[#db6c00] font-mono"
                         >
-                          <div className="w-7 h-7 rounded-full bg-white border border-[#EFEAE2] flex items-center justify-center shrink-0">
-                            <UserIcon className="w-4 h-4 text-[#db6c00]" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-semibold text-[#1A1410] truncate">{r.name}</div>
-                            <div className="text-[10.5px] font-mono text-[#6B6258] truncate">
-                              {r.mkb_id} · {rZone}
-                            </div>
-                          </div>
-                          {selected && <Check className="w-4 h-4 text-[#db6c00]" />}
-                        </button>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Dynamic Rate Rules Notice */}
-            <div className="mt-5 space-y-3.5">
-              <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg p-3.5 space-y-2">
-                <div className="text-[10.5px] uppercase tracking-[0.14em] text-[#6B6258] font-bold">
-                  Dynamic Rate Rules
-                </div>
-                <div className="text-xs space-y-1.5 text-[#1A1410]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#6B6258]">Early In (≤ 8:00 AM)</span>
-                    <span className="font-semibold font-mono text-emerald-600">₱12.00 / pc</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#6B6258]">Standard (8:01–9:00 AM)</span>
-                    <span className="font-semibold font-mono text-amber-600">₱11.00 / pc</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#6B6258]">Late / Fallback (≥ 9:01 AM)</span>
-                    <span className="font-semibold font-mono text-red-600">₱10.00 / pc</span>
+                          ₱{grossPay.toLocaleString()}
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+                    <div className="text-[10px] text-[#db6c00] font-mono mt-0.5">
+                      calculated from clock-in logs
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
-                    Cutoff From
-                  </div>
-                  <input
-                    type="date"
-                    value={cutoffFrom}
-                    onChange={e => setCutoffFrom(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] font-mono outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
-                  />
+              <div className="px-5 pb-5 space-y-3">
+                {/* Action buttons */}
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleExportPDF}
+                    className="flex-1 h-11 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-sm font-semibold transition inline-flex items-center justify-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#db6c00]/30 cursor-pointer"
+                  >
+                    <FileDown className="w-4 h-4" />
+                    Export PDF Payslip
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleExportCSV}
+                    className="flex-1 h-11 rounded-lg bg-white border border-[#EFEAE2] hover:border-[#db6c00]/40 hover:bg-[#FFF1E0]/40 text-[#1A1410] text-sm font-semibold transition inline-flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-[#db6c00]" />
+                    Export CSV
+                  </motion.button>
                 </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
-                    Cutoff To
-                  </div>
-                  <input
-                    type="date"
-                    value={cutoffTo}
-                    onChange={e => setCutoffTo(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] font-mono outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
-                  />
-                </div>
+
+                {/* Finalize row */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={handleFinalize}
+                  disabled={savingAll || dayEntries.length === 0}
+                  className="w-full h-11 rounded-lg bg-[#1A1410] hover:bg-black text-white text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {savingAll ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Finalizing Cutoff...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      Finalize & Save Cutoff Record
+                    </>
+                  )}
+                </motion.button>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Panel: Computation & Summary */}
-        <div className="lg:col-span-2 bg-white border border-[#EFEAE2] rounded-xl overflow-hidden flex flex-col justify-between">
-          <div>
+          {/* Day-by-Day Parcel Breakdown */}
+          <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-[#EFEAE2] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-                  <Calculator className="w-4 h-4 text-[#db6c00]" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-[#1A1410]">Salary Computation</div>
-                  <div className="text-[11px] text-[#6B6258] font-mono">
-                    {cutoffFrom} → {cutoffTo} · live database upsert
-                  </div>
-                </div>
-              </div>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-[#db6c00] bg-[#FFF1E0] border border-[#db6c00]/30 uppercase tracking-wider">
-                <Lock className="w-3 h-3" /> Auto-Saving
-              </span>
-            </div>
-
-            {/* Summaries */}
-            <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-lg p-3.5 border bg-[#FAFAF7] border-[#EFEAE2]">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
-                  Parcels Delivered
-                </div>
-                <div className="mt-1.5 text-lg font-bold font-mono text-[#1A1410]">
-                  {totalParcels}
-                </div>
-                <div className="text-[10px] text-[#6B6258] font-mono mt-0.5">
-                  this cutoff period
-                </div>
-              </div>
-
-              <div className="rounded-lg p-3.5 border bg-[#FAFAF7] border-[#EFEAE2]">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
-                  Rate Per Parcel
-                </div>
-                <div className="mt-1.5 text-lg font-bold font-mono text-[#db6c00]">
-                  Dynamic
-                </div>
-                <div className="text-[10px] text-[#6B6258] font-mono mt-0.5">
-                  ₱10.00 – ₱12.00 / pc
-                </div>
-              </div>
-
-              <div className="rounded-lg p-3.5 border bg-[#FFF1E0]/60 border-[#db6c00]/30">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
-                  Gross Pay
-                </div>
-                <div className="mt-1 flex items-center justify-between">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={grossPay}
-                      initial={{ opacity: 0, scale: 0.95, y: 8 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.25 }}
-                      className="text-2xl font-bold text-[#db6c00] font-mono"
-                    >
-                      ₱{grossPay.toLocaleString()}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
-                <div className="text-[10px] text-[#db6c00] font-mono mt-0.5">
-                  calculated from clock-in logs
+              <div>
+                <div className="text-sm font-semibold text-[#1A1410]">Day-by-Day Parcel Breakdown</div>
+                <div className="text-[11px] text-[#6B6258] font-mono mt-0.5">
+                  {dayEntries.length} days &bull; {selectedRider?.name || '—'}
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="px-5 pb-5 space-y-3">
-            {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row gap-2.5">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleExportPDF}
-                className="flex-1 h-11 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-sm font-semibold transition inline-flex items-center justify-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#db6c00]/30"
-              >
-                <FileDown className="w-4 h-4" />
-                Export PDF Payslip
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleExportCSV}
-                className="flex-1 h-11 rounded-lg bg-white border border-[#EFEAE2] hover:border-[#db6c00]/40 hover:bg-[#FFF1E0]/40 text-[#1A1410] text-sm font-semibold transition inline-flex items-center justify-center gap-2"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-[#db6c00]" />
-                Export CSV
-              </motion.button>
-            </div>
+            {/* Loading skeleton */}
+            {loadingLogs && (
+              <div className="p-5 space-y-2">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="h-10 bg-[#FAFAF7] rounded animate-pulse" />
+                ))}
+              </div>
+            )}
 
-            {/* Finalization row */}
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              onClick={handleFinalize}
-              disabled={savingAll || dayEntries.length === 0}
-              className="w-full h-11 rounded-lg bg-[#1A1410] hover:bg-black text-white text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {savingAll ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Finalizing Cutoff...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  Finalize & Save Cutoff Record
-                </>
-              )}
-            </motion.button>
-          </div>
-        </div>
-      </div>
+            {!loadingLogs && dayEntries.length === 0 && (
+              <div className="p-10 text-center text-sm text-[#6B6258]">
+                No dates found. Select a valid cutoff range above.
+              </div>
+            )}
 
-      {/* Day-by-Day Parcel Breakdown */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#EFEAE2] flex items-center justify-between">
-          <div>
-            <div className="text-sm font-semibold text-[#1A1410]">Day-by-Day Parcel Breakdown</div>
-            <div className="text-[11px] text-[#6B6258] font-mono mt-0.5">
-              {dayEntries.length} days · {selectedRider?.name || '—'}
-            </div>
-          </div>
-        </div>
+            {!loadingLogs && dayEntries.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2]">
+                    <tr className="text-left text-[10.5px] uppercase tracking-wider text-[#6B6258] font-bold">
+                      <th className="px-5 py-3.5">Date</th>
+                      <th className="px-5 py-3.5">Clock In</th>
+                      <th className="px-5 py-3.5 text-right">Parcels</th>
+                      <th className="px-5 py-3.5 text-right">Rate</th>
+                      <th className="px-5 py-3.5 text-right">Gross Wages</th>
+                      <th className="px-5 py-3.5 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayEntries.map(e => {
+                      const dt = new Date(e.date);
+                      const isFuture = e.date > isoToday();
+                      const isEditing = editingDate === e.date;
 
-        {/* Loading skeleton */}
-        {loadingLogs && (
-          <div className="p-5 space-y-2">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="h-10 bg-[#FAFAF7] rounded animate-pulse" />
-            ))}
-          </div>
-        )}
+                      // Display values
+                      const displayTimeIn = e.timeIn
+                        ? new Date(e.timeIn.replace(' ', 'T')).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          })
+                        : '—';
 
-        {!loadingLogs && dayEntries.length === 0 && (
-          <div className="p-10 text-center text-sm text-[#6B6258]">
-            No dates found. Select a valid cutoff range above.
-          </div>
-        )}
-
-        {!loadingLogs && dayEntries.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2]">
-                <tr className="text-left text-[10px] uppercase tracking-[0.12em] text-[#6B6258] font-semibold">
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Parcels Delivered</th>
-                  <th className="px-5 py-3">Rate</th>
-                  <th className="px-5 py-3">Daily Gross</th>
-                  <th className="px-5 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dayEntries.map(entry => {
-                  const isHigh = entry.parcels > 100;
-                  const isLow = entry.parcels > 0 && entry.parcels < 5;
-                  const isFuture = entry.date > isoToday();
-                  const isEditingThis = editingDate === entry.date;
-                  const displayVal = isEditingThis ? editingVal : entry.parcels;
-
-                  return (
-                    <tr
-                      key={entry.date}
-                      className={`border-b border-[#EFEAE2] transition-colors
-                        ${isFuture
-                          ? 'opacity-40 bg-[#FAFAF7]/30'
-                          : isEditingThis
-                          ? 'bg-[#FFF1E0]/20'
-                          : entry.parcels === 0
-                          ? 'opacity-50'
-                          : isHigh
-                          ? 'bg-amber-50'
-                          : isLow
-                          ? 'bg-yellow-50'
-                          : 'hover:bg-[#FAFAF7]/50'
-                        }`}
-                      title={
-                        isFuture
-                          ? 'Future date is locked'
-                          : isHigh
-                          ? 'Unusually high — please verify with supervisor'
-                          : isLow
-                          ? 'Very low count — please verify'
-                          : undefined
-                      }
-                    >
-                      <td className="px-5 py-2.5 text-sm text-[#1A1410]">
-                        {new Date(entry.date).toLocaleDateString('en-PH', {
-                          month: 'long',
-                          day: '2-digit',
-                          year: 'numeric'
-                        })}
-                      </td>
-                      <td className="px-5 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min={0}
-                            value={displayVal}
-                            disabled={isFuture}
-                            onChange={e => handleInputChange(entry.date, Math.max(0, Number(e.target.value) || 0))}
-                            className={`w-24 text-center border rounded-lg px-2.5 py-1 text-sm font-mono outline-none transition
-                              ${isEditingThis 
-                                ? 'border-[#db6c00] bg-white text-[#1A1410] ring-2 ring-[#db6c00]/15' 
-                                : 'border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] focus:border-[#db6c00]'
-                              }
-                              disabled:opacity-50 disabled:cursor-not-allowed`}
-                          />
-                          {isEditingThis && (
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setConfirmDate(entry.date);
-                                  setConfirmVal(editingVal);
-                                  setConfirmOpen(true);
+                      return (
+                        <tr
+                          key={e.date}
+                          className={`border-b border-[#EFEAE2] transition-colors hover:bg-[#FAFAF7] ${
+                            isFuture ? 'opacity-40 select-none' : ''
+                          }`}
+                        >
+                          <td className="px-5 py-4 font-semibold text-[#1A1410]">
+                            {dt.toLocaleDateString('en-US', {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </td>
+                          <td className="px-5 py-4 text-[#6B6258]">{displayTimeIn}</td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <input
+                                type="number"
+                                disabled={isFuture || e.saving}
+                                min={0}
+                                value={isEditing ? editingVal : e.parcels || ''}
+                                placeholder="0"
+                                onChange={ev => {
+                                  const v = Math.max(0, parseInt(ev.target.value) || 0);
+                                  handleInputChange(e.date, v);
                                 }}
-                                className="w-7 h-7 rounded bg-emerald-50 hover:bg-emerald-100 border border-emerald-500/30 flex items-center justify-center text-emerald-600 transition"
-                                title="Save changes"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingDate(null);
+                                onBlur={() => {
+                                  if (isEditing) {
+                                    if (editingVal !== e.parcels) {
+                                      setConfirmDate(e.date);
+                                      setConfirmVal(editingVal);
+                                      setConfirmOpen(true);
+                                    } else {
+                                      setEditingDate(null);
+                                    }
+                                  }
                                 }}
-                                className="w-7 h-7 rounded bg-red-50 hover:bg-red-100 border border-red-500/30 flex items-center justify-center text-red-500 transition"
-                                title="Cancel edit"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
+                                className="w-20 text-right px-2 py-1 rounded bg-[#FAFAF7] border border-[#EFEAE2] hover:border-[#db6c00]/30 outline-none focus:border-[#db6c00] focus:ring-1 focus:ring-[#db6c00]/15 font-mono text-xs disabled:opacity-50"
+                              />
                             </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-2.5 text-sm font-mono text-[#1A1410]">
-                        {entry.parcels === 0 ? '—' : `₱${entry.rate.toFixed(2)}`}
-                      </td>
-                      <td className="px-5 py-2.5 text-sm font-mono text-[#1A1410]">
-                        {entry.parcels === 0 ? '—' : `₱${entry.dailyGross.toLocaleString()}`}
-                      </td>
-                      <td className="px-5 py-2.5 text-xs">
-                        {isFuture ? (
-                          <span className="text-[#6B6258]/60 font-medium inline-flex items-center gap-1">
-                            <Lock className="w-3.5 h-3.5" /> Locked
-                          </span>
-                        ) : isEditingThis ? (
-                          <span className="text-amber-600 font-medium inline-flex items-center gap-1">
-                            Unsaved draft
-                          </span>
-                        ) : (
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2">
-                              {entry.saving && <span className="text-amber-600 font-medium">Saving...</span>}
-                              {entry.saved && !entry.saving && <span className="text-emerald-600 font-medium">✓ Saved</span>}
-                              {entry.error && <span className="text-red-500 font-medium">Failed — retry</span>}
-                            </div>
-                            {entry.timeIn && (
-                              <span className="text-[10px] text-[#6B6258] font-mono" title={`Dynamic rate calculated from clock-in time: ${entry.timeIn}`}>
-                                Time-In: {new Date(entry.timeIn.replace(' ', 'T')).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono text-[#6B6258]">
+                            ₱{e.rate.toFixed(2)}
+                          </td>
+                          <td className="px-5 py-4 text-right font-mono font-semibold text-[#db6c00]">
+                            ₱{e.dailyGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            {e.saving ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#db6c00]">
+                                <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+                              </span>
+                            ) : e.saved ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-200">
+                                Saved
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold border border-amber-200">
+                                Draft
                               </span>
                             )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="bg-[#FFF1E0]/50 font-semibold border-t-2 border-[#EFEAE2]">
-                  <td className="px-5 py-3.5 text-sm text-[#1A1410]">TOTAL</td>
-                  <td className="px-5 py-3.5 text-sm font-mono text-[#db6c00]">{totalParcels} parcels</td>
-                  <td className="px-5 py-3.5 text-sm font-mono text-[#6B6258]">—</td>
-                  <td className="px-5 py-3.5 text-sm font-mono font-bold text-[#1A1410]">
-                    ₱{grossPay.toLocaleString()}
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Confirmation Modal */}
+      {/* Override Confirmation Modal */}
       <AnimatePresence>
         {confirmOpen && (
-          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-            {/* Backdrop */}
+          <div className="fixed inset-0 bg-[#1A1410]/20 backdrop-blur-xs flex items-center justify-center p-4 z-[2000]">
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setConfirmOpen(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            
-            {/* Modal Box */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative w-full max-w-md bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-xl z-10"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white border border-[#EFEAE2] rounded-xl shadow-xl w-full max-w-sm p-5 space-y-4"
             >
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center shrink-0">
-                  <Calculator className="w-5 h-5 text-[#db6c00]" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#1A1410]">Verify Parcel Count Change</h3>
-                  <p className="text-xs text-[#6B6258] mt-1 leading-relaxed">
-                    You are updating the delivered parcels for <span className="font-semibold text-[#1A1410]">{confirmDate && new Date(confirmDate).toLocaleDateString('en-PH', { month: 'long', day: '2-digit', year: 'numeric' })}</span>.
-                  </p>
-                </div>
+              <div className="flex items-center justify-between border-b border-[#EFEAE2] pb-3">
+                <h3 className="text-sm font-bold text-[#1A1410] flex items-center gap-1.5">
+                  <Calculator className="w-4.5 h-4.5 text-[#db6c00]" />
+                  Confirm Log Adjustment
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setConfirmOpen(false)}
+                  className="p-1 rounded-lg hover:bg-[#FAFAF7] text-[#A39988] hover:text-[#1A1410] transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              <div className="my-5 p-4 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] grid grid-cols-2 gap-4">
+              <div className="text-xs text-[#6B6258] leading-relaxed">
+                You are manually overriding the parcel logs for{' '}
+                <span className="font-semibold text-[#1A1410]">
+                  {confirmDate ? new Date(confirmDate).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                </span>{' '}
+                to <span className="font-bold text-[#db6c00]">{confirmVal} parcels</span>. This will immediately recalculate wages for this date.
+              </div>
+
+              <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg p-3 grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-semibold">New Count</div>
-                  <div className="text-lg font-bold text-[#1A1410] font-mono mt-0.5">{confirmVal} parcels</div>
+                  <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-semibold">Active Rate</div>
+                  <div className="text-sm font-bold text-[#1A1410] font-mono mt-0.5">₱{activeConfirmRate.toFixed(2)}</div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-semibold">New Gross Pay</div>
@@ -787,7 +836,7 @@ export function PayrollComputation() {
                 <button
                   type="button"
                   onClick={() => setConfirmOpen(false)}
-                  className="px-4 h-9 rounded-md bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] text-sm font-semibold text-[#6B6258] transition"
+                  className="px-4 h-9 rounded-md bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] text-sm font-semibold text-[#6B6258] transition cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -800,7 +849,7 @@ export function PayrollComputation() {
                     }
                     setConfirmOpen(false);
                   }}
-                  className="px-4 h-9 rounded-md bg-[#db6c00] hover:bg-[#b85a00] text-sm font-semibold text-white transition shadow-sm"
+                  className="px-4 h-9 rounded-md bg-[#db6c00] hover:bg-[#b85a00] text-sm font-semibold text-white transition shadow-sm cursor-pointer"
                 >
                   Confirm & Save
                 </button>
@@ -810,11 +859,32 @@ export function PayrollComputation() {
         )}
       </AnimatePresence>
 
+      {/* Details Slide-over Drawer */}
+      <AnimatePresence>
+        {isModalOpen && selectedRecordForDetails && (
+          <PayrollDetailsModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            record={selectedRecordForDetails}
+            onStatusUpdated={() => setReloadTrigger(prev => prev + 1)}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            hasPrev={activeIndex > 0}
+            hasNext={activeIndex < recordsInPage.length - 1}
+            role="payroll"
+            indexLabel={`${activeIndex + 1} of ${recordsInPage.length}`}
+          />
+        )}
+      </AnimatePresence>
+
       <BulkParcelUploadModal
         isOpen={bulkImportOpen}
         onClose={() => setBulkImportOpen(false)}
         riders={riders}
-        onUploadSuccess={() => setRefreshKey(k => k + 1)}
+        onUploadSuccess={() => {
+          setRefreshKey(k => k + 1);
+          setReloadTrigger(prev => prev + 1);
+        }}
         currentUserId={user?.id}
       />
     </div>
