@@ -1589,7 +1589,7 @@ export type Database = {
       attendance_source: "face-scan" | "manual"
       attendance_status: "present" | "late" | "absent" | "on_leave"
       notification_type: "violation" | "absent" | "attendance" | "system"
-      payroll_status: "pending" | "processed" | "flagged"
+      payroll_status: "pending" | "processed" | "flagged" | "approved" | "paid" | "rejected" | "draft"
       rider_status: "active" | "idle" | "violation" | "offline"
       shift_type: "Morning" | "Afternoon" | "Evening"
       user_role: "admin" | "hr" | "rider" | "payroll"
@@ -1734,7 +1734,7 @@ export const Constants = {
       attendance_source: ["face-scan", "manual"],
       attendance_status: ["present", "late", "absent", "on_leave"],
       notification_type: ["violation", "absent", "attendance", "system"],
-      payroll_status: ["pending", "processed", "flagged"],
+      payroll_status: ["pending", "processed", "flagged", "approved", "paid", "rejected", "draft"],
       rider_status: ["active", "idle", "violation", "offline"],
       shift_type: ["Morning", "Afternoon", "Evening"],
       user_role: ["admin", "hr", "rider", "payroll"],
