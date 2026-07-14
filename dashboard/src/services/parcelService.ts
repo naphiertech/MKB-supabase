@@ -161,7 +161,14 @@ export const getPaginatedPayrollRecords = async (params: PaginatedPayrollParams)
   // We use riders!inner to allow filtering on relation attributes (name, mkb_id, zone_id)
   let query = supabase
     .from('payroll_records')
-    .select('*, riders!inner(id, name, mkb_id, avatar_url, zone_id, notes, zones(name))', { count: 'exact' })
+    .select(`
+      *,
+      riders!inner(id, name, mkb_id, avatar_url, zone_id, notes, zones(name)),
+      submitted_user:users!payroll_records_submitted_by_fkey(full_name),
+      approved_user:users!payroll_records_approved_by_fkey(full_name),
+      rejected_user:users!payroll_records_rejected_by_fkey(full_name),
+      paid_user:users!payroll_records_paid_by_fkey(full_name)
+    `, { count: 'exact' })
     .gte('cutoff_start', cutoffFrom)
     .lte('cutoff_start', cutoffTo);
 
@@ -299,11 +306,44 @@ export const getRiderPayrollMetrics = async (
 // Update payroll record status
 export const updatePayrollRecordStatus = async (
   recordId: string,
-  status: 'pending' | 'approved' | 'paid' | 'flagged'
+  status: 'pending' | 'approved' | 'paid' | 'flagged' | 'rejected' | 'draft',
+  auditData?: {
+    userId: string;
+    rejectionReason?: string;
+  }
 ): Promise<void> => {
+  const updatePayload: any = { status, updated_at: new Date().toISOString() };
+  if (auditData) {
+    const { userId, rejectionReason } = auditData;
+    if (status === 'pending') {
+      updatePayload.submitted_by = userId;
+      updatePayload.submitted_at = new Date().toISOString();
+    } else if (status === 'approved') {
+      updatePayload.approved_by = userId;
+      updatePayload.approved_at = new Date().toISOString();
+    } else if (status === 'rejected') {
+      updatePayload.rejected_by = userId;
+      updatePayload.rejected_at = new Date().toISOString();
+      updatePayload.rejection_reason = rejectionReason || null;
+    } else if (status === 'paid') {
+      updatePayload.paid_by = userId;
+      updatePayload.paid_at = new Date().toISOString();
+      updatePayload.processed_at = new Date().toISOString(); // for backward compatibility
+    } else if (status === 'draft') {
+      // Returned for revision
+      updatePayload.approved_by = null;
+      updatePayload.approved_at = null;
+      updatePayload.rejected_by = null;
+      updatePayload.rejected_at = null;
+      updatePayload.rejection_reason = null;
+      updatePayload.paid_by = null;
+      updatePayload.paid_at = null;
+    }
+  }
+
   const { error } = await supabase
     .from('payroll_records')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq('id', recordId);
 
   if (error) throw error;
