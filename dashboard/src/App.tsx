@@ -398,7 +398,7 @@ export function App() {
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
                     {safePage === 'reviews' && <ReviewsModeration />}
-                    {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} /></ErrorBoundary>}
+                    {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'audit_logs' && <AuditLogs />}
                   </>
                 }
@@ -412,13 +412,13 @@ export function App() {
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'reviews' && <ReviewsModeration />}
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
-                    {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} /></ErrorBoundary>}
+                    {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'audit_logs' && <AuditLogs />}
                   </>
                 }
                 {role === 'payroll' &&
                   <>
-                    {safePage === 'dashboard' && <ErrorBoundary><PayrollDashboard role={dashRole} /></ErrorBoundary>}
+                    {safePage === 'dashboard' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'computation' && <PayrollComputation />}
                     {safePage === 'reports' && <PayrollReports />}
                   </>
