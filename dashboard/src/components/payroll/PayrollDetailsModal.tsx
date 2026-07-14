@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "../../hooks/useAuth";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import {
@@ -6,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
-  AlertTriangle,
   Printer,
   Download,
   Loader2,
@@ -51,6 +51,21 @@ export interface PayrollRecordShape {
   deductions?: number;
   late_onhold?: number;
   late_remittance?: number;
+  submitted_by?: string;
+  submitted_at?: string;
+  approved_by?: string;
+  approved_at?: string;
+  rejected_by?: string;
+  rejected_at?: string;
+  rejection_reason?: string;
+  paid_by?: string;
+  paid_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  submitted_user?: { full_name: string } | null;
+  approved_user?: { full_name: string } | null;
+  rejected_user?: { full_name: string } | null;
+  paid_user?: { full_name: string } | null;
   riders: {
     id?: string;
     name: string;
@@ -89,11 +104,14 @@ export function PayrollDetailsModal({
   role,
   indexLabel,
 }: PayrollDetailsModalProps) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<PayrollMetrics | null>(null);
   const [dayEntries, setDayEntries] = useState<ParcelLog[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState("");
   const [riderAvatar, setRiderAvatar] = useState<string | null>(null);
 
   // Option B: Dynamic adjustments states
@@ -372,11 +390,16 @@ export function PayrollDetailsModal({
 
   // Action updates status in database
   const handleUpdateStatus = async (
-    newStatus: "approved" | "paid" | "flagged" | "pending",
+    newStatus: "approved" | "paid" | "flagged" | "pending" | "rejected" | "draft",
+    rejectionReason?: string
   ) => {
     setIsUpdatingStatus(true);
     try {
-      await updatePayrollRecordStatus(record.id, newStatus);
+      const userId = user?.id || "";
+      await updatePayrollRecordStatus(record.id, newStatus, {
+        userId,
+        rejectionReason
+      });
 
       // Log this action to activity_logs
       await logActivity({
@@ -657,82 +680,269 @@ export function PayrollDetailsModal({
 
           {/* RIGHT SIDE: Payslip Slip Voucher (Col 9-12) */}
           <div className="lg:col-span-4 p-5 bg-[#FAFAF7] flex flex-col justify-between overflow-y-auto">
-            <PayslipSlipCard
-              record={record}
-              role={role}
-              grossPay={grossPay}
-              rateBreakdown={rateBreakdown}
-              ratePerParcel={ratePerParcel}
-              otherEarnings={otherEarnings}
-              setOtherEarnings={setOtherEarnings}
-              fmPickupCount={fmPickupCount}
-              setFmPickupCount={setFmPickupCount}
-              deductions={deductions}
-              setDeductions={setDeductions}
-              lateOnhold={lateOnhold}
-              setLateOnhold={setLateOnhold}
-              lateRemittance={lateRemittance}
-              setLateRemittance={setLateRemittance}
-              totalEarnings={totalEarnings}
-              totalDeductions={totalDeductions}
-              netSalary={netSalary}
-              isAdjustmentsChanged={isAdjustmentsChanged}
-              isSavingAdjustments={isSavingAdjustments}
-              handleSaveAdjustments={handleSaveAdjustments}
-            />
+            <div className="space-y-4">
+              {/* Workflow Timeline */}
+              <div className="bg-white border border-[#EFEAE2] rounded-xl p-3.5 shadow-sm space-y-3">
+                <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
+                  Workflow Timeline & Audit
+                </div>
+                
+                <div className="relative pl-4 space-y-3 border-l-2 border-[#EFEAE2]">
+                  {/* Draft State */}
+                  <div className="relative">
+                    <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border bg-white ${
+                      record.status === 'draft' ? 'border-[#db6c00] bg-[#db6c00] ring-4 ring-[#db6c00]/10' : 'border-[#A39988]'
+                    }`} />
+                    <div className="text-[11px] font-semibold text-[#1A1410]">Draft Prepared</div>
+                    <div className="text-[9.5px] text-[#6B6258]">Initial payroll worksheet setup</div>
+                  </div>
+
+                  {/* Submitted State */}
+                  <div className="relative">
+                    <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border bg-white ${
+                      record.status === 'pending' ? 'border-[#db6c00] bg-[#db6c00] ring-4 ring-[#db6c00]/10' :
+                      (record.submitted_at || ['approved', 'paid'].includes(record.status)) ? 'border-[#db6c00] bg-[#db6c00]' : 'border-[#EFEAE2]'
+                    }`} />
+                    <div className="text-[11px] font-semibold text-[#1A1410]">Submitted for Review</div>
+                    {record.submitted_at ? (
+                      <div className="text-[9.5px] text-[#6B6258]">
+                        By {record.submitted_user?.full_name || 'Payroll Officer'} on {new Date(record.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    ) : (
+                      <div className="text-[9.5px] text-[#A39988] italic">Awaiting submission</div>
+                    )}
+                  </div>
+
+                  {/* Approved/Rejected State */}
+                  <div className="relative">
+                    <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border bg-white ${
+                      record.status === 'approved' ? 'border-[#db6c00] bg-[#db6c00] ring-4 ring-[#db6c00]/10' :
+                      record.status === 'rejected' ? 'border-rose-500 bg-rose-500 ring-4 ring-rose-500/10' :
+                      record.status === 'paid' ? 'border-[#db6c00] bg-[#db6c00]' : 'border-[#EFEAE2]'
+                    }`} />
+                    <div className="text-[11px] font-semibold text-[#1A1410]">
+                      {record.status === 'rejected' ? 'Rejected' : 'Approved by Management'}
+                    </div>
+                    {record.status === 'rejected' && record.rejected_at ? (
+                      <div className="text-[9.5px] text-rose-600">
+                        By {record.rejected_user?.full_name || 'Admin'} on {new Date(record.rejected_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    ) : record.approved_at ? (
+                      <div className="text-[9.5px] text-[#6B6258]">
+                        By {record.approved_user?.full_name || 'Admin'} on {new Date(record.approved_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    ) : (
+                      <div className="text-[9.5px] text-[#A39988] italic">Awaiting validation</div>
+                    )}
+                  </div>
+
+                  {/* Paid State */}
+                  <div className="relative">
+                    <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border bg-white ${
+                      record.status === 'paid' ? 'border-emerald-500 bg-emerald-500 ring-4 ring-emerald-500/10' : 'border-[#EFEAE2]'
+                    }`} />
+                    <div className="text-[11px] font-semibold text-[#1A1410]">Paid & Disbursed</div>
+                    {record.paid_at ? (
+                      <div className="text-[9.5px] text-emerald-600">
+                        Disbursed on {new Date(record.paid_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    ) : (
+                      <div className="text-[9.5px] text-[#A39988] italic">Awaiting disbursal</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Audit Details */}
+                <div className="border-t border-[#EFEAE2] pt-3.5 space-y-1.5 text-[10.5px]">
+                  <div className="flex justify-between">
+                    <span className="text-[#6B6258]">Prepared By:</span>
+                    <span className="font-semibold text-[#1A1410] truncate max-w-[150px]">
+                      {record.submitted_user?.full_name || 'Payroll Officer'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B6258]">Last Updated:</span>
+                    <span className="font-mono text-[#1A1410]">
+                      {new Date(record.updated_at || record.created_at || new Date().toISOString()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <PayslipSlipCard
+                record={record}
+                role={role}
+                grossPay={grossPay}
+                rateBreakdown={rateBreakdown}
+                ratePerParcel={ratePerParcel}
+                otherEarnings={otherEarnings}
+                setOtherEarnings={setOtherEarnings}
+                fmPickupCount={fmPickupCount}
+                setFmPickupCount={setFmPickupCount}
+                deductions={deductions}
+                setDeductions={setDeductions}
+                lateOnhold={lateOnhold}
+                setLateOnhold={setLateOnhold}
+                lateRemittance={lateRemittance}
+                setLateRemittance={setLateRemittance}
+                totalEarnings={totalEarnings}
+                totalDeductions={totalDeductions}
+                netSalary={netSalary}
+                isAdjustmentsChanged={isAdjustmentsChanged}
+                isSavingAdjustments={isSavingAdjustments}
+                handleSaveAdjustments={handleSaveAdjustments}
+              />
+            </div>
 
             {/* Manager Actions / Rider actions */}
-            <div className="mt-5 space-y-2 shrink-0">
+            <div className="mt-5 space-y-3 shrink-0 border-t border-[#EFEAE2] pt-4">
               {role !== "rider" ? (
-                // Manager Options
-                <div className="space-y-2">
-                  {record.status !== "paid" && (
-                    <div className="flex gap-2">
-                      <button
-                        disabled={isUpdatingStatus}
-                        onClick={() => handleUpdateStatus("paid")}
-                        className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
-                      >
-                        {isUpdatingStatus ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        )}
-                        Pay Payroll
-                      </button>
-
-                      {record.status !== "approved" && (
+                <div className="space-y-3">
+                  {/* Rejection Form */}
+                  {showRejectForm && (
+                    <div className="p-3 border border-red-200 bg-red-50/50 rounded-lg space-y-2">
+                      <div className="text-xs font-semibold text-red-800">Specify Rejection Reason</div>
+                      <textarea
+                        value={rejectionReasonInput}
+                        onChange={(e) => setRejectionReasonInput(e.target.value)}
+                        placeholder="Please detail why this payroll record is being rejected..."
+                        className="w-full h-16 p-2 text-xs border border-red-200 bg-white rounded focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none resize-none transition font-sans"
+                      />
+                      <div className="flex gap-2">
                         <button
                           disabled={isUpdatingStatus}
-                          onClick={() => handleUpdateStatus("approved")}
-                          className="h-9 px-3 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
-                          title="Approve Vouchers"
+                          onClick={() => {
+                            if (!rejectionReasonInput.trim()) {
+                              pushToast({ title: "Reason required", description: "Please enter a rejection reason.", tone: "error" });
+                              return;
+                            }
+                            handleUpdateStatus("rejected", rejectionReasonInput);
+                            setShowRejectForm(false);
+                          }}
+                          className="flex-1 h-8 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold flex items-center justify-center gap-1 transition"
                         >
-                          Approve
+                          Confirm Rejection
                         </button>
-                      )}
-
-                      {record.status !== "flagged" && (
                         <button
-                          disabled={isUpdatingStatus}
-                          onClick={() => handleUpdateStatus("flagged")}
-                          className="h-9 px-3 bg-red-50 hover:bg-red-100 border border-red-200/50 text-red-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50"
-                          title="Flag for discrepancies"
+                          onClick={() => {
+                            setShowRejectForm(false);
+                            setRejectionReasonInput("");
+                          }}
+                          className="px-3 h-8 border border-red-200 bg-white hover:bg-red-50 text-red-700 rounded text-xs font-semibold transition"
                         >
-                          <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                          Cancel
                         </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rejection Reason Display */}
+                  {!showRejectForm && record.status === "rejected" && record.rejection_reason && (
+                    <div className="p-3 border border-rose-200 bg-rose-50/30 rounded-lg">
+                      <div className="text-[10px] uppercase font-bold text-rose-800 tracking-wider">Rejection Reason</div>
+                      <div className="text-xs text-rose-700 mt-1 italic">
+                        "{record.rejection_reason}"
+                      </div>
+                      {record.rejected_user?.full_name && (
+                        <div className="text-[9px] text-rose-600 mt-1 font-semibold text-right">
+                          — Rejected by {record.rejected_user.full_name}
+                        </div>
                       )}
                     </div>
                   )}
 
-                  {record.status === "paid" && (
-                    <div className="h-9 w-full bg-emerald-50 border border-emerald-500/20 text-emerald-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      Paid and Disbursed
+                  {/* Role-based action buttons */}
+                  {!showRejectForm && (
+                    <div className="space-y-2">
+                      {role === "payroll" && (
+                        <div className="space-y-2">
+                          {(record.status === "draft" || record.status === "rejected" || record.status === "flagged") ? (
+                            <button
+                              disabled={isUpdatingStatus}
+                              onClick={() => handleUpdateStatus("pending")}
+                              className="w-full h-9 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
+                            >
+                              {isUpdatingStatus ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              Submit for Approval
+                            </button>
+                          ) : (
+                            <div className="h-9 w-full bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 italic">
+                              {record.status === "pending" && "Submitted. Awaiting review."}
+                              {record.status === "approved" && "Approved. Awaiting disbursal."}
+                              {record.status === "paid" && "Paid and Disbursed."}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {(role === "admin" || role === "hr") && (
+                        <div className="space-y-2">
+                          {record.status === "pending" && (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex gap-2">
+                                <button
+                                  disabled={isUpdatingStatus}
+                                  onClick={() => handleUpdateStatus("approved")}
+                                  className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
+                                >
+                                  Approve Payroll
+                                </button>
+                                <button
+                                  disabled={isUpdatingStatus}
+                                  onClick={() => setShowRejectForm(true)}
+                                  className="flex-1 h-9 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                              <button
+                                disabled={isUpdatingStatus}
+                                onClick={() => handleUpdateStatus("draft")}
+                                className="w-full h-8 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#6B6258] rounded-lg text-xs font-semibold transition"
+                              >
+                                Return for Revision
+                              </button>
+                            </div>
+                          )}
+
+                          {record.status === "approved" && (
+                            <button
+                              disabled={isUpdatingStatus}
+                              onClick={() => handleUpdateStatus("paid")}
+                              className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
+                            >
+                              {isUpdatingStatus ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              Mark as Paid
+                            </button>
+                          )}
+
+                          {record.status === "paid" && (
+                            <div className="h-9 w-full bg-emerald-50 border border-emerald-500/20 text-emerald-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                              Paid and Disbursed
+                            </div>
+                          )}
+
+                          {(record.status === "draft" || record.status === "rejected") && (
+                            <div className="h-9 w-full bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 italic">
+                              Awaiting payroll officer submission.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  <div className="flex gap-2">
+                  {/* Export Options */}
+                  <div className="flex gap-2 pt-2 border-t border-[#EFEAE2]/50">
                     <button
                       onClick={handleExportPDF}
                       className="flex-1 h-9 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
