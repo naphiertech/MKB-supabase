@@ -114,7 +114,7 @@ export function PayslipSlipCard({
           {/* Option B: Other Earnings Input */}
           <div className="flex justify-between items-center pt-1 border-t border-[#EFEAE2]/40">
             <span className="text-[#6B6258]">Other Earnings</span>
-            {role !== "rider" && record.status !== "paid" ? (
+            {role === "payroll" && record.status !== "paid" ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-[#A39988]">₱</span>
                 <input
@@ -135,7 +135,7 @@ export function PayslipSlipCard({
           {/* Option B: FM Pick Up Count Input */}
           <div className="flex justify-between items-center">
             <span className="text-[#6B6258]">FM Pick Up</span>
-            {role !== "rider" && record.status !== "paid" ? (
+            {role === "payroll" && record.status !== "paid" ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-[#A39988]">Qty</span>
                 <input
@@ -174,7 +174,7 @@ export function PayslipSlipCard({
         <div className="text-xs space-y-1.5">
           <div className="flex justify-between items-center">
             <span className="text-[#6B6258]">General Deductions</span>
-            {role !== "rider" && record.status !== "paid" ? (
+            {role === "payroll" && record.status !== "paid" ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-[#A39988]">₱</span>
                 <input
@@ -194,7 +194,7 @@ export function PayslipSlipCard({
 
           <div className="flex justify-between items-center">
             <span className="text-[#6B6258]">Late Onhold / FM</span>
-            {role !== "rider" && record.status !== "paid" ? (
+            {role === "payroll" && record.status !== "paid" ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-[#A39988]">₱</span>
                 <input
@@ -214,7 +214,7 @@ export function PayslipSlipCard({
 
           <div className="flex justify-between items-center">
             <span className="text-[#6B6258]">Late Remittance</span>
-            {role !== "rider" && record.status !== "paid" ? (
+            {role === "payroll" && record.status !== "paid" ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-[#A39988]">₱</span>
                 <input
@@ -242,7 +242,7 @@ export function PayslipSlipCard({
       </div>
 
       {/* Save Adjustments Button */}
-      {role !== "rider" && isAdjustmentsChanged && (
+      {role === "payroll" && isAdjustmentsChanged && (
         <button
           disabled={isSavingAdjustments}
           onClick={handleSaveAdjustments}
