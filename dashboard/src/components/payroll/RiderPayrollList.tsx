@@ -128,7 +128,32 @@ export function RiderPayrollList({
 }: RiderPayrollListProps) {
   const isAdminOrHr = role === 'admin' || role === 'hr';
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecordRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [layoutReady, setLayoutReady] = useState(false);
+
+  // Wait for web fonts and layout transitions to settle before fetching data
+  useEffect(() => {
+    let active = true;
+    const initLayout = async () => {
+      if (typeof document !== 'undefined' && 'fonts' in document) {
+        try {
+          await document.fonts.ready;
+        } catch (err) {
+          console.warn('Font loading check failed:', err);
+        }
+      }
+      // Wait a micro-frame for parent containers to paint
+      requestAnimationFrame(() => {
+        if (active) {
+          setLayoutReady(true);
+        }
+      });
+    };
+    initLayout();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Pagination states
   const [page, setPage] = useState(1);
@@ -180,6 +205,8 @@ export function RiderPayrollList({
 
   // Load paginated records from Supabase
   useEffect(() => {
+    if (!layoutReady) return;
+
     const loadData = async () => {
       setLoading(true);
       try {
@@ -221,7 +248,7 @@ export function RiderPayrollList({
       }
     };
     loadData();
-  }, [cutoffFrom, cutoffTo, page, pageSize, debouncedSearch, statusFilter, zoneFilter, sortBy, sortOrder, reloadTrigger]);
+  }, [cutoffFrom, cutoffTo, page, pageSize, debouncedSearch, statusFilter, zoneFilter, sortBy, sortOrder, reloadTrigger, layoutReady]);
 
   // Sorting handlers
   const handleSort = (column: 'riderName' | 'total_parcels' | 'gross_pay' | 'net_pay' | 'status') => {
