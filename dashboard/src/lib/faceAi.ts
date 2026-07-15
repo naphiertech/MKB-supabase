@@ -398,3 +398,79 @@ export function calculateHeadRoll(landmarks: { x: number; y: number; z: number }
   
   return angleDeg;
 }
+
+/**
+ * Warm up both AI models using a dummy 100x100 black canvas.
+ * This pre-compiles WebGL shaders and warms up the memory.
+ */
+export async function warmUpModels(landmarker: FaceLandmarkerType | null) {
+  try {
+    console.log('[Face AI] Running dummy warmups to pre-compile shaders...');
+    const canvas = document.createElement('canvas');
+    canvas.width = 100;
+    canvas.height = 100;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 100, 100);
+    }
+
+    // Warm up face-api.js model
+    await detectFaceWithDetails(canvas);
+
+    // Warm up MediaPipe FaceLandmarker
+    if (landmarker && typeof landmarker.detectForVideo === 'function') {
+      landmarker.detectForVideo(canvas, Date.now());
+    }
+    console.log('[Face AI] Biometric warmup successfully completed.');
+  } catch (err) {
+    console.warn('[Face AI] Warmup failed or was skipped:', err);
+  }
+}
+
+/**
+ * Stage-loads scripts, downloads models, and warms up the engines.
+ */
+export async function preloadBiometrics() {
+  try {
+    console.log('[Face AI] Pre-loading scripts...');
+    const active = await ensureScriptsLoaded();
+    if (!active) {
+      console.warn('[Face AI] Failed to load global CDN scripts.');
+      return;
+    }
+
+    console.log('[Face AI] Pre-downloading AI models...');
+    // Parallel download and instantiation
+    const [landmarker] = await Promise.all([
+      loadMediaPipeLandmarker(),
+      loadFaceModels()
+    ]);
+
+    // Warm up the models
+    await warmUpModels(landmarker);
+  } catch (err) {
+    console.warn('[Face AI] Preloading biometrics failed:', err);
+  }
+}
+
+/**
+ * Releases biometric resources and disposes of memory and WebGL contexts.
+ */
+export async function releaseBiometrics() {
+  try {
+    console.log('[Face AI] Releasing resources and closing WebGL contexts...');
+    if (landmarkerInstance) {
+      if (typeof landmarkerInstance.close === 'function') {
+        landmarkerInstance.close();
+      }
+      landmarkerInstance = null;
+    }
+    landmarkerPromise = null;
+    modelsLoadedPromise = null;
+    console.log('[Face AI] Resources released.');
+  } catch (err) {
+    console.warn('[Face AI] Error while releasing resources:', err);
+  }
+}
+

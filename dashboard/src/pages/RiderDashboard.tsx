@@ -18,6 +18,7 @@ import { isPointInPolygon } from '../lib/geofenceUtils';
 import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
+import { preloadBiometrics, releaseBiometrics } from '../lib/faceAi';
 import { Modal } from '../components/common/Modal';
 import { FaceScanner } from '../components/attendance/FaceScanner';
 import { AttendanceButton } from '../components/attendance/AttendanceButton';
@@ -323,6 +324,57 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
     loadRiderAndZone();
   }, [userId, riderId, allZones]);
+
+  // Stage-load AI models when the browser is idle and reclaim memory on tab hide or unmount
+  useEffect(() => {
+    let inactivityTimer: any = null;
+    let preloadingTimeout: any = null;
+
+    const runOnIdle = (callback: () => void) => {
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(callback, { timeout: 3000 });
+      } else {
+        setTimeout(callback, 2000);
+      }
+    };
+
+    preloadingTimeout = setTimeout(() => {
+      runOnIdle(async () => {
+        try {
+          console.log('[RiderDashboard] Loading biometrics on idle...');
+          await preloadBiometrics();
+        } catch (err) {
+          console.warn('[RiderDashboard] Failed to preload biometrics:', err);
+        }
+      });
+    }, 1500); // Delay by 1.5s to keep initial paint smooth
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is minimized or hidden. Trigger resource release after 3 minutes.
+        inactivityTimer = setTimeout(async () => {
+          console.log('[RiderDashboard] Tab hidden for 3 minutes. Releasing biometric resources to free RAM...');
+          await releaseBiometrics();
+        }, 180000);
+      } else {
+        if (inactivityTimer) {
+          clearTimeout(inactivityTimer);
+          inactivityTimer = null;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (preloadingTimeout) clearTimeout(preloadingTimeout);
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Reclaim WebGL memory immediately on unmount/logout
+      releaseBiometrics();
+    };
+  }, []);
 
   const zoneCenterLat = zone?.center[0] ?? 6.9214;
   const zoneCenterLng = zone?.center[1] ?? 122.0790;

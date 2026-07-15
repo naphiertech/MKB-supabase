@@ -6,7 +6,8 @@ import {
   verifyFaceIdentity,
   detectFaceWithDetails,
   loadMediaPipeLandmarker,
-  calculateMediaPipeEAR
+  calculateMediaPipeEAR,
+  getFaceAiGlobals
 } from '../lib/faceAi';
 
 export type ScanPhase =
@@ -479,21 +480,30 @@ export function useFaceRecognition({
     setResult(null);
     setProgress(0);
     setPhase('initializing');
-    setLivenessPrompt('Initializing camera...');
     isScanningActiveRef.current = true;
 
     const isVerificationMode = !!referenceAvatar;
+
+    // Check if the CDN scripts have downloaded and registered on window
+    const { faceapi } = getFaceAiGlobals();
+    if (!faceapi) {
+      setLivenessPrompt('Downloading Face Recognition engines... 📥');
+    } else {
+      setLivenessPrompt('Preparing Face Recognition... ⚙️');
+    }
 
     // Polling globally loaded scripts (OpenCV + TensorFlow)
     const active = await ensureScriptsLoaded();
     
     if (active) {
       try {
+        setLivenessPrompt('Preparing Face Recognition... ⚙️');
         // Load both Face-API models and MediaPipe landmarker in parallel
         await Promise.all([
           loadFaceModels(),
           loadMediaPipeLandmarker()
         ]);
+        setLivenessPrompt('Initializing camera...');
         // Models parsed successfully, trigger genuine scan loops
         await startRealScanning();
         return;
