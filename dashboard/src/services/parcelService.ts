@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { logActivity } from '../lib/apiService';
 
 export interface ParcelLog {
   id: string;
@@ -91,6 +92,8 @@ export const savePayrollRecord = async (
   ratePerParcel: number,
   grossPay?: number
 ): Promise<void> => {
+  const finalGross = grossPay ?? (totalParcels * ratePerParcel);
+
   const { error } = await supabase
     .from('payroll_records')
     .upsert(
@@ -100,14 +103,40 @@ export const savePayrollRecord = async (
         cutoff_end: cutoffTo,
         total_parcels: totalParcels,
         rate_per_parcel: ratePerParcel,
-        gross_pay: grossPay ?? (totalParcels * ratePerParcel),
+        gross_pay: finalGross,
         status: 'pending',
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'rider_id,cutoff_start,cutoff_end' }
+      { onConflict: 'rider_id,cutoff_start' }
     );
 
   if (error) throw error;
+
+  // Retrieve rider details to create a descriptive activity log
+  try {
+    const { data: rider } = await supabase
+      .from('riders')
+      .select('name')
+      .eq('id', riderId)
+      .single();
+
+    const riderName = rider?.name || 'Rider';
+
+    await logActivity({
+      riderId,
+      eventType: 'payroll_finalize',
+      description: `Finalized payroll for ${riderName} (${cutoffFrom} to ${cutoffTo}) - Net Pay: ₱${finalGross.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Pending)`,
+      metadata: {
+        cutoff_start: cutoffFrom,
+        cutoff_end: cutoffTo,
+        total_parcels: totalParcels,
+        gross_pay: finalGross,
+        status: 'pending'
+      }
+    });
+  } catch (logErr) {
+    console.warn('Failed to log payroll finalize activity:', logErr);
+  }
 };
 
 // Get all payroll records for dashboard
