@@ -10,9 +10,12 @@ import {
   ChevronDown,
   Loader2
 } from 'lucide-react';
-import { getPaginatedPayrollRecords } from '../../services/parcelService';
+import { getPaginatedPayrollRecords, bulkSubmitPayrollForApproval } from '../../services/parcelService';
 import { getZones } from '../../services/geofenceService';
 import type { Zone } from '../../services/types';
+import { useAuth } from '../../hooks/useAuth';
+import { pushToast } from '../../hooks/useToast';
+import { PayrollStatus, PayrollStatusLabels, PayrollStatusColors, isEditableStatus } from '../../types/payroll';
 
 function phpFmt(val: number) {
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -41,29 +44,11 @@ function formatCutoff(startStr: string, endStr: string) {
 }
 
 function StatusPill({ status }: { status: string }) {
-  const statusColors: Record<string, string> = {
-    draft: 'bg-gray-50 text-gray-700 border-gray-200',
-    pending: 'bg-amber-50 text-amber-700 border-amber-200',
-    approved: 'bg-sky-50 text-sky-700 border-sky-200',
-    rejected: 'bg-rose-50 text-rose-700 border-rose-200',
-    paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    flagged: 'bg-red-50 text-red-700 border-red-200'
-  };
-
-  const statusLabels: Record<string, string> = {
-    draft: 'Draft',
-    pending: 'Pending Review',
-    approved: 'Approved',
-    rejected: 'Rejected',
-    paid: 'Paid',
-    flagged: 'Flagged'
-  };
-
-  const lower = (status || '').toLowerCase();
-  const color = statusColors[lower] || statusColors.pending;
-  const label = statusLabels[lower] || status;
+  const lower = (status || '').toLowerCase() as PayrollStatus;
+  const color = PayrollStatusColors[lower] || PayrollStatusColors[PayrollStatus.PENDING];
+  const label = PayrollStatusLabels[lower] || status;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${color}`}>
       {label}
     </span>
   );
@@ -122,14 +107,59 @@ export function RiderPayrollList({
   cutoffTo,
   role,
   reloadTrigger,
-  onStatusUpdated: _onStatusUpdated,
+  onStatusUpdated,
   onComputeRider,
   onOpenDetails
 }: RiderPayrollListProps) {
   const isAdminOrHr = role === 'admin' || role === 'hr';
+  const { user } = useAuth();
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecordRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [layoutReady, setLayoutReady] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmitForApproval = async () => {
+    if (selectedRecordIds.size === 0) return;
+    setSubmitting(true);
+    try {
+      const selectedRecords = payrollRecords.filter(r => selectedRecordIds.has(r.id));
+      // Validate they are in draft or rejected status
+      const invalidRecords = selectedRecords.filter(r => !isEditableStatus(r.status));
+      if (invalidRecords.length > 0) {
+        pushToast({
+          title: "Invalid Status Detected",
+          description: "Only Draft or Rejected payroll records can be submitted for approval.",
+          tone: "warning"
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      const recordIds = Array.from(selectedRecordIds);
+      const userId = user?.id || '';
+      await bulkSubmitPayrollForApproval(recordIds, userId);
+
+      pushToast({
+        title: "Submitted for Approval",
+        description: `Successfully submitted ${recordIds.length} payroll record(s).`,
+        tone: "success"
+      });
+
+      setSelectedRecordIds(new Set());
+      if (onStatusUpdated) {
+        onStatusUpdated();
+      }
+    } catch (err: any) {
+      console.error("Bulk submission failed:", err);
+      pushToast({
+        title: "Submission failed",
+        description: err.message || "An error occurred while submitting payrolls for approval.",
+        tone: "error"
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // Wait for web fonts and layout transitions to settle before fetching data
   useEffect(() => {
@@ -318,20 +348,39 @@ export function RiderPayrollList({
             >
               Bulk Export
             </button>
-            <button
-              disabled
-              className="h-8 px-3 rounded-lg border border-[#EFEAE2] bg-white/50 text-[#A39988] text-xs font-semibold cursor-not-allowed"
-              title="Bulk Approval coming soon"
-            >
-              Bulk Approve
-            </button>
-            <button
-              disabled
-              className="h-8 px-3 rounded-lg bg-[#db6c00]/40 text-white text-xs font-semibold cursor-not-allowed"
-              title="Bulk Pay coming soon"
-            >
-              Bulk Pay
-            </button>
+            {role === 'payroll' ? (
+              <button
+                onClick={handleSubmitForApproval}
+                disabled={submitting}
+                className="h-8 px-3 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit for Approval'
+                )}
+              </button>
+            ) : (
+              <>
+                <button
+                  disabled
+                  className="h-8 px-3 rounded-lg border border-[#EFEAE2] bg-white/50 text-[#A39988] text-xs font-semibold cursor-not-allowed"
+                  title="Bulk Approval coming soon"
+                >
+                  Bulk Approve
+                </button>
+                <button
+                  disabled
+                  className="h-8 px-3 rounded-lg bg-[#db6c00]/40 text-white text-xs font-semibold cursor-not-allowed"
+                  title="Bulk Pay coming soon"
+                >
+                  Bulk Pay
+                </button>
+              </>
+            )}
             <button 
               onClick={() => setSelectedRecordIds(new Set())}
               className="h-8 px-2.5 text-[#6B6258] hover:text-[#1A1410] text-xs font-semibold transition"
@@ -436,7 +485,7 @@ export function RiderPayrollList({
               <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2] sticky top-0 z-10 shadow-sm">
                 <tr className="text-left text-[10px] uppercase tracking-[0.12em] text-[#6B6258] font-semibold">
                   <th className="px-5 py-3 w-32 bg-[#FAFAF7]">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-2">
                       <input
                         type="checkbox"
                         checked={payrollRecords.length > 0 && selectedRecordIds.size === payrollRecords.length}
@@ -453,23 +502,23 @@ export function RiderPayrollList({
                       Rider {renderSortIcon('riderName')}
                     </div>
                   </th>
-                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7]">Rider ID</th>}
+                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7] whitespace-nowrap">Rider ID</th>}
                   <th className="px-3 py-3 bg-[#FAFAF7]">Zone</th>
-                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7]">Cutoff</th>}
+                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7] whitespace-nowrap">Cutoff</th>}
                   {!isAdminOrHr && (
                     <th 
                       onClick={() => handleSort('total_parcels')}
-                      className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                      className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7] whitespace-nowrap"
                     >
                       <div className="flex items-center justify-end">
                         Parcels {renderSortIcon('total_parcels')}
                       </div>
                     </th>
                   )}
-                  {!isAdminOrHr && <th className="px-3 py-3 text-right bg-[#FAFAF7]">Rate</th>}
+                  {!isAdminOrHr && <th className="px-3 py-3 text-right bg-[#FAFAF7] whitespace-nowrap">Rate</th>}
                   <th 
                     onClick={() => handleSort('gross_pay')}
-                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7] whitespace-nowrap"
                   >
                     <div className="flex items-center justify-end">
                       Gross Pay {renderSortIcon('gross_pay')}
@@ -477,17 +526,17 @@ export function RiderPayrollList({
                   </th>
                   <th 
                     onClick={() => handleSort('net_pay')}
-                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7] whitespace-nowrap"
                   >
                     <div className="flex items-center justify-end">
                       Net Pay {renderSortIcon('net_pay')}
                     </div>
                   </th>
-                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7]">Submitted By</th>}
-                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7]">Submitted Date</th>}
+                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7] whitespace-nowrap">Submitted By</th>}
+                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7] whitespace-nowrap">Submitted Date</th>}
                   <th 
                     onClick={() => handleSort('status')}
-                    className="px-3 py-3 pr-5 cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                    className="px-3 py-3 pr-5 cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7] whitespace-nowrap"
                   >
                     <div className="flex items-center">
                       Status {renderSortIcon('status')}
@@ -518,7 +567,7 @@ export function RiderPayrollList({
                           {r.status === 'flagged' && (
                             <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-red-500" />
                           )}
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-center gap-2">
                             <input
                               type="checkbox"
                               checked={selectedRecordIds.has(r.id)}
@@ -529,9 +578,13 @@ export function RiderPayrollList({
                             {onComputeRider && (
                               <button
                                 onClick={() => onComputeRider(r)}
-                                className="px-2 py-0.5 text-[10px] font-bold bg-[#db6c00]/10 hover:bg-[#db6c00] hover:text-white text-[#db6c00] rounded transition cursor-pointer"
+                                className={`px-2 py-0.5 text-[10px] font-bold rounded transition cursor-pointer ${
+                                  isEditableStatus(r.status)
+                                    ? 'bg-[#db6c00]/10 hover:bg-[#db6c00] hover:text-white text-[#db6c00]'
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                                }`}
                               >
-                                Compute
+                                {isEditableStatus(r.status) ? 'Compute' : 'View'}
                               </button>
                             )}
                           </div>
@@ -548,41 +601,41 @@ export function RiderPayrollList({
                           </div>
                         </td>
                         {isAdminOrHr && (
-                          <td className="px-3 py-3 text-[#1A1410] font-mono text-xs">{riderId}</td>
+                          <td className="px-3 py-3 text-[#1A1410] font-mono text-xs whitespace-nowrap">{riderId}</td>
                         )}
                         <td className="px-3 py-3 text-[#1A1410]">{zone}</td>
                         {isAdminOrHr && (
-                          <td className="px-3 py-3 text-[#6B6258] text-xs">
+                          <td className="px-3 py-3 text-[#6B6258] text-xs whitespace-nowrap">
                             {formatCutoff(r.cutoff_start, r.cutoff_end)}
                           </td>
                         )}
                         {!isAdminOrHr && (
-                          <td className="px-3 py-3 text-right font-mono tabular-nums text-[#1A1410]">
+                          <td className="px-3 py-3 text-right font-mono tabular-nums text-[#1A1410] whitespace-nowrap">
                             {r.total_parcels}
                           </td>
                         )}
                         {!isAdminOrHr && (
-                          <td className="px-3 py-3 text-right font-mono tabular-nums text-[#6B6258]">
+                          <td className="px-3 py-3 text-right font-mono tabular-nums text-[#6B6258] whitespace-nowrap">
                             ₱{ratePerParcel.toFixed(2)}
                           </td>
                         )}
-                        <td className="px-3 py-3 text-right font-mono tabular-nums text-[#6B6258]">
+                        <td className="px-3 py-3 text-right font-mono tabular-nums text-[#6B6258] whitespace-nowrap">
                           {phpFmt(grossPay)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold text-[#db6c00]">
+                        <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold text-[#db6c00] whitespace-nowrap">
                           {phpFmt(netPay)}
                         </td>
                         {isAdminOrHr && (
-                          <td className="px-3 py-3 text-[#1A1410] text-xs truncate max-w-[120px]">
+                          <td className="px-3 py-3 text-[#1A1410] text-xs truncate max-w-[120px] whitespace-nowrap">
                             {r.submitted_user?.full_name || '—'}
                           </td>
                         )}
                         {isAdminOrHr && (
-                          <td className="px-3 py-3 text-[#6B6258] text-xs">
+                          <td className="px-3 py-3 text-[#6B6258] text-xs whitespace-nowrap">
                             {r.submitted_at ? formatDate(r.submitted_at) : '—'}
                           </td>
                         )}
-                        <td className="px-3 py-3 pr-5">
+                        <td className="px-3 py-3 pr-5 whitespace-nowrap">
                           <StatusPill status={r.status} />
                         </td>
                       </tr>

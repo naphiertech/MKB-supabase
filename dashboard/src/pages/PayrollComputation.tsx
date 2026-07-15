@@ -11,6 +11,7 @@ import { BulkParcelUploadModal } from '../components/payroll/BulkParcelUploadMod
 import { useAuth } from '../hooks/useAuth';
 import { exportParcelPayslipPDF, exportParcelCSV } from '../lib/exports/payrollExport';
 import { pushToast } from '../hooks/useToast';
+import { isReadOnlyStatus } from '../types/payroll';
 import {
   FileDown,
   FileSpreadsheet,
@@ -323,6 +324,8 @@ export function PayrollComputation() {
   const grossPay = dayEntries.reduce((sum, e) => sum + e.dailyGross, 0);
   const selectedRider = riders.find(r => r.id === selectedRiderId);
   const zoneName = selectedRider?.zones?.name || '—';
+
+  const isReadOnly = activeRider ? isReadOnlyStatus(activeRider.status) : false;
 
   const confirmEntry = dayEntries.find(e => e.date === confirmDate);
   const activeConfirmRate = confirmEntry ? confirmEntry.rate : 10;
@@ -642,10 +645,15 @@ export function PayrollComputation() {
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   onClick={handleFinalize}
-                  disabled={savingAll || dayEntries.length === 0}
+                  disabled={savingAll || dayEntries.length === 0 || isReadOnly}
                   className="w-full h-11 rounded-lg bg-[#1A1410] hover:bg-black text-white text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  {savingAll ? (
+                  {isReadOnly ? (
+                    <>
+                      <Lock className="w-4 h-4 text-[#A39988]" />
+                      Submitted & Read-Only
+                    </>
+                  ) : savingAll ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Finalizing Cutoff...
@@ -734,7 +742,7 @@ export function PayrollComputation() {
                             <div className="flex items-center justify-end gap-1.5">
                               <input
                                 type="number"
-                                disabled={isFuture || e.saving}
+                                disabled={isFuture || e.saving || isReadOnly}
                                 min={0}
                                 value={isEditing ? editingVal : e.parcels || ''}
                                 placeholder="0"

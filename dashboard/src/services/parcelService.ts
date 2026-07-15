@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { logActivity } from '../lib/apiService';
+import { PayrollStatus } from '../types/payroll';
 
 export interface ParcelLog {
   id: string;
@@ -83,7 +84,7 @@ export const computeParcelSummary = (
   };
 };
 
-// Save finalized payroll record for a rider
+// Save finalized payroll record for a rider (defaults status to draft)
 export const savePayrollRecord = async (
   riderId: string,
   cutoffFrom: string,
@@ -104,7 +105,7 @@ export const savePayrollRecord = async (
         total_parcels: totalParcels,
         rate_per_parcel: ratePerParcel,
         gross_pay: finalGross,
-        status: 'pending',
+        status: PayrollStatus.DRAFT,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'rider_id,cutoff_start' }
@@ -125,19 +126,20 @@ export const savePayrollRecord = async (
     await logActivity({
       riderId,
       eventType: 'payroll_finalize',
-      description: `Finalized payroll for ${riderName} (${cutoffFrom} to ${cutoffTo}) - Net Pay: ₱${finalGross.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Pending)`,
+      description: `Finalized payroll worksheet (Draft) for ${riderName} (${cutoffFrom} to ${cutoffTo}) - Net Pay: ₱${finalGross.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       metadata: {
         cutoff_start: cutoffFrom,
         cutoff_end: cutoffTo,
         total_parcels: totalParcels,
         gross_pay: finalGross,
-        status: 'pending'
+        status: PayrollStatus.DRAFT
       }
     });
   } catch (logErr) {
     console.warn('Failed to log payroll finalize activity:', logErr);
   }
 };
+
 
 // Get all payroll records for dashboard
 export const getPayrollRecords = async (
@@ -335,30 +337,31 @@ export const getRiderPayrollMetrics = async (
 // Update payroll record status
 export const updatePayrollRecordStatus = async (
   recordId: string,
-  status: 'pending' | 'approved' | 'paid' | 'flagged' | 'rejected' | 'draft',
+  status: PayrollStatus | 'draft' | 'pending' | 'approved' | 'paid' | 'flagged' | 'rejected' | 'draft',
   auditData?: {
     userId: string;
     rejectionReason?: string;
   }
 ): Promise<void> => {
-  const updatePayload: any = { status, updated_at: new Date().toISOString() };
+  const normStatus = status as PayrollStatus;
+  const updatePayload: any = { status: normStatus, updated_at: new Date().toISOString() };
   if (auditData) {
     const { userId, rejectionReason } = auditData;
-    if (status === 'pending') {
+    if (normStatus === PayrollStatus.PENDING) {
       updatePayload.submitted_by = userId;
       updatePayload.submitted_at = new Date().toISOString();
-    } else if (status === 'approved') {
+    } else if (normStatus === PayrollStatus.APPROVED) {
       updatePayload.approved_by = userId;
       updatePayload.approved_at = new Date().toISOString();
-    } else if (status === 'rejected') {
+    } else if (normStatus === PayrollStatus.REJECTED) {
       updatePayload.rejected_by = userId;
       updatePayload.rejected_at = new Date().toISOString();
       updatePayload.rejection_reason = rejectionReason || null;
-    } else if (status === 'paid') {
+    } else if (normStatus === PayrollStatus.PAID) {
       updatePayload.paid_by = userId;
       updatePayload.paid_at = new Date().toISOString();
       updatePayload.processed_at = new Date().toISOString(); // for backward compatibility
-    } else if (status === 'draft') {
+    } else if (normStatus === PayrollStatus.DRAFT) {
       // Returned for revision
       updatePayload.approved_by = null;
       updatePayload.approved_at = null;
@@ -370,13 +373,126 @@ export const updatePayrollRecordStatus = async (
     }
   }
 
+  // 1. Fetch record info to log activity properly
+  let riderName = 'Rider';
+  let cutoffStart = '';
+  let cutoffEnd = '';
+  let grossPay = 0;
+  try {
+    const { data: record } = await supabase
+      .from('payroll_records')
+      .select('cutoff_start, cutoff_end, gross_pay, riders(name)')
+      .eq('id', recordId)
+      .single();
+
+    if (record) {
+      riderName = (record.riders as any)?.name || 'Rider';
+      cutoffStart = record.cutoff_start;
+      cutoffEnd = record.cutoff_end;
+      grossPay = record.gross_pay || 0;
+    }
+  } catch (err) {
+    console.warn('Failed to fetch payroll record for status logging:', err);
+  }
+
   const { error } = await supabase
     .from('payroll_records')
     .update(updatePayload)
     .eq('id', recordId);
 
   if (error) throw error;
+
+  // 2. Write appropriate transition activity log
+  try {
+    let eventType = 'payroll_status_update';
+    let description = `Updated payroll status for ${riderName} (${cutoffStart} to ${cutoffEnd}) to ${normStatus}`;
+    
+    if (normStatus === PayrollStatus.PENDING) {
+      eventType = 'payroll_submit';
+      description = `Submitted payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) for approval - Net Pay: ₱${grossPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Pending Review)`;
+    } else if (normStatus === PayrollStatus.APPROVED) {
+      eventType = 'payroll_approve';
+      description = `Approved payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) - Net Pay: ₱${grossPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Approved)`;
+    } else if (normStatus === PayrollStatus.REJECTED) {
+      eventType = 'payroll_reject';
+      const reasonStr = auditData?.rejectionReason ? ` Reason: "${auditData.rejectionReason}"` : '';
+      description = `Rejected payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}).${reasonStr} (Status: Rejected)`;
+    } else if (normStatus === PayrollStatus.PAID) {
+      eventType = 'payroll_pay';
+      description = `Disbursed & Paid payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) - Net Pay: ₱${grossPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Paid)`;
+    } else if (normStatus === PayrollStatus.DRAFT) {
+      eventType = 'payroll_return';
+      description = `Returned payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) for revision (Status: Draft)`;
+    }
+
+    await logActivity({
+      userId: auditData?.userId || null,
+      eventType,
+      description,
+      metadata: {
+        record_id: recordId,
+        status: normStatus
+      }
+    });
+  } catch (logErr) {
+    console.warn('Failed to write payroll transition log:', logErr);
+  }
 };
+
+// Bulk submit payroll records for approval (prevents resubmission of already pending/approved/paid)
+export const bulkSubmitPayrollForApproval = async (
+  recordIds: string[],
+  userId: string
+): Promise<void> => {
+  if (recordIds.length === 0) return;
+
+  // 1. Fetch current status of records to validate they are editable (draft or rejected)
+  const { data: records, error: fetchError } = await supabase
+    .from('payroll_records')
+    .select('id, status, cutoff_start, cutoff_end, gross_pay, riders(name)')
+    .in('id', recordIds);
+
+  if (fetchError) throw fetchError;
+  if (!records || records.length === 0) {
+    throw new Error('No payroll records found for the selected IDs.');
+  }
+
+  // 2. Validate status to prevent resubmission
+  const invalidRecords = records.filter(
+    r => r.status !== PayrollStatus.DRAFT && r.status !== PayrollStatus.REJECTED
+  );
+  if (invalidRecords.length > 0) {
+    throw new Error('Some selected records are already submitted, approved, or paid.');
+  }
+
+  // 3. Perform bulk update
+  const { error: updateError } = await supabase
+    .from('payroll_records')
+    .update({
+      status: PayrollStatus.PENDING,
+      submitted_by: userId,
+      submitted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .in('id', recordIds);
+
+  if (updateError) throw updateError;
+
+  // 4. Log activity for each record
+  for (const rec of records) {
+    const riderName = (rec.riders as any)?.name || 'Rider';
+    await logActivity({
+      userId,
+      eventType: 'payroll_submit',
+      description: `Submitted payroll for ${riderName} (${rec.cutoff_start} to ${rec.cutoff_end}) for approval - Net Pay: ₱${Number(rec.gross_pay || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Pending Review)`,
+      metadata: {
+        record_id: rec.id,
+        status: PayrollStatus.PENDING
+      }
+    });
+  }
+};
+
 
 // Fetch parcel logs in date range for all riders
 export const getParcelLogsSummary = async (from: string, to: string) => {

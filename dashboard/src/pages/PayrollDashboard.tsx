@@ -19,6 +19,7 @@ import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
 import { AnimatePresence } from 'framer-motion';
 import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/RiderPayrollList';
 import { getActivityLogs, type ActivityLog } from '../lib/apiService';
+import { PayrollStatus } from '../types/payroll';
 
 const MONTHS = [
   'January',
@@ -145,11 +146,11 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
     const totalParcels = allCutoffRecords.reduce((s, r) => s + (r.total_parcels || 0), 0);
     
     // Approval Center metrics
-    const pending = allCutoffRecords.filter(r => r.status === 'pending').length;
-    const approved = allCutoffRecords.filter(r => r.status === 'approved').length;
-    const rejected = allCutoffRecords.filter(r => r.status === 'rejected').length;
-    const paid = allCutoffRecords.filter(r => r.status === 'paid').length;
-    const flagged = allCutoffRecords.filter(r => r.status === 'flagged').length;
+    const pending = allCutoffRecords.filter(r => r.status === PayrollStatus.PENDING).length;
+    const approved = allCutoffRecords.filter(r => r.status === PayrollStatus.APPROVED).length;
+    const rejected = allCutoffRecords.filter(r => r.status === PayrollStatus.REJECTED).length;
+    const paid = allCutoffRecords.filter(r => r.status === PayrollStatus.PAID).length;
+    const flagged = allCutoffRecords.filter(r => r.status === PayrollStatus.FLAGGED).length;
 
     return {
       totalGross,

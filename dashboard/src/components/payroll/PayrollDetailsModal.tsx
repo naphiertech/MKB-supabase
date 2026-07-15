@@ -32,6 +32,7 @@ import {
 } from "../../lib/exports/payrollExport";
 import { pushToast } from "../../hooks/useToast";
 import { logActivity } from "../../lib/apiService";
+import { isEditableStatus } from "../../types/payroll";
 import { PayrollMetricsGrid } from "./PayrollMetricsGrid";
 import { SelectedDayDetails } from "./SelectedDayDetails";
 import { AttendanceLogsTable } from "./AttendanceLogsTable";
@@ -399,13 +400,6 @@ export function PayrollDetailsModal({
       await updatePayrollRecordStatus(record.id, newStatus, {
         userId,
         rejectionReason
-      });
-
-      // Log this action to activity_logs
-      await logActivity({
-        eventType: "payroll_status_update",
-        description: `Updated payroll status for ${riderName} (${record.cutoff_start} to ${record.cutoff_end}) to ${newStatus}`,
-        metadata: { record_id: record.id, new_status: newStatus },
       });
 
       pushToast({
@@ -856,7 +850,7 @@ export function PayrollDetailsModal({
                     <div className="space-y-2">
                       {role === "payroll" && (
                         <div className="space-y-2">
-                          {(record.status === "draft" || record.status === "rejected" || record.status === "flagged") ? (
+                          {isEditableStatus(record.status) ? (
                             <button
                               disabled={isUpdatingStatus}
                               onClick={() => handleUpdateStatus("pending")}
@@ -931,7 +925,7 @@ export function PayrollDetailsModal({
                             </div>
                           )}
 
-                          {(record.status === "draft" || record.status === "rejected") && (
+                          {isEditableStatus(record.status) && (
                             <div className="h-9 w-full bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 italic">
                               Awaiting payroll officer submission.
                             </div>
