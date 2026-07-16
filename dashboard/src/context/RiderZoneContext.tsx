@@ -34,13 +34,13 @@ export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [session]);
 
   useEffect(() => {
-    if (session) {
+    if (session?.id) {
       fetchData();
     } else {
       setRiders([]);
       setZones([]);
     }
-  }, [session, fetchData]);
+  }, [session?.id, fetchData]);
 
   const value = useMemo(() => ({
     riders,

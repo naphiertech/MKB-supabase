@@ -38,6 +38,7 @@ function writeSession(s: Session | null) {
 // Module-level listeners so all hook consumers stay in sync.
 const listeners = new Set<(s: Session | null) => void>();
 let currentSession: Session | null = readSession();
+let hasInitialized = false;
 
 function emit() {
   listeners.forEach((l) => l(currentSession));
@@ -113,6 +114,8 @@ export function useAuth() {
   useEffect(() => {
     let active = true;
     async function initializeAuth() {
+      if (hasInitialized) return;
+      hasInitialized = true;
       try {
         const {
           data: { session: supabaseSession },
