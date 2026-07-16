@@ -781,7 +781,8 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                     myPayrollRecords[0].status === 'approved' ? 'bg-sky-50 text-sky-700' :
                     'bg-amber-50 text-amber-700'
                   }`}>
-                    {myPayrollRecords[0].status === 'paid' ? 'Paid' : 'Pending Verification'}
+                    {myPayrollRecords[0].status === 'paid' ? 'Paid' :
+                     myPayrollRecords[0].status === 'approved' ? 'Approved' : 'Pending Verification'}
                   </span>
                   
                   <div className="text-[11px] font-mono text-[#6B6258] mt-1.5">
@@ -848,9 +849,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                           ₱{(rec.gross_pay || (rec.total_parcels * (rec.rate_per_parcel || 50))).toLocaleString()}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                          rec.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                          rec.status === 'paid' ? 'bg-emerald-50 text-emerald-700' :
+                          rec.status === 'approved' ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-600'
                         }`}>
-                          {rec.status === 'paid' ? 'Paid' : 'Verified'}
+                          {rec.status === 'paid' ? 'Paid' :
+                           rec.status === 'approved' ? 'Approved' : 'Verified'}
                         </span>
                       </div>
                     </div>
