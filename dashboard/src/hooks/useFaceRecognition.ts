@@ -362,7 +362,7 @@ export function useFaceRecognition({
             }
 
             // Enforce biometric distance threshold (0.50) for real face-match verification
-            const verify = verifyFaceIdentity(faceData.descriptor, referenceDesc!, 0.50);
+            const verify = verifyFaceIdentity(faceData.descriptor, referenceDesc!, 0.45);
             currentDistance = verify.distance;
 
             // Increment match count if verification succeeds during this frame
