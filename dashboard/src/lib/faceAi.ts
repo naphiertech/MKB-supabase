@@ -101,7 +101,12 @@ export function ensureScriptsLoaded(): Promise<boolean> {
  * to the online CDN registry if any local files are missing.
  */
 export function loadFaceModels(): Promise<void> {
-  if (modelsLoadedPromise) return modelsLoadedPromise;
+  if (modelsLoadedPromise) {
+    console.log('[Face AI] loadFaceModels(): REUSING ALREADY LOADED face-api.js promise.');
+    return modelsLoadedPromise;
+  }
+  console.log('[Face AI] loadFaceModels(): NO CACHED face-api.js promise. Loading weights now...');
+  const tStart = performance.now();
 
   modelsLoadedPromise = (async () => {
     const { faceapi } = getFaceAiGlobals();
@@ -113,7 +118,7 @@ export function loadFaceModels(): Promise<void> {
         faceapi.nets.faceLandmark68Net.loadFromUri('/models/'),
         faceapi.nets.faceRecognitionNet.loadFromUri('/models/')
       ]);
-      console.log('TensorFlow.js SSD MobileNet face models loaded locally from /models/.');
+      console.log(`[Face AI] TensorFlow.js SSD MobileNet face models loaded locally from /models/ in ${(performance.now() - tStart).toFixed(2)}ms.`);
     } catch (localErr) {
       console.warn('Failed to load local models from /models/, falling back to online CDN registry...', localErr);
       const FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
@@ -122,7 +127,7 @@ export function loadFaceModels(): Promise<void> {
         faceapi.nets.faceLandmark68Net.loadFromUri(FALLBACK_URL),
         faceapi.nets.faceRecognitionNet.loadFromUri(FALLBACK_URL)
       ]);
-      console.log('TensorFlow.js SSD MobileNet face models loaded from fallback online CDN.');
+      console.log(`[Face AI] TensorFlow.js SSD MobileNet face models loaded from fallback online CDN in ${(performance.now() - tStart).toFixed(2)}ms.`);
     }
   })();
 
@@ -331,8 +336,17 @@ let landmarkerPromise: Promise<FaceLandmarkerType> | null = null;
 let landmarkerInstance: FaceLandmarkerType | null = null;
 
 export async function loadMediaPipeLandmarker() {
-  if (landmarkerInstance) return landmarkerInstance;
-  if (landmarkerPromise) return landmarkerPromise;
+  if (landmarkerInstance) {
+    console.log('[Face AI] loadMediaPipeLandmarker(): REUSING ALREADY INITIALIZED landmarkerInstance.');
+    return landmarkerInstance;
+  }
+  if (landmarkerPromise) {
+    console.log('[Face AI] loadMediaPipeLandmarker(): REUSING ACTIVE landmarkerPromise.');
+    return landmarkerPromise;
+  }
+
+  console.log('[Face AI] loadMediaPipeLandmarker(): NO CACHED landmarker found. Initializing now...');
+  const tStart = performance.now();
 
   landmarkerPromise = (async () => {
     try {
@@ -349,6 +363,7 @@ export async function loadMediaPipeLandmarker() {
         outputFaceBlendshapes: false,
         outputFacialTransformationMatrixes: false
       });
+      console.log(`[Face AI] MediaPipe FaceLandmarker fully initialized in ${(performance.now() - tStart).toFixed(2)}ms.`);
       return landmarkerInstance;
     } catch (err) {
       console.error('Failed to initialize MediaPipe FaceLandmarker:', err);

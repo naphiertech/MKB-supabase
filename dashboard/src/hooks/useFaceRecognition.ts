@@ -205,6 +205,7 @@ export function useFaceRecognition({
 
     const scanDuration = isVerificationMode ? 30000 : durationMs; // Allow more time for double challenge (30s)
     const startTime = Date.now();
+    let tickCount = 0;
 
     const tick = async () => {
       if (!isScanningActiveRef.current) return;
@@ -217,6 +218,9 @@ export function useFaceRecognition({
       const canvas = canvasRef.current;
 
       if (video && video.readyState >= 2) {
+        tickCount++;
+        const frameStart = performance.now();
+        
         // Sync canvas resolution matching video stream aspect
         if (canvas && (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight)) {
           canvas.width = video.videoWidth;
@@ -228,9 +232,15 @@ export function useFaceRecognition({
         let livenessPassed = false;
 
         // 1. Run MediaPipe Landmarker for Liveness (Blink + Head Tilt)
+        let mpDuration = 0;
         if (landmarker) {
           try {
+            const mpStart = performance.now();
             const detections = landmarker.detectForVideo(video, Date.now());
+            mpDuration = performance.now() - mpStart;
+            if (tickCount <= 5) {
+              console.log(`[Face AI] Frame ${tickCount} - MediaPipe detect took ${mpDuration.toFixed(2)}ms`);
+            }
             if (detections && detections.faceLandmarks && detections.faceLandmarks.length > 0) {
               const landmarks = detections.faceLandmarks[0];
               mpEAR = calculateMediaPipeEAR(landmarks);
@@ -280,7 +290,13 @@ export function useFaceRecognition({
         }
 
         // 2. Run face-api.js for Face Bounding Box & Matching
+        const faStart = performance.now();
         const faceData = await detectFaceWithDetails(video);
+        const faDuration = performance.now() - faStart;
+        if (tickCount <= 5) {
+          console.log(`[Face AI] Frame ${tickCount} - face-api.js detect took ${faDuration.toFixed(2)}ms`);
+          console.log(`[Face AI] Frame ${tickCount} - Total frame processing took ${(performance.now() - frameStart).toFixed(2)}ms`);
+        }
 
         // Draw bounding box details on overlay canvas
         if (canvas) {
@@ -476,6 +492,8 @@ export function useFaceRecognition({
   }, [durationMs, referenceAvatar, referenceDescriptor, onDescriptorCalculated]);
 
   const start = useCallback(async () => {
+    const sequenceStart = performance.now();
+    console.log('[Face AI] start() triggered. Starting initialization sequence...');
     clearTimers();
     setResult(null);
     setProgress(0);
@@ -492,20 +510,30 @@ export function useFaceRecognition({
       setLivenessPrompt('Preparing Face Recognition... ⚙️');
     }
 
+    const scriptsStart = performance.now();
     // Polling globally loaded scripts (OpenCV + TensorFlow)
     const active = await ensureScriptsLoaded();
+    console.log(`[Face AI] ensureScriptsLoaded completed in ${(performance.now() - scriptsStart).toFixed(2)}ms.`);
     
     if (active) {
       try {
         setLivenessPrompt('Preparing Face Recognition... ⚙️');
+        
+        const modelsStart = performance.now();
         // Load both Face-API models and MediaPipe landmarker in parallel
         await Promise.all([
           loadFaceModels(),
           loadMediaPipeLandmarker()
         ]);
+        console.log(`[Face AI] Models loading/verification resolved in ${(performance.now() - modelsStart).toFixed(2)}ms.`);
+        
         setLivenessPrompt('Initializing camera...');
+        
+        const scanningStart = performance.now();
         // Models parsed successfully, trigger genuine scan loops
         await startRealScanning();
+        console.log(`[Face AI] startRealScanning promise resolved in ${(performance.now() - scanningStart).toFixed(2)}ms.`);
+        console.log(`[Face AI] Total start() sequence finished in ${(performance.now() - sequenceStart).toFixed(2)}ms.`);
         return;
       } catch (err) {
         console.warn('Face AI weights loading exception:', err);
