@@ -28,10 +28,9 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
-  const { riders, violations } = useRealtimeLocation();
+  const { riders, violations, markLocalViolationRead, markAllLocalViolationsRead } = useRealtimeLocation();
   const [focusRiderId, setFocusRiderId] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<"active_riders" | "on_duty" | "violations" | "attendance" | null>(null);
-  const [, force] = useState(0);
   const activeCount = riders.filter((r) => r.status !== "offline").length;
   const violationCount = riders.filter((r) => r.status === "violation").length;
   const [zonesList, setZonesList] = useState<Zone[]>([]);
@@ -54,8 +53,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     setFocusRiderId(riderId);
     const v = violations.find((x) => x.riderId === riderId);
     if (v) {
-      markViolationRead(v.id);
-      force((n) => n + 1);
+      markLocalViolationRead(v.id);
+      markViolationRead(v.id).catch(err => console.error("Failed to mark violation read:", err));
     }
   }
   return (
@@ -199,8 +198,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
             alerts={violations}
             onView={handleViewViolation}
             onMarkAllRead={() => {
-              markAllViolationsRead();
-              force((n) => n + 1);
+              markAllLocalViolationsRead();
+              markAllViolationsRead().catch(err => console.error("Failed to mark all read:", err));
             }}
           />
         </div>

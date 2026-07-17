@@ -31,8 +31,8 @@ export function ViolationFeed({
     loadFlagged();
   }, [alerts]);
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-full min-h-[360px] shadow-sm">
-      <div className="flex items-center justify-between p-4 border-b border-[#EFEAE2]">
+    <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-[480px] min-h-[360px] shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between p-4 border-b border-[#EFEAE2] sticky top-0 bg-white z-10">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-red-50 ring-1 ring-red-500/25 flex items-center justify-center">
             <Siren className="w-4 h-4 text-red-600" />
@@ -41,7 +41,7 @@ export function ViolationFeed({
             <div className="text-sm font-semibold text-[#1A1410] flex items-center gap-2">
               Violation Alerts
               {unread > 0 &&
-              <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-500/25 text-[10px] font-mono font-semibold">
+              <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-500/25 text-[10px] font-mono font-semibold animate-pulse">
                   {unread} new
                 </span>
               }

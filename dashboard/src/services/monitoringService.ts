@@ -242,6 +242,17 @@ export async function markViolationRead(id: string): Promise<void> {
     console.error('Error marking violation read:', error);
     throw error;
   }
+
+  // Synchronously update the corresponding notification in the notifications table to keep Topbar in sync
+  const { error: notifError } = await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('violation_id', id)
+    .eq('read', false);
+
+  if (notifError) {
+    console.warn(`Warning: Failed to mark notification for violation ${id} as read:`, notifError);
+  }
 }
 
 export async function markAllViolationsRead(): Promise<void> {
@@ -253,6 +264,17 @@ export async function markAllViolationsRead(): Promise<void> {
   if (error) {
     console.error('Error marking all violations read:', error);
     throw error;
+  }
+
+  // Synchronously update the corresponding notifications in the notifications table to keep Topbar in sync
+  const { error: notifError } = await supabase
+    .from('notifications')
+    .update({ read: true })
+    .eq('type', 'violation')
+    .eq('read', false);
+
+  if (notifError) {
+    console.warn('Warning: Failed to mark all violation notifications read:', notifError);
   }
 }
 

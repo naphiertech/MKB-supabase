@@ -86,7 +86,7 @@ export function useNotifications(allowedTypes?: NotificationType[]) {
 
     loadNotifications();
 
-    // Subscribe to new notifications pushed via Supabase Realtime
+    // Subscribe to new/updated notifications pushed via Supabase Realtime
     const channel = supabase
       .channel('realtime-notifications')
       .on(
@@ -101,6 +101,19 @@ export function useNotifications(allowedTypes?: NotificationType[]) {
               if (prev.some((n) => n.id === mapped.id)) return prev;
               return [mapped, ...prev].slice(0, 100);
             });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications' },
+        (payload) => {
+          const updated = payload.new as unknown as NotificationRow;
+          const targetRoles = updated.target_roles || [];
+          if (targetRoles.includes(userRole)) {
+            setNotifications((prev) =>
+              prev.map((n) => n.id === updated.id ? { ...n, read: updated.read } : n)
+            );
           }
         }
       )

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { updateRiderStatus } from '../services/monitoringService';
 import { haversine, isPointInPolygon } from '../lib/geofenceUtils';
@@ -68,6 +68,8 @@ export function onViolation(cb: Listener) {
 export function useRealtimeLocation(): {
   riders: Rider[];
   violations: ViolationEvent[];
+  markLocalViolationRead: (id: string) => void;
+  markAllLocalViolationsRead: () => void;
 } {
   const [riderState, setRiderState] = useState<Rider[]>([]);
   const [violationState, setViolationState] = useState<ViolationEvent[]>([]);
@@ -293,13 +295,14 @@ export function useRealtimeLocation(): {
       });
     };
 
-    // Event Handler: Update live violations resolved on backend
+    // Event Handler: Update live violations resolved or read status on backend
     const handleViolationUpdate = (updatedViolation: ViolationRow) => {
       setViolationState((prevVs) => {
         return prevVs.map((v) => {
           if (v.id === updatedViolation.id) {
             return {
               ...v,
+              read: updatedViolation.read,
               resolved: updatedViolation.resolved,
               resolvedAt: updatedViolation.resolved_at ? new Date(updatedViolation.resolved_at).getTime() : undefined
             };
@@ -342,6 +345,16 @@ export function useRealtimeLocation(): {
     };
   }, []);
 
+  const markLocalViolationRead = useCallback((id: string) => {
+    setViolationState((prevVs) =>
+      prevVs.map((v) => (v.id === id ? { ...v, read: true } : v))
+    );
+  }, []);
+
+  const markAllLocalViolationsRead = useCallback(() => {
+    setViolationState((prevVs) => prevVs.map((v) => ({ ...v, read: true })));
+  }, []);
+
   const ridersWithUnreadViolations = useMemo(() => {
     return riderState.map((r) => {
       const activeV = violationState.find((v) => v.riderId === r.id && !v.resolved);
@@ -357,5 +370,10 @@ export function useRealtimeLocation(): {
     });
   }, [riderState, violationState]);
 
-  return { riders: ridersWithUnreadViolations, violations: violationState };
+  return {
+    riders: ridersWithUnreadViolations,
+    violations: violationState,
+    markLocalViolationRead,
+    markAllLocalViolationsRead
+  };
 }
