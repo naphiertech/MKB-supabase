@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { updateRiderStatus } from '../services/monitoringService';
-import { haversine, isPointInPolygon } from '../lib/geofenceUtils';
 import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
 
@@ -203,52 +201,13 @@ export function useRealtimeLocation(): {
 
     loadInitialData();
 
-    // Event Handler: Process incoming live rider GPS coordinate logs
     const handleLocationInsert = async (newLocation: LocationRow) => {
       setRiderState((prevRiders) => {
         const riderIdx = prevRiders.findIndex((r) => r.id === newLocation.rider_id);
         if (riderIdx === -1) return prevRiders;
 
         const r = prevRiders[riderIdx];
-        let newStatus: Rider['status'] = newLocation.status as Rider['status'];
-
-        // Fetch corresponding zone details from our thread-safe zonesRef
-        const zone = zonesRef.current.find((z) => z.id === r.zoneId);
-        
-        if (zone) {
-          let outside = false;
-          if (zone.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length > 0) {
-            outside = !isPointInPolygon(
-              [newLocation.lat, newLocation.lng],
-              zone.polygon_coordinates
-            );
-          } else {
-            const distance = haversine(
-              newLocation.lat,
-              newLocation.lng,
-              zone.center[0],
-              zone.center[1]
-            );
-            outside = distance > zone.radius;
-          }
-
-          if (outside && r.status !== 'violation') {
-            newStatus = 'violation';
-            
-            // Persist the violation status on public.riders table.
-            // The DB trigger handles inserting a row to violations table automatically.
-            updateRiderStatus(r.id, 'violation', newLocation.lat, newLocation.lng)
-              .catch(err => console.error('Failed to update rider status to violation:', err));
-
-          } else if (!outside && r.status === 'violation') {
-            newStatus = 'active';
-
-            // Reset back to active status in database.
-            // The DB trigger handles setting resolved = true automatically.
-            updateRiderStatus(r.id, 'active', newLocation.lat, newLocation.lng)
-              .catch(err => console.error('Failed to resolve geofence boundary:', err));
-          }
-        }
+        const newStatus: Rider['status'] = newLocation.status as Rider['status'];
 
         const updatedRiders = [...prevRiders];
         updatedRiders[riderIdx] = {

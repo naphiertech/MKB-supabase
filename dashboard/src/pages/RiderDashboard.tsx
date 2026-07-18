@@ -516,9 +516,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
       const status: 'active' | 'violation' = currentInZone ? 'active' : 'violation';
       try {
-        await updateRiderStatus(currentRiderId, status, currentPosition.lat, currentPosition.lng);
+        // The DB trigger processes coordinates and handles status changes, violations,
+        // notifications, and activity logging automatically. We only insert the log here.
         await logRiderLocation(currentRiderId, currentPosition.lat, currentPosition.lng, status);
-        console.log(`[RiderDashboard] Location synced to Supabase: Status = ${status}, Lat = ${currentPosition.lat}, Lng = ${currentPosition.lng}`);
+        console.log(`[RiderDashboard] Location synced to Supabase: Lat = ${currentPosition.lat}, Lng = ${currentPosition.lng}`);
       } catch (err) {
         console.error('[RiderDashboard] Failed to sync location to database:', err);
       }
