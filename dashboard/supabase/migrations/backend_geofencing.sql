@@ -94,9 +94,9 @@ DECLARE
   calculated_status rider_status;
   v_id uuid;
 BEGIN
-  -- Fetch current rider details
+  -- Fetch current rider details and lock row to serialize concurrent location updates
   SELECT status, zone_id, name INTO r_status, r_zone_id, r_name 
-  FROM public.riders WHERE id = NEW.rider_id;
+  FROM public.riders WHERE id = NEW.rider_id FOR UPDATE;
   
   -- Check if rider is clocked in today without being clocked out
   SELECT id INTO active_log_id 
@@ -163,32 +163,41 @@ BEGIN
   
   -- 1. Exited Zone (Active -> Violation)
   IF calculated_status = 'violation' AND r_status IS DISTINCT FROM 'violation' THEN
-    -- Log violation
-    INSERT INTO public.violations (rider_id, zone_id, zone_name, lat, lng, type, read, resolved)
-    VALUES (NEW.rider_id, r_zone_id, z_name, NEW.lat, NEW.lng, 'boundary_exit', false, false)
-    RETURNING id INTO v_id;
-    
-    -- Log system notification
-    INSERT INTO public.notifications (type, title, message, rider_id, violation_id, read, target_roles)
-    VALUES (
-      'violation',
-      'Geofence Exit Breach',
-      'Rider ' || r_name || ' has breached the boundary of zone ' || z_name,
-      NEW.rider_id,
-      v_id,
-      false,
-      ARRAY['admin'::user_role, 'hr'::user_role]
-    );
-    
-    -- Log activity
-    INSERT INTO public.activity_logs (user_id, rider_id, event_type, description, metadata)
-    VALUES (
-      NULL,
-      NEW.rider_id,
-      'geofence_exit',
-      'Rider exited zone ' || z_name || '.',
-      jsonb_build_object('lat', NEW.lat, 'lng', NEW.lng, 'zone_id', r_zone_id, 'zone_name', z_name)
-    );
+    -- Safeguard: check existence of open violation to prevent constraint failures
+    IF NOT EXISTS (
+      SELECT 1 FROM public.violations 
+      WHERE rider_id = NEW.rider_id 
+        AND zone_id = r_zone_id 
+        AND resolved = false 
+        AND type = 'boundary_exit'
+    ) THEN
+      -- Log violation
+      INSERT INTO public.violations (rider_id, zone_id, zone_name, lat, lng, type, read, resolved)
+      VALUES (NEW.rider_id, r_zone_id, z_name, NEW.lat, NEW.lng, 'boundary_exit', false, false)
+      RETURNING id INTO v_id;
+      
+      -- Log system notification
+      INSERT INTO public.notifications (type, title, message, rider_id, violation_id, read, target_roles)
+      VALUES (
+        'violation',
+        'Geofence Exit Breach',
+        'Rider ' || r_name || ' has breached the boundary of zone ' || z_name,
+        NEW.rider_id,
+        v_id,
+        false,
+        ARRAY['admin'::user_role, 'hr'::user_role]
+      );
+      
+      -- Log activity
+      INSERT INTO public.activity_logs (user_id, rider_id, event_type, description, metadata)
+      VALUES (
+        NULL,
+        NEW.rider_id,
+        'geofence_exit',
+        'Rider exited zone ' || z_name || '.',
+        jsonb_build_object('lat', NEW.lat, 'lng', NEW.lng, 'zone_id', r_zone_id, 'zone_name', z_name)
+      );
+    END IF;
   END IF;
   
   -- 2. Returned to Zone (Violation -> Active)
@@ -222,3 +231,8 @@ CREATE TRIGGER trg_process_rider_location_geofence
   BEFORE INSERT ON public.rider_locations
   FOR EACH ROW
   EXECUTE FUNCTION public.process_rider_location_geofence();
+
+-- 5. Partial Unique Constraint: Enforce single unresolved boundary exit violation per rider/zone
+CREATE UNIQUE INDEX IF NOT EXISTS idx_violations_unique_unresolved
+  ON public.violations (rider_id, zone_id)
+  WHERE (resolved = false AND type = 'boundary_exit');
