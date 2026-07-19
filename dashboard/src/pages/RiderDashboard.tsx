@@ -593,11 +593,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
       recordTimeOut(currentRiderId).then(async () => {
         setAttendance(prev => ({ ...prev, timeOut: stamp }));
 
-        // Transition status to offline in DB
+        // Transition status to offline in DB while preserving last valid position
         try {
-          await updateRiderStatus(currentRiderId, 'offline', 0, 0); // resets coords
+          await updateRiderStatus(currentRiderId, 'offline', currentPosition.lat, currentPosition.lng);
         } catch (err) {
-          console.error('[RiderDashboard] Failed to reset offline status:', err);
+          console.error('[RiderDashboard] Failed to update offline status:', err);
         }
 
         setEvents((prev) => [
