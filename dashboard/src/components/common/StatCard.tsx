@@ -107,7 +107,7 @@ export function StatCard({
       }}
       role={isClickable ? "button" : undefined}
       tabIndex={isClickable ? 0 : undefined}
-      className={`relative bg-white border border-[#EFEAE2] rounded-xl p-4 sm:p-5 overflow-hidden shadow-sm hover:shadow-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+      className={`relative bg-white border border-[#EFEAE2] rounded-xl p-4 overflow-hidden shadow-2xs hover:shadow-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-full flex flex-col justify-between ${
         isClickable ? `cursor-pointer ${HOVER_BORDER[accent]} focus-visible:ring-[#db6c00]/40` : ""
       }`}
     >

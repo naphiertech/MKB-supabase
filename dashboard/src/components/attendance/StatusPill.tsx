@@ -1,54 +1,41 @@
 import type { AttendanceStatus } from '../../services/types';
+import { CheckCircle2, Clock, CalendarX, AlertTriangle } from 'lucide-react';
+
 interface StatusPillProps {
   status: AttendanceStatus;
 }
-const STYLES: Record<
-  AttendanceStatus,
-  {
-    bg: string;
-    text: string;
-    border: string;
-    label: string;
-    dot: string;
-  }> =
-{
-  present: {
-    bg: 'bg-[#DCFCE7]',
-    text: 'text-[#16A34A]',
-    border: 'border-[#16A34A]/25',
-    label: 'Present',
-    dot: 'bg-[#16A34A]'
-  },
-  late: {
-    bg: 'bg-[#FEF3C7]',
-    text: 'text-[#D97706]',
-    border: 'border-[#D97706]/25',
-    label: 'Late',
-    dot: 'bg-[#D97706]'
-  },
-  on_leave: {
-    bg: 'bg-[#FAFAF7]',
-    text: 'text-[#475569]',
-    border: 'border-[#475569]/25',
-    label: 'On Leave',
-    dot: 'bg-[#475569]'
-  },
-  absent: {
-    bg: 'bg-[#FEE2E2]',
-    text: 'text-[#DC2626]',
-    border: 'border-[#DC2626]/25',
-    label: 'Absent',
-    dot: 'bg-[#DC2626]'
-  }
-};
-export function StatusPill({ status }: StatusPillProps) {
-  const s = STYLES[status];
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${s.bg} ${s.text} ${s.border}`}>
-      
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {s.label}
-    </span>);
 
+export function StatusPill({ status }: StatusPillProps) {
+  switch (status) {
+    case 'present':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Present</span>
+        </span>
+      );
+    case 'late':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
+          <Clock className="w-3.5 h-3.5 text-amber-600" />
+          <span>Late</span>
+        </span>
+      );
+    case 'on_leave':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs">
+          <CalendarX className="w-3.5 h-3.5 text-slate-500" />
+          <span>On Leave</span>
+        </span>
+      );
+    case 'absent':
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+          <span>Absent</span>
+        </span>
+      );
+    default:
+      return null;
+  }
 }

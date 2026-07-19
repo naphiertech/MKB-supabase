@@ -38,12 +38,16 @@ interface DbAttendanceLogRow {
     avatar_url: string | null;
     face_image_url: string | null;
     zone_id: string;
+    lat?: number | null;
+    lng?: number | null;
     zones: { name: string } | { name: string }[] | null;
   } | {
     name: string;
     avatar_url: string | null;
     face_image_url: string | null;
     zone_id: string;
+    lat?: number | null;
+    lng?: number | null;
     zones: { name: string } | { name: string }[] | null;
   }[] | null;
 }
@@ -71,6 +75,8 @@ export async function getAttendanceLogs(filters?: {
         avatar_url,
         face_image_url,
         zone_id,
+        lat,
+        lng,
         zones (
           name
         )
@@ -115,11 +121,13 @@ export async function getAttendanceLogs(filters?: {
       zoneName: zoneName || 'No Zone',
       status: row.status as AttendanceStatus,
       source: row.source as 'face-scan' | 'manual',
+      lat: rider?.lat ?? 0,
+      lng: rider?.lng ?? 0,
       events: []
     };
   });
 
-  // Fetch matching violations to build historical timelines
+  // Fetch matching violations and activity logs to build historical timelines
   const riderIds = result.map(r => r.riderId);
   const dates = result.map(r => r.date).filter(Boolean);
 
@@ -128,41 +136,62 @@ export async function getAttendanceLogs(filters?: {
       const minDate = dates.reduce((a, b) => a < b ? a : b);
       const maxDate = dates.reduce((a, b) => a > b ? a : b);
 
-      const { data: dbViolations } = await supabase
-        .from('violations')
-        .select('rider_id, zone_name, type, created_at')
-        .in('rider_id', riderIds)
-        .gte('created_at', `${minDate}T00:00:00Z`)
-        .lte('created_at', `${maxDate}T23:59:59Z`);
+      const [violationsRes, activitiesRes] = await Promise.all([
+        supabase
+          .from('violations')
+          .select('rider_id, zone_name, type, created_at')
+          .in('rider_id', riderIds)
+          .gte('created_at', `${minDate}T00:00:00Z`)
+          .lte('created_at', `${maxDate}T23:59:59Z`),
+        supabase
+          .from('activity_logs')
+          .select('rider_id, event_type, description, metadata, created_at')
+          .in('rider_id', riderIds)
+          .in('event_type', ['geofence_exit', 'geofence_enter'])
+          .gte('created_at', `${minDate}T00:00:00Z`)
+          .lte('created_at', `${maxDate}T23:59:59Z`)
+      ]);
+
+      const dbViolations = violationsRes.data || [];
+      const dbActivities = activitiesRes.data || [];
 
       result = result.map(log => {
         const logEvents: AttendanceLog['events'] = [];
 
-        // 1. Add clock-in enter event if timeIn exists
-        if (log.timeIn) {
+        // 1. Add geofence exit violations for this rider on this date
+        const matchingViolations = dbViolations.filter(v => {
+          if (v.rider_id !== log.riderId) return false;
+          const vDate = (v.created_at || '').split('T')[0] || (v.created_at || '').split(' ')[0];
+          return vDate === log.date;
+        });
+
+        matchingViolations.forEach(v => {
           logEvents.push({
-            ts: log.timeIn,
-            type: 'enter',
-            zone: log.zoneName
+            ts: toHHMM(v.created_at) || '00:00',
+            type: 'exit',
+            zone: v.zone_name || log.zoneName
           });
-        }
+        });
 
-        // 2. Add geofence exit violations for this rider on this date
-        if (dbViolations && dbViolations.length > 0) {
-          const matchingViolations = dbViolations.filter(v => {
-            if (v.rider_id !== log.riderId) return false;
-            const vDate = (v.created_at || '').split('T')[0] || (v.created_at || '').split(' ')[0];
-            return vDate === log.date;
-          });
+        // 2. Add geofence enter/exit from activity_logs
+        const matchingActivities = dbActivities.filter(a => {
+          if (a.rider_id !== log.riderId) return false;
+          const aDate = (a.created_at || '').split('T')[0] || (a.created_at || '').split(' ')[0];
+          return aDate === log.date;
+        });
 
-          matchingViolations.forEach(v => {
-            logEvents.push({
-              ts: toHHMM(v.created_at) || '00:00',
-              type: 'exit',
-              zone: v.zone_name || log.zoneName
-            });
-          });
-        }
+        matchingActivities.forEach(a => {
+          const type = a.event_type === 'geofence_exit' ? 'exit' : 'enter';
+          const meta = a.metadata as { zone_name?: string } | null;
+          const zone = meta?.zone_name || log.zoneName;
+          const ts = toHHMM(a.created_at) || '00:00';
+
+          // Prevent exact duplicate events
+          const exists = logEvents.some(e => e.ts === ts && e.type === type);
+          if (!exists) {
+            logEvents.push({ ts, type, zone });
+          }
+        });
 
         // Sort events chronologically by timestamp string
         logEvents.sort((a, b) => a.ts.localeCompare(b.ts));
@@ -175,19 +204,6 @@ export async function getAttendanceLogs(filters?: {
     } catch (err) {
       console.error('Error fetching geofence events for logs:', err);
     }
-  } else {
-    // If no logs, fallback to clock-in only
-    result = result.map(log => {
-      const logEvents: AttendanceLog['events'] = [];
-      if (log.timeIn) {
-        logEvents.push({
-          ts: log.timeIn,
-          type: 'enter',
-          zone: log.zoneName
-        });
-      }
-      return { ...log, events: logEvents };
-    });
   }
 
   // Safe in-memory filtering for zoneId to handle nested relational bounds robustly

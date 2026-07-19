@@ -44,6 +44,9 @@ export interface AttendanceLog {
   status: AttendanceStatus;
   source: 'face-scan' | 'manual';
   faceScanUrl?: string;
+  lat?: number;
+  lng?: number;
+  notes?: string | null;
   events: {ts: string; type: 'enter' | 'exit' | 'idle'; zone: string;}[];
 }
 
