@@ -46,10 +46,12 @@ function MapController({
   useEffect(() => {
     if (!focusRiderId) return;
     const r = riders.find((x) => x.id === focusRiderId);
-    if (r)
+    // ponytail: preserve current map viewport if rider has no recorded location history (0,0)
+    if (r && (r.lat !== 0 || r.lng !== 0)) {
       map.flyTo([r.lat, r.lng], 16, {
         duration: 0.9
       });
+    }
   }, [focusRiderId, riders, map]);
 
   useEffect(() => {
@@ -80,6 +82,10 @@ function RiderPopupContent({ rider, zoneName }: { rider: Rider; zoneName: string
 
   useEffect(() => {
     let active = true;
+    if (rider.lat === 0 && rider.lng === 0) {
+      setAddress('No location history available');
+      return;
+    }
     reverseGeocode(rider.lat, rider.lng).then((addr) => {
       if (active) setAddress(addr);
     });
@@ -96,6 +102,8 @@ function RiderPopupContent({ rider, zoneName }: { rider: Rider; zoneName: string
       : rider.status === 'violation'
       ? '#DC2626'
       : '#6B6258';
+
+  const hasCoords = rider.lat !== 0 || rider.lng !== 0;
 
   return (
     <div style={{ minWidth: '220px', color: '#1A1410' }}>
@@ -116,7 +124,9 @@ function RiderPopupContent({ rider, zoneName }: { rider: Rider; zoneName: string
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
         <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</span>
-        <span style={{ color: statusColor, fontSize: '12px', textTransform: 'capitalize', fontWeight: 600 }}>{rider.status}</span>
+        <span style={{ color: statusColor, fontSize: '12px', textTransform: 'capitalize', fontWeight: 600 }}>
+          {rider.status === 'offline' && hasCoords ? 'Offline (Last Known)' : rider.status}
+        </span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
         <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Location</span>
@@ -125,9 +135,11 @@ function RiderPopupContent({ rider, zoneName }: { rider: Rider; zoneName: string
         </span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
-        <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Coords</span>
+        <span style={{ color: '#6B6258', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {rider.status === 'offline' ? 'Last Coords' : 'Coords'}
+        </span>
         <span style={{ color: '#1A1410', fontFamily: "'Geist Mono',monospace", fontSize: '11px' }}>
-          {rider.lat.toFixed(4)}, {rider.lng.toFixed(4)}
+          {hasCoords ? `${rider.lat.toFixed(4)}, ${rider.lng.toFixed(4)}` : 'No history'}
         </span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '6px 0', borderTop: '1px solid #EFEAE2' }}>
@@ -208,6 +220,7 @@ export function LiveMonitoringMap({
         <GeofenceCircle key={z.id} zone={z} satelliteMode={isSatellite} />
         )}
         {riders.map((r) => {
+          if (r.lat === 0 && r.lng === 0) return null;
           const zone = zones.find((z) => z.id === r.zoneId);
           return (
             <Marker
