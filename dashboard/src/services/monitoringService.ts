@@ -278,20 +278,52 @@ export async function markAllViolationsRead(): Promise<void> {
   }
 }
 
+export async function getLastKnownLocation(
+  riderId: string
+): Promise<{ lat: number; lng: number; lastPing?: number } | null> {
+  // ponytail: query most recent valid GPS log from rider_locations table
+  const { data, error } = await supabase
+    .from('rider_locations')
+    .select('lat, lng, recorded_at')
+    .eq('rider_id', riderId)
+    .order('recorded_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data || (data.lat === 0 && data.lng === 0)) return null;
+
+  return {
+    lat: data.lat,
+    lng: data.lng,
+    lastPing: data.recorded_at ? new Date(data.recorded_at).getTime() : undefined
+  };
+}
+
 export async function updateRiderStatus(
   riderId: string,
   status: 'active' | 'idle' | 'violation' | 'offline',
   lat: number,
   lng: number
 ): Promise<void> {
+  const updateData: {
+    status: 'active' | 'idle' | 'violation' | 'offline';
+    last_ping: string;
+    lat?: number;
+    lng?: number;
+  } = {
+    status,
+    last_ping: new Date().toISOString()
+  };
+
+  // ponytail: preserve last known valid coordinates when lat & lng are 0
+  if (lat !== 0 || lng !== 0) {
+    updateData.lat = lat;
+    updateData.lng = lng;
+  }
+
   const { error } = await supabase
     .from('riders')
-    .update({
-      status,
-      lat,
-      lng,
-      last_ping: new Date().toISOString()
-    })
+    .update(updateData)
     .eq('id', riderId);
 
   if (error) {
