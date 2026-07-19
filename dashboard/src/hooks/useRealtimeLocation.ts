@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
+import { getLastKnownLocation } from '../services/monitoringService';
 
 
 interface ZoneRow {
@@ -146,17 +147,34 @@ export function useRealtimeLocation(): {
               cached = dbAvatar;
             }
           }
+
+          let lat = row.lat ?? 0;
+          let lng = row.lng ?? 0;
+          let lastPing = row.last_ping ? new Date(row.last_ping).getTime() : 0;
+
+          // ponytail: fallback to last known valid coordinates from rider_locations if table entry is 0,0
+          if (lat === 0 && lng === 0) {
+            const lastLoc = await getLastKnownLocation(row.id);
+            if (lastLoc) {
+              lat = lastLoc.lat;
+              lng = lastLoc.lng;
+              if (!lastPing && lastLoc.lastPing) {
+                lastPing = lastLoc.lastPing;
+              }
+            }
+          }
+
           return {
             id: row.id,
             name: row.name,
             avatar: cached || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
             zoneId: row.zone_id,
             status: row.status as Rider['status'],
-            lat: row.lat ?? 0,
-            lng: row.lng ?? 0,
+            lat,
+            lng,
             speed: row.speed ?? 0,
             shift: row.shift as Rider['shift'],
-            lastPing: row.last_ping ? new Date(row.last_ping).getTime() : 0,
+            lastPing,
             phone: row.contact ?? '',
             riderCode: row.mkb_id ?? ''
           };
