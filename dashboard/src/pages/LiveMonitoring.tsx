@@ -217,14 +217,27 @@ export function LiveMonitoring() {
                         label="Status"
                         value={
                           <span className={`capitalize font-semibold ${focused.status === 'active' ? 'text-emerald-600' : focused.status === 'idle' ? 'text-amber-600' : focused.status === 'violation' ? 'text-red-600' : 'text-[#6B6258]'}`}>
-                            {focused.status}
+                            {focused.status === 'offline' && (focused.lat !== 0 || focused.lng !== 0) ? 'Offline (Last Known)' : focused.status}
                           </span>
                         }
                       />
-                      <Row label="Coords" mono value={`${focused.lat.toFixed(5)}, ${focused.lng.toFixed(5)}`} />
+                      <Row
+                        label={focused.status === 'offline' ? "Last Coords" : "Coords"}
+                        mono
+                        value={
+                          focused.lat !== 0 || focused.lng !== 0
+                            ? `${focused.lat.toFixed(5)}, ${focused.lng.toFixed(5)}`
+                            : 'No location history'
+                        }
+                      />
                       <Row label="Speed" mono value={`${Math.round(focused.speed)} km/h`} />
-                      <Row label="Last ping" mono value={relativeTime(focused.lastPing, now)} />
+                      <Row label="Last ping" mono value={focused.lastPing ? relativeTime(focused.lastPing, now) : 'Never'} />
                     </div>
+                    {focused.lat === 0 && focused.lng === 0 && (
+                      <div className="mt-2.5 p-2 bg-amber-50 border border-amber-200/60 rounded-lg text-[11px] text-amber-800 font-medium text-center">
+                        No location history available.
+                      </div>
+                    )}
                     <div className="mt-3 pt-3 border-t border-[#EFEAE2] grid grid-cols-3 gap-1.5">
                       <ActionBtn icon={MessageSquare} label="Message" />
                       <ActionBtn icon={Phone} label="Call" />
