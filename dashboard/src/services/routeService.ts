@@ -91,3 +91,31 @@ export const computeRouteStats = (
     currentTime: points[points.length - 1].timestamp,
   };
 };
+
+export const getRouteSummaryFromBackend = async (
+  riderId: string,
+  date?: string
+): Promise<RouteStats | null> => {
+  try {
+    const { data, error } = await supabase.rpc('get_rider_route_summary', {
+      p_rider_id: riderId,
+      p_date: date || new Date().toISOString().slice(0, 10)
+    });
+
+    if (error || !data || !data.point_count || data.point_count < 2) {
+      return null;
+    }
+
+    return {
+      totalDistanceKm: data.total_distance_km || 0,
+      durationMinutes: data.duration_minutes || 0,
+      averageSpeedKph: data.avg_speed_kph || 0,
+      pointCount: data.point_count || 0,
+      startTime: data.start_time || '',
+      currentTime: data.end_time || ''
+    };
+  } catch (err) {
+    console.error('Error executing get_rider_route_summary RPC:', err);
+    return null;
+  }
+};
