@@ -59,29 +59,8 @@ export async function getAttendanceLogs(filters?: {
   zoneId?: string;
 }): Promise<AttendanceLog[]> {
   let query = supabase
-    .from('attendance_logs')
-    .select(`
-      id,
-      rider_id,
-      date,
-      time_in,
-      time_out,
-      hours,
-      status,
-      source,
-      notes,
-      riders (
-        name,
-        avatar_url,
-        face_image_url,
-        zone_id,
-        lat,
-        lng,
-        zones (
-          name
-        )
-      )
-    `);
+    .from('v_attendance_summary')
+    .select('*');
 
   if (filters?.status) {
     query = query.eq('status', filters.status);
@@ -92,6 +71,9 @@ export async function getAttendanceLogs(filters?: {
   if (filters?.dateTo) {
     query = query.lte('date', filters.dateTo);
   }
+  if (filters?.zoneId && filters.zoneId !== 'all') {
+    query = query.eq('zone_id', filters.zoneId);
+  }
 
   // Sort descending by date
   query = query.order('date', { ascending: false });
@@ -99,33 +81,28 @@ export async function getAttendanceLogs(filters?: {
   const { data, error } = await query;
 
   if (error) {
-    console.error('Error fetching attendance logs:', error);
+    console.error('Error fetching attendance summary view:', error);
     return [];
   }
 
-  // Map nested objects to match the original flat AttendanceLog shape
-  let result: AttendanceLog[] = (data || []).map((row: DbAttendanceLogRow) => {
-    const rider = Array.isArray(row.riders) ? row.riders[0] : row.riders;
-    const zone = rider?.zones;
-    const zoneName = Array.isArray(zone) ? zone[0]?.name : zone?.name;
-    return {
-      id: row.id,
-      riderId: row.rider_id,
-      riderName: rider?.name || 'Unknown Rider',
-      riderAvatar: rider?.face_image_url || rider?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider?.name || '')}`,
-      date: row.date,
-      timeIn: toHHMM(row.time_in),
-      timeOut: toHHMM(row.time_out),
-      hours: row.hours || 0,
-      zoneId: rider?.zone_id || '',
-      zoneName: zoneName || 'No Zone',
-      status: row.status as AttendanceStatus,
-      source: row.source as 'face-scan' | 'manual',
-      lat: rider?.lat ?? 0,
-      lng: rider?.lng ?? 0,
-      events: []
-    };
-  });
+  let result: AttendanceLog[] = (data || []).map((row: any) => ({
+    id: row.id,
+    riderId: row.rider_id,
+    riderName: row.rider_name || 'Unknown Rider',
+    riderAvatar: row.rider_avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.rider_name || '')}`,
+    date: row.date,
+    timeIn: row.time_in,
+    timeOut: row.time_out,
+    hours: row.hours || 0,
+    zoneId: row.zone_id || '',
+    zoneName: row.zone_name || 'Unassigned',
+    status: (row.hr_status === 'Late' ? 'late' : row.time_in ? 'present' : 'absent') as AttendanceStatus,
+    source: (row.source || 'face-scan') as 'face-scan' | 'manual',
+    notes: row.notes || undefined,
+    lat: row.lat || 0,
+    lng: row.lng || 0,
+    events: []
+  }));
 
   // Fetch matching violations and activity logs to build historical timelines
   const riderIds = result.map(r => r.riderId);
