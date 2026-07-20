@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabaseClient';
 import { type AttendanceLog, type AttendanceStatus } from './types';
 import { getCachedAvatar } from '../lib/avatarCache';
 
-// Helper to convert dynamic timestamps (timestamptz) back to HH:MM format expected by frontend UI
+// Helper to convert dynamic timestamps (timestamptz) back to HH:MM format in local timezone
 function toHHMM(dateStr: string | null): string | null {
   if (!dateStr) return null;
   try {
@@ -35,6 +35,8 @@ interface DbAttendanceViewRow {
   date: string;
   time_in: string | null;
   time_out: string | null;
+  raw_time_in: string | null;
+  raw_time_out: string | null;
   hours: number | null;
   notes: string | null;
   source: string | null;
@@ -87,6 +89,8 @@ export async function getAttendanceLogs(filters?: {
       date: row.date,
       timeIn: row.time_in,
       timeOut: row.time_out,
+      rawTimeIn: row.raw_time_in,
+      rawTimeOut: row.raw_time_out,
       hours: row.hours || 0,
       zoneId: row.zone_id || '',
       zoneName: row.zone_name || 'Unassigned',
@@ -130,26 +134,51 @@ export async function getAttendanceLogs(filters?: {
       result = result.map(log => {
         const logEvents: AttendanceLog['events'] = [];
 
-        // 1. Add geofence exit violations for this rider on this date
+        // 1. Filter violations so they only attach if v.created_at is within [raw_time_in, raw_time_out] shift window
         const matchingViolations = dbViolations.filter(v => {
           if (v.rider_id !== log.riderId) return false;
-          const vDate = (v.created_at || '').split('T')[0] || (v.created_at || '').split(' ')[0];
-          return vDate === log.date;
+
+          const vTime = new Date(v.created_at).getTime();
+          if (isNaN(vTime)) return false;
+
+          const shiftStart = log.rawTimeIn ? new Date(log.rawTimeIn).getTime() : null;
+          const shiftEnd = log.rawTimeOut ? new Date(log.rawTimeOut).getTime() : null;
+
+          // Must occur at or after shift start time (with 5-minute margin)
+          if (shiftStart && vTime < shiftStart - 300000) return false;
+
+          // If shift is closed (has time_out), violation must occur before or at shift end time (with 5-minute margin)
+          if (shiftEnd && vTime > shiftEnd + 300000) return false;
+
+          return true;
         });
 
         matchingViolations.forEach(v => {
-          logEvents.push({
-            ts: toHHMM(v.created_at) || '00:00',
-            type: 'exit',
-            zone: v.zone_name || log.zoneName
-          });
+          const ts = toHHMM(v.created_at) || '00:00';
+          const exists = logEvents.some(e => e.ts === ts && e.type === 'exit');
+          if (!exists) {
+            logEvents.push({
+              ts,
+              type: 'exit',
+              zone: v.zone_name || log.zoneName
+            });
+          }
         });
 
-        // 2. Add geofence enter/exit from activity_logs
+        // 2. Filter geofence enter/exit from activity_logs ONLY during this shift session
         const matchingActivities = dbActivities.filter(a => {
           if (a.rider_id !== log.riderId) return false;
-          const aDate = (a.created_at || '').split('T')[0] || (a.created_at || '').split(' ')[0];
-          return aDate === log.date;
+
+          const aTime = new Date(a.created_at).getTime();
+          if (isNaN(aTime)) return false;
+
+          const shiftStart = log.rawTimeIn ? new Date(log.rawTimeIn).getTime() : null;
+          const shiftEnd = log.rawTimeOut ? new Date(log.rawTimeOut).getTime() : null;
+
+          if (shiftStart && aTime < shiftStart - 300000) return false;
+          if (shiftEnd && aTime > shiftEnd + 300000) return false;
+
+          return true;
         });
 
         matchingActivities.forEach(a => {
@@ -158,7 +187,6 @@ export async function getAttendanceLogs(filters?: {
           const zone = meta?.zone_name || log.zoneName;
           const ts = toHHMM(a.created_at) || '00:00';
 
-          // Prevent exact duplicate events
           const exists = logEvents.some(e => e.ts === ts && e.type === type);
           if (!exists) {
             logEvents.push({ ts, type, zone });
@@ -202,177 +230,123 @@ export async function getTodayKpis() {
   };
 }
 
-/**
- * HR-focused KPIs for today.
- * - onDuty: any time-in recorded
- * - complete: has both time-in and time-out
- * - absent: status === 'absent' or no time-in
- * - pending: needs review — manual source OR has time-in but no time-out
- */
 export async function getHrTodayKpis() {
   const today = getLocalDateString();
   const todays = await getAttendanceLogs({ dateFrom: today, dateTo: today });
-  
-  const onDuty = todays.filter((l) => !!l.timeIn).length;
-  const complete = todays.filter((l) => !!l.timeIn && !!l.timeOut).length;
-  const absent = todays.filter((l) => l.status === 'absent' || !l.timeIn).length;
-  const pending = todays.filter(
-    (l) =>
-      (l.source === 'manual' && l.status !== 'absent') ||
-      (!!l.timeIn && !l.timeOut && l.status !== 'on_leave')
-  ).length;
-
-  return { onDuty, complete, absent, pending };
+  return {
+    onDuty: todays.filter((l) => l.timeIn !== null).length,
+    complete: todays.filter((l) => l.timeIn !== null && l.timeOut !== null).length,
+    absent: todays.filter((l) => l.status === 'absent' || l.timeIn === null).length,
+    pending: todays.filter((l) => l.source === 'manual' || (l.timeIn !== null && l.timeOut === null)).length
+  };
 }
 
-export async function recordTimeIn(riderId: string): Promise<void> {
-  const now = new Date();
-  const dateStr = getLocalDateString(now);
-
-  // Standard late cut-off rule: if signing in after 8:15 AM
-  const isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15);
-  const status = isLate ? 'late' : 'present';
-
-  const { error } = await supabase
-    .from('attendance_logs')
-    .insert({
-      rider_id: riderId,
-      date: dateStr,
-      time_in: now.toISOString(),
-      source: 'face-scan',
-      status: status
-    });
-
-  if (error) {
-    console.error('Error recording time in:', error);
-    throw error;
-  }
-}
-
-export async function recordTimeOut(riderId: string): Promise<void> {
-  const today = getLocalDateString();
-
-  // Find today's existing log for this rider
-  const { data: existing, error: findError } = await supabase
-    .from('attendance_logs')
-    .select('id')
-    .eq('rider_id', riderId)
-    .eq('date', today)
-    .maybeSingle();
-
-  if (findError) {
-    console.error('Error finding today attendance log for sign-out:', findError);
-    throw findError;
-  }
-
-  if (existing) {
-    const { error: updateError } = await supabase
-      .from('attendance_logs')
-      .update({
-        time_out: new Date().toISOString()
-      })
-      .eq('id', existing.id);
-
-    if (updateError) {
-      console.error('Error updating time out:', updateError);
-      throw updateError;
-    }
-  } else {
-    // Failsafe: if no record exists for today, insert a complete row directly
-    const now = new Date();
-    const { error: insertError } = await supabase
-      .from('attendance_logs')
-      .insert({
-        rider_id: riderId,
-        date: today,
-        time_in: now.toISOString(),
-        time_out: now.toISOString(),
-        source: 'face-scan',
-        status: 'present'
-      });
-
-    if (insertError) {
-      console.error('Failsafe sign-out insert failed:', insertError);
-      throw insertError;
-    }
-  }
-}
-
-/** HR view status derived from raw attendance fields. */
-export type HrLogStatus = 'Complete' | 'Incomplete' | 'Absent' | 'Late';
-
-export function deriveHrStatus(log: AttendanceLog): HrLogStatus {
-  if (log.status === 'absent' || !log.timeIn && log.status !== 'on_leave')
-    return 'Absent';
-  if (log.status === 'late') return 'Late';
+export function deriveHrStatus(log: AttendanceLog): 'Complete' | 'Incomplete' | 'Absent' | 'Late' {
+  if (!log.timeIn) return 'Absent';
   if (log.timeIn && log.timeOut) return 'Complete';
+  if (log.status === 'late') return 'Late';
   return 'Incomplete';
 }
 
-/** Build a CSV string + trigger a download in the browser. */
-export function exportLogsCsv(
-  logs: AttendanceLog[],
-  fileName = 'attendance.csv'
-) {
-  const headers = [
-    'Rider Name',
-    'Rider ID',
-    'Date',
-    'Zone',
-    'Time-In',
-    'Time-Out',
-    'Hours',
-    'Status',
-    'Source'
-  ];
-
+export function exportLogsCsv(logs: AttendanceLog[], filename = 'attendance_logs.csv') {
+  const headers = ['Rider Name', 'Date', 'Time In', 'Time Out', 'Hours', 'Zone', 'Status', 'Source'];
   const rows = logs.map((l) => [
-    l.riderName,
-    l.riderId,
+    `"${l.riderName.replace(/"/g, '""')}"`,
     l.date,
-    l.zoneName,
-    l.timeIn ?? '',
-    l.timeOut ?? '',
-    l.hours?.toString() ?? '',
-    deriveHrStatus(l),
+    l.timeIn || '',
+    l.timeOut || '',
+    l.hours ? l.hours.toFixed(2) : '0.00',
+    `"${l.zoneName.replace(/"/g, '""')}"`,
+    l.status,
     l.source
   ]);
 
-  const escape = (v: string) =>
-    /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-
-  const csv =
-    [headers, ...rows]
-      .map((r) => r.map((c) => escape(String(c ?? ''))).join(','))
-      .join('\n') + '\n';
-
-  if (typeof window === 'undefined') return csv;
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  return csv;
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
-// Fetch rider attendance logs in date range
-export const getRiderAttendanceInDateRange = async (
-  riderId: string,
-  from: string,
-  to: string
-) => {
+export async function getRiderAttendanceInDateRange(riderId: string, dateFrom: string, dateTo: string): Promise<AttendanceLog[]> {
+  const logs = await getAttendanceLogs({ dateFrom, dateTo });
+  return logs.filter(l => l.riderId === riderId);
+}
+
+export async function recordTimeIn(riderId: string, zoneId?: string): Promise<AttendanceLog | null> {
+  const today = getLocalDateString();
+  const now = new Date().toISOString();
+
   const { data, error } = await supabase
     .from('attendance_logs')
-    .select('date, time_in')
-    .eq('rider_id', riderId)
-    .gte('date', from)
-    .lte('date', to);
+    .insert({
+      rider_id: riderId,
+      date: today,
+      time_in: now,
+      status: 'present',
+      source: 'face-scan'
+    })
+    .select('*')
+    .single();
 
-  if (error) throw error;
-  return data || [];
-};
+  if (error) {
+    console.error('Error recording time-in:', error);
+    return null;
+  }
 
+  return {
+    id: data.id,
+    riderId: data.rider_id,
+    riderName: '',
+    riderAvatar: '',
+    date: data.date,
+    timeIn: toHHMM(data.time_in),
+    timeOut: null,
+    rawTimeIn: data.time_in,
+    rawTimeOut: null,
+    hours: 0,
+    zoneId: zoneId || '',
+    zoneName: '',
+    status: 'present',
+    source: 'face-scan',
+    events: []
+  };
+}
+
+export async function recordTimeOut(logId: string): Promise<boolean> {
+  const now = new Date().toISOString();
+
+  const { data: log, error: fetchErr } = await supabase
+    .from('attendance_logs')
+    .select('time_in')
+    .eq('id', logId)
+    .single();
+
+  if (fetchErr || !log || !log.time_in) {
+    console.error('Error fetching log for time-out:', fetchErr);
+    return false;
+  }
+
+  const timeInMs = new Date(log.time_in).getTime();
+  const timeOutMs = new Date(now).getTime();
+  const hours = Math.max(0, (timeOutMs - timeInMs) / 3600000);
+
+  const { error } = await supabase
+    .from('attendance_logs')
+    .update({
+      time_out: now,
+      hours: parseFloat(hours.toFixed(2))
+    })
+    .eq('id', logId);
+
+  if (error) {
+    console.error('Error recording time-out:', error);
+    return false;
+  }
+
+  return true;
+}
