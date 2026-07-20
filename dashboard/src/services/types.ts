@@ -38,6 +38,8 @@ export interface AttendanceLog {
   date: string; // ISO date
   timeIn: string | null; // HH:MM
   timeOut: string | null;
+  rawTimeIn?: string | null;
+  rawTimeOut?: string | null;
   hours: number;
   zoneId: string;
   zoneName: string;
