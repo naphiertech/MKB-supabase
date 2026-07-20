@@ -325,29 +325,16 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     loadRiderAndZone();
   }, [userId, riderId, allZones]);
 
-  // Stage-load AI models when the browser is idle and reclaim memory on tab hide or unmount
   useEffect(() => {
     let inactivityTimer: any = null;
     let preloadingTimeout: any = null;
 
-    const runOnIdle = (callback: () => void) => {
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(callback, { timeout: 3000 });
-      } else {
-        setTimeout(callback, 2000);
-      }
-    };
-
+    // Priority 2: Begin loading face-api.js models and MediaPipe assets immediately after dashboard mounts
     preloadingTimeout = setTimeout(() => {
-      runOnIdle(async () => {
-        try {
-          console.log('[RiderDashboard] Loading biometrics on idle...');
-          await preloadBiometrics();
-        } catch (err) {
-          console.warn('[RiderDashboard] Failed to preload biometrics:', err);
-        }
+      preloadBiometrics().catch(err => {
+        console.warn('[RiderDashboard] Background biometrics preloading exception:', err);
       });
-    }, 1500); // Delay by 1.5s to keep initial paint smooth
+    }, 50);
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
