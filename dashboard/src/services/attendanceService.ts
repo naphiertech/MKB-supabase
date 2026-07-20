@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { type AttendanceLog, type AttendanceStatus } from './types';
+import { getCachedAvatar } from '../lib/avatarCache';
 
 // Helper to convert dynamic timestamps (timestamptz) back to HH:MM format expected by frontend UI
 function toHHMM(dateStr: string | null): string | null {
@@ -23,33 +24,23 @@ export function getLocalDateString(d: Date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-interface DbAttendanceLogRow {
+interface DbAttendanceViewRow {
   id: string;
   rider_id: string;
+  rider_name: string | null;
+  rider_avatar: string | null;
+  rider_code: string | null;
+  zone_id: string | null;
+  zone_name: string | null;
   date: string;
   time_in: string | null;
   time_out: string | null;
   hours: number | null;
-  status: string;
-  source: string;
   notes: string | null;
-  riders: {
-    name: string;
-    avatar_url: string | null;
-    face_image_url: string | null;
-    zone_id: string;
-    lat?: number | null;
-    lng?: number | null;
-    zones: { name: string } | { name: string }[] | null;
-  } | {
-    name: string;
-    avatar_url: string | null;
-    face_image_url: string | null;
-    zone_id: string;
-    lat?: number | null;
-    lng?: number | null;
-    zones: { name: string } | { name: string }[] | null;
-  }[] | null;
+  source: string | null;
+  lat: number | null;
+  lng: number | null;
+  hr_status: string | null;
 }
 
 export async function getAttendanceLogs(filters?: {
@@ -85,24 +76,28 @@ export async function getAttendanceLogs(filters?: {
     return [];
   }
 
-  let result: AttendanceLog[] = (data || []).map((row: any) => ({
-    id: row.id,
-    riderId: row.rider_id,
-    riderName: row.rider_name || 'Unknown Rider',
-    riderAvatar: row.rider_avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.rider_name || '')}`,
-    date: row.date,
-    timeIn: row.time_in,
-    timeOut: row.time_out,
-    hours: row.hours || 0,
-    zoneId: row.zone_id || '',
-    zoneName: row.zone_name || 'Unassigned',
-    status: (row.hr_status === 'Late' ? 'late' : row.time_in ? 'present' : 'absent') as AttendanceStatus,
-    source: (row.source || 'face-scan') as 'face-scan' | 'manual',
-    notes: row.notes || undefined,
-    lat: row.lat || 0,
-    lng: row.lng || 0,
-    events: []
-  }));
+  let result: AttendanceLog[] = ((data as unknown as DbAttendanceViewRow[]) || []).map((row: DbAttendanceViewRow) => {
+    const cached = getCachedAvatar(row.rider_id);
+    const realPhoto = row.rider_avatar || cached || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.rider_name || '')}`;
+    return {
+      id: row.id,
+      riderId: row.rider_id,
+      riderName: row.rider_name || 'Unknown Rider',
+      riderAvatar: realPhoto,
+      date: row.date,
+      timeIn: row.time_in,
+      timeOut: row.time_out,
+      hours: row.hours || 0,
+      zoneId: row.zone_id || '',
+      zoneName: row.zone_name || 'Unassigned',
+      status: (row.hr_status === 'Late' ? 'late' : row.time_in ? 'present' : 'absent') as AttendanceStatus,
+      source: (row.source || 'face-scan') as 'face-scan' | 'manual',
+      notes: row.notes || undefined,
+      lat: row.lat || 0,
+      lng: row.lng || 0,
+      events: []
+    };
+  });
 
   // Fetch matching violations and activity logs to build historical timelines
   const riderIds = result.map(r => r.riderId);
