@@ -271,6 +271,45 @@ export async function detectFaceWithDetails(
   }
 }
 
+let offscreenCanvas: HTMLCanvasElement | null = null;
+
+/**
+ * Priority 4: Downscales video frames to an offscreen 320x320 canvas for AI inference
+ * while keeping the visible camera stream at full native quality.
+ */
+export async function detectFaceWithDetailsDownscaled(
+  video: HTMLVideoElement
+): Promise<FaceRecognitionData | null> {
+  if (!video || video.readyState < 2) return null;
+
+  if (!offscreenCanvas) {
+    offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = 320;
+    offscreenCanvas.height = 320;
+  }
+
+  const ctx = offscreenCanvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.drawImage(video, 0, 0, 320, 320);
+
+  const res = await detectFaceWithDetails(offscreenCanvas);
+  if (!res) return null;
+
+  const scaleX = video.videoWidth / 320;
+  const scaleY = video.videoHeight / 320;
+
+  return {
+    ...res,
+    box: {
+      x: res.box.x * scaleX,
+      y: res.box.y * scaleY,
+      width: res.box.width * scaleX,
+      height: res.box.height * scaleY
+    }
+  };
+}
+
 
 /**
  * Loads a remote or local image URL as an HTMLImageElement and computes its facial embedding.
