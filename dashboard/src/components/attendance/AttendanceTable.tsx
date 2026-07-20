@@ -20,6 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import type { AttendanceLog } from '../../services/types';
+import { getLocalDateString } from '../../services/attendanceService';
 import { StatusPill } from './StatusPill';
 
 interface AttendanceTableProps {
@@ -264,15 +265,22 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
 
                     {/* Merged Shift Column */}
                     <td className="py-3 px-4">
-                      <div className="flex flex-col font-mono text-xs">
-                        <span className="text-[#1A1410] font-semibold tabular-nums">
-                          {l.timeIn ? l.timeIn : '—'} {l.timeIn && l.timeOut ? '→' : ''}{' '}
-                          {l.timeOut ? l.timeOut : l.timeIn ? 'Active' : ''}
-                        </span>
-                        <span className="text-[11px] text-[#6B6258] tabular-nums">
-                          {l.hours > 0 ? `${l.hours.toFixed(1)} hrs` : l.timeIn ? 'In progress' : '0.0 hrs'}
-                        </span>
-                      </div>
+                      {(() => {
+                        const todayStr = getLocalDateString();
+                        const isToday = l.date === todayStr;
+                        const isUnclosedPast = !l.timeOut && !isToday && !!l.timeIn;
+                        return (
+                          <div className="flex flex-col font-mono text-xs">
+                            <span className="text-[#1A1410] font-semibold tabular-nums">
+                              {l.timeIn ? l.timeIn : '—'} {l.timeIn && l.timeOut ? '→' : ''}{' '}
+                              {l.timeOut ? l.timeOut : isUnclosedPast ? '(No Time-Out)' : l.timeIn ? 'Active' : ''}
+                            </span>
+                            <span className="text-[11px] text-[#6B6258] tabular-nums">
+                              {l.hours > 0 ? `${l.hours.toFixed(1)} hrs` : isUnclosedPast ? 'Incomplete' : l.timeIn ? 'In progress' : '0.0 hrs'}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Zone */}
