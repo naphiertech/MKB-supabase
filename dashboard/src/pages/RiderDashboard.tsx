@@ -353,16 +353,24 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     loadRiderAndZone();
   }, [loadRiderAndZone]);
 
+  // Background Biometrics Pre-warming (decoupled from initial page render)
   useEffect(() => {
-    let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
-    let preloadingTimeout: ReturnType<typeof setTimeout> | null = null;
+    if (loading) return;
 
-    // Priority 2: Begin loading face-api.js models and MediaPipe assets immediately after dashboard mounts
-    preloadingTimeout = setTimeout(() => {
+    // Delay compilation/preloading until 1.5s after the UI is fully loaded and interactive
+    const preloadingTimeout = setTimeout(() => {
+      console.log('[RiderDashboard] Dashboard interactive. Starting biometrics background pre-warming...');
       preloadBiometrics().catch(err => {
         console.warn('[RiderDashboard] Background biometrics preloading exception:', err);
       });
-    }, 50);
+    }, 1500);
+
+    return () => clearTimeout(preloadingTimeout);
+  }, [loading]);
+
+  // Tab Inactivity Geolocation/Biometrics Resource Cleanup
+  useEffect(() => {
+    let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -382,12 +390,8 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (preloadingTimeout) clearTimeout(preloadingTimeout);
       if (inactivityTimer) clearTimeout(inactivityTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      
-      // Reclaim WebGL memory immediately on unmount/logout
-      releaseBiometrics();
     };
   }, []);
 
