@@ -81,6 +81,11 @@ export function useFaceRecognition({
   const matchCountRef = useRef(0);
   const maxEarRef = useRef<number>(0);
 
+  // Liveness Frame Stability Counters (requires ~800ms stable alignment before blink prompt)
+  const alignmentFramesRef = useRef<number>(0);
+  const closedFramesRef = useRef<number>(0);
+  const reopenFramesRef = useRef<number>(0);
+
   // Performance Optimization Refs
   const lastInferenceTimeRef = useRef<number>(0);
   const lastDescriptorMatchTimeRef = useRef<number>(0);
@@ -116,6 +121,9 @@ export function useFaceRecognition({
     faceMatchedRef.current = false;
     matchCountRef.current = 0;
     maxEarRef.current = 0;
+    alignmentFramesRef.current = 0;
+    closedFramesRef.current = 0;
+    reopenFramesRef.current = 0;
     lastInferenceTimeRef.current = 0;
     lastDescriptorMatchTimeRef.current = 0;
     cachedFaceDataRef.current = null;
@@ -263,18 +271,39 @@ export function useFaceRecognition({
                 mpEAR = calculateMediaPipeEAR(landmarks);
 
                 if (isVerificationMode) {
-                  // Challenge Sequence:
-                  // Stage A: Align face (eyes open)
-                  if (!eyesOpenDetectedRef.current && mpEAR > 0.20) {
-                    eyesOpenDetectedRef.current = true;
+                  // Challenge Sequence with Frame-Stability Verification:
+                  // Stage A: Require ~800ms (8 consecutive frames) of stable alignment with open eyes
+                  if (!eyesOpenDetectedRef.current) {
+                    if (mpEAR > 0.20) {
+                      alignmentFramesRef.current += 1;
+                      if (alignmentFramesRef.current >= 8) {
+                        eyesOpenDetectedRef.current = true;
+                      }
+                    } else {
+                      alignmentFramesRef.current = 0;
+                    }
                   }
-                  // Stage B: Blink (eyes closed)
-                  if (eyesOpenDetectedRef.current && !eyesClosedDetectedRef.current && mpEAR < 0.19) {
-                    eyesClosedDetectedRef.current = true;
+                  // Stage B: Require at least 2 consecutive frames of closed eyes (mpEAR < 0.19)
+                  else if (!eyesClosedDetectedRef.current) {
+                    if (mpEAR < 0.19) {
+                      closedFramesRef.current += 1;
+                      if (closedFramesRef.current >= 2) {
+                        eyesClosedDetectedRef.current = true;
+                      }
+                    } else {
+                      closedFramesRef.current = 0;
+                    }
                   }
-                  // Stage C: Reopen eyes
-                  if (eyesClosedDetectedRef.current && !blinkCompletedRef.current && mpEAR > 0.20) {
-                    blinkCompletedRef.current = true;
+                  // Stage C: Require at least 2 consecutive frames of reopened eyes (mpEAR > 0.20)
+                  else if (!blinkCompletedRef.current) {
+                    if (mpEAR > 0.20) {
+                      reopenFramesRef.current += 1;
+                      if (reopenFramesRef.current >= 2) {
+                        blinkCompletedRef.current = true;
+                      }
+                    } else {
+                      reopenFramesRef.current = 0;
+                    }
                   }
 
                   livenessPassed = blinkCompletedRef.current;
@@ -504,6 +533,21 @@ export function useFaceRecognition({
     setProgress(0);
     setPhase('initializing');
     isScanningActiveRef.current = true;
+
+    // Fully reset all liveness state refs for clean scan start
+    eyesOpenDetectedRef.current = false;
+    eyesClosedDetectedRef.current = false;
+    blinkCompletedRef.current = false;
+    headTiltedDetectedRef.current = false;
+    faceMatchedRef.current = false;
+    matchCountRef.current = 0;
+    maxEarRef.current = 0;
+    alignmentFramesRef.current = 0;
+    closedFramesRef.current = 0;
+    reopenFramesRef.current = 0;
+    lastInferenceTimeRef.current = 0;
+    lastDescriptorMatchTimeRef.current = 0;
+    cachedFaceDataRef.current = null;
 
     const isVerificationMode = !!referenceAvatar;
 
