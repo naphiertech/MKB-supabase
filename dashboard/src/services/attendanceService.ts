@@ -338,8 +338,7 @@ export async function recordTimeOut(logId: string): Promise<boolean> {
   const { error } = await supabase
     .from('attendance_logs')
     .update({
-      time_out: now,
-      hours: parseFloat(hours.toFixed(2))
+      time_out: now
     })
     .eq('id', logId);
 
