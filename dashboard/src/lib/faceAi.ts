@@ -55,6 +55,7 @@ interface WindowWithAi extends Window {
 }
 
 let modelsLoadedPromise: Promise<void> | null = null;
+let biometricsPreloadedPromise: Promise<void> | null = null;
 
 /**
  * Checks if the global CDN scripts are loaded and available.
@@ -485,27 +486,38 @@ export async function warmUpModels(landmarker: FaceLandmarkerType | null) {
 /**
  * Stage-loads scripts, downloads models, and warms up the engines.
  */
-export async function preloadBiometrics() {
-  try {
-    console.log('[Face AI] Pre-loading scripts...');
-    const active = await ensureScriptsLoaded();
-    if (!active) {
-      console.warn('[Face AI] Failed to load global CDN scripts.');
-      return;
-    }
-
-    console.log('[Face AI] Pre-downloading AI models...');
-    // Parallel download and instantiation
-    const [landmarker] = await Promise.all([
-      loadMediaPipeLandmarker(),
-      loadFaceModels()
-    ]);
-
-    // Warm up the models
-    await warmUpModels(landmarker);
-  } catch (err) {
-    console.warn('[Face AI] Preloading biometrics failed:', err);
+export function preloadBiometrics(): Promise<void> {
+  if (biometricsPreloadedPromise) {
+    console.log('[Face AI] preloadBiometrics(): REUSING existing preloading promise.');
+    return biometricsPreloadedPromise;
   }
+
+  console.log('[Face AI] preloadBiometrics(): NO cached promise. Initiating preloader...');
+  biometricsPreloadedPromise = (async () => {
+    try {
+      console.log('[Face AI] Pre-loading scripts...');
+      const active = await ensureScriptsLoaded();
+      if (!active) {
+        console.warn('[Face AI] Failed to load global CDN scripts.');
+        return;
+      }
+
+      console.log('[Face AI] Pre-downloading AI models...');
+      // Parallel download and instantiation
+      const [landmarker] = await Promise.all([
+        loadMediaPipeLandmarker(),
+        loadFaceModels()
+      ]);
+
+      // Warm up the models
+      await warmUpModels(landmarker);
+    } catch (err) {
+      console.warn('[Face AI] Preloading biometrics failed:', err);
+      biometricsPreloadedPromise = null; // reset to allow retry
+    }
+  })();
+
+  return biometricsPreloadedPromise;
 }
 
 /**
@@ -522,6 +534,7 @@ export async function releaseBiometrics() {
     }
     landmarkerPromise = null;
     modelsLoadedPromise = null;
+    biometricsPreloadedPromise = null;
     console.log('[Face AI] Resources released.');
   } catch (err) {
     console.warn('[Face AI] Error while releasing resources:', err);
