@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { dispatchNotificationSafe } from './notificationService';
 
 export interface RiderPayrollRecord {
   id: string;
@@ -46,6 +47,18 @@ export const cacheRiderFaceDescriptor = async (riderId: string, descriptor: numb
     });
 
   if (error) throw error;
+
+  // Non-blocking notification dispatch for face biometrics registration
+  void dispatchNotificationSafe({
+    category: 'biometrics',
+    priority: 'medium',
+    type: 'system',
+    title: 'Face Biometrics Enrolled',
+    message: `Rider facial biometric descriptor was registered/updated`,
+    riderId,
+    actionLink: '/users',
+    targetRoles: ['hr', 'admin']
+  });
 };
 
 // Fetch linked rider ID for active user profile
