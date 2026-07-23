@@ -1,6 +1,6 @@
 # AttenRider — MKB Rider Monitoring, Attendance & Payroll System
 
-Welcome to the **AttenRider** workspace. This repository contains the unified codebase for Mobile Kin Bok (MKB)'s rider monitoring, geofencing, face biometric verification, offline-first attendance queueing, and payroll automation systems. 
+Welcome to the **AttenRider** workspace. This repository contains the unified codebase for MKB's rider monitoring, geofencing, face biometric verification, offline-first attendance queueing, and payroll automation systems.
 
 The workspace is organized as a high-fidelity monorepo consisting of a premium Next.js customer/marketing portal and a real-time React + Vite operational management dashboard, both integrated with a unified **Supabase PostgreSQL** backend and an **Offline-First IndexedDB Data Layer**.
 
@@ -32,7 +32,7 @@ graph TD
 
     LP -->|Reads Config| SB
     DB -->|Real-Time Admin & HR Sync| RT
-    
+
     DB -->|Rider Pages| SWR
     SWR -->|1. Instant Warm Read| SA
     SA --> DA
@@ -102,27 +102,32 @@ MKB-supabase/
 ## 🌟 System Portals & Features
 
 ### 1. Courier / Rider Portal (`Touch-First & Offline-First`)
+
 Built specifically for mobile webviews and mobile devices:
-* **Instant SWR Startup**: Dashboard, attendance history, and profile render in **< 50ms** from local IndexedDB cache.
-* **Offline Attendance Queueing**: Time-In and Time-Out actions enqueued to `SyncQueue` when cellular network drops.
-* **Offline Face Recognition**: Face biometrics verify identity 100% offline using locally persistent 128-dimensional Float32Array embeddings.
-* **Geofence Validation**: Real-time client-side Haversine distance and polygon boundary validation.
-* **Automatic Background Sync**: `SyncEngine` auto-drains outbox queues upon network restoration with exponential backoff and spatial-temporal GPS log thinning.
+
+- **Instant SWR Startup**: Dashboard, attendance history, and profile render in **< 50ms** from local IndexedDB cache.
+- **Offline Attendance Queueing**: Time-In and Time-Out actions enqueued to `SyncQueue` when cellular network drops.
+- **Offline Face Recognition**: Face biometrics verify identity 100% offline using locally persistent 128-dimensional Float32Array embeddings.
+- **Geofence Validation**: Real-time client-side Haversine distance and polygon boundary validation.
+- **Automatic Background Sync**: `SyncEngine` auto-drains outbox queues upon network restoration with exponential backoff and spatial-temporal GPS log thinning.
 
 ### 2. Admin Operational Portal
-* **Live Fleet Monitoring**: Real-time interactive map rendering active rider pins, speeds, and status markers.
-* **Geofence Management**: Polygon and circular zone creation with status toggles.
-* **System Administration**: User directory management, role assignments (`admin`, `hr`, `payroll`, `rider`), and audit logging.
+
+- **Live Fleet Monitoring**: Real-time interactive map rendering active rider pins, speeds, and status markers.
+- **Geofence Management**: Polygon and circular zone creation with status toggles.
+- **System Administration**: User directory management, role assignments (`admin`, `hr`, `payroll`, `rider`), and audit logging.
 
 ### 3. HR Portal
-* **Attendance Oversight**: Real-time clock-in/out tracking with automated late/absent classifications.
-* **Biometric Enrollment**: Managing rider face reference descriptors.
-* **Violation Logs**: Tracking idle excesses and geofence exit violations.
+
+- **Attendance Oversight**: Real-time clock-in/out tracking with automated late/absent classifications.
+- **Biometric Enrollment**: Managing rider face reference descriptors.
+- **Violation Logs**: Tracking idle excesses and geofence exit violations.
 
 ### 4. Payroll Portal
-* **Automated Pay Computations**: Salary calculations derived from validated attendance hours.
-* **Export Engine**: One-click generation of PDF paystubs and Excel summaries (`jspdf`, `xlsx`).
-* **Payroll Cutoff Management**: Draft, pending, approved, and paid workflow locks.
+
+- **Automated Pay Computations**: Salary calculations derived from validated attendance hours.
+- **Export Engine**: One-click generation of PDF paystubs and Excel summaries (`jspdf`, `xlsx`).
+- **Payroll Cutoff Management**: Draft, pending, approved, and paid workflow locks.
 
 ---
 
@@ -154,42 +159,46 @@ Built specifically for mobile webviews and mobile devices:
 ## 🛠️ Live Supabase Database Schema
 
 The database utilizes custom SQL tables, spatial triggers, and computed columns (`attenrider_schema.sql`):
-* **`users`**: System credentials and assigned role (`admin`, `hr`, `payroll`, `rider`).
-* **`riders`**: Courier directory containing assigned zone ID, current GPS position, status, and 128D face descriptor array.
-* **`zones`**: Delivery boundaries containing coordinates, polygon arrays, and radii.
-* **`attendance_logs`**: Chronological Time-In and Time-Out timestamps with PostgreSQL generated `hours` column.
-* **`violations`**: Logged geofence exits and idle time breaches.
-* **`rider_locations`**: Historical GPS pings for breadcrumb map route trails.
+
+- **`users`**: System credentials and assigned role (`admin`, `hr`, `payroll`, `rider`).
+- **`riders`**: Courier directory containing assigned zone ID, current GPS position, status, and 128D face descriptor array.
+- **`zones`**: Delivery boundaries containing coordinates, polygon arrays, and radii.
+- **`attendance_logs`**: Chronological Time-In and Time-Out timestamps with PostgreSQL generated `hours` column.
+- **`violations`**: Logged geofence exits and idle time breaches.
+- **`rider_locations`**: Historical GPS pings for breadcrumb map route trails.
 
 ---
 
 ## 🚀 Setup & Installation
 
 ### Prerequisites
-* **Node.js** (v18.x or higher)
-* **npm** (v9.x or higher)
-* **Supabase Project** (active project URL and Anon key)
+
+- **Node.js** (v18.x or higher)
+- **npm** (v9.x or higher)
+- **Supabase Project** (active project URL and Anon key)
 
 ### Quick Start Installation
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repository-url>
    cd MKB-supabase
    ```
 
 2. **Bootstrap dependencies**:
+
    ```bash
    npm install
    ```
 
 3. **Configure Environment Variables**:
-   * Create `dashboard/.env`:
+   - Create `dashboard/.env`:
      ```env
      VITE_SUPABASE_URL=https://your-project-ref.supabase.co
      VITE_SUPABASE_ANON_KEY=your-public-anon-key
      ```
-   * Create `landing/.env.local`:
+   - Create `landing/.env.local`:
      ```env
      NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
      NEXT_PUBLIC_SUPABASE_ANON_KEY=your-public-anon-key
@@ -199,8 +208,9 @@ The database utilizes custom SQL tables, spatial triggers, and computed columns 
    ```bash
    npm run dev
    ```
-   * **Dashboard**: `http://localhost:5173`
-   * **Landing**: `http://localhost:3000`
+
+   - **Dashboard**: `http://localhost:5173`
+   - **Landing**: `http://localhost:3000`
 
 ---
 
@@ -219,7 +229,7 @@ npx vite build
 
 ## 📄 Documentation & References
 
-* [Technical Architecture Specification](file:///C:/Users/NaphierNODE/.gemini/antigravity-ide/brain/f0a7e1c2-089f-4b10-b0fe-6c8445cb1ffa/offline_first_rider_architecture_spec.md)
-* [Supabase Bootstrap Instructions](file:///c:/Users/NaphierNODE/Documents/NaphierPROJECTS/MKB-supabase/supabase_setup_instructions.md)
+- [Technical Architecture Specification](file:///C:/Users/NaphierNODE/.gemini/antigravity-ide/brain/f0a7e1c2-089f-4b10-b0fe-6c8445cb1ffa/offline_first_rider_architecture_spec.md)
+- [Supabase Bootstrap Instructions](file:///c:/Users/NaphierNODE/Documents/NaphierPROJECTS/MKB-supabase/supabase_setup_instructions.md)
 
 **MKB Corporation · Safe Driving, Punctual Deliveries** 🛵
