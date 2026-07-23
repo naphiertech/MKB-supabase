@@ -7,11 +7,9 @@ import {
 import {
   getRiderPayrollHistory,
   cacheRiderFaceDescriptor,
-  getRiderUserMapping,
-  getRiderFullProfile,
-  getRiderDashboardStats,
   getRiderViolationsForMonth
 } from '../services/riderService';
+import { fetchRiderDashboardWithSWR, type CachedDashboardPayload } from '../services/riderCacheService';
 import { recordTimeIn, recordTimeOut } from '../services/attendanceService';
 import { useRiderZone } from '../context/RiderZoneContext';
 import { isPointInPolygon } from '../lib/geofenceUtils';
@@ -140,7 +138,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     time_out: string | null;
     hours: number | null;
     status: string;
-    source: string;
+    source?: string | null;
   }
 
   interface DBViolation {
@@ -242,63 +240,51 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
   const loadRiderAndZone = useCallback(async () => {
     try {
-      setLoading(true);
+      const todayStr = getLocalDateString();
+      const todayDate = new Date();
+      const firstDayOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+      const firstDayStr = getLocalDateString(firstDayOfMonth);
+      
+      const dayOfWeek = todayDate.getDay();
+      const diff = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+      const firstDayOfWeek = new Date(todayDate.setDate(diff));
+      const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
 
-      // Retrieve the linked rider_id using the logged-in Auth UUID
-      const dbUser = await getRiderUserMapping(userId);
-
-      const resolvedRiderId = dbUser?.rider_id || riderId;
-      setActualRiderId(resolvedRiderId);
-
-      const dbRider = await getRiderFullProfile(resolvedRiderId);
-
-      if (dbRider) {
-        const mappedRider: Rider & { faceDescriptor?: number[] | null } = {
-          id: dbRider.id,
-          name: dbRider.name,
-          avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
-          zoneId: dbRider.zone_id,
-          status: dbRider.status,
-          lat: dbRider.lat || 0,
-          lng: dbRider.lng || 0,
-          speed: dbRider.speed || 0,
-          shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
-          lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
-          phone: dbRider.contact || '',
-          riderCode: dbRider.mkb_id,
-          faceDescriptor: dbRider.face_descriptor || null
-        };
-        setRider(mappedRider);
-
-        const resolvedZone = allZones.find(z => z.id === dbRider.zone_id) || allZones[0];
-        if (resolvedZone) {
-          setZone(resolvedZone);
-        }
-
-        // Fetch attendance logs for today using the resolved Rider UUID
-        const todayStr = getLocalDateString();
-
-        // Load real stats for the current month
-        const todayDate = new Date();
-        const firstDayOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
-        const firstDayStr = getLocalDateString(firstDayOfMonth);
-        
-        const dayOfWeek = todayDate.getDay();
-        const diff = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Monday is start of week
-        const firstDayOfWeek = new Date(todayDate.setDate(diff));
-        const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
-
+      const applyPayload = (payload: CachedDashboardPayload) => {
         const {
+          resolvedRiderId,
+          dbRider,
           todayAttendance: attLog,
           latestViolation: violationData,
           monthAttendance: monthLogs,
           monthViolationCount: violationCount
-        } = await getRiderDashboardStats(
-          resolvedRiderId,
-          todayStr,
-          firstDayStr,
-          firstDayOfMonth.toISOString()
-        );
+        } = payload;
+
+        setActualRiderId(resolvedRiderId);
+
+        if (dbRider) {
+          const mappedRider: Rider & { faceDescriptor?: number[] | null } = {
+            id: dbRider.id,
+            name: dbRider.name,
+            avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
+            zoneId: dbRider.zone_id,
+            status: dbRider.status,
+            lat: dbRider.lat || 0,
+            lng: dbRider.lng || 0,
+            speed: dbRider.speed || 0,
+            shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
+            lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
+            phone: dbRider.contact || '',
+            riderCode: dbRider.mkb_id,
+            faceDescriptor: dbRider.face_descriptor || null
+          };
+          setRider(mappedRider);
+
+          const resolvedZone = allZones.find(z => z.id === dbRider.zone_id) || allZones[0];
+          if (resolvedZone) {
+            setZone(resolvedZone);
+          }
+        }
 
         if (attLog) {
           setAttendance({
@@ -341,10 +327,27 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           hoursThisWeek: Number(weekHours.toFixed(1)),
           violationsThisMonth: violationCount || 0
         });
-      }
+
+        setLoading(false);
+      };
+
+      await fetchRiderDashboardWithSWR(
+        userId,
+        riderId,
+        todayStr,
+        firstDayStr,
+        firstDayOfMonth.toISOString(),
+        {
+          onCacheLoaded: (cachedData) => {
+            applyPayload(cachedData);
+          },
+          onFreshDataLoaded: (freshData) => {
+            applyPayload(freshData);
+          }
+        }
+      );
     } catch (err) {
       console.error('Error loading rider dashboard data:', err);
-    } finally {
       setLoading(false);
     }
   }, [userId, riderId, allZones]);

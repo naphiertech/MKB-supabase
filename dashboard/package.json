@@ -25,6 +25,7 @@
     "react-hot-toast": "^2.6.0",
     "react-leaflet": "^4.2.1",
     "recharts": "^2.12.7",
+    "dexie": "^4.0.10",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
