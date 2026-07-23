@@ -4,9 +4,13 @@ import { MapContainer, TileLayer, Polygon, Circle } from 'react-leaflet';
 import {
   type Rider,
   type Zone,
-  type AppUser } from '../services/types';
-import { getUserProfileById, updateUserAuthCredentials } from '../services/userService';
-import { getRiderFullProfile, updateRiderContact } from '../services/riderService';
+  type AppUser,
+  type UserRole,
+  type UserStatus,
+  type ZoneStatus } from '../services/types';
+import { updateUserAuthCredentials } from '../services/userService';
+import { updateRiderContact } from '../services/riderService';
+import { fetchRiderProfileWithSWR, type CachedProfilePayload } from '../services/riderCacheService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import { pushToast } from '../hooks/useToast';
 
@@ -42,24 +46,20 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        setLoading(true);
-
-        const dbUser = await getUserProfileById(userId);
-
-        if (dbUser) {
-          setUser({
-            id: dbUser.id,
-            name: dbUser.full_name,
-            avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbUser.full_name)}`,
-            email: dbUser.email,
-            role: dbUser.role,
-            zoneId: null,
-            status: dbUser.status,
-            lastLogin: dbUser.last_login ? new Date(dbUser.last_login).getTime() : 0
-          });
-
-          const resolvedRiderId = dbUser.rider_id || riderId;
-          const dbRider = await getRiderFullProfile(resolvedRiderId);
+        const applyPayload = (payload: CachedProfilePayload) => {
+          const { dbUser, dbRider } = payload;
+          if (dbUser) {
+            setUser({
+              id: dbUser.id,
+              name: dbUser.full_name,
+              avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbUser.full_name)}`,
+              email: dbUser.email,
+              role: dbUser.role as UserRole,
+              zoneId: null,
+              status: dbUser.status as UserStatus,
+              lastLogin: dbUser.last_login ? new Date(dbUser.last_login).getTime() : 0
+            });
+          }
 
           if (dbRider) {
             const mappedRider: Rider = {
@@ -82,9 +82,9 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
             if (dbRider.zones) {
               const dbZone = dbRider.zones;
               let center: [number, number] = [0, 0];
-              if (dbZone.lat !== null && dbZone.lng !== null) {
+              if (dbZone.lat != null && dbZone.lng != null) {
                 center = [dbZone.lat, dbZone.lng];
-              } else if (dbZone.polygon_coordinates && dbZone.polygon_coordinates.length > 0) {
+              } else if (Array.isArray(dbZone.polygon_coordinates) && dbZone.polygon_coordinates.length > 0) {
                 const polyCoords = dbZone.polygon_coordinates as [number, number][];
                 const latSum = polyCoords.reduce((sum: number, c: [number, number]) => sum + c[0], 0);
                 const lngSum = polyCoords.reduce((sum: number, c: [number, number]) => sum + c[1], 0);
@@ -95,17 +95,27 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
                 name: dbZone.name,
                 center,
                 radius: dbZone.radius || 0,
-                color: dbZone.color,
-                status: dbZone.status,
-                zone_type: dbZone.zone_type,
-                polygon_coordinates: dbZone.polygon_coordinates || undefined
+                color: dbZone.color || '#3B82F6',
+                status: (dbZone.status || 'active') as ZoneStatus,
+                zone_type: (dbZone.zone_type || 'polygon') as 'circle' | 'polygon',
+                polygon_coordinates: (dbZone.polygon_coordinates as [number, number][]) || undefined
               });
             }
           }
-        }
+
+          setLoading(false);
+        };
+
+        await fetchRiderProfileWithSWR(
+          userId,
+          riderId,
+          {
+            onCacheLoaded: applyPayload,
+            onFreshDataLoaded: applyPayload
+          }
+        );
       } catch (e) {
         console.error('Failed to load profile data:', e);
-      } finally {
         setLoading(false);
       }
     }

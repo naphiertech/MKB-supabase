@@ -31,6 +31,8 @@ export interface BiometricDebugInfo {
 }
 
 interface UseFaceRecognitionOptions {
+  /** Optional Rider ID for persistent descriptor caching */
+  riderId?: string;
   /** Total duration of a scan, in ms. */
   durationMs?: number;
   /** Probability the simulated scan succeeds (0–1). Default 1 (always matches). */
@@ -52,6 +54,7 @@ interface ScanResult {
 }
 
 export function useFaceRecognition({
+  riderId,
   durationMs = 3000,
   successRate = 1.0,
   referenceAvatar = null,
@@ -201,20 +204,24 @@ export function useFaceRecognition({
       if (referenceDescriptor && referenceDescriptor.length === 128) {
         referenceDesc = new Float32Array(referenceDescriptor);
         refLoaded = true;
-        console.log('[Face AI] Reference descriptor loaded directly from DB.');
+        console.log('[Face AI] Reference descriptor loaded directly from DB/props.');
+        if (riderId || referenceAvatar) {
+          setCachedDescriptor(riderId || referenceAvatar || '', referenceDescriptor, referenceAvatar);
+        }
       } else {
         // Priority 5: Persistent LocalStorage / IndexedDB Descriptor Cache
-        const cachedArr = getCachedDescriptor(referenceAvatar || '', referenceAvatar);
+        const targetId = riderId || referenceAvatar || '';
+        const cachedArr = getCachedDescriptor(targetId, referenceAvatar);
         if (cachedArr && cachedArr.length === 128) {
           referenceDesc = new Float32Array(cachedArr);
           refLoaded = true;
-          console.log('[Face AI] Reference descriptor loaded from local persistent cache.');
-        } else if (!isCartoonPlaceholder && referenceAvatar) {
+          console.log('[Face AI] Reference descriptor loaded from local persistent cache for rider:', targetId);
+        } else if (!isCartoonPlaceholder && referenceAvatar && navigator.onLine) {
           referenceDesc = await getDescriptorFromUrl(referenceAvatar);
           if (referenceDesc) {
             refLoaded = true;
             console.log('[Face AI] Reference descriptor compiled from URL.');
-            setCachedDescriptor(referenceAvatar, Array.from(referenceDesc), referenceAvatar);
+            setCachedDescriptor(targetId, Array.from(referenceDesc), referenceAvatar);
             onDescriptorCalculated?.(Array.from(referenceDesc));
           }
         }
@@ -523,7 +530,7 @@ export function useFaceRecognition({
     };
 
     scanLoopRef.current = window.requestAnimationFrame(tick);
-  }, [durationMs, referenceAvatar, referenceDescriptor, onDescriptorCalculated, debugInfo.currentEAR]);
+  }, [riderId, durationMs, referenceAvatar, referenceDescriptor, onDescriptorCalculated, debugInfo.currentEAR]);
 
   const start = useCallback(async () => {
     const sequenceStart = performance.now();

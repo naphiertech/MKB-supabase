@@ -5,20 +5,17 @@ import {
   type Rider,
   type Zone } from
 '../services/types';
-import { getRiderUserMapping, getRiderFullProfile } from '../services/riderService';
-import { getZones } from '../services/geofenceService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { RiderMap } from '../components/maps/RiderMap';
 import { isPointInPolygon } from '../lib/geofenceUtils';
 import { GeofenceStatus } from '../components/rider/GeofenceStatus';
 import { RouteTrailMap } from '../components/maps/RouteTrailMap';
 import { 
-  getRouteForRider, 
-  computeRouteStats,
   RoutePoint,
   RouteStats
 } from '../services/routeService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
+import { fetchRiderMonitoringWithSWR, type CachedMonitoringPayload } from '../services/riderCacheService';
 
 interface RiderMonitoringProps {
   userId: string;
@@ -27,7 +24,6 @@ interface RiderMonitoringProps {
 
 export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
   const riderId = userId.replace(/^u-rider-/, '');
-  const [actualRiderId, setActualRiderId] = useState<string>(riderId);
   const [rider, setRider] = useState<Rider | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,81 +35,63 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        setLoading(true);
+        const year = new Date().getFullYear();
+        const month = String(new Date().getMonth() + 1).padStart(2, '0');
+        const day = String(new Date().getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
 
-        const dbUser = await getRiderUserMapping(userId);
+        const applyPayload = (payload: CachedMonitoringPayload) => {
+          const { dbRider, zone: dbZone, routePoints: rPoints, routeStats: rStats } = payload;
 
-        const resolvedRiderId = dbUser?.rider_id || riderId;
-        setActualRiderId(resolvedRiderId);
-
-        const dbRider = await getRiderFullProfile(resolvedRiderId);
-
-        if (dbRider) {
-          const mappedRider: Rider = {
-            id: dbRider.id,
-            name: dbRider.name,
-            avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
-            zoneId: dbRider.zone_id,
-            status: dbRider.status,
-            lat: dbRider.lat || 0,
-            lng: dbRider.lng || 0,
-            speed: dbRider.speed || 0,
-            shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
-            lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
-            phone: dbRider.contact || '',
-            riderCode: dbRider.mkb_id
-          };
-          setRider(mappedRider);
-
-          if (dbRider.zones) {
-            const dbZone = dbRider.zones;
-            let center: [number, number] = [0, 0];
-            if (dbZone.lat !== null && dbZone.lng !== null) {
-              center = [dbZone.lat, dbZone.lng];
-            } else if (dbZone.polygon_coordinates && dbZone.polygon_coordinates.length > 0) {
-              const polyCoords = dbZone.polygon_coordinates as [number, number][];
-              const latSum = polyCoords.reduce((sum: number, c: [number, number]) => sum + c[0], 0);
-              const lngSum = polyCoords.reduce((sum: number, c: [number, number]) => sum + c[1], 0);
-              center = [latSum / polyCoords.length, lngSum / polyCoords.length];
-            }
-            setZone({
-              id: dbZone.id,
-              name: dbZone.name,
-              center,
-              radius: dbZone.radius || 0,
-              color: dbZone.color,
-              status: dbZone.status,
-              zone_type: dbZone.zone_type,
-              polygon_coordinates: dbZone.polygon_coordinates || undefined
-            });
-          } else {
-            const zList = await getZones();
-            if (zList.length > 0) {
-              setZone(zList[0]);
-            }
+          if (dbRider) {
+            const mappedRider: Rider = {
+              id: dbRider.id,
+              name: dbRider.name,
+              avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
+              zoneId: dbRider.zone_id,
+              status: dbRider.status,
+              lat: dbRider.lat || 0,
+              lng: dbRider.lng || 0,
+              speed: dbRider.speed || 0,
+              shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
+              lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
+              phone: dbRider.contact || '',
+              riderCode: dbRider.mkb_id
+            };
+            setRider(mappedRider);
           }
-        }
+
+          if (dbZone) {
+            setZone(dbZone);
+          }
+
+          if (rPoints) {
+            setRoutePoints(rPoints);
+            setRouteStats(rStats);
+            setLoadingRoute(false);
+          }
+
+          setLoading(false);
+        };
+
+        await fetchRiderMonitoringWithSWR(
+          userId,
+          riderId,
+          todayStr,
+          {
+            onCacheLoaded: applyPayload,
+            onFreshDataLoaded: applyPayload
+          }
+        );
       } catch (err) {
         console.error('Error loading rider monitoring data:', err);
-      } finally {
         setLoading(false);
+        setLoadingRoute(false);
       }
     }
 
     loadData();
   }, [userId, riderId]);
-
-  useEffect(() => {
-    const loadRoute = async () => {
-      if (!actualRiderId) return;
-      setLoadingRoute(true);
-      const points = await getRouteForRider(actualRiderId);
-      setRoutePoints(points);
-      setRouteStats(computeRouteStats(points));
-      setLoadingRoute(false);
-    };
-    loadRoute();
-  }, [actualRiderId]);
 
   const zoneCenterLat = zone?.center[0] ?? 6.9214;
   const zoneCenterLng = zone?.center[1] ?? 122.0790;

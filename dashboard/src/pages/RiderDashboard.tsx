@@ -9,12 +9,13 @@ import {
   cacheRiderFaceDescriptor,
   getRiderViolationsForMonth
 } from '../services/riderService';
-import { fetchRiderDashboardWithSWR, type CachedDashboardPayload } from '../services/riderCacheService';
+import { fetchRiderDashboardWithSWR, updateCachedAttendanceState, type CachedDashboardPayload } from '../services/riderCacheService';
 import { recordTimeIn, recordTimeOut } from '../services/attendanceService';
 import { useRiderZone } from '../context/RiderZoneContext';
 import { isPointInPolygon } from '../lib/geofenceUtils';
 import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
 import { useGeolocation } from '../hooks/useGeolocation';
+import { setCachedDescriptor } from '../lib/descriptorCache';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
 import { preloadBiometrics, releaseBiometrics } from '../lib/faceAi';
 import { Modal } from '../components/common/Modal';
@@ -223,6 +224,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
 
   const { phase, progress, result, start, reset, videoRef, canvasRef, livenessPrompt, debugInfo } = useFaceRecognition({
+    riderId: actualRiderId,
     referenceAvatar: rider?.avatar,
     referenceDescriptor: rider?.faceDescriptor,
     onDescriptorCalculated: async (descriptor) => {
@@ -230,6 +232,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
       console.log('[RiderDashboard] Fallback calculated face descriptor. Saving to database...', actualRiderId);
       try {
         await cacheRiderFaceDescriptor(actualRiderId, descriptor);
+        setCachedDescriptor(actualRiderId, descriptor, rider?.avatar);
         console.log('[RiderDashboard] Successfully cached face descriptor to Supabase.');
         setRider(prev => prev ? { ...prev, faceDescriptor: descriptor } : null);
       } catch (err) {
@@ -279,6 +282,9 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             faceDescriptor: dbRider.face_descriptor || null
           };
           setRider(mappedRider);
+          if (dbRider.face_descriptor && Array.isArray(dbRider.face_descriptor) && dbRider.face_descriptor.length === 128) {
+            setCachedDescriptor(dbRider.id, dbRider.face_descriptor, mappedRider.avatar);
+          }
 
           const resolvedZone = allZones.find(z => z.id === dbRider.zone_id) || allZones[0];
           if (resolvedZone) {
@@ -599,6 +605,18 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           console.error('[RiderDashboard] Failed to push initial time-in coordinates:', err);
         }
 
+        if (!navigator.onLine) {
+          await updateCachedAttendanceState(userId, {
+            id: newLog.id,
+            rider_id: currentRiderId,
+            date: newLog.date,
+            time_in: newLog.rawTimeIn || null,
+            time_out: null,
+            hours: 0,
+            status: 'present'
+          });
+        }
+
         // Reconstruct attendance state directly from database single source of truth
         await loadRiderAndZone();
 
@@ -654,6 +672,18 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           console.error('[RiderDashboard] Failed to update offline status:', err);
         }
 
+        if (!navigator.onLine) {
+          await updateCachedAttendanceState(userId, {
+            id: activeLogId,
+            rider_id: currentRiderId,
+            date: getLocalDateString(),
+            time_in: currentTimeIn,
+            time_out: new Date().toISOString(),
+            hours: 0,
+            status: 'present'
+          });
+        }
+
         // Reconstruct attendance state directly from database single source of truth
         await loadRiderAndZone();
 
@@ -683,7 +713,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     }
     const t = window.setTimeout(() => setScanOpen(false), 1200);
     return () => window.clearTimeout(t);
-  }, [phase, result, loadRiderAndZone]);
+  }, [phase, result, loadRiderAndZone, userId]);
 
   const duration =
     timeIn && !timeOut ?

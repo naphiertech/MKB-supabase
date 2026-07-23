@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { type AttendanceLog, type AttendanceStatus } from './types';
 import { getCachedAvatar } from '../lib/avatarCache';
+import { getStorageAdapter } from '../lib/storage';
 
 // Helper to convert dynamic timestamps (timestamptz) back to HH:MM format in local timezone
 function toHHMM(dateStr: string | null): string | null {
@@ -280,10 +281,51 @@ export async function getRiderAttendanceInDateRange(riderId: string, dateFrom: s
 export async function recordTimeIn(riderId: string, zoneId?: string): Promise<AttendanceLog | null> {
   const today = getLocalDateString();
   const now = new Date().toISOString();
+  const logId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-timein`;
+
+  if (!navigator.onLine) {
+    console.log('[OfflineSync] Offline detected. Queuing TIME_IN event...', logId);
+    try {
+      const storage = getStorageAdapter();
+      await storage.enqueue({
+        action: 'TIME_IN',
+        payload: {
+          id: logId,
+          rider_id: riderId,
+          date: today,
+          time_in: now,
+          status: 'present',
+          source: 'face-scan'
+        },
+        priority: 1
+      });
+    } catch (err) {
+      console.warn('[OfflineSync] Failed to enqueue TIME_IN event:', err);
+    }
+
+    return {
+      id: logId,
+      riderId,
+      riderName: '',
+      riderAvatar: '',
+      date: today,
+      timeIn: toHHMM(now),
+      timeOut: null,
+      rawTimeIn: now,
+      rawTimeOut: null,
+      hours: 0,
+      zoneId: zoneId || '',
+      zoneName: '',
+      status: 'present',
+      source: 'face-scan',
+      events: []
+    };
+  }
 
   const { data, error } = await supabase
     .from('attendance_logs')
     .insert({
+      id: logId,
       rider_id: riderId,
       date: today,
       time_in: now,
@@ -294,8 +336,42 @@ export async function recordTimeIn(riderId: string, zoneId?: string): Promise<At
     .single();
 
   if (error) {
-    console.error('Error recording time-in:', error);
-    return null;
+    console.error('Error recording time-in on Supabase, falling back to local queue:', error);
+    try {
+      const storage = getStorageAdapter();
+      await storage.enqueue({
+        action: 'TIME_IN',
+        payload: {
+          id: logId,
+          rider_id: riderId,
+          date: today,
+          time_in: now,
+          status: 'present',
+          source: 'face-scan'
+        },
+        priority: 1
+      });
+    } catch (err) {
+      console.warn('[OfflineSync] Failed to enqueue TIME_IN fallback event:', err);
+    }
+
+    return {
+      id: logId,
+      riderId,
+      riderName: '',
+      riderAvatar: '',
+      date: today,
+      timeIn: toHHMM(now),
+      timeOut: null,
+      rawTimeIn: now,
+      rawTimeOut: null,
+      hours: 0,
+      zoneId: zoneId || '',
+      zoneName: '',
+      status: 'present',
+      source: 'face-scan',
+      events: []
+    };
   }
 
   return {
@@ -320,20 +396,23 @@ export async function recordTimeIn(riderId: string, zoneId?: string): Promise<At
 export async function recordTimeOut(logId: string): Promise<boolean> {
   const now = new Date().toISOString();
 
-  const { data: log, error: fetchErr } = await supabase
-    .from('attendance_logs')
-    .select('time_in')
-    .eq('id', logId)
-    .single();
-
-  if (fetchErr || !log || !log.time_in) {
-    console.error('Error fetching log for time-out:', fetchErr);
-    return false;
+  if (!navigator.onLine) {
+    console.log('[OfflineSync] Offline detected. Queuing TIME_OUT event...', logId);
+    try {
+      const storage = getStorageAdapter();
+      await storage.enqueue({
+        action: 'TIME_OUT',
+        payload: {
+          id: logId,
+          time_out: now
+        },
+        priority: 1
+      });
+    } catch (err) {
+      console.warn('[OfflineSync] Failed to enqueue TIME_OUT event:', err);
+    }
+    return true;
   }
-
-  const timeInMs = new Date(log.time_in).getTime();
-  const timeOutMs = new Date(now).getTime();
-  const hours = Math.max(0, (timeOutMs - timeInMs) / 3600000);
 
   const { error } = await supabase
     .from('attendance_logs')
@@ -343,8 +422,21 @@ export async function recordTimeOut(logId: string): Promise<boolean> {
     .eq('id', logId);
 
   if (error) {
-    console.error('Error recording time-out:', error);
-    return false;
+    console.error('Error recording time-out on Supabase, falling back to local queue:', error);
+    try {
+      const storage = getStorageAdapter();
+      await storage.enqueue({
+        action: 'TIME_OUT',
+        payload: {
+          id: logId,
+          time_out: now
+        },
+        priority: 1
+      });
+    } catch (err) {
+      console.warn('[OfflineSync] Failed to enqueue TIME_OUT fallback event:', err);
+    }
+    return true;
   }
 
   return true;
