@@ -10,7 +10,7 @@ export interface QueueItem {
   priority: number; // 1: Attendance, 2: Profile, 3: Location
   createdAt: string;
   retryCount: number;
-  status: 'pending' | 'processing' | 'failed';
+  status: 'pending' | 'processing' | 'synced' | 'failed';
   lastError?: string;
 }
 

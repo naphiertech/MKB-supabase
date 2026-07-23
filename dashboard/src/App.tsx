@@ -29,6 +29,7 @@ import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import { Settings } from './pages/Settings';
 import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
+import { initSyncEngine } from './lib/sync/SyncEngine';
 
 const pageVariants: Variants = {
   initial: {
@@ -131,6 +132,11 @@ export function App() {
 
   const { riders: allRiders, zones: allZones } = useRiderZone();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+
+  // Initialize SyncEngine for background offline synchronization
+  useEffect(() => {
+    initSyncEngine();
+  }, []);
 
   // Sync state changes to URL hash
   useEffect(() => {
