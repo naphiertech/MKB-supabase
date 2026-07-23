@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Clock, ArrowLeft, Calendar, Hourglass, Activity, AlertCircle } from 'lucide-react';
-import {
-  getRiderUserMapping,
-  getRiderFullProfile,
-  getRiderDashboardStats
-} from '../services/riderService';
+import { fetchRiderDashboardWithSWR, type CachedDashboardPayload } from '../services/riderCacheService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import type { Rider } from '../services/types';
 
@@ -67,48 +63,35 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        setLoading(true);
-        const dbUser = await getRiderUserMapping(userId);
-        const resolvedRiderId = dbUser?.rider_id || riderId;
+        const todayStr = getLocalDateString();
+        const todayDate = new Date();
+        const firstDayOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+        const firstDayStr = getLocalDateString(firstDayOfMonth);
 
-        const dbRider = await getRiderFullProfile(resolvedRiderId);
-        if (dbRider) {
-          const mappedRider: Rider = {
-            id: dbRider.id,
-            name: dbRider.name,
-            avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
-            zoneId: dbRider.zone_id,
-            status: dbRider.status,
-            lat: dbRider.lat || 0,
-            lng: dbRider.lng || 0,
-            speed: dbRider.speed || 0,
-            shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
-            lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
-            phone: dbRider.contact || '',
-            riderCode: dbRider.mkb_id
-          };
-          setRider(mappedRider);
+        const dayOfWeek = todayDate.getDay();
+        const diff = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        const firstDayOfWeek = new Date(todayDate.setDate(diff));
+        const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
 
-
-          const todayStr = getLocalDateString();
-          const todayDate = new Date();
-          const firstDayOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
-          const firstDayStr = getLocalDateString(firstDayOfMonth);
-
-          const dayOfWeek = todayDate.getDay();
-          const diff = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-          const firstDayOfWeek = new Date(todayDate.setDate(diff));
-          const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
-
-          const {
-            todayAttendance: attLog,
-            monthAttendance: monthAtt,
-          } = await getRiderDashboardStats(
-            resolvedRiderId,
-            todayStr,
-            firstDayStr,
-            firstDayOfMonth.toISOString()
-          );
+        const applyPayload = (payload: CachedDashboardPayload) => {
+          const { dbRider, todayAttendance: attLog, monthAttendance: monthAtt } = payload;
+          if (dbRider) {
+            const mappedRider: Rider = {
+              id: dbRider.id,
+              name: dbRider.name,
+              avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
+              zoneId: dbRider.zone_id,
+              status: dbRider.status,
+              lat: dbRider.lat || 0,
+              lng: dbRider.lng || 0,
+              speed: dbRider.speed || 0,
+              shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
+              lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
+              phone: dbRider.contact || '',
+              riderCode: dbRider.mkb_id
+            };
+            setRider(mappedRider);
+          }
 
           if (attLog) {
             setTodayLog({
@@ -133,16 +116,31 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
             setMonthLogs(monthAtt as DBAttendanceLog[]);
           }
 
-          const totalDays = todayDate.getDate();
+          const totalDaysSoFar = Math.max(1, todayDate.getDate());
+          const rate = Math.round((presentCount / totalDaysSoFar) * 100);
+
           setStats({
             daysPresent: presentCount,
             hoursThisWeek: Number(weekHours.toFixed(1)),
-            attendanceRate: Math.round((presentCount / Math.max(totalDays, 1)) * 100),
+            attendanceRate: Math.min(100, rate),
           });
-        }
+
+          setLoading(false);
+        };
+
+        await fetchRiderDashboardWithSWR(
+          userId,
+          riderId,
+          todayStr,
+          firstDayStr,
+          firstDayOfMonth.toISOString(),
+          {
+            onCacheLoaded: applyPayload,
+            onFreshDataLoaded: applyPayload
+          }
+        );
       } catch (err) {
-        console.error('Error loading attendance logs:', err);
-      } finally {
+        console.error('Error loading rider attendance data:', err);
         setLoading(false);
       }
     }

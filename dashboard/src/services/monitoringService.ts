@@ -7,6 +7,7 @@ import {
   type ZoneStatus
 } from './types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
+import { getStorageAdapter } from '../lib/storage';
 
 
 interface DbRiderRow {
@@ -338,6 +339,27 @@ export async function logRiderLocation(
   lng: number,
   status: 'active' | 'idle' | 'violation' | 'offline'
 ): Promise<void> {
+  if (!navigator.onLine) {
+    console.log('[OfflineSync] Offline detected. Queuing LOCATION_PING...');
+    try {
+      const storage = getStorageAdapter();
+      await storage.enqueue({
+        action: 'LOCATION_PING',
+        payload: {
+          rider_id: riderId,
+          lat,
+          lng,
+          status,
+          recorded_at: new Date().toISOString()
+        },
+        priority: 3
+      });
+    } catch (err) {
+      console.warn('[OfflineSync] Failed to enqueue LOCATION_PING event:', err);
+    }
+    return;
+  }
+
   const { error } = await supabase
     .from('rider_locations')
     .insert({
@@ -348,8 +370,23 @@ export async function logRiderLocation(
     });
 
   if (error) {
-    console.error('Error logging rider location:', error);
-    throw error;
+    console.error('Error logging rider location on Supabase, falling back to local queue:', error);
+    try {
+      const storage = getStorageAdapter();
+      await storage.enqueue({
+        action: 'LOCATION_PING',
+        payload: {
+          rider_id: riderId,
+          lat,
+          lng,
+          status,
+          recorded_at: new Date().toISOString()
+        },
+        priority: 3
+      });
+    } catch (err) {
+      console.warn('[OfflineSync] Failed to enqueue LOCATION_PING fallback event:', err);
+    }
   }
 }
 
