@@ -496,8 +496,14 @@ export function Topbar({
             notifications={notifications}
             onMarkAsRead={onMarkAsRead}
             onMarkAllAsRead={onMarkAllAsRead}
-            onClose={() => setIsOpen(false)} />
-
+            onClose={() => setIsOpen(false)}
+            onNavigate={(path) => {
+              const key = path.replace(/^\//, '') as PageKey;
+              if (onNavigate) {
+                onNavigate(key);
+              }
+            }}
+          />
           }
         </div>
       </div>

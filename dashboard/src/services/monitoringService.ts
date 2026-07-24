@@ -8,6 +8,11 @@ import {
 } from './types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
 import { getStorageAdapter } from '../lib/storage';
+import { dispatchNotificationSafe } from './notificationService';
+
+// In-memory spam prevention cooldown map: riderId_status -> lastNotifiedTimestamp
+const violationCooldownMap = new Map<string, number>();
+const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown per rider per violation type
 
 
 interface DbRiderRow {
@@ -330,6 +335,27 @@ export async function updateRiderStatus(
   if (error) {
     console.error('Error updating rider status:', error);
     throw error;
+  }
+
+  // Non-blocking notification dispatch for geofence / idle violations with cooldown
+  if (status === 'violation') {
+    const cooldownKey = `${riderId}_violation`;
+    const lastNotified = violationCooldownMap.get(cooldownKey) || 0;
+    const now = Date.now();
+
+    if (now - lastNotified > COOLDOWN_MS) {
+      violationCooldownMap.set(cooldownKey, now);
+      void dispatchNotificationSafe({
+        category: 'geofence',
+        priority: 'high',
+        type: 'violation',
+        title: 'Geofence Boundary Exit',
+        message: `Rider geofence violation detected`,
+        riderId,
+        actionLink: '/monitoring',
+        targetRoles: ['admin', 'hr']
+      });
+    }
   }
 }
 

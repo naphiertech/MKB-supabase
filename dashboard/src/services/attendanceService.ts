@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabaseClient';
 import { type AttendanceLog, type AttendanceStatus } from './types';
 import { getCachedAvatar } from '../lib/avatarCache';
 import { getStorageAdapter } from '../lib/storage';
+import { dispatchNotificationSafe } from './notificationService';
 
 // Helper to convert dynamic timestamps (timestamptz) back to HH:MM format in local timezone
 function toHHMM(dateStr: string | null): string | null {
@@ -374,6 +375,18 @@ export async function recordTimeIn(riderId: string, zoneId?: string): Promise<At
     };
   }
 
+  // Non-blocking notification dispatch for Time-In
+  void dispatchNotificationSafe({
+    category: 'attendance',
+    priority: 'medium',
+    type: 'attendance',
+    title: 'Rider Clock-In',
+    message: `Rider clock-in recorded for shift on ${today}`,
+    riderId: riderId,
+    actionLink: '/attendance',
+    targetRoles: ['hr', 'admin']
+  });
+
   return {
     id: data.id,
     riderId: data.rider_id,
@@ -438,6 +451,17 @@ export async function recordTimeOut(logId: string): Promise<boolean> {
     }
     return true;
   }
+
+  // Non-blocking notification dispatch for Time-Out after DB update succeeds
+  void dispatchNotificationSafe({
+    category: 'attendance',
+    priority: 'medium',
+    type: 'attendance',
+    title: 'Rider Clock-Out',
+    message: `Rider clock-out recorded for shift on ${getLocalDateString()}`,
+    actionLink: '/attendance',
+    targetRoles: ['hr', 'admin']
+  });
 
   return true;
 }

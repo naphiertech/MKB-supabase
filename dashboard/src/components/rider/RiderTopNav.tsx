@@ -138,7 +138,14 @@ export function RiderTopNav({
             notifications={notifications}
             onMarkAsRead={onMarkAsRead}
             onMarkAllAsRead={onMarkAllAsRead}
-            onClose={() => setNotifOpen(false)} />
+            onClose={() => setNotifOpen(false)}
+            onNavigate={(path) => {
+              const key = path.replace('/rider/', '').replace('/', '') as RiderPageKey;
+              if (onNavigate && (key === 'dashboard' || key === 'attendance' || key === 'monitoring' || key === 'profile')) {
+                onNavigate(key);
+              }
+            }}
+          />
 
           }
         </div>

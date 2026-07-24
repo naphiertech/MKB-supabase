@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { logActivity } from '../lib/apiService';
 import { PayrollStatus } from '../types/payroll';
+import { dispatchNotificationSafe } from './notificationService';
 
 export interface ParcelLog {
   id: string;
@@ -434,6 +435,54 @@ export const updatePayrollRecordStatus = async (
         status: normStatus
       }
     });
+
+    // Non-blocking notification dispatches for Payroll transitions
+    const senderId = auditData?.userId || null;
+    if (normStatus === PayrollStatus.PENDING) {
+      void dispatchNotificationSafe({
+        senderId,
+        category: 'payroll',
+        priority: 'medium',
+        type: 'system',
+        title: 'Payroll Submitted for Review',
+        message: `Payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) was submitted for approval`,
+        actionLink: '/payroll',
+        targetRoles: ['payroll', 'admin']
+      });
+    } else if (normStatus === PayrollStatus.APPROVED) {
+      void dispatchNotificationSafe({
+        senderId,
+        category: 'payroll',
+        priority: 'high',
+        type: 'system',
+        title: 'Payroll Approved',
+        message: `Payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) has been approved`,
+        actionLink: '/payroll',
+        targetRoles: ['payroll', 'admin']
+      });
+    } else if (normStatus === PayrollStatus.PAID) {
+      void dispatchNotificationSafe({
+        senderId,
+        category: 'payroll',
+        priority: 'high',
+        type: 'system',
+        title: 'Payroll Disbursed & Paid',
+        message: `Payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) has been paid`,
+        actionLink: '/payroll',
+        targetRoles: ['payroll', 'admin']
+      });
+    } else if (normStatus === PayrollStatus.REJECTED) {
+      void dispatchNotificationSafe({
+        senderId,
+        category: 'payroll',
+        priority: 'high',
+        type: 'system',
+        title: 'Payroll Rejected',
+        message: `Payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) was returned/rejected`,
+        actionLink: '/payroll',
+        targetRoles: ['payroll', 'admin']
+      });
+    }
   } catch (logErr) {
     console.warn('Failed to write payroll transition log:', logErr);
   }

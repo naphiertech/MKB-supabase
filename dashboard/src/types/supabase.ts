@@ -111,33 +111,51 @@ export type Database = {
       }
       notifications: {
         Row: {
+          action_link: string | null
+          category: Database["public"]["Enums"]["notification_category"]
           created_at: string
           id: string
           message: string
+          metadata: Json | null
+          priority: Database["public"]["Enums"]["notification_priority"]
           read: boolean
+          recipient_id: string | null
           rider_id: string | null
+          sender_id: string | null
           target_roles: Database["public"]["Enums"]["user_role"][]
           title: string
           type: Database["public"]["Enums"]["notification_type"]
           violation_id: string | null
         }
         Insert: {
+          action_link?: string | null
+          category?: Database["public"]["Enums"]["notification_category"]
           created_at?: string
           id?: string
           message: string
+          metadata?: Json | null
+          priority?: Database["public"]["Enums"]["notification_priority"]
           read?: boolean
+          recipient_id?: string | null
           rider_id?: string | null
+          sender_id?: string | null
           target_roles?: Database["public"]["Enums"]["user_role"][]
           title: string
-          type: Database["public"]["Enums"]["notification_type"]
+          type?: Database["public"]["Enums"]["notification_type"]
           violation_id?: string | null
         }
         Update: {
+          action_link?: string | null
+          category?: Database["public"]["Enums"]["notification_category"]
           created_at?: string
           id?: string
           message?: string
+          metadata?: Json | null
+          priority?: Database["public"]["Enums"]["notification_priority"]
           read?: boolean
+          recipient_id?: string | null
           rider_id?: string | null
+          sender_id?: string | null
           target_roles?: Database["public"]["Enums"]["user_role"][]
           title?: string
           type?: Database["public"]["Enums"]["notification_type"]
@@ -145,10 +163,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notifications_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
             referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -1588,6 +1620,8 @@ export type Database = {
     Enums: {
       attendance_source: "face-scan" | "manual"
       attendance_status: "present" | "late" | "absent" | "on_leave"
+      notification_category: "attendance" | "payroll" | "geofence" | "biometrics" | "account" | "system" | "announcement"
+      notification_priority: "low" | "medium" | "high" | "critical"
       notification_type: "violation" | "absent" | "attendance" | "system"
       payroll_status: "pending" | "processed" | "flagged" | "approved" | "paid" | "rejected" | "draft"
       rider_status: "active" | "idle" | "violation" | "offline"
