@@ -21,13 +21,13 @@ import {
 } from 'lucide-react';
 import type { AttendanceLog } from '../../services/types';
 import { getLocalDateString } from '../../services/attendanceService';
-import { StatusPill } from './StatusPill';
+import { StatusPill, PunctualityPill } from './StatusPill';
 
 interface AttendanceTableProps {
   logs: AttendanceLog[];
 }
 
-type SortKey = 'date' | 'riderName' | 'zoneName' | 'hours' | 'status';
+type SortKey = 'date' | 'riderName' | 'zoneName' | 'hours' | 'status' | 'punctuality';
 
 interface TimelineNode {
   ts: string;
@@ -81,7 +81,7 @@ function buildDynamicTimelineNodes(l: AttendanceLog): TimelineNode[] {
     nodes.push({
       ts: l.timeIn,
       title: 'Clock In Successful',
-      subtitle: `Attendance record created (${l.status.toUpperCase()})`,
+      subtitle: `Attendance record created (${(l.presence || 'present').toUpperCase()})`,
       type: 'clock_in',
       nodeColor: 'bg-blue-500 border-blue-500',
       textColor: 'text-blue-600',
@@ -196,7 +196,8 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                 ['Date', 'date'],
                 ['Shift', 'hours'],
                 ['Zone', 'zoneName'],
-                ['Status', 'status'],
+                ['Status', 'presence'],
+                ['Punctuality', 'punctuality'],
                 ['Source', null]
               ].map(([label, key]) => (
                 <th key={label} className="font-semibold py-3 px-4">
@@ -229,6 +230,8 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
               })();
 
               const hasExitBreach = l.events.some((e) => e.type === 'exit');
+              const presenceVal = l.presence || (l.status === 'on_leave' ? 'on_leave' : l.timeIn ? 'present' : 'absent');
+              const punctualityVal = l.punctuality || (l.status === 'late' ? 'late' : l.timeIn ? 'on_time' : 'none');
 
               return (
                 <Fragment key={l.id}>
@@ -286,9 +289,14 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                     {/* Zone */}
                     <td className="py-3 px-4 text-xs text-[#1A1410] font-medium">{l.zoneName}</td>
 
-                    {/* Status */}
+                    {/* Status (Presence) */}
                     <td className="py-3 px-4">
-                      <StatusPill status={l.status} />
+                      <StatusPill status={presenceVal} />
+                    </td>
+
+                    {/* Punctuality (Arrival) */}
+                    <td className="py-3 px-4">
+                      <PunctualityPill punctuality={punctualityVal} />
                     </td>
 
                     {/* Source */}

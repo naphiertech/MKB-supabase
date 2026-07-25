@@ -67,6 +67,7 @@ function getQuickRangeDates(type: QuickRange): { from: string; to: string } {
 export function Attendance() {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [punctualityFilter, setPunctualityFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const today = getLocalDateString();
@@ -131,36 +132,42 @@ export function Attendance() {
 
   const kpis = useMemo(() => {
     return {
-      present: todayLogs.filter((l) => l.status === 'present').length,
-      late: todayLogs.filter((l) => l.status === 'late').length,
-      absent: todayLogs.filter((l) => l.status === 'absent').length,
+      present: todayLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'present').length,
+      late: todayLogs.filter((l) => (l.punctuality || (l.status === 'late' ? 'late' : 'none')) === 'late').length,
+      absent: todayLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'absent').length,
       onLeave: todayLogs.filter((l) => l.status === 'on_leave').length
     };
   }, [todayLogs]);
 
   const filtered = useMemo(() => {
-    return attendanceList.filter(
-      (l) =>
+    return attendanceList.filter((l) => {
+      const presenceVal = l.presence || (l.status === 'on_leave' ? 'on_leave' : l.timeIn ? 'present' : 'absent');
+      const punctualityVal = l.punctuality || (l.status === 'late' ? 'late' : l.timeIn ? 'on_time' : 'none');
+
+      return (
         l.date >= dateFrom &&
         l.date <= dateTo &&
         (zoneFilter === 'all' || l.zoneId === zoneFilter) &&
-        (statusFilter === 'all' || l.status === statusFilter) &&
+        (statusFilter === 'all' || presenceVal === statusFilter) &&
+        (punctualityFilter === 'all' || punctualityVal === punctualityFilter) &&
         (searchQuery === '' ||
           l.riderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           l.riderId.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  }, [attendanceList, dateFrom, dateTo, zoneFilter, statusFilter, searchQuery]);
+      );
+    });
+  }, [attendanceList, dateFrom, dateTo, zoneFilter, statusFilter, punctualityFilter, searchQuery]);
 
   const isFilterModified = useMemo(() => {
     return (
       zoneFilter !== 'all' ||
       statusFilter !== 'all' ||
+      punctualityFilter !== 'all' ||
       searchQuery !== '' ||
       activeQuickRange !== 'custom' ||
       dateFrom !== sevenDaysAgo ||
       dateTo !== today
     );
-  }, [zoneFilter, statusFilter, searchQuery, activeQuickRange, dateFrom, dateTo, sevenDaysAgo, today]);
+  }, [zoneFilter, statusFilter, punctualityFilter, searchQuery, activeQuickRange, dateFrom, dateTo, sevenDaysAgo, today]);
 
   const handleApplyQuickRange = (range: QuickRange) => {
     setActiveQuickRange(range);
@@ -174,6 +181,7 @@ export function Attendance() {
     setDateTo(today);
     setZoneFilter('all');
     setStatusFilter('all');
+    setPunctualityFilter('all');
     setSearchQuery('');
     setActiveQuickRange('custom');
   };
@@ -418,9 +426,20 @@ export function Attendance() {
               >
                 <option value="all">All Statuses</option>
                 <option value="present">Present</option>
-                <option value="late">Late</option>
                 <option value="absent">Absent</option>
                 <option value="on_leave">On Leave</option>
+              </select>
+            </FilterField>
+
+            <FilterField label="Punctuality">
+              <select
+                value={punctualityFilter}
+                onChange={(e) => setPunctualityFilter(e.target.value)}
+                className="att-input"
+              >
+                <option value="all">All Punctuality</option>
+                <option value="on_time">On Time</option>
+                <option value="late">Late</option>
               </select>
             </FilterField>
 

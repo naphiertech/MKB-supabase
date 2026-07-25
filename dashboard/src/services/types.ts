@@ -1,5 +1,7 @@
 export type RiderStatus = 'active' | 'idle' | 'violation' | 'offline';
 export type AttendanceStatus = 'present' | 'late' | 'on_leave' | 'absent';
+export type AttendancePresence = 'present' | 'absent' | 'on_leave';
+export type PunctualityStatus = 'on_time' | 'late' | 'none';
 export type UserRole = 'admin' | 'hr' | 'dispatcher' | 'rider' | 'payroll';
 export type UserStatus = 'active' | 'suspended';
 export type ZoneStatus = 'active' | 'inactive';
@@ -44,6 +46,8 @@ export interface AttendanceLog {
   zoneId: string;
   zoneName: string;
   status: AttendanceStatus;
+  presence: AttendancePresence;
+  punctuality: PunctualityStatus;
   source: 'face-scan' | 'manual';
   faceScanUrl?: string;
   lat?: number;

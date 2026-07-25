@@ -569,6 +569,66 @@ export type Database = {
           },
         ]
       }
+      user_devices: {
+        Row: {
+          device_fingerprint_hash: string
+          device_name: string
+          device_uuid: string
+          id: string
+          ip_address: string | null
+          last_used_at: string
+          platform: string
+          registered_at: string
+          rider_id: string | null
+          status: Database["public"]["Enums"]["device_status"]
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          device_fingerprint_hash: string
+          device_name?: string
+          device_uuid: string
+          id?: string
+          ip_address?: string | null
+          last_used_at?: string
+          platform?: string
+          registered_at?: string
+          rider_id?: string | null
+          status?: Database["public"]["Enums"]["device_status"]
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          device_fingerprint_hash?: string
+          device_name?: string
+          device_uuid?: string
+          id?: string
+          ip_address?: string | null
+          last_used_at?: string
+          platform?: string
+          registered_at?: string
+          rider_id?: string | null
+          status?: Database["public"]["Enums"]["device_status"]
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_devices_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       violations: {
         Row: {
           created_at: string
@@ -1620,6 +1680,7 @@ export type Database = {
     Enums: {
       attendance_source: "face-scan" | "manual"
       attendance_status: "present" | "late" | "absent" | "on_leave"
+      device_status: "trusted" | "revoked"
       notification_category: "attendance" | "payroll" | "geofence" | "biometrics" | "account" | "system" | "announcement"
       notification_priority: "low" | "medium" | "high" | "critical"
       notification_type: "violation" | "absent" | "attendance" | "system"

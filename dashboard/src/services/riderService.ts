@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { dispatchNotificationSafe } from './notificationService';
+import { logActivity } from '../lib/apiService';
+import type { TrustedDeviceInfo } from '../components/users/DeviceResetModal';
 
 export interface RiderPayrollRecord {
   id: string;
@@ -111,7 +113,9 @@ export const getRiderDashboardStats = async (
       .from('attendance_logs')
       .select('*')
       .eq('rider_id', resolvedRiderId)
-      .gte('date', firstDayStr),
+      .gte('date', firstDayStr)
+      .order('date', { ascending: false })
+      .order('time_in', { ascending: false }),
     supabase
       .from('violations')
       .select('*', { count: 'exact', head: true })
@@ -166,3 +170,85 @@ export const updateRiderContact = async (riderId: string, contactPhone: string) 
   if (error) throw error;
 };
 
+/**
+ * Fetch active trusted device details for a user.
+ */
+export const getUserTrustedDevice = async (userId: string): Promise<TrustedDeviceInfo | null> => {
+  const { data, error } = await supabase
+    .from('user_devices')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'trusted')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[riderService] Failed to fetch trusted device:', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    deviceName: data.device_name,
+    platform: data.platform,
+    deviceUuid: data.device_uuid,
+    registeredAt: data.registered_at,
+    lastUsedAt: data.last_used_at,
+    status: data.status as 'trusted' | 'revoked'
+  };
+};
+
+/**
+ * Reset/Revoke a user's active trusted device and log administrative audit trail.
+ */
+export const resetUserTrustedDevice = async (params: {
+  userId: string;
+  riderId?: string;
+  adminUserId: string;
+  riderName: string;
+  reason: string;
+  customReason?: string;
+}): Promise<void> => {
+  const activeDevice = await getUserTrustedDevice(params.userId);
+  if (!activeDevice) return;
+
+  // Revoke active device record
+  const { error } = await supabase
+    .from('user_devices')
+    .update({ status: 'revoked' })
+    .eq('id', activeDevice.id);
+
+  if (error) throw error;
+
+  const finalReason = params.reason === 'Other' && params.customReason ? params.customReason : params.reason;
+
+  // Log administrative activity audit trail
+  logActivity({
+    userId: params.adminUserId,
+    eventType: 'device_reset',
+    description: `HR/Admin reset trusted device for ${params.riderName}. Reason: ${finalReason}`,
+    metadata: {
+      target_user_id: params.userId,
+      target_rider_id: params.riderId || null,
+      revoked_device_name: activeDevice.deviceName,
+      revoked_device_uuid: activeDevice.deviceUuid,
+      platform: activeDevice.platform,
+      reason: finalReason,
+      revoked_at: new Date().toISOString()
+    }
+  });
+
+  // Dispatch system notification to Admin and HR
+  void dispatchNotificationSafe({
+    category: 'account',
+    priority: 'high',
+    type: 'system',
+    title: 'Trusted Device Revoked',
+    message: `Trusted device for ${params.riderName} (${activeDevice.deviceName}) was revoked by HR/Admin. Reason: ${finalReason}`,
+    recipientId: params.userId,
+    riderId: params.riderId,
+    actionLink: '/users',
+    targetRoles: ['hr', 'admin']
+  });
+};
