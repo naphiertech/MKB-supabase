@@ -91,8 +91,13 @@ MKB-supabase/
 │   ├── components/          # Marketing components
 │   └── package.json
 │
+├── docs/                    # Centralized Documentation Directory
+│   ├── README.md            # Master Documentation Index & Links
+│   ├── setup/               # Supabase & Database Setup Guides
+│   ├── features/            # Payroll Engine & Export Template Catalogs
+│   ├── mobile/              # Capacitor APK & Biometrics Setup Guides
+│   └── capstone/            # Academic Capstone Documentation & Chapters
 ├── attenrider_schema.sql    # Core database tables, triggers, and PostGIS geofences
-├── supabase_setup_instructions.md # Step-by-step Supabase bootstrap guide
 ├── package.json             # Root monorepo workspace scripts
 └── README.md                # System documentation
 ```
