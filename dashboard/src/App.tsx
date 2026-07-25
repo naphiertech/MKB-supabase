@@ -311,10 +311,24 @@ export function App() {
   }
   // Past this point: role is 'admin' | 'hr' | 'payroll'.
   const dashRole = role as 'admin' | 'hr' | 'payroll';
-  // Guards: scope each role to its allowed pages
+  // Guards: scope each role to its allowed pages with route key normalization
   function safePageFor(r: 'admin' | 'hr' | 'payroll', p: PageKey): PageKey {
-    if (p === 'settings') return 'settings';
-    if (r === 'admin') return p;
+    const normalized = (p as string).replace(/-/g, '_') as PageKey;
+    if (normalized === 'settings') return 'settings';
+    if (r === 'admin') {
+      const allowed: PageKey[] = [
+        'dashboard',
+        'monitoring',
+        'geofence',
+        'attendance',
+        'reports',
+        'users',
+        'reviews',
+        'payroll',
+        'audit_logs'
+      ];
+      return allowed.includes(normalized) ? normalized : 'dashboard';
+    }
     if (r === 'hr') {
       const allowed: PageKey[] = [
         'dashboard',
@@ -326,11 +340,11 @@ export function App() {
         'payroll',
         'audit_logs'];
 
-      return allowed.includes(p) ? p : 'dashboard';
+      return allowed.includes(normalized) ? normalized : 'dashboard';
     }
     // payroll
     const allowed: PageKey[] = ['dashboard', 'computation', 'reports'];
-    return allowed.includes(p) ? p : 'dashboard';
+    return allowed.includes(normalized) ? normalized : 'dashboard';
   }
   const safePage = safePageFor(dashRole, currentPage);
   function handleHrNavigate(

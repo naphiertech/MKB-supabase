@@ -15,11 +15,17 @@ import {
   MapPin,
   UserCheck,
   Download,
-  Calendar
+  Calendar,
+  Smartphone,
+  RotateCcw
 } from 'lucide-react';
 import type { AppUser, Zone, AttendanceLog } from '../../services/types';
 import { supabase } from '../../lib/supabaseClient';
 import { exportEmployeeProfileCard, exportEmployeeDTR } from '../../lib/exports/employeeExport';
+import { useAuth } from '../../hooks/useAuth';
+import { pushToast } from '../../hooks/useToast';
+import { getUserTrustedDevice, resetUserTrustedDevice } from '../../services/riderService';
+import { DeviceResetModal, type TrustedDeviceInfo } from './DeviceResetModal';
 
 function formatTimeString(dateStr: string | null): string {
   if (!dateStr) return '—';
@@ -35,10 +41,30 @@ interface EmployeeDetailsProps {
 }
 
 export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetailsProps) {
+  const { session } = useAuth();
   const isRider = user.role === 'rider';
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [activeTab, setActiveTab] = useState<'profile' | 'attendance'>('profile');
+  const [device, setDevice] = useState<TrustedDeviceInfo | null>(null);
+  const [deviceLoading, setDeviceLoading] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isRider) return;
+    let active = true;
+    setDeviceLoading(true);
+    getUserTrustedDevice(user.id)
+      .then((dev) => {
+        if (active) setDevice(dev);
+      })
+      .finally(() => {
+        if (active) setDeviceLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user.id, isRider]);
 
   useEffect(() => {
     if (!isRider || !user.riderId) return;
@@ -401,6 +427,48 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                     <span className="text-[10px] text-[#6B6258] font-bold">N/A</span>
                   )}
                 </div>
+
+                {isRider && (
+                  <div className="flex flex-col p-2.5 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2] text-xs gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-[#db6c00] shrink-0" />
+                        <div>
+                          <div className="font-bold text-[#1A1410]">Trusted Device</div>
+                          <div className="text-[9px] text-[#6B6258] truncate max-w-[140px]">
+                            {deviceLoading
+                              ? 'Checking device state…'
+                              : device
+                              ? `${device.deviceName}`
+                              : 'No device bound'}
+                          </div>
+                        </div>
+                      </div>
+                      {device ? (
+                        <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-300/40">
+                          Trusted
+                        </span>
+                      ) : (
+                        <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-300/40">
+                          None
+                        </span>
+                      )}
+                    </div>
+
+                    {device && (
+                      <div className="pt-1.5 border-t border-[#EFEAE2]/60 flex items-center justify-between text-[10px] text-[#6B6258]">
+                        <span>Reg: {new Date(device.registeredAt).toLocaleDateString()}</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsResetModalOpen(true)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded font-semibold text-[10px] transition cursor-pointer"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Reset Device
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -761,6 +829,30 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
           </div>
 
       </div>
+
+      <DeviceResetModal
+        isOpen={isResetModalOpen}
+        riderName={user.name}
+        device={device}
+        onClose={() => setIsResetModalOpen(false)}
+        onConfirm={async (reason, customReason) => {
+          if (!session?.id) return;
+          await resetUserTrustedDevice({
+            userId: user.id,
+            riderId: user.riderId || undefined,
+            adminUserId: session.id,
+            riderName: user.name,
+            reason,
+            customReason
+          });
+          setDevice(null);
+          pushToast({
+            title: 'Trusted Device Revoked',
+            description: `Revoked device access for ${user.name}. Reason: ${reason === 'Other' && customReason ? customReason : reason}`,
+            tone: 'success'
+          });
+        }}
+      />
     </div>
   );
 }

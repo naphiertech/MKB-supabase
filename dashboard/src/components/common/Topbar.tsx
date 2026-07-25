@@ -219,7 +219,8 @@ export function Topbar({
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  const { title, subtitle } = TITLES[page];
+  const currentTitle = TITLES[page] || TITLES.dashboard;
+  const { title, subtitle } = currentTitle;
   const timeStr = now.toLocaleTimeString('en-PH', {
     hour12: false
   });
@@ -498,7 +499,7 @@ export function Topbar({
             onMarkAllAsRead={onMarkAllAsRead}
             onClose={() => setIsOpen(false)}
             onNavigate={(path) => {
-              const key = path.replace(/^\//, '') as PageKey;
+              const key = path.replace(/^\//, '').replace(/-/g, '_') as PageKey;
               if (onNavigate) {
                 onNavigate(key);
               }
@@ -507,6 +508,6 @@ export function Topbar({
           }
         </div>
       </div>
-    </header>);
-
+    </header>
+  );
 }
