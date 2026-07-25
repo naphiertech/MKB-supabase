@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { type AttendanceLog, type AttendanceStatus } from './types';
+import { type AttendanceLog, type AttendanceStatus, type AttendancePresence, type PunctualityStatus } from './types';
 import { getCachedAvatar } from '../lib/avatarCache';
 import { getStorageAdapter } from '../lib/storage';
 import { dispatchNotificationSafe } from './notificationService';
@@ -42,6 +42,7 @@ interface DbAttendanceViewRow {
   hours: number | null;
   notes: string | null;
   source: string | null;
+  log_status: string | null;
   lat: number | null;
   lng: number | null;
   hr_status: string | null;
@@ -83,6 +84,11 @@ export async function getAttendanceLogs(filters?: {
   let result: AttendanceLog[] = ((data as unknown as DbAttendanceViewRow[]) || []).map((row: DbAttendanceViewRow) => {
     const cached = getCachedAvatar(row.rider_id);
     const realPhoto = row.rider_avatar || cached || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.rider_name || '')}`;
+    const isLate = row.log_status === 'late' || row.hr_status === 'Late';
+    const isPresent = !!row.time_in || row.log_status === 'present' || isLate;
+    const presence = (row.log_status === 'on_leave' ? 'on_leave' : isPresent ? 'present' : 'absent');
+    const punctuality = (isLate ? 'late' : isPresent ? 'on_time' : 'none');
+
     return {
       id: row.id,
       riderId: row.rider_id,
@@ -96,7 +102,9 @@ export async function getAttendanceLogs(filters?: {
       hours: row.hours || 0,
       zoneId: row.zone_id || '',
       zoneName: row.zone_name || 'Unassigned',
-      status: (row.hr_status === 'Late' ? 'late' : row.time_in ? 'present' : 'absent') as AttendanceStatus,
+      status: (isLate ? 'late' : isPresent ? 'present' : 'absent') as AttendanceStatus,
+      presence: presence as AttendancePresence,
+      punctuality: punctuality as PunctualityStatus,
       source: (row.source || 'face-scan') as 'face-scan' | 'manual',
       notes: row.notes || undefined,
       lat: row.lat || 0,
@@ -318,6 +326,8 @@ export async function recordTimeIn(riderId: string, zoneId?: string): Promise<At
       zoneId: zoneId || '',
       zoneName: '',
       status: 'present',
+      presence: 'present',
+      punctuality: 'on_time',
       source: 'face-scan',
       events: []
     };
@@ -370,6 +380,8 @@ export async function recordTimeIn(riderId: string, zoneId?: string): Promise<At
       zoneId: zoneId || '',
       zoneName: '',
       status: 'present',
+      presence: 'present',
+      punctuality: 'on_time',
       source: 'face-scan',
       events: []
     };
@@ -401,6 +413,8 @@ export async function recordTimeIn(riderId: string, zoneId?: string): Promise<At
     zoneId: zoneId || '',
     zoneName: '',
     status: 'present',
+    presence: 'present',
+    punctuality: 'on_time',
     source: 'face-scan',
     events: []
   };

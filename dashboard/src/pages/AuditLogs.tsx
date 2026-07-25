@@ -194,6 +194,9 @@ export function AuditLogs() {
   // UI Event Tag Color Mapping
   const getActionColor = (type: string) => {
     const t = type.toLowerCase();
+    if (t.includes('unauthorized') || t.includes('blocked') || t.includes('security') || t.includes('lock')) {
+      return 'bg-rose-50 text-rose-700 border-rose-200/50';
+    }
     if (t.includes('login') || t.includes('auth')) {
       return 'bg-purple-50 text-purple-700 border-purple-200/50';
     }
@@ -468,14 +471,17 @@ export function AuditLogs() {
                             </div>
 
                             {/* User Action */}
-                            <div className="whitespace-nowrap md:pl-2">
-                              <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider border ${getActionColor(log.event_type)}`}>
-                                {log.event_type.replace(/_/g, ' ')}
+                            <div className="min-w-0 pr-2">
+                              <span 
+                                title={log.event_type.replace(/_/g, ' ')}
+                                className={`inline-block truncate max-w-full px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider border ${getActionColor(log.event_type)}`}
+                              >
+                                {log.event_type === 'unauthorized_device_access' ? 'UNAUTHORIZED DEVICE' : log.event_type.replace(/_/g, ' ')}
                               </span>
                             </div>
 
                             {/* Description */}
-                            <div className="md:col-span-2 text-[#1A1410] truncate pr-4" title={log.description}>
+                            <div className="md:col-span-2 text-[#1A1410] truncate pr-4 min-w-0" title={log.description}>
                               {log.description}
                             </div>
 

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Clock, ArrowLeft, Calendar, Hourglass, Activity, AlertCircle } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Clock, ArrowLeft, Calendar, Hourglass, Activity, AlertCircle, Filter, ArrowUpDown } from 'lucide-react';
 import { fetchRiderDashboardWithSWR, type CachedDashboardPayload } from '../services/riderCacheService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
-import type { Rider } from '../services/types';
+import type { Rider, AttendancePresence, PunctualityStatus } from '../services/types';
 
 interface RiderAttendanceProps {
   userId: string;
@@ -37,6 +37,27 @@ function getLocalDateString(d: Date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Format YYYY-MM-DD date string safely without UTC timezone shift offsets.
+ */
+function formatDateLabel(dateStr: string): string {
+  if (!dateStr) return '—';
+  try {
+    const parts = dateStr.split('-').map(Number);
+    if (parts.length < 3) return dateStr;
+    const [year, month, day] = parts;
+    const d = new Date(year, month - 1, day);
+    return d.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 interface DBAttendanceLog {
   id: string;
   date: string;
@@ -44,6 +65,8 @@ interface DBAttendanceLog {
   hours: number | null;
   time_in: string | null;
   time_out: string | null;
+  presence?: AttendancePresence;
+  punctuality?: PunctualityStatus;
 }
 
 export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
@@ -53,6 +76,12 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
   const [monthLogs, setMonthLogs] = useState<DBAttendanceLog[]>([]);
   const [todayLog, setTodayLog] = useState<{ timeIn: string | null; timeOut: string | null } | null>(null);
   const [elapsed, setElapsed] = useState('0h 00m');
+
+  // Filter & Sort States
+  const [monthFilter, setMonthFilter] = useState<'current' | 'all'>('current');
+  const [attendanceFilter, setAttendanceFilter] = useState<'all' | 'present' | 'absent' | 'on_leave'>('all');
+  const [punctualityFilter, setPunctualityFilter] = useState<'all' | 'on_time' | 'late'>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   const [stats, setStats] = useState({
     daysPresent: 0,
@@ -104,16 +133,23 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
           let weekHours = 0;
 
           if (monthAtt) {
-            const typedLogs = monthAtt as { status: string; date: string; hours: number | null }[];
+            const typedLogs = (monthAtt as DBAttendanceLog[]).map(l => {
+              const isLate = l.status === 'late';
+              const isPresent = !!l.time_in || l.status === 'present' || isLate;
+              const presence: AttendancePresence = l.status === 'on_leave' ? 'on_leave' : isPresent ? 'present' : 'absent';
+              const punctuality: PunctualityStatus = isLate ? 'late' : isPresent ? 'on_time' : 'none';
+              return { ...l, presence, punctuality };
+            });
+
             for (const log of typedLogs) {
-              if (log.status === 'present' || log.status === 'late') {
+              if (log.presence === 'present') {
                 presentCount++;
               }
               if (log.date >= firstDayOfWeekStr) {
                 weekHours += (log.hours || 0);
               }
             }
-            setMonthLogs(monthAtt as DBAttendanceLog[]);
+            setMonthLogs(typedLogs);
           }
 
           const totalDaysSoFar = Math.max(1, todayDate.getDate());
@@ -167,6 +203,35 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
     const interval = setInterval(updateTimer, 60000);
     return () => clearInterval(interval);
   }, [todayLog]);
+
+  // Filtered and Sorted Logs
+  const filteredLogs = useMemo(() => {
+    let logs = [...monthLogs];
+
+    if (attendanceFilter !== 'all') {
+      logs = logs.filter((log) => {
+        const p = log.presence || (log.status === 'on_leave' ? 'on_leave' : log.time_in ? 'present' : 'absent');
+        return p === attendanceFilter;
+      });
+    }
+
+    if (punctualityFilter !== 'all') {
+      logs = logs.filter((log) => {
+        const p = log.punctuality || (log.status === 'late' ? 'late' : log.time_in ? 'on_time' : 'none');
+        return p === punctualityFilter;
+      });
+    }
+
+    logs.sort((a, b) => {
+      const keyA = `${a.date}T${a.time_in || '00:00'}`;
+      const keyB = `${b.date}T${b.time_in || '00:00'}`;
+      return sortOrder === 'desc'
+        ? keyB.localeCompare(keyA)
+        : keyA.localeCompare(keyB);
+    });
+
+    return logs;
+  }, [monthLogs, attendanceFilter, punctualityFilter, sortOrder]);
 
   if (loading || !rider) {
     return <DashboardSkeleton page="attendance" role="rider" />;
@@ -274,56 +339,97 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
 
       {/* History Log */}
       <section className="rounded-2xl border border-[#EFEAE2] bg-white p-5 sm:p-6 shadow-sm space-y-4">
-        <div>
-          <h2 className="text-[#1A1410] font-semibold text-base">
-            Attendance Log History
-          </h2>
-          <p className="text-xs text-[#6B6258] mt-0.5">
-            Your detailed attendance checks for the current month.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-[#EFEAE2]/60">
+          <div>
+            <h2 className="text-[#1A1410] font-semibold text-base">
+              Attendance Log History
+            </h2>
+            <p className="text-xs text-[#6B6258] mt-0.5">
+              Your detailed attendance checks for the current month.
+            </p>
+          </div>
+
+          {/* Controls: Filter & Sort */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative inline-flex items-center">
+              <Calendar className="w-3.5 h-3.5 absolute left-2.5 text-[#6B6258] pointer-events-none" />
+              <select
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value as typeof monthFilter)}
+                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] font-medium focus:outline-none focus:ring-1 focus:ring-[#db6c00] appearance-none cursor-pointer"
+              >
+                <option value="current">Current Month</option>
+                <option value="all">All Months</option>
+              </select>
+            </div>
+
+            <div className="relative inline-flex items-center">
+              <Filter className="w-3.5 h-3.5 absolute left-2.5 text-[#6B6258] pointer-events-none" />
+              <select
+                value={attendanceFilter}
+                onChange={(e) => setAttendanceFilter(e.target.value as typeof attendanceFilter)}
+                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] font-medium focus:outline-none focus:ring-1 focus:ring-[#db6c00] appearance-none cursor-pointer"
+              >
+                <option value="all">All Attendance</option>
+                <option value="present">Present Only</option>
+                <option value="absent">Absent Only</option>
+                <option value="on_leave">On Leave</option>
+              </select>
+            </div>
+
+            <div className="relative inline-flex items-center">
+              <Clock className="w-3.5 h-3.5 absolute left-2.5 text-[#6B6258] pointer-events-none" />
+              <select
+                value={punctualityFilter}
+                onChange={(e) => setPunctualityFilter(e.target.value as typeof punctualityFilter)}
+                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] font-medium focus:outline-none focus:ring-1 focus:ring-[#db6c00] appearance-none cursor-pointer"
+              >
+                <option value="all">All Punctuality</option>
+                <option value="on_time">On Time Only</option>
+                <option value="late">Late Only</option>
+              </select>
+            </div>
+
+            <div className="relative inline-flex items-center">
+              <ArrowUpDown className="w-3.5 h-3.5 absolute left-2.5 text-[#6B6258] pointer-events-none" />
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
+                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] font-medium focus:outline-none focus:ring-1 focus:ring-[#db6c00] appearance-none cursor-pointer"
+              >
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        {monthLogs.length === 0 ? (
+        {/* Counter Header */}
+        {monthLogs.length > 0 && (
+          <div className="text-[11px] font-mono text-[#6B6258] uppercase tracking-wider">
+            Showing {filteredLogs.length} of {monthLogs.length} records
+          </div>
+        )}
+
+        {filteredLogs.length === 0 ? (
           <div className="p-8 text-center border border-dashed border-[#EFEAE2] rounded-xl space-y-2">
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-50 text-amber-600">
               <AlertCircle className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-semibold text-[#1A1410]">No Records</h3>
+            <h3 className="text-sm font-semibold text-[#1A1410]">No Matching Records</h3>
             <p className="text-xs text-[#6B6258] max-w-xs mx-auto">
-              No clock-in logs found for the current billing cycle. Clock in from the home dashboard to get started.
+              No attendance logs match your selected filter criteria. Try clearing filters to view all records.
             </p>
           </div>
         ) : (
           <div className="divide-y divide-[#EFEAE2] border border-[#EFEAE2] rounded-xl overflow-hidden bg-white">
-            {monthLogs.map((log, index) => {
-              const isLate = log.status === 'late';
-              const isPresent = log.status === 'present';
-              const isAbsent = log.status === 'absent';
+            {filteredLogs.map((log, index) => {
+              const isLate = log.status === 'late' || log.punctuality === 'late';
+              const isPresent = !!log.time_in || log.status === 'present' || isLate;
+              const isAbsent = log.status === 'absent' && !isPresent;
               const isLeave = log.status === 'on_leave';
 
-              let badgeClass = 'bg-gray-50 text-gray-700 border-gray-200';
-              let badgeText: string = log.status;
-              if (isPresent) {
-                badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200/50';
-                badgeText = 'Present';
-              } else if (isLate) {
-                badgeClass = 'bg-amber-50 text-amber-700 border-amber-200/50';
-                badgeText = 'Late';
-              } else if (isAbsent) {
-                badgeClass = 'bg-red-50 text-red-700 border-red-200/50';
-                badgeText = 'Absent';
-              } else if (isLeave) {
-                badgeClass = 'bg-blue-50 text-blue-700 border-blue-200/50';
-                badgeText = 'On Leave';
-              }
-
-              const d = new Date(log.date);
-              const dateLabel = d.toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              });
+              const dateLabel = formatDateLabel(log.date);
 
               return (
                 <div
@@ -337,13 +443,32 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
                       {log.time_out ? format12h(toHHMM(log.time_out) || '00:00') : '—'}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider ${badgeClass}`}
-                    >
-                      {badgeText}
-                    </span>
-                    <span className="font-semibold font-mono text-sm text-[#1A1410]">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {/* Primary Attendance Presence Badge */}
+                    {isPresent && (
+                      <span className="px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider bg-emerald-50 text-emerald-700 border-emerald-200/50">
+                        Present
+                      </span>
+                    )}
+                    {isAbsent && (
+                      <span className="px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider bg-red-50 text-red-700 border-red-200/50">
+                        Absent
+                      </span>
+                    )}
+                    {isLeave && (
+                      <span className="px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider bg-blue-50 text-blue-700 border-blue-200/50">
+                        On Leave
+                      </span>
+                    )}
+
+                    {/* Secondary Punctuality Indicator Tag */}
+                    {isLate && (
+                      <span className="px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider bg-amber-50 text-amber-700 border-amber-200/50">
+                        Late Arrival
+                      </span>
+                    )}
+
+                    <span className="font-semibold font-mono text-sm text-[#1A1410] ml-1">
                       {log.hours ? `${log.hours.toFixed(1)} hrs` : '—'}
                     </span>
                   </div>
