@@ -1,6 +1,7 @@
 import { ComponentType, useEffect } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { useIsFirstRender } from "../../lib/motion";
 
 function CountUp({ value }: { value: number }) {
   const count = useMotionValue(0);
@@ -88,14 +89,15 @@ export function StatCard({
   index = 0,
   onClick,
 }: StatCardProps) {
+  const isFirstRender = useIsFirstRender();
   const a = ACCENT[accent];
   const maxSpark = spark && spark.length ? Math.max(...spark) : 1;
   const isClickable = !!onClick;
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={isFirstRender ? { opacity: 0, y: 8 } : false}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.1 }}
+      transition={{ duration: 0.25, delay: isFirstRender ? index * 0.04 : 0 }}
       whileHover={isClickable ? { y: -3 } : { y: -2 }}
       whileTap={isClickable ? { scale: 0.98 } : undefined}
       onClick={onClick}
