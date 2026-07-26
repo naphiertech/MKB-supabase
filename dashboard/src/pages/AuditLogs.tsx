@@ -7,7 +7,6 @@ import {
   Download, 
   User as UserIcon, 
   ChevronDown, 
-  ChevronUp, 
   RefreshCw, 
   Activity, 
   Laptop, 
@@ -491,12 +490,13 @@ export function AuditLogs() {
                                 <div className="font-mono text-[10px] text-[#1A1410] truncate">{ip}</div>
                                 <div className="text-[10px] text-[#6B6258] truncate" title={locString}>{locString}</div>
                               </div>
-                              <button
+                              <motion.button
+                                whileTap={{ scale: 0.92 }}
                                 type="button"
-                                className="p-1 rounded bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410] transition"
+                                className="p-1 rounded bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410] transition cursor-pointer"
                               >
-                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                              </button>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ease-out ${isExpanded ? 'rotate-180' : ''}`} />
+                              </motion.button>
                             </div>
                           </div>
 
@@ -507,7 +507,7 @@ export function AuditLogs() {
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
+                                transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
                                 className="overflow-hidden border-t border-[#EFEAE2] bg-[#FAFAF7]/45"
                               >
                                 <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-5 text-[11px] text-[#6B6258]">

@@ -6,7 +6,9 @@ import {
   MapPin,
   Eye,
   EyeOff,
-  Sparkles } from
+  Sparkles,
+  ShieldAlert,
+  AlertCircle } from
 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { pushToast } from '../hooks/useToast';
@@ -58,12 +60,22 @@ export function Login() {
     const res = await signIn(email, password);
     setLoading(false);
     if (!res.ok) {
-      setError(res.error ?? 'Sign-in failed.');
-      pushToast({
-        title: 'Sign-in failed',
-        description: res.error ?? 'Please check your email and password.',
-        tone: 'error'
-      });
+      const errorMsg = res.error ?? 'Sign-in failed.';
+      setError(errorMsg);
+      const isDeviceLock = errorMsg.includes('Device Lock Active') || errorMsg.includes('actively bound to');
+      if (isDeviceLock) {
+        pushToast({
+          title: 'Device not authorized',
+          description: 'This account can only be accessed from its registered device.',
+          tone: 'error'
+        });
+      } else {
+        pushToast({
+          title: 'Sign-in failed',
+          description: errorMsg,
+          tone: 'error'
+        });
+      }
     } else {
       pushToast({
         title: 'Welcome back',
@@ -260,11 +272,37 @@ export function Login() {
                     </div>
                   </motion.div>
 
-                  {error && (
-                    <div className="text-xs text-red-700 bg-red-50 border border-red-500/30 rounded-md px-3 py-2">
-                      {error}
-                    </div>
-                  )}
+                  {error && (() => {
+                    const isDeviceLock = error.includes('Device Lock Active') || error.includes('actively bound to');
+                    if (isDeviceLock) {
+                      return (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-red-50/90 border border-red-200 rounded-xl p-4 text-xs text-red-950 shadow-xs space-y-1.5 font-[Geist,sans-serif]"
+                        >
+                          <div className="flex items-center gap-2 text-red-800 font-bold text-sm">
+                            <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+                            <span>Device not authorized</span>
+                          </div>
+                          <p className="text-xs text-red-900 leading-relaxed">
+                            This account can only be accessed from its registered device. If you need to use a different device, contact HR or an administrator to request a device transfer.
+                          </p>
+                        </motion.div>
+                      );
+                    }
+
+                    return (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-red-700 bg-red-50 border border-red-500/30 rounded-xl px-3.5 py-2.5 flex items-center gap-2"
+                      >
+                        <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                        <span>{error}</span>
+                      </motion.div>
+                    );
+                  })()}
 
                   <motion.button
                     type="submit"

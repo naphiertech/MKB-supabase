@@ -346,31 +346,32 @@ export function Sidebar({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 + 0.1 }}
               >
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => handleNavigate(item.key)}
                   className={`group relative z-0 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition cursor-pointer ${active ? a.text : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]'}`}>
                   {active && (
                     <motion.span
                       layoutId="activeNav"
                       className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     />
                   )}
                   {active && (
                     <motion.span
                       layoutId="activeBar"
                       className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${a.activeBar}`}
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     />
                   )}
-                  <Icon className={`w-[18px] h-[18px] ${active ? a.iconActive : 'text-[#6B6258] group-hover:text-[#1A1410]'}`} />
+                  <Icon className={`w-[18px] h-[18px] transition-colors duration-150 ${active ? a.iconActive : 'text-[#6B6258] group-hover:text-[#1A1410]'}`} />
                   <span className="flex-1 text-left font-medium">{item.label}</span>
                   {badgeCounts?.[item.key] ? (
                     <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center shadow-sm">
                       {badgeCounts[item.key]}
                     </span>
                   ) : null}
-                </button>
+                </motion.button>
               </motion.div>
             );
           } else {

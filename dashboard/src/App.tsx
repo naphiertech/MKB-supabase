@@ -26,38 +26,13 @@ import { useRiderZone } from './context/RiderZoneContext';
 
 import { useNotifications } from './hooks/useNotifications';
 import { Toaster } from 'react-hot-toast';
-import { AnimatePresence, motion, type Variants } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Settings } from './pages/Settings';
 import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
 import { initSyncEngine } from './lib/sync/SyncEngine';
+import { PAGE_TRANSITION_VARIANTS } from './lib/motion';
 
-const pageVariants: Variants = {
-  initial: {
-    opacity: 0,
-    scale: 0.985,
-    y: 8,
-  },
-  animate: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 220,
-      damping: 24,
-      mass: 0.8,
-    },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.99,
-    y: -4,
-    transition: {
-      duration: 0.14,
-      ease: "easeInOut" as const,
-    },
-  },
-};
+const pageVariants = PAGE_TRANSITION_VARIANTS;
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
   state: { hasError: boolean; error: unknown } = { hasError: false, error: null };
   static getDerivedStateFromError(error: unknown) {
