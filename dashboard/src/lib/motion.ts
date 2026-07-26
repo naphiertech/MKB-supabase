@@ -1,13 +1,28 @@
+import { useRef, useEffect } from 'react';
 import type { Variants } from 'framer-motion';
 
 /**
  * Enterprise Motion System Primitives
  * Built according to design engineering principles:
- * - Snappy springs (stiffness 350-400, damping 28-32, mass 0.7)
+ * - Event-driven motion (plays on route load, user triggers, modal open/close)
+ * - Silent background polling & refetches (no re-fading or re-staggering)
+ * - Snappy springs (stiffness 350-420, damping 28-32, mass 0.7)
  * - Under 250ms feel for high perceived speed
  * - Hardware-accelerated GPU transforms (opacity + transform)
- * - Scale entries starting from 0.96+ (never scale 0)
  */
+
+/**
+ * Hook to track whether a component is rendering for the first time.
+ * Used to ensure entrance animations play ONCE on mount / route navigation,
+ * but remain silent during background polling and data refetches.
+ */
+export function useIsFirstRender(): boolean {
+  const isFirst = useRef(true);
+  useEffect(() => {
+    isFirst.current = false;
+  }, []);
+  return isFirst.current;
+}
 
 // Core Spring Presets
 export const SPRINGS = {

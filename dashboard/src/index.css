@@ -235,20 +235,60 @@
 .ar-float {
   animation: ar-float 5s ease-in-out infinite;
 }
-/* Custom scrollbar — warm neutral */
-.ar-scroll::-webkit-scrollbar {
+/* ==========================================================================
+   ATTENRIDER GLOBAL SCROLLBAR DESIGN SYSTEM
+   Single source of truth for all scrollable containers (Chromium + Firefox)
+   - Primary orange thumb (#db6c00) with warm hover transition (#b85a00)
+   - Neutral light-gray track (#fafaf7 / border #efeae2)
+   - Smooth 180ms hover transition, rounded pill corners, zero layout shifts
+   ========================================================================== */
+
+/* 1. Standards / Firefox Support (Applied globally to html, body, and all elements) */
+html,
+body,
+*,
+*::before,
+*::after {
+  scrollbar-width: thin;
+  scrollbar-color: #db6c00 #fafaf7;
+}
+
+/* 2. WebKit / Chromium (Chrome, Edge, Brave, Opera, Safari) Global Scrollbar */
+::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-.ar-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.ar-scroll::-webkit-scrollbar-thumb {
-  background: #e5dfd3;
+
+::-webkit-scrollbar-track {
+  background: #fafaf7;
   border-radius: 9999px;
 }
-.ar-scroll::-webkit-scrollbar-thumb:hover {
-  background: #d6cfc0;
+
+::-webkit-scrollbar-thumb {
+  background-color: #db6c00;
+  border-radius: 9999px;
+  border: 1.5px solid #fafaf7;
+  transition: background-color 180ms var(--ease-out), border-width 180ms var(--ease-out);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #b85a00;
+  border-width: 0px;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #a04e00;
+}
+
+::-webkit-scrollbar-corner {
+  background: #fafaf7;
+}
+
+/* Maintain compatibility for .ar-scroll and .custom-scrollbar utility classes */
+.ar-scroll,
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #db6c00 #fafaf7;
 }
 /* Card hover lift utility */
 .ar-card-hover {

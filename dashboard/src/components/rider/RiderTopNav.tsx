@@ -11,6 +11,7 @@ import {
   X,
   Bell } from
 'lucide-react';
+import { BRANDING } from "../../config/branding";
 import { NotificationDropdown } from '../common/NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
 export type RiderPageKey = 'dashboard' | 'attendance' | 'monitoring' | 'profile';
@@ -82,7 +83,7 @@ export function RiderTopNav({
           </div>
           <div className="hidden sm:flex flex-col leading-tight">
             <span className="text-[#1A1410] font-semibold tracking-tight text-[15px]">
-              AttenRider
+              {BRANDING.appName}
             </span>
             <span className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono">
               Rider Portal

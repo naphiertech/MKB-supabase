@@ -3,7 +3,7 @@
 // ============================================================
 
 export const siteConfig = {
-  name: "AttenRider",
+  name: "MKBRiderTrack",
   tagline: "Geofencing-Based Rider Attendance & Monitoring",
   description:
     "An advanced workforce intelligence system for logistics couriers, combining real-time geofencing validation and biometric facial recognition to ensure operational transparency.",

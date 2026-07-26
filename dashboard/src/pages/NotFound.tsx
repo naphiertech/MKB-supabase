@@ -1,5 +1,6 @@
 import { ArrowLeft, MapPin, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { BRANDING } from '../config/branding';
 
 export function NotFound() {
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -83,7 +84,7 @@ export function NotFound() {
 
       {/* Footer Branding */}
       <div className="text-center mt-8 text-[11px] text-[#6B6258]/60 font-mono relative z-10">
-        © {new Date().getFullYear()} MKB Corporation · AttenRider
+        {BRANDING.copyright}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { Shield, Loader2, CheckCircle2 } from "lucide-react";
 import { type PayrollRecordShape } from "./PayrollDetailsModal";
 import { isEditableStatus } from "../../types/payroll";
+import { BRANDING } from "../../config/branding";
 
 interface PayslipSlipCardProps {
   record: PayrollRecordShape;
@@ -277,7 +278,7 @@ export function PayslipSlipCard({
       </div>
 
       <div className="text-center text-[10px] text-[#A39988] italic pt-1">
-        Generated dynamically via AttenRider System.
+        Generated dynamically via {BRANDING.appName} System.
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { pushToast } from '../hooks/useToast';
+import { BRANDING } from '../config/branding';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginSkeleton } from '../components/common/DashboardSkeleton';
 const DEMO_ACCOUNTS = [
@@ -79,7 +80,7 @@ export function Login() {
     } else {
       pushToast({
         title: 'Welcome back',
-        description: 'Successfully signed in to AttenRider.',
+        description: `Successfully signed in to ${BRANDING.appName}.`,
         tone: 'success'
       });
     }
@@ -124,7 +125,7 @@ export function Login() {
             </span>
           </h2>
           <p className="mt-4 text-sm text-[#6B6258] leading-relaxed max-w-sm mx-auto">
-            AttenRider gives MKB Corporation a single pane of glass for
+            {BRANDING.appName} gives MKB Corporation a single pane of glass for
             attendance, geofence compliance, and rider performance across
             Zamboanga City — updated every 1.8 seconds.
           </p>
@@ -184,7 +185,7 @@ export function Login() {
                   </div>
                   <div className="flex flex-col leading-tight">
                     <span className="text-[#1A1410] font-semibold tracking-tight text-lg">
-                      AttenRider
+                      {BRANDING.appName}
                     </span>
                     <span className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono">
                       MKB Corp · Zamboanga
@@ -197,7 +198,7 @@ export function Login() {
                     Welcome back
                   </h1>
                   <p className="text-sm text-[#6B6258] mt-1.5">
-                    Sign in to access the AttenRider dashboard.
+                    Sign in to access the {BRANDING.appName} dashboard.
                   </p>
                 </div>
 
@@ -367,7 +368,7 @@ export function Login() {
                 </motion.div>
 
                 <div className="text-center mt-8 text-[11px] text-[#6B6258] font-mono">
-                  © {new Date().getFullYear()} MKB Corporation · AttenRider
+                  {BRANDING.copyright}
                 </div>
               </motion.div>
             )}

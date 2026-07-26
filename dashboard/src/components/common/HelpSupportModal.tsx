@@ -20,6 +20,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { pushToast } from '../../hooks/useToast';
+import { BRANDING } from '../../config/branding';
 
 export type HelpTab = 'guide' | 'faq' | 'support';
 
@@ -82,7 +83,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
     },
     {
       q: "How accurate is the geofence tracking?",
-      a: "AttenRider uses standard HTML5 Geolocation API on the mobile app, combined with the database Haversine math constraint. The geofence radius can be set between 100m and 5000m. Signal interference in dense areas may cause brief coordinate jumps."
+      a: `${BRANDING.appName} uses standard HTML5 Geolocation API on the mobile app, combined with the database Haversine math constraint. The geofence radius can be set between 100m and 5000m. Signal interference in dense areas may cause brief coordinate jumps.`
     },
     {
       q: "How does the biometric face check-in work?",
@@ -175,7 +176,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
               {activeTab === 'guide' && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-base font-bold text-[#1A1410] mb-1">AttenRider Operational Guide</h3>
+                    <h3 className="text-base font-bold text-[#1A1410] mb-1">{BRANDING.appName} Operational Guide</h3>
                     <p className="text-xs text-[#6B6258] leading-relaxed">
                       Learn how to successfully manage and interact with our realtime geofencing, face check-ins, and payroll systems.
                     </p>
