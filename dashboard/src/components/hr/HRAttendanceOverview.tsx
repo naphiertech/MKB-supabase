@@ -94,7 +94,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
   }, [logs, range, zoneId, status]);
 
   function handleExport() {
-    exportLogsCsv(filtered, `attenrider-attendance-${daysAgo(0)}.csv`);
+    exportLogsCsv(filtered, `mkbridertrack-attendance-${daysAgo(0)}.csv`);
     pushToast({
       title: 'Export started',
       description: `${filtered.length} records · CSV`,

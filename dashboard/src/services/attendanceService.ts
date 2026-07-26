@@ -251,7 +251,9 @@ export async function getHrTodayKpis() {
   };
 }
 
-export function deriveHrStatus(log: AttendanceLog): 'Complete' | 'Incomplete' | 'Absent' | 'Late' {
+export type HrLogStatus = 'Complete' | 'Incomplete' | 'Absent' | 'Late';
+
+export function deriveHrStatus(log: AttendanceLog): HrLogStatus {
   if (!log.timeIn) return 'Absent';
   if (log.timeIn && log.timeOut) return 'Complete';
   if (log.status === 'late') return 'Late';

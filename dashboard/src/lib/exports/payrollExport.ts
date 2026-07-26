@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
+import { BRANDING } from '../../config/branding';
 
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable: { finalY: number };
@@ -70,7 +71,7 @@ export const exportParcelPayslipPDF = (
   doc.text('PAYSLIP — MKB CORPORATION', 105, 20, { align: 'center' });
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('AttenRider Monitoring System', 105, 27, { align: 'center' });
+  doc.text(`${BRANDING.appName} Logistics System`, 105, 27, { align: 'center' });
 
   // Divider
   doc.setLineWidth(0.5);
@@ -328,11 +329,11 @@ export const exportCutoffSummaryCSV = (
   rows: CutoffSummaryRow[],
   cutoffLabel: string
 ) => {
-  const filename = `attenrider_cutoff_summary_${cutoffLabel.replace(/\s+/g, '_')}`;
+  const filename = `mkbridertrack_cutoff_summary_${cutoffLabel.replace(/\s+/g, '_')}`;
   const header = ['Rider', 'Zone', 'Total Parcels', 'Rate per Parcel', 'Gross Pay'];
 
   const lines = [
-    ['AttenRider Cutoff Summary'],
+    ['MKBRiderTrack Cutoff Summary'],
     [`Cutoff: ${cutoffLabel}`],
     [],
     header,

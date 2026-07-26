@@ -120,9 +120,9 @@ export function PayrollReports() {
     time: string;
   }
   const [exportHistory, setExportHistory] = useState<ExportLog[]>([
-    { filename: 'attenrider_cutoff_summary_2026-06-16_2026-06-30.xlsx', format: 'xlsx', time: 'Yesterday at 3:15 PM' },
-    { filename: 'attenrider_individual_payslips_2026-06-16_2026-06-30.pdf', format: 'pdf', time: 'Yesterday at 3:10 PM' },
-    { filename: 'attenrider_parcel_log_2026-06-16_2026-06-30.csv', format: 'csv', time: 'Yesterday at 3:08 PM' },
+    { filename: 'mkbridertrack_cutoff_summary_2026-06-16_2026-06-30.xlsx', format: 'xlsx', time: 'Yesterday at 3:15 PM' },
+    { filename: 'mkbridertrack_individual_payslips_2026-06-16_2026-06-30.pdf', format: 'pdf', time: 'Yesterday at 3:10 PM' },
+    { filename: 'mkbridertrack_parcel_log_2026-06-16_2026-06-30.csv', format: 'csv', time: 'Yesterday at 3:08 PM' },
   ]);
 
   useEffect(() => {
@@ -338,7 +338,7 @@ export function PayrollReports() {
               r.flagged,
               r.grossPay
             ]),
-            `attenrider_cutoff_summary_${from}_${to}`,
+            `mkbridertrack_cutoff_summary_${from}_${to}`,
             '/files/MKB_Cutoff_Summary_Payroll_Template.xlsx'
           );
         } else {
@@ -377,7 +377,7 @@ export function PayrollReports() {
             doc.setTextColor(219, 108, 0);
             doc.text(`Total Fleet Gross   : ₱${totalGross.toLocaleString()}`, 14, finalY + 7);
 
-            doc.save(`attenrider_cutoff_summary_${from}_${to}.pdf`);
+            doc.save(`mkbridertrack_cutoff_summary_${from}_${to}.pdf`);
           });
         }
 
@@ -420,7 +420,7 @@ export function PayrollReports() {
             const existing = logs.find(l => l.date === date);
             const att = attList.find(a => a.date === date);
 
-            const rawTimeIn = att?.time_in || null;
+            const rawTimeIn = att?.rawTimeIn || att?.timeIn || null;
             let calculatedRate = 10;
             if (rawTimeIn) {
               const d = new Date(rawTimeIn.replace(' ', 'T'));
@@ -509,7 +509,7 @@ export function PayrollReports() {
             'Parcel Log',
             cols,
             rows,
-            `attenrider_parcel_log_${from}_${to}`,
+            `mkbridertrack_parcel_log_${from}_${to}`,
             '/files/MKB_Raw_Parcel_Delivery_Logs.xlsx'
           );
         } else {
@@ -524,7 +524,7 @@ export function PayrollReports() {
           const csv = '\uFEFF' + [cols, ...rows].map(r => r.map(csvEscape).join(',')).join('\r\n');
           downloadBlob(
             new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
-            `attenrider_parcel_log_${from}_${to}.csv`
+            `mkbridertrack_parcel_log_${from}_${to}.csv`
           );
         }
 
@@ -536,9 +536,9 @@ export function PayrollReports() {
       }
 
       // Track export history
-      let genFilename = `attenrider_${template}_${from}_${to}.${format}`;
+      let genFilename = `mkbridertrack_${template}_${from}_${to}.${format}`;
       if (template === 'parcel_logs' && format === 'pdf') {
-        genFilename = `attenrider_parcel_log_${from}_${to}.csv`;
+        genFilename = `mkbridertrack_parcel_log_${from}_${to}.csv`;
       }
       setExportHistory(prev => [
         {

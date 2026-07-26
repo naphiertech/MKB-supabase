@@ -1,4 +1,5 @@
 import { useEffect, ComponentType, useState } from 'react';
+import { BRANDING } from '../../config/branding';
 import {
   LayoutDashboard,
   MapPin,
@@ -301,7 +302,7 @@ export function Sidebar({
           </div>
           <div className="flex flex-col leading-tight flex-1 min-w-0">
             <span className="text-[#1A1410] font-semibold tracking-tight text-[15px]">
-              AttenRider
+              {BRANDING.appName}
             </span>
             <span className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono">
               MKB Corp
