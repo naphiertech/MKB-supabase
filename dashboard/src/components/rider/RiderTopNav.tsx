@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Activity,
   LayoutDashboard,
@@ -96,21 +97,26 @@ export function RiderTopNav({
           {ITEMS.map(({ key, label, icon: Icon }) => {
             const active = current === key;
             return (
-              <button
+              <motion.button
                 key={key}
                 type="button"
+                whileTap={{ scale: 0.96 }}
                 onClick={() => onNavigate(key)}
-                className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${active ? 'bg-[#FFF1E0] text-[#b85a00]' : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]'}`}>
+                className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition cursor-pointer ${active ? 'bg-[#FFF1E0] text-[#b85a00]' : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]'}`}>
                 
                 <Icon
-                  className={`w-[16px] h-[16px] ${active ? 'text-[#db6c00]' : ''}`} />
+                  className={`w-[16px] h-[16px] transition-colors duration-150 ${active ? 'text-[#db6c00]' : ''}`} />
                 
                 <span className="font-semibold">{label}</span>
-                {active &&
-                <span className="absolute -bottom-[9px] left-3 right-3 h-[2px] rounded-full bg-[#db6c00]" />
-                }
-              </button>);
-
+                {active && (
+                  <motion.span
+                    layoutId="riderActiveBar"
+                    className="absolute -bottom-[9px] left-3 right-3 h-[2px] rounded-full bg-[#db6c00]"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </motion.button>
+            );
           })}
         </nav>
 

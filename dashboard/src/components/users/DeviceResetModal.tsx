@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldAlert, Smartphone, Laptop, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MODAL_BACKDROP_VARIANTS, MODAL_CONTENT_VARIANTS } from '../../lib/motion';
 
 export const RESET_REASONS = [
   'Device lost',
@@ -61,11 +62,18 @@ export function DeviceResetModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+      <motion.div
+        variants={MODAL_BACKDROP_VARIANTS}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
+          variants={MODAL_CONTENT_VARIANTS}
+          initial="initial"
+          animate="animate"
+          exit="exit"
           className="bg-white border border-[#EFEAE2] rounded-2xl max-w-md w-full p-6 shadow-xl relative text-[#1A1410] font-[Geist,sans-serif]"
         >
           {/* Close button */}
@@ -182,7 +190,7 @@ export function DeviceResetModal({
             </div>
           </form>
         </motion.div>
-      </div>
+      </motion.div>
     </AnimatePresence>
   );
 }

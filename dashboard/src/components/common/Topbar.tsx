@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Bell, Search, Menu, X, ChevronRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { PageKey } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
@@ -477,21 +478,33 @@ export function Topbar({
 
         {/* Notifications */}
         <div className="relative">
-          <button
+          <motion.button
+            whileTap={{ scale: 0.94 }}
             type="button"
             onClick={() => setIsOpen((v) => !v)}
-            className={`relative p-2 rounded-lg bg-white border transition ${isOpen ? 'border-[#db6c00]/40 text-[#db6c00]' : 'border-[#EFEAE2] text-[#6B6258] hover:text-[#db6c00] hover:border-[#db6c00]/30'}`}
+            className={`relative p-2 rounded-lg bg-white border transition cursor-pointer ${isOpen ? 'border-[#db6c00]/40 text-[#db6c00]' : 'border-[#EFEAE2] text-[#6B6258] hover:text-[#db6c00] hover:border-[#db6c00]/30'}`}
             aria-label="Notifications"
             aria-expanded={isOpen}
             aria-haspopup="dialog">
             
-            <Bell className="w-4 h-4" />
-            {unreadCount > 0 &&
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-[#db6c00] text-white text-[10px] font-semibold flex items-center justify-center px-1 ring-2 ring-white">
+            <motion.div
+              animate={unreadCount > 0 ? { rotate: [0, -12, 10, -6, 4, 0] } : { rotate: 0 }}
+              transition={{ duration: 0.55, ease: "easeInOut" }}
+            >
+              <Bell className="w-4 h-4" />
+            </motion.div>
+
+            {unreadCount > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 450, damping: 25 }}
+                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-[#db6c00] text-white text-[10px] font-semibold flex items-center justify-center px-1 ring-2 ring-white shadow-sm"
+              >
                 {unreadCount}
-              </span>
-            }
-          </button>
+              </motion.span>
+            )}
+          </motion.button>
           {isOpen &&
           <NotificationDropdown
             notifications={notifications}

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Notification, NotificationType } from '../../hooks/useNotifications';
+import { DROPDOWN_VARIANTS } from '../../lib/motion';
 
 interface NotificationDropdownProps {
   notifications: Notification[];
@@ -174,10 +175,10 @@ export function NotificationDropdown({
       />
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
+        variants={DROPDOWN_VARIANTS}
+        initial="initial"
+        animate="animate"
+        exit="exit"
         ref={ref}
         role="dialog"
         aria-label="Notifications"

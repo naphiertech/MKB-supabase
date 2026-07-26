@@ -297,3 +297,42 @@
   background-size: 200% 100%;
   animation: ar-shimmer 1.5s infinite linear;
 }
+
+/* --- ENTERPRISE MOTION SYSTEM UTILITIES --- */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Button & Clickable Tactile Feedback */
+.btn-press {
+  transition: transform 140ms var(--ease-out);
+}
+
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+.card-press {
+  transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.card-press:active {
+  transform: scale(0.985);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-hover:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-press,
+  .card-press,
+  .btn-hover {
+    transition: none !important;
+    transform: none !important;
+  }
+}
