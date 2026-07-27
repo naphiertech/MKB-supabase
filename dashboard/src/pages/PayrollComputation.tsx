@@ -252,10 +252,10 @@ export function PayrollComputation() {
           const existing = existingLogs.find(l => l.date === date);
           const att = attList.find(a => a.date === date);
 
-          const rawTimeIn = att?.timeIn || null;
+          const canonicalTimeIn = att?.rawTimeIn || (att?.timeIn ? `${date}T${att.timeIn}:00` : null);
           let calculatedRate = 10;
-          if (rawTimeIn) {
-            const d = new Date(rawTimeIn.replace(' ', 'T'));
+          if (canonicalTimeIn) {
+            const d = new Date(canonicalTimeIn);
             if (!isNaN(d.getTime())) {
               const hours = d.getHours();
               const mins = d.getMinutes();
@@ -272,7 +272,7 @@ export function PayrollComputation() {
             parcels: existing?.parcels ?? 0,
             dailyGross: existing ? existing.parcels * calculatedRate : 0,
             rate: calculatedRate,
-            timeIn: rawTimeIn,
+            timeIn: canonicalTimeIn,
             saving: false,
             saved: !!existing,
             error: false,
@@ -830,13 +830,25 @@ export function PayrollComputation() {
                       const isEditing = editingDate === e.date;
 
                       // Display values
-                      const displayTimeIn = e.timeIn
-                        ? new Date(e.timeIn.replace(' ', 'T')).toLocaleTimeString('en-US', {
+                      const displayTimeIn = (() => {
+                        if (!e.timeIn) return '—';
+                        const d = new Date(e.timeIn);
+                        if (!isNaN(d.getTime())) {
+                          return d.toLocaleTimeString('en-US', {
                             hour: 'numeric',
                             minute: '2-digit',
                             hour12: true
-                          })
-                        : '—';
+                          });
+                        }
+                        if (/^\d{1,2}:\d{2}$/.test(e.timeIn)) {
+                          const [hStr, mStr] = e.timeIn.split(':');
+                          let h = parseInt(hStr, 10);
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          h = h % 12 || 12;
+                          return `${h}:${mStr} ${ampm}`;
+                        }
+                        return e.timeIn;
+                      })();
 
                       return (
                         <tr

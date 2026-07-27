@@ -11,7 +11,7 @@ function formatDtrTimeString(dateStr: string | null): string {
   if (/^\d{2}:\d{2}(:\d{2})?$/.test(dateStr)) {
     return dateStr.slice(0, 5);
   }
-  const d = new Date(dateStr.replace(' ', 'T'));
+  const d = new Date(dateStr);
   return isNaN(d.getTime()) ? '' : d.toTimeString().slice(0, 5);
 }
 
