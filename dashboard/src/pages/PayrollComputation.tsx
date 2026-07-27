@@ -6,8 +6,11 @@ import {
   getParcelLogs,
   upsertParcelLog,
   savePayrollRecord,
+  initializeCutoffPayrollForFleet,
+  resetDraftPayrollForCutoff
 } from '../services/parcelService';
 import { BulkParcelUploadModal } from '../components/payroll/BulkParcelUploadModal';
+import { SearchableRiderComboboxModal } from '../components/payroll/SearchableRiderComboboxModal';
 import { useAuth } from '../hooks/useAuth';
 import { exportParcelPayslipPDF, exportParcelCSV } from '../lib/exports/payrollExport';
 import { pushToast } from '../hooks/useToast';
@@ -21,7 +24,11 @@ import {
   Sparkles,
   Loader2,
   X,
-  Calendar
+  Calendar,
+  Zap,
+  Search as SearchIcon,
+  RotateCcw,
+  AlertTriangle
 } from 'lucide-react';
 import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/RiderPayrollList';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
@@ -131,7 +138,66 @@ export function PayrollComputation() {
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [initializingFleet, setInitializingFleet] = useState(false);
+  const [resettingFleet, setResettingFleet] = useState(false);
+  const [confirmInitOpen, setConfirmInitOpen] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleInitializeFleet = async () => {
+    setInitializingFleet(true);
+    try {
+      const res = await initializeCutoffPayrollForFleet(cutoffFrom, cutoffTo, user?.id);
+      if (res.initializedCount > 0) {
+        pushToast({
+          title: "Fleet Cutoff Initialized",
+          description: `Created draft payroll records for ${res.initializedCount} rider(s) (${res.totalRiders} total in fleet).`,
+          tone: "success"
+        });
+      } else {
+        pushToast({
+          title: "Cutoff Already Initialized",
+          description: `All ${res.totalRiders} fleet riders already have payroll records for this cutoff.`,
+          tone: "info"
+        });
+      }
+      setReloadTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Failed to initialize fleet payroll:", err);
+      pushToast({
+        title: "Initialization Failed",
+        description: "Failed to create draft payroll entries for fleet.",
+        tone: "error"
+      });
+    } finally {
+      setInitializingFleet(false);
+      setConfirmInitOpen(false);
+    }
+  };
+
+  const handleResetFleetDrafts = async () => {
+    setResettingFleet(true);
+    try {
+      await resetDraftPayrollForCutoff(cutoffFrom);
+      pushToast({
+        title: "Draft Cutoff Reset",
+        description: `Unedited draft payroll records for ${cutoffLabel} have been removed.`,
+        tone: "info"
+      });
+      setReloadTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Failed to reset draft payroll:", err);
+      pushToast({
+        title: "Reset Failed",
+        description: "Failed to delete unedited draft payroll records.",
+        tone: "error"
+      });
+    } finally {
+      setResettingFleet(false);
+      setConfirmResetOpen(false);
+    }
+  };
 
   // Unsaved draft states to prevent automatic saves on keystroke
   const [editingDate, setEditingDate] = useState<string | null>(null);
@@ -186,7 +252,7 @@ export function PayrollComputation() {
           const existing = existingLogs.find(l => l.date === date);
           const att = attList.find(a => a.date === date);
 
-          const rawTimeIn = att?.time_in || null;
+          const rawTimeIn = att?.timeIn || null;
           let calculatedRate = 10;
           if (rawTimeIn) {
             const d = new Date(rawTimeIn.replace(' ', 'T'));
@@ -429,14 +495,63 @@ export function PayrollComputation() {
               </button>
             </div>
 
+            {/* Fleet Initialization & Searchable Combobox Actions */}
+            {!activeRider && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setConfirmInitOpen(true)}
+                  disabled={initializingFleet || resettingFleet}
+                  className="h-9 px-3.5 rounded-lg bg-[#FFF1E0] hover:bg-[#db6c00] text-[#db6c00] hover:text-white border border-[#db6c00]/30 text-xs font-bold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+                  title="Create draft payroll rows for all active fleet riders for this cutoff"
+                >
+                  {initializingFleet ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Initializing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      Initialize Fleet Cutoff
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmResetOpen(true)}
+                  disabled={initializingFleet || resettingFleet}
+                  className="h-9 px-3 rounded-lg border border-red-200 bg-red-50/50 hover:bg-red-100 hover:text-red-700 text-red-600 text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+                  title="Remove unedited 0-parcel draft records for this cutoff"
+                >
+                  {resettingFleet ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  )}
+                  Reset Drafts
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setComboboxOpen(true)}
+                  className="h-9 px-3.5 rounded-lg bg-white border border-[#EFEAE2] hover:border-[#db6c00]/40 hover:bg-[#FAFAF7] text-[#1A1410] text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <SearchIcon className="w-3.5 h-3.5 text-[#db6c00]" />
+                  Search & Pick Rider...
+                </button>
+              </>
+            )}
+
             {/* Bulk Upload Button (only in list view) */}
             {!activeRider && (
               <button
                 type="button"
                 onClick={() => setBulkImportOpen(true)}
-                className="h-9 px-3.5 rounded-lg bg-[#FFF1E0] hover:bg-[#db6c00]/20 border border-[#db6c00]/10 hover:border-[#db6c00]/30 text-[#db6c00] text-xs font-bold transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                className="h-9 px-3.5 rounded-lg bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] text-[#6B6258] text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <FileSpreadsheet className="w-3.5 h-3.5 text-[#db6c00]" />
                 Import Excel
               </button>
             )}
@@ -895,6 +1010,163 @@ export function PayrollComputation() {
         }}
         currentUserId={user?.id}
       />
+
+      <SearchableRiderComboboxModal
+        isOpen={comboboxOpen}
+        onClose={() => setComboboxOpen(false)}
+        riders={riders}
+        onSelectRider={(riderId) => {
+          setSelectedRiderId(riderId);
+          const rObj = riders.find(r => r.id === riderId);
+          if (rObj) {
+            setActiveRider({
+              id: `draft-${riderId}`,
+              rider_id: riderId,
+              cutoff_start: cutoffFrom,
+              cutoff_end: cutoffTo,
+              total_parcels: 0,
+              rate_per_parcel: 10,
+              gross_pay: 0,
+              status: 'draft',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              riders: {
+                id: riderId,
+                name: rObj.name,
+                mkb_id: rObj.mkb_id,
+                notes: null,
+                zones: rObj.zones
+              }
+            });
+          }
+        }}
+      />
+
+      {/* Confirmation Modal: Fleet Initialization */}
+      <AnimatePresence>
+        {confirmInitOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmInitOpen(false)}
+              className="absolute inset-0 bg-[#1A1410]/55 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white border border-[#EFEAE2] rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FFF1E0] border border-[#db6c00]/30 flex items-center justify-center shrink-0">
+                  <Zap className="w-5 h-5 text-[#db6c00]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1410]">Initialize Fleet Cutoff?</h3>
+                  <p className="text-[11px] text-[#6B6258] mt-0.5">Period: {cutoffLabel}, {currentYear}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-[#6B6258] leading-relaxed">
+                Are you sure you want to generate draft payroll records for all <strong className="text-[#1A1410]">{riders.length} active fleet riders</strong> for this cutoff period?
+              </p>
+              <p className="text-[11px] text-[#A39988] italic">
+                Note: Existing submitted, approved, or edited records will remain completely safe.
+              </p>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmInitOpen(false)}
+                  className="px-4 h-9 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold text-[#1A1410] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInitializeFleet}
+                  disabled={initializingFleet}
+                  className="px-5 h-9 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-xs font-bold text-white transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  {initializingFleet ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Initializing...
+                    </>
+                  ) : (
+                    'Yes, Initialize Fleet'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmation Modal: Reset Fleet Drafts */}
+      <AnimatePresence>
+        {confirmResetOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmResetOpen(false)}
+              className="absolute inset-0 bg-[#1A1410]/55 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white border border-[#EFEAE2] rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1410]">Reset Unedited Drafts?</h3>
+                  <p className="text-[11px] text-[#6B6258] mt-0.5">Period: {cutoffLabel}, {currentYear}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-[#6B6258] leading-relaxed">
+                This will delete unedited draft payroll entries (<strong className="text-[#1A1410]">0 parcels logged</strong>) for this cutoff period.
+              </p>
+              <p className="text-[11px] text-emerald-600 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200 font-medium">
+                ✓ Any records with parcels entered or submitted for approval are protected and will NOT be deleted.
+              </p>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmResetOpen(false)}
+                  className="px-4 h-9 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold text-[#1A1410] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetFleetDrafts}
+                  disabled={resettingFleet}
+                  className="px-5 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  {resettingFleet ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    'Yes, Delete Drafts'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -141,6 +141,121 @@ export const savePayrollRecord = async (
   }
 };
 
+/**
+ * Initializes draft payroll records for all active riders for a specific cutoff period.
+ * Idempotent: Skips riders that already have a payroll record for the given cutoff.
+ */
+export const initializeCutoffPayrollForFleet = async (
+  cutoffFrom: string,
+  cutoffTo: string,
+  userId?: string
+): Promise<{ initializedCount: number; totalRiders: number }> => {
+  // 1. Fetch all riders from database
+  const { data: riders, error: riderErr } = await supabase
+    .from('riders')
+    .select('id, name');
+
+  if (riderErr) throw riderErr;
+  if (!riders || riders.length === 0) {
+    return { initializedCount: 0, totalRiders: 0 };
+  }
+
+  // 2. Fetch existing payroll records for this cutoff period
+  const { data: existingRecords, error: recordErr } = await supabase
+    .from('payroll_records')
+    .select('rider_id')
+    .eq('cutoff_start', cutoffFrom);
+
+  if (recordErr) throw recordErr;
+
+  const existingRiderIds = new Set((existingRecords || []).map(r => r.rider_id));
+
+  // 3. Filter riders missing payroll records
+  const missingRiders = riders.filter(r => !existingRiderIds.has(r.id));
+
+  if (missingRiders.length === 0) {
+    return { initializedCount: 0, totalRiders: riders.length };
+  }
+
+  // 4. Batch insert missing draft payroll records
+  const newRecords = missingRiders.map(r => ({
+    rider_id: r.id,
+    cutoff_start: cutoffFrom,
+    cutoff_end: cutoffTo,
+    total_parcels: 0,
+    rate_per_parcel: 10,
+    gross_pay: 0,
+    status: PayrollStatus.DRAFT,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    submitted_by: userId || null
+  }));
+
+  const { error: insertErr } = await supabase
+    .from('payroll_records')
+    .upsert(newRecords, { onConflict: 'rider_id,cutoff_start' });
+
+  if (insertErr) throw insertErr;
+
+  return {
+    initializedCount: missingRiders.length,
+    totalRiders: riders.length
+  };
+};
+
+/**
+ * Deletes unedited draft payroll records (0 parcels and status 'draft') for a specific cutoff period.
+ * Preserves any records that have parcels logged or status updated (submitted/approved/paid).
+ */
+export const resetDraftPayrollForCutoff = async (
+  cutoffFrom: string
+): Promise<number> => {
+  const { data, error } = await supabase
+    .from('payroll_records')
+    .delete()
+    .eq('cutoff_start', cutoffFrom)
+    .eq('status', PayrollStatus.DRAFT)
+    .eq('total_parcels', 0)
+    .select('id');
+
+  if (error) throw error;
+  return data ? data.length : 0;
+};
+
+/**
+ * Deletes a single payroll record by ID.
+ */
+export const deletePayrollRecord = async (id: string): Promise<void> => {
+  const { data, error } = await supabase
+    .from('payroll_records')
+    .delete()
+    .eq('id', id)
+    .select('id');
+
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Record could not be deleted or does not exist.');
+  }
+};
+
+/**
+ * Bulk deletes payroll records by IDs.
+ */
+export const deleteBulkPayrollRecords = async (ids: string[]): Promise<number> => {
+  if (!ids || ids.length === 0) return 0;
+  const { data, error } = await supabase
+    .from('payroll_records')
+    .delete()
+    .in('id', ids)
+    .select('id');
+
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('No records were deleted. Permission denied or records not found.');
+  }
+  return data.length;
+};
+
 
 // Get all payroll records for dashboard
 export const getPayrollRecords = async (

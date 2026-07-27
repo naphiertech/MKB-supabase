@@ -1,6 +1,6 @@
-import { LogIn, LogOut, CheckCircle2 } from 'lucide-react';
+import { LogIn, LogOut, CheckCircle2, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
-export type AttendanceAction = 'time-in' | 'time-out' | 'completed';
+export type AttendanceAction = 'time-in' | 'time-out' | 'completed' | 'closed';
 interface AttendanceButtonProps {
   action: AttendanceAction;
   onClick: () => void;
@@ -44,6 +44,15 @@ const COPY: Record<
     fill: 'bg-[#FAFAF7]',
     text: 'text-[#6B6258]',
     glow: ''
+  },
+  closed: {
+    label: 'ATTENDANCE CLOSED',
+    sub: "Today's attendance has been finalized",
+    icon: Lock,
+    ring: 'border-slate-300',
+    fill: 'bg-slate-100',
+    text: 'text-slate-600',
+    glow: ''
   }
 };
 export function AttendanceButton({
@@ -53,7 +62,7 @@ export function AttendanceButton({
 }: AttendanceButtonProps) {
   const c = COPY[action];
   const Icon = c.icon;
-  const inactive = action === 'completed' || disabled;
+  const inactive = action === 'completed' || action === 'closed' || disabled;
   const isPrimary = action === 'time-in';
   return (
     <motion.button

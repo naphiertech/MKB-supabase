@@ -102,6 +102,8 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
             zoneId: log.zone_id || '',
             zoneName: '',
             status: log.status as AttendanceLog['status'],
+            presence: (log.status === 'on_leave' ? 'on_leave' : log.time_in ? 'present' : 'absent'),
+            punctuality: (log.status === 'late' ? 'late' : log.time_in ? 'on_time' : 'none'),
             source: (log.source || 'manual') as AttendanceLog['source'],
             events: log.events || []
           }));
@@ -553,12 +555,6 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                     <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Assigned Zone</span>
                     <span className="font-semibold text-[#1A1410]">{zoneName}</span>
                   </div>
-                  {isRider && (
-                    <div>
-                      <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Shift Schedule</span>
-                      <span className="font-semibold text-[#1A1410] capitalize">{user.shift || 'Not assigned'}</span>
-                    </div>
-                  )}
                   <div>
                     <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Last Activity</span>
                     <span className="font-semibold text-[#1A1410]">{formattedLastLogin}</span>
@@ -761,6 +757,8 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                                   zoneId: '',
                                   zoneName: '',
                                   status: 'absent',
+                                  presence: 'absent',
+                                  punctuality: 'none',
                                   source: 'manual',
                                   events: []
                                 });

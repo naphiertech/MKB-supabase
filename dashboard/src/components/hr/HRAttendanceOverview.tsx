@@ -41,7 +41,14 @@ function HrStatusPill({ status }: { status: HrLogStatus }) {
   );
 }
 
-function VerificationBadge({ source, lat }: { source: 'face-scan' | 'manual'; lat?: number }) {
+function VerificationBadge({ source, lat }: { source: 'face-scan' | 'manual' | 'system'; lat?: number }) {
+  if (source === 'system') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
+        <span>Auto-Cutoff</span>
+      </span>
+    );
+  }
   if (source === 'face-scan' && lat) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300">
