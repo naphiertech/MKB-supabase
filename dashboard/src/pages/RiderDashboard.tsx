@@ -10,7 +10,7 @@ import {
   getRiderViolationsForMonth
 } from '../services/riderService';
 import { fetchRiderDashboardWithSWR, updateCachedAttendanceState, type CachedDashboardPayload } from '../services/riderCacheService';
-import { recordTimeIn, recordTimeOut } from '../services/attendanceService';
+import { recordTimeIn, recordTimeOut, isAttendanceFinalized } from '../services/attendanceService';
 import { useRiderZone } from '../context/RiderZoneContext';
 import { isPointInPolygon } from '../lib/geofenceUtils';
 import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
@@ -20,7 +20,7 @@ import { useFaceRecognition } from '../hooks/useFaceRecognition';
 import { preloadBiometrics, releaseBiometrics } from '../lib/faceAi';
 import { Modal } from '../components/common/Modal';
 import { FaceScanner } from '../components/attendance/FaceScanner';
-import { AttendanceButton } from '../components/attendance/AttendanceButton';
+import { AttendanceButton, type AttendanceAction } from '../components/attendance/AttendanceButton';
 import { AttendanceStatus } from '../components/attendance/AttendanceStatus';
 import { RiderMap } from '../components/maps/RiderMap';
 import { IdentityBanner } from '../components/rider/IdentityBanner';
@@ -459,8 +459,14 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   const distance = distanceToUse;
   const inZone = inZoneToUse;
 
-  const action: 'time-in' | 'time-out' | 'completed' =
-    timeIn && timeOut ? 'completed' : timeIn ? 'time-out' : 'time-in';
+  const isClosed = isAttendanceFinalized() && !timeIn;
+  const action: AttendanceAction = isClosed
+    ? 'closed'
+    : timeIn && timeOut
+      ? 'completed'
+      : timeIn
+        ? 'time-out'
+        : 'time-in';
 
   const [events, setEvents] = useState<ActivityEvent[]>([]);
 
@@ -755,11 +761,13 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             Attendance · Face Verified
           </div>
           <h2 className="text-[#1A1410] font-semibold text-lg sm:text-xl tracking-tight mt-1">
-            {action === 'time-in' ?
-              'Ready to clock in?' :
-              action === 'time-out' ?
-                "Wrapping up? Let's clock you out." :
-                'You are all done for today.'}
+            {action === 'closed' ?
+              "Today's attendance has already been finalized." :
+              action === 'time-in' ?
+                'Ready to clock in?' :
+                action === 'time-out' ?
+                  "Wrapping up? Let's clock you out." :
+                  'You are all done for today.'}
           </h2>
         </div>
 

@@ -48,12 +48,83 @@ interface DbAttendanceViewRow {
   hr_status: string | null;
 }
 
+export function isAttendanceFinalized(targetDate: string = getLocalDateString(), cutoffHour = 17): boolean {
+  const now = new Date();
+  const todayStr = getLocalDateString(now);
+  if (targetDate < todayStr) return true;
+  if (targetDate === todayStr && now.getHours() >= cutoffHour) return true;
+  return false;
+}
+
+export async function finalizeDailyAttendance(targetDate: string = getLocalDateString(), cutoffHour = 17): Promise<number> {
+  try {
+    const isFinalized = isAttendanceFinalized(targetDate, cutoffHour);
+
+    // Only finalize if targetDate is a past date OR today after cutoff hour (5:00 PM)
+    if (!isFinalized) {
+      return 0;
+    }
+
+    // 1. Fetch active riders
+    const { data: riders, error: riderErr } = await supabase
+      .from('riders')
+      .select('id, name');
+
+    if (riderErr || !riders || riders.length === 0) return 0;
+
+    // 2. Fetch existing attendance records for targetDate
+    const { data: existingLogs, error: logErr } = await supabase
+      .from('attendance_logs')
+      .select('rider_id')
+      .eq('date', targetDate);
+
+    if (logErr) return 0;
+
+    const existingRiderIds = new Set((existingLogs || []).map(l => l.rider_id));
+
+    // 3. Find riders without attendance logs for targetDate
+    const missingRiders = riders.filter(r => !existingRiderIds.has(r.id));
+    if (missingRiders.length === 0) return 0;
+
+    // 4. Create auto-generated absent records
+    const newRecords = missingRiders.map(r => ({
+      rider_id: r.id,
+      date: targetDate,
+      time_in: null,
+      time_out: null,
+      hours: 0,
+      status: 'absent',
+      source: 'system',
+      notes: 'Auto-generated absent record by system cutoff'
+    }));
+
+    const { error: insertErr } = await supabase
+      .from('attendance_logs')
+      .insert(newRecords);
+
+    if (insertErr) {
+      console.warn('[AttendanceService] Failed to insert auto-absent logs:', insertErr);
+      return 0;
+    }
+
+    console.log(`[AttendanceService] Finalized ${newRecords.length} auto-absent records for ${targetDate}`);
+    return newRecords.length;
+  } catch (err) {
+    console.error('[AttendanceService] Error in finalizeDailyAttendance:', err);
+    return 0;
+  }
+}
+
 export async function getAttendanceLogs(filters?: {
   status?: AttendanceStatus;
   dateFrom?: string;
   dateTo?: string;
   zoneId?: string;
 }): Promise<AttendanceLog[]> {
+  // Trigger auto-absent finalization for requested dates
+  const queryDate = filters?.dateFrom || getLocalDateString();
+  await finalizeDailyAttendance(queryDate).catch(err => console.warn('Finalization notice:', err));
+
   let query = supabase
     .from('v_attendance_summary')
     .select('*');
@@ -289,8 +360,14 @@ export async function getRiderAttendanceInDateRange(riderId: string, dateFrom: s
   return logs.filter(l => l.riderId === riderId);
 }
 
-export async function recordTimeIn(riderId: string, zoneId?: string): Promise<AttendanceLog | null> {
+export async function recordTimeIn(riderId: string, zoneId?: string, cutoffHour = 17): Promise<AttendanceLog | null> {
   const today = getLocalDateString();
+
+  // Strictly enforce cutoff finalization rule: Reject time-in if attendance is finalized
+  if (isAttendanceFinalized(today, cutoffHour)) {
+    throw new Error("Attendance Closed: Today's attendance has already been finalized.");
+  }
+
   const now = new Date().toISOString();
   const logId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-timein`;
 
@@ -335,15 +412,27 @@ export async function recordTimeIn(riderId: string, zoneId?: string): Promise<At
     };
   }
 
+  // Check if an existing system-generated absent record exists for today
+  const { data: existingSystemLog } = await supabase
+    .from('attendance_logs')
+    .select('id')
+    .eq('rider_id', riderId)
+    .eq('date', today)
+    .eq('source', 'system')
+    .maybeSingle();
+
+  const targetLogId = existingSystemLog?.id || logId;
+
   const { data, error } = await supabase
     .from('attendance_logs')
-    .insert({
-      id: logId,
+    .upsert({
+      id: targetLogId,
       rider_id: riderId,
       date: today,
       time_in: now,
       status: 'present',
-      source: 'face-scan'
+      source: 'face-scan',
+      notes: null
     })
     .select('*')
     .single();

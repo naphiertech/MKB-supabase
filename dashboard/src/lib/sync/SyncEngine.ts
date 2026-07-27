@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { getStorageAdapter, type QueueItem } from '../storage';
 import { updateCachedAttendanceState } from '../../services/riderCacheService';
+import { isAttendanceFinalized } from '../../services/attendanceService';
 
 const MAX_RETRIES = 5;
 
@@ -266,6 +267,11 @@ export class SyncEngine {
     };
 
     if (!p.id || !p.rider_id) throw new Error('Invalid TIME_IN payload: Missing id or rider_id');
+
+    if (isAttendanceFinalized(p.date)) {
+      console.warn(`[SyncEngine] TIME_IN log ${p.id} discarded: Date ${p.date} is finalized.`);
+      return;
+    }
 
     // Idempotent Insert using client UUID
     const { error } = await supabase.from('attendance_logs').insert({

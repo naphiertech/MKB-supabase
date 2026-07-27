@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
   Lock,
@@ -8,9 +9,16 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
-  Loader2
+  Loader2,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
-import { getPaginatedPayrollRecords, bulkSubmitPayrollForApproval } from '../../services/parcelService';
+import {
+  getPaginatedPayrollRecords,
+  bulkSubmitPayrollForApproval,
+  deletePayrollRecord,
+  deleteBulkPayrollRecords
+} from '../../services/parcelService';
 import { getZones } from '../../services/geofenceService';
 import type { Zone } from '../../services/types';
 import { useAuth } from '../../hooks/useAuth';
@@ -117,6 +125,64 @@ export function RiderPayrollList({
   const [loading, setLoading] = useState(true);
   const [layoutReady, setLayoutReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<PayrollRecordRow | null>(null);
+  const [confirmSingleDeleteOpen, setConfirmSingleDeleteOpen] = useState(false);
+  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleSingleDelete = async () => {
+    if (!recordToDelete) return;
+    setDeleting(true);
+    try {
+      await deletePayrollRecord(recordToDelete.id);
+      pushToast({
+        title: "Record Deleted",
+        description: `Deleted payroll record for ${recordToDelete.riders?.name || 'Rider'}.`,
+        tone: "info"
+      });
+      setConfirmSingleDeleteOpen(false);
+      setRecordToDelete(null);
+      fetchRecords();
+      if (onStatusUpdated) onStatusUpdated();
+    } catch (err: unknown) {
+      console.error("Failed to delete record:", err);
+      const msg = err instanceof Error ? err.message : "Failed to delete payroll record.";
+      pushToast({
+        title: "Delete Failed",
+        description: msg,
+        tone: "error"
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRecordIds.size === 0) return;
+    setDeleting(true);
+    try {
+      const count = await deleteBulkPayrollRecords(Array.from(selectedRecordIds));
+      pushToast({
+        title: "Records Deleted",
+        description: `Deleted ${count} selected payroll record(s).`,
+        tone: "info"
+      });
+      setSelectedRecordIds(new Set());
+      setConfirmBulkDeleteOpen(false);
+      fetchRecords();
+      if (onStatusUpdated) onStatusUpdated();
+    } catch (err: unknown) {
+      console.error("Failed to delete selected records:", err);
+      const msg = err instanceof Error ? err.message : "Failed to delete selected payroll records.";
+      pushToast({
+        title: "Bulk Delete Failed",
+        description: msg,
+        tone: "error"
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleSubmitForApproval = async () => {
     if (selectedRecordIds.size === 0) return;
@@ -149,11 +215,12 @@ export function RiderPayrollList({
       if (onStatusUpdated) {
         onStatusUpdated();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Bulk submission failed:", err);
+      const errMsg = err instanceof Error ? err.message : String(err);
       pushToast({
         title: "Submission failed",
-        description: err.message || "An error occurred while submitting payrolls for approval.",
+        description: errMsg || "An error occurred while submitting payrolls for approval.",
         tone: "error"
       });
     } finally {
@@ -234,51 +301,52 @@ export function RiderPayrollList({
   }, [statusFilter, zoneFilter, cutoffFrom, cutoffTo]);
 
   // Load paginated records from Supabase
-  useEffect(() => {
+  const fetchRecords = useCallback(async () => {
     if (!layoutReady) return;
 
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const { records, totalCount: count } = await getPaginatedPayrollRecords({
-          cutoffFrom,
-          cutoffTo,
-          page,
-          pageSize,
-          search: debouncedSearch,
-          statusFilter,
-          zoneFilter,
-          sortBy,
-          sortOrder
+    setLoading(true);
+    try {
+      const { records, totalCount: count } = await getPaginatedPayrollRecords({
+        cutoffFrom,
+        cutoffTo,
+        page,
+        pageSize,
+        search: debouncedSearch,
+        statusFilter,
+        zoneFilter,
+        sortBy,
+        sortOrder
+      });
+
+      // Client-side sort fallback for net_pay since database ordering was gross_pay
+      const sortedRecords = [...records];
+      if (sortBy === 'net_pay') {
+        sortedRecords.sort((a, b) => {
+          const getNet = (r: PayrollRecordRow) => {
+            const gross = r.gross_pay ?? 0;
+            const other = Number(r.other_earnings ?? 0);
+            const fm = Number(r.fm_pickup_count ?? 0) * 3;
+            const deduct = Number(r.deductions ?? 0) + Number(r.late_onhold ?? 0) + Number(r.late_remittance ?? 0);
+            return gross + other + fm - deduct;
+          };
+          const netA = getNet(a);
+          const netB = getNet(b);
+          return sortOrder === 'asc' ? netA - netB : netB - netA;
         });
-
-        // Client-side sort fallback for net_pay since database ordering was gross_pay
-        const sortedRecords = [...records];
-        if (sortBy === 'net_pay') {
-          sortedRecords.sort((a, b) => {
-            const getNet = (r: PayrollRecordRow) => {
-              const gross = r.gross_pay ?? 0;
-              const other = Number(r.other_earnings ?? 0);
-              const fm = Number(r.fm_pickup_count ?? 0) * 3;
-              const deduct = Number(r.deductions ?? 0) + Number(r.late_onhold ?? 0) + Number(r.late_remittance ?? 0);
-              return gross + other + fm - deduct;
-            };
-            const netA = getNet(a);
-            const netB = getNet(b);
-            return sortOrder === 'asc' ? netA - netB : netB - netA;
-          });
-        }
-
-        setPayrollRecords(sortedRecords);
-        setTotalCount(count);
-      } catch (err) {
-        console.error('Failed to load payroll records', err);
-      } finally {
-        setLoading(false);
       }
-    };
-    loadData();
-  }, [cutoffFrom, cutoffTo, page, pageSize, debouncedSearch, statusFilter, zoneFilter, sortBy, sortOrder, reloadTrigger, layoutReady]);
+
+      setPayrollRecords(sortedRecords);
+      setTotalCount(count);
+    } catch (err) {
+      console.error('Failed to load payroll records', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [cutoffFrom, cutoffTo, page, pageSize, debouncedSearch, statusFilter, zoneFilter, sortBy, sortOrder, layoutReady]);
+
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords, reloadTrigger]);
 
   // Sorting handlers
   const handleSort = (column: 'riderName' | 'total_parcels' | 'gross_pay' | 'net_pay' | 'status') => {
@@ -349,20 +417,31 @@ export function RiderPayrollList({
               Bulk Export
             </button>
             {role === 'payroll' ? (
-              <button
-                onClick={handleSubmitForApproval}
-                disabled={submitting}
-                className="h-8 px-3 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  'Submit for Approval'
-                )}
-              </button>
+              <>
+                <button
+                  onClick={handleSubmitForApproval}
+                  disabled={submitting || deleting}
+                  className="h-8 px-3 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    'Submit for Approval'
+                  )}
+                </button>
+                <button
+                  onClick={() => setConfirmBulkDeleteOpen(true)}
+                  disabled={submitting || deleting}
+                  className="h-8 px-3 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                  title="Delete selected draft records"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete Selected ({selectedRecordIds.size})
+                </button>
+              </>
             ) : (
               <>
                 <button
@@ -474,8 +553,13 @@ export function RiderPayrollList({
         )}
 
         {!loading && payrollRecords.length === 0 && (
-          <div className="p-16 text-center text-sm text-[#6B6258]">
-            No payroll records found for this period. Click over to <strong>Computation</strong> to log parcels.
+          <div className="p-12 text-center space-y-2">
+            <div className="text-sm font-semibold text-[#1A1410]">
+              No payroll records computed for {cutoffLabel} yet.
+            </div>
+            <p className="text-xs text-[#6B6258] max-w-md mx-auto leading-relaxed">
+              Use <span className="font-semibold text-[#db6c00]">&ldquo;Initialize Fleet Cutoff&rdquo;</span> above to generate draft records for all active riders, or <span className="font-semibold text-[#1A1410]">&ldquo;Search & Pick Rider&rdquo;</span> to log daily parcels individually.
+            </p>
           </div>
         )}
 
@@ -585,6 +669,20 @@ export function RiderPayrollList({
                                 }`}
                               >
                                 {isEditableStatus(r.status) ? 'Compute' : 'View'}
+                              </button>
+                            )}
+                            {isEditableStatus(r.status) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRecordToDelete(r);
+                                  setConfirmSingleDeleteOpen(true);
+                                }}
+                                className="p-1 rounded text-[#A39988] hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                title="Delete this payroll record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>
@@ -697,6 +795,134 @@ export function RiderPayrollList({
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal: Single Record Delete */}
+      <AnimatePresence>
+        {confirmSingleDeleteOpen && recordToDelete && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setConfirmSingleDeleteOpen(false);
+                setRecordToDelete(null);
+              }}
+              className="absolute inset-0 bg-[#1A1410]/55 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white border border-[#EFEAE2] rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1410]">Delete Payroll Record?</h3>
+                  <p className="text-[11px] text-[#6B6258] mt-0.5">
+                    {recordToDelete.riders?.name} ({recordToDelete.riders?.mkb_id || 'MKB-RIDER'})
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-[#6B6258] leading-relaxed">
+                Are you sure you want to delete this payroll record? This action will remove the entry for this rider for the cutoff period.
+              </p>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmSingleDeleteOpen(false);
+                    setRecordToDelete(null);
+                  }}
+                  className="px-4 h-9 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold text-[#1A1410] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSingleDelete}
+                  disabled={deleting}
+                  className="px-5 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Yes, Delete Record'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmation Modal: Bulk Records Delete */}
+      <AnimatePresence>
+        {confirmBulkDeleteOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmBulkDeleteOpen(false)}
+              className="absolute inset-0 bg-[#1A1410]/55 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white border border-[#EFEAE2] rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1A1410]">Delete Selected Records?</h3>
+                  <p className="text-[11px] text-[#6B6258] mt-0.5">{selectedRecordIds.size} rider record(s) selected</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-[#6B6258] leading-relaxed">
+                Are you sure you want to delete <strong className="text-[#1A1410]">{selectedRecordIds.size} selected payroll record(s)</strong>?
+              </p>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmBulkDeleteOpen(false)}
+                  className="px-4 h-9 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold text-[#1A1410] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={deleting}
+                  className="px-5 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    `Yes, Delete ${selectedRecordIds.size} Records`
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

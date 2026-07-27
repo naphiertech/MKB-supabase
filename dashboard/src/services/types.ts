@@ -48,7 +48,7 @@ export interface AttendanceLog {
   status: AttendanceStatus;
   presence: AttendancePresence;
   punctuality: PunctualityStatus;
-  source: 'face-scan' | 'manual';
+  source: 'face-scan' | 'manual' | 'system';
   faceScanUrl?: string;
   lat?: number;
   lng?: number;

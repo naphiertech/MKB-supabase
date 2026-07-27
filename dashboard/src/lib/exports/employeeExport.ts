@@ -64,7 +64,6 @@ export function exportEmployeeProfileCard({
       ['Employment Type', user.employmentType || '—'],
       ['Date Joined / Hire', formattedHireDate],
       ['Assigned Operational Zone', zoneName],
-      ['Shift Assignment', user.shift || '—'],
       ['Account Registry Status', user.status || '—']
     ];
 
