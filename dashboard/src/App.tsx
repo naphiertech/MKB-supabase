@@ -20,6 +20,8 @@ import { RiderTopNav, type RiderPageKey } from './components/rider/RiderTopNav';
 import { PayrollDashboard } from './pages/PayrollDashboard';
 import { PayrollComputation } from './pages/PayrollComputation';
 import { PayrollReports } from './pages/PayrollReports';
+import { DailyParcelEntry } from './pages/DailyParcelEntry';
+import { ParcelHistory } from './pages/ParcelHistory';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabaseClient';
 import { useRiderZone } from './context/RiderZoneContext';
@@ -300,7 +302,9 @@ export function App() {
         'users',
         'reviews',
         'payroll',
-        'audit_logs'
+        'audit_logs',
+        'daily_parcels',
+        'parcel_history'
       ];
       return allowed.includes(normalized) ? normalized : 'dashboard';
     }
@@ -313,7 +317,10 @@ export function App() {
         'reviews',
         'users',
         'payroll',
-        'audit_logs'];
+        'audit_logs',
+        'daily_parcels',
+        'parcel_history'
+      ];
 
       return allowed.includes(normalized) ? normalized : 'dashboard';
     }
@@ -395,6 +402,8 @@ export function App() {
                     {safePage === 'reviews' && <ReviewsModeration />}
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'audit_logs' && <AuditLogs />}
+                    {safePage === 'daily_parcels' && <DailyParcelEntry />}
+                    {safePage === 'parcel_history' && <ParcelHistory />}
                   </>
                 }
                 {role === 'hr' &&
@@ -409,6 +418,8 @@ export function App() {
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'audit_logs' && <AuditLogs />}
+                    {safePage === 'daily_parcels' && <DailyParcelEntry />}
+                    {safePage === 'parcel_history' && <ParcelHistory />}
                   </>
                 }
                 {role === 'payroll' &&
