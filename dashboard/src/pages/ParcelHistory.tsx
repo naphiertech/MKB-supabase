@@ -25,6 +25,7 @@ import type { Zone } from '../services/types';
 import { pushToast } from '../hooks/useToast';
 import { getLocalDateString } from '../services/attendanceService';
 import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
+import { RiderAvatar } from '../components/common/RiderAvatar';
 
 function StatusBadge({ status }: { status?: ParcelHistoryItem['attendanceStatus'] }) {
   switch (status) {
@@ -463,11 +464,14 @@ export function ParcelHistory() {
                   className="absolute inset-y-0 right-0 w-full max-w-md bg-white border-l border-[#EFEAE2] shadow-2xl flex flex-col font-sans z-[100000]"
                 >
                   <div className="p-5 border-b border-[#EFEAE2] flex items-center justify-between bg-[#FAFAF7]">
-                    <div>
-                      <h3 className="font-bold text-[#1A1410] text-sm">{selectedDetailRow.riderName}</h3>
-                      <p className="text-xs text-[#6B6258] font-mono">
-                        MKB ID: {selectedDetailRow.riderMkbId} &bull; {selectedDetailRow.zoneName}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <RiderAvatar src={selectedDetailRow.riderAvatar} name={selectedDetailRow.riderName} className="w-10 h-10" />
+                      <div>
+                        <h3 className="font-bold text-[#1A1410] text-sm">{selectedDetailRow.riderName}</h3>
+                        <p className="text-xs text-[#6B6258] font-mono">
+                          MKB ID: {selectedDetailRow.riderMkbId} &bull; {selectedDetailRow.zoneName}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"

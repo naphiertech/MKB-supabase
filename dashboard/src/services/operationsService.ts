@@ -156,8 +156,18 @@ function getCutoffLabel(dateStr: string): string {
   }
 }
 
+export interface DailyParcelEntriesResponse {
+  rows: DailyParcelRow[];
+  absentRows: DailyParcelRow[];
+  totalEligibleCount: number;
+  encodedCount: number;
+  absentCount: number;
+}
+
 /**
- * Retrieves daily parcel entries for a specific date merged with attendance logs.
+ * Retrieves daily parcel entries for the Operations module:
+ * 1. Eligible Encoding Queue (rows): Present/Late riders for the date without a parcel_log.
+ * 2. Absent / Off-Duty Riders (absentRows): Absent or On Leave riders for full operational monitoring.
  * Strictly operational - contains zero financial or wage calculations.
  */
 export async function getDailyParcelEntries(params: {
@@ -165,13 +175,14 @@ export async function getDailyParcelEntries(params: {
   zoneId?: string;
   search?: string;
   status?: string;
-}): Promise<DailyParcelRow[]> {
+  includeEncoded?: boolean;
+}): Promise<DailyParcelEntriesResponse> {
   const targetDate = params.date || getLocalDateString();
 
   // 1. Fetch active riders
   let ridersQuery = supabase
     .from('riders')
-    .select('id, name, mkb_id, avatar_url, zone_id, status, zones(name)');
+    .select('id, name, mkb_id, avatar_url, face_image_url, zone_id, status, zones(name)');
 
   if (params.zoneId && params.zoneId !== 'all') {
     ridersQuery = ridersQuery.eq('zone_id', params.zoneId);
@@ -183,49 +194,94 @@ export async function getDailyParcelEntries(params: {
     throw ridersError;
   }
 
-  const riderList = ridersData || [];
-  if (riderList.length === 0) return [];
+  const riderList = (ridersData || []) as unknown as Array<{
+    id: string;
+    name: string;
+    mkb_id: string;
+    avatar_url: string | null;
+    face_image_url: string | null;
+    zone_id: string | null;
+    status: string;
+    zones?: { name: string } | null;
+  }>;
 
-  const riderIds = riderList.map(r => r.id);
+  // 2. Fetch attendance summary for target date
+  let attQuery = supabase
+    .from('v_attendance_summary')
+    .select('id, rider_id, rider_name, rider_avatar, rider_code, zone_id, zone_name, date, time_in, raw_time_in, time_out, raw_time_out, hours, log_status, hr_status')
+    .eq('date', targetDate);
 
-  // 2. Fetch attendance logs and existing parcel logs for target date
-  const [attRes, parcelsRes] = await Promise.all([
-    supabase
-      .from('v_attendance_summary')
-      .select('rider_id, date, log_status, hr_status, time_in, raw_time_in, time_out, raw_time_out, hours, status')
-      .eq('date', targetDate)
-      .in('rider_id', riderIds),
-    supabase
-      .from('parcel_logs')
-      .select('id, rider_id, date, parcels, created_by, updated_at, rate, daily_gross')
-      .eq('date', targetDate)
-      .in('rider_id', riderIds)
-  ]);
+  if (params.zoneId && params.zoneId !== 'all') {
+    attQuery = attQuery.eq('zone_id', params.zoneId);
+  }
 
-  const attLogs = attRes.data || [];
-  const parcelLogs = parcelsRes.data || [];
+  const { data: attData, error: attError } = await attQuery;
+  if (attError) {
+    console.error('Error fetching attendance summary for daily parcel entry:', attError);
+    throw attError;
+  }
 
-  // Map into DailyParcelRow objects
-  let rows: DailyParcelRow[] = riderList.map(r => {
+  const attLogs = (attData as unknown as Array<{
+    id: string;
+    rider_id: string;
+    rider_name: string | null;
+    rider_avatar: string | null;
+    rider_code: string | null;
+    zone_id: string | null;
+    zone_name: string | null;
+    date: string;
+    time_in: string | null;
+    time_out: string | null;
+    raw_time_in: string | null;
+    raw_time_out: string | null;
+    hours: number | null;
+    log_status: string | null;
+    hr_status: string | null;
+  }>) || [];
+
+  // 3. Fetch existing parcel logs for target date
+  const { data: parcelLogsData, error: parcelError } = await supabase
+    .from('parcel_logs')
+    .select('id, rider_id, date, parcels, created_by, updated_at, rate, daily_gross')
+    .eq('date', targetDate);
+
+  if (parcelError) {
+    console.error('Error fetching parcel logs for daily parcel entry:', parcelError);
+    throw parcelError;
+  }
+
+  const parcelLogs = parcelLogsData || [];
+  const encodedRiderMap = new Map(parcelLogs.map(p => [p.rider_id, p]));
+
+  // 4. Map active riders into DailyParcelRow entries
+  const allRows: DailyParcelRow[] = riderList.map(r => {
     const att = attLogs.find(a => a.rider_id === r.id);
-    const existingLog = parcelLogs.find(p => p.rider_id === r.id);
+    const existingLog = encodedRiderMap.get(r.id);
 
     const isLate = att?.log_status === 'late' || att?.hr_status === 'Late';
-    const isPresent = !!att?.time_in || att?.log_status === 'present' || isLate;
-    const presenceStatus: DailyParcelRow['attendanceStatus'] =
-      att?.log_status === 'on_leave' ? 'on_leave' : isLate ? 'late' : isPresent ? 'present' : 'absent';
+    const isPresent = !!att?.time_in || att?.log_status === 'present' || att?.hr_status === 'Present' || isLate;
+    const isLeave = att?.log_status === 'on_leave' || att?.hr_status === 'On Leave';
+
+    const presenceStatus: DailyParcelRow['attendanceStatus'] = isLeave
+      ? 'on_leave'
+      : isLate
+      ? 'late'
+      : isPresent
+      ? 'present'
+      : 'absent';
 
     const formattedTimeIn = formatTimeString(att?.raw_time_in, att?.time_in);
     const formattedTimeOut = formatTimeString(att?.raw_time_out, att?.time_out);
     const zoneObj = (Array.isArray(r.zones) ? r.zones[0] : r.zones) as unknown as { name: string } | null;
-
     const recorderInfo = formatRecorderIdentity(existingLog?.created_by);
+
+    const resolvedAvatar = r.face_image_url || r.avatar_url || att?.rider_avatar || null;
 
     return {
       riderId: r.id,
       riderName: r.name || 'Unknown Rider',
       riderMkbId: r.mkb_id || 'N/A',
-      riderAvatar: r.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(r.name || '')}`,
+      riderAvatar: resolvedAvatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(r.name || '')}`,
       zoneId: r.zone_id || '',
       zoneName: zoneObj?.name || 'Unassigned',
       attendanceStatus: presenceStatus,
@@ -244,17 +300,46 @@ export async function getDailyParcelEntries(params: {
     };
   });
 
-  // Client-side filtering by search query & attendance status
+  // Partition into Eligible Queue vs Absent / Off-Duty
+  const eligibleRiders = allRows.filter(r => r.attendanceStatus === 'present' || r.attendanceStatus === 'late');
+  const absentRiders = allRows.filter(r => r.attendanceStatus === 'absent' || r.attendanceStatus === 'on_leave');
+
+  const totalEligibleCount = eligibleRiders.length;
+  const encodedCount = eligibleRiders.filter(r => encodedRiderMap.has(r.riderId)).length;
+  const absentCount = absentRiders.length;
+
+  // Pending encoding queue: Present/Late riders without a parcel_log
+  let rows = params.includeEncoded
+    ? eligibleRiders
+    : eligibleRiders.filter(r => !encodedRiderMap.has(r.riderId));
+
+  let absentRows = absentRiders;
+
+  // Apply search query filtering
   if (params.search) {
     const q = params.search.toLowerCase();
     rows = rows.filter(r => r.riderName.toLowerCase().includes(q) || r.riderMkbId.toLowerCase().includes(q));
+    absentRows = absentRows.filter(r => r.riderName.toLowerCase().includes(q) || r.riderMkbId.toLowerCase().includes(q));
   }
 
+  // Apply status filter if specific
   if (params.status && params.status !== 'all') {
-    rows = rows.filter(r => r.attendanceStatus === params.status);
+    if (params.status === 'present' || params.status === 'late') {
+      rows = rows.filter(r => r.attendanceStatus === params.status);
+      absentRows = [];
+    } else if (params.status === 'absent' || params.status === 'on_leave') {
+      absentRows = absentRows.filter(r => r.attendanceStatus === params.status);
+      rows = [];
+    }
   }
 
-  return rows;
+  return {
+    rows,
+    absentRows,
+    totalEligibleCount,
+    encodedCount,
+    absentCount
+  };
 }
 
 /**
@@ -267,24 +352,36 @@ export async function saveDailyParcelEntries(
 ): Promise<number> {
   if (entries.length === 0) return 0;
 
+  // Validate if recordedBy is a valid UUID matching public.users(id)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const validCreatedBy = uuidRegex.test(recordedBy) ? recordedBy : null;
+
   const payloads = entries.map(e => ({
     rider_id: e.riderId,
     date: e.date,
     parcels: e.parcels,
     rate: 10, // Default baseline schema requirement
-    daily_gross: e.parcels * 10,
-    created_by: recordedBy,
+    created_by: validCreatedBy,
     updated_at: new Date().toISOString(),
   }));
 
-  const { data, error } = await supabase
+  console.log('[ParcelOps] Sending payload to Supabase:', payloads);
+
+  const res = await supabase
     .from('parcel_logs')
     .upsert(payloads, { onConflict: 'rider_id,date' })
-    .select('id');
+    .select('id, rider_id, date, parcels, rate, daily_gross');
 
-  if (error) {
-    console.error('Error saving daily parcel entries:', error);
-    throw error;
+  console.log('[ParcelOps] Supabase Response:', {
+    data: res.data,
+    error: res.error,
+    status: res.status,
+    statusText: res.statusText
+  });
+
+  if (res.error) {
+    console.error('Database Error saving daily parcel entries:', res.error);
+    throw new Error(`Supabase DB Error [${res.error.code}]: ${res.error.message}${res.error.details ? ` (${res.error.details})` : ''}`);
   }
 
   // Audit activity log
@@ -294,7 +391,7 @@ export async function saveDailyParcelEntries(
     metadata: { count: entries.length, date: entries[0].date, recorded_by: recordedBy }
   }).catch(err => console.warn('Activity log notice:', err));
 
-  return data ? data.length : entries.length;
+  return res.data?.length || entries.length;
 }
 
 interface DbHistoryRow {
@@ -310,6 +407,7 @@ interface DbHistoryRow {
     name: string;
     mkb_id: string;
     avatar_url: string | null;
+    face_image_url: string | null;
     zone_id: string;
     zones: { name: string } | null;
   } | null;
@@ -343,6 +441,7 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
         name,
         mkb_id,
         avatar_url,
+        face_image_url,
         zone_id,
         zones (name)
       )
@@ -420,13 +519,14 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
 
     const formattedTimeIn = formatTimeString(att?.raw_time_in, att?.time_in);
     const recorderInfo = formatRecorderIdentity(row.created_by, userMap);
+    const resolvedAvatar = rider?.face_image_url || rider?.avatar_url || null;
 
     return {
       id: row.id,
       riderId: row.rider_id,
       riderName: rider?.name || 'Unknown Rider',
       riderMkbId: rider?.mkb_id || 'N/A',
-      riderAvatar: rider?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider?.name || '')}`,
+      riderAvatar: resolvedAvatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider?.name || '')}`,
       zoneId: rider?.zone_id || '',
       zoneName: zoneObj?.name || 'Unassigned',
       date: row.date,

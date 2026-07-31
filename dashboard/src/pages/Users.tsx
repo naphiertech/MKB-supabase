@@ -53,12 +53,21 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [editing, setEditing] = useState<AppUser | null>(null);
 
+  const [zoneFilter, setZoneFilter] = useState<string>('all');
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   // Sync roleFilter for HR
   useEffect(() => {
     if (currentUserRole === 'hr') {
       setRoleFilter('rider');
     }
   }, [currentUserRole]);
+
+  // Reset pagination on filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [q, roleFilter, statusFilter, zoneFilter]);
 
   const loadData = async () => {
     try {
@@ -174,10 +183,19 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
         (statusFilter === 'active' && liveStatus === 'active') ||
         (statusFilter === 'suspended' && liveStatus === 'suspended');
 
-      return matchesQ && matchesRole && matchesStatus;
+      const matchesZone = zoneFilter === 'all' || u.zoneId === zoneFilter;
+
+      return matchesQ && matchesRole && matchesStatus && matchesZone;
     }),
-    [q, roleFilter, statusFilter, userList, onlineUserIds]
+    [q, roleFilter, statusFilter, zoneFilter, userList, onlineUserIds]
   );
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const safePage = Math.min(page, totalPages);
+  const paginatedUsers = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, safePage, pageSize]);
 
   const handleExportExcel = async () => {
     try {
@@ -497,13 +515,26 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                 } />
             )}
             
+            <select
+              value={zoneFilter}
+              onChange={(e) => setZoneFilter(e.target.value)}
+              className="h-9 px-3 rounded-md bg-[#FAFAF7] border border-[#EFEAE2] text-xs text-[#1A1410] font-semibold outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 cursor-pointer shadow-sm"
+            >
+              <option value="all">All Zones ({zonesList.length})</option>
+              {zonesList.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.name}
+                </option>
+              ))}
+            </select>
+
             <Segmented
               value={statusFilter}
               onChange={(v) => setStatusFilter(v as typeof statusFilter)}
               options={[
               {
                 v: 'all',
-                l: 'All'
+                l: 'All Status'
               },
               {
                 v: 'active',
@@ -527,9 +558,14 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             </div>
           ) : (
             <UsersTable
-              users={filtered}
+              users={paginatedUsers}
               zones={zonesList}
               onlineUserIds={onlineUserIds}
+              totalCount={filtered.length}
+              currentPage={safePage}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
               onEdit={(u) => {
                 setEditing(u);
                 setView('form');

@@ -13,6 +13,7 @@ import {
   MapPin,
   Users,
   CheckCircle2,
+  UserX,
   ChevronDown,
   ChevronRight,
   X,
@@ -31,6 +32,7 @@ import { useAuth } from '../hooks/useAuth';
 import { pushToast } from '../hooks/useToast';
 import { getLocalDateString } from '../services/attendanceService';
 import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
+import { RiderAvatar } from '../components/common/RiderAvatar';
 
 function StatusBadge({ status }: { status: DailyParcelRow['attendanceStatus'] }) {
   switch (status) {
@@ -77,14 +79,17 @@ export function DailyParcelEntry() {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const [rows, setRows] = useState<DailyParcelRow[]>([]);
+  const [absentRows, setAbsentRows] = useState<DailyParcelRow[]>([]);
   const [initialRows, setInitialRows] = useState<Record<string, number>>({});
+  const [totalEligibleCount, setTotalEligibleCount] = useState<number>(0);
+  const [encodedCount, setEncodedCount] = useState<number>(0);
+  const [absentCount, setAbsentCount] = useState<number>(0);
+  const [absentCollapsed, setAbsentCollapsed] = useState<boolean>(true);
+
   const [loading, setLoading] = useState<boolean>(true);
   const [savingAll, setSavingAll] = useState<boolean>(false);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
-
-  // Collapsible section state for Absent riders
-  const [absentCollapsed, setAbsentCollapsed] = useState<boolean>(true);
 
   // Right-side Drawer state for selected rider
   const [selectedRiderDrawer, setSelectedRiderDrawer] = useState<DailyParcelRow | null>(null);
@@ -117,20 +122,24 @@ export function DailyParcelEntry() {
     setSelectedRider('all'); // Auto-reset child rider filter to "All Couriers"
   };
 
-  // Fetch daily parcel entries for date & filters
+  // Fetch daily parcel entries for the Eligible Encoding Queue and Absent section
   const loadEntries = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getDailyParcelEntries({
+      const res = await getDailyParcelEntries({
         date: selectedDate,
         zoneId: selectedZone,
         search: searchQuery,
         status: selectedStatus
       });
-      setRows(data);
+      setRows(res.rows);
+      setAbsentRows(res.absentRows);
+      setTotalEligibleCount(res.totalEligibleCount);
+      setEncodedCount(res.encodedCount);
+      setAbsentCount(res.absentCount);
 
       const initMap: Record<string, number> = {};
-      data.forEach(r => {
+      res.rows.forEach(r => {
         initMap[r.riderId] = r.deliveredParcels;
       });
       setInitialRows(initMap);
@@ -150,20 +159,17 @@ export function DailyParcelEntry() {
     loadEntries();
   }, [loadEntries]);
 
-  // Apply child rider filter on loaded rows
+  // Apply child rider filter on loaded queue rows
   const displayRows = useMemo(() => {
     if (!selectedRider || selectedRider === 'all') return rows;
     return rows.filter(r => r.riderId === selectedRider);
   }, [rows, selectedRider]);
 
-  // Separate active/eligible riders (Present / Late / On Leave) vs Absent riders
-  const activeRiders = useMemo(() => {
-    return displayRows.filter(r => r.attendanceStatus === 'present' || r.attendanceStatus === 'late' || r.attendanceStatus === 'on_leave');
-  }, [displayRows]);
-
-  const absentRiders = useMemo(() => {
-    return displayRows.filter(r => r.attendanceStatus === 'absent');
-  }, [displayRows]);
+  // Apply child rider filter on loaded absent rows
+  const displayAbsentRows = useMemo(() => {
+    if (!selectedRider || selectedRider === 'all') return absentRows;
+    return absentRows.filter(r => r.riderId === selectedRider);
+  }, [absentRows, selectedRider]);
 
   // Handle local inline edits
   const handleParcelChange = (riderId: string, val: number) => {
@@ -177,6 +183,13 @@ export function DailyParcelEntry() {
         return r;
       })
     );
+    setSelectedRiderDrawer(prev => {
+      if (prev && prev.riderId === riderId) {
+        const isModified = parcels !== (initialRows[riderId] ?? 0);
+        return { ...prev, deliveredParcels: parcels, isModified };
+      }
+      return prev;
+    });
   };
 
   // Check unsaved modified rows
@@ -193,6 +206,16 @@ export function DailyParcelEntry() {
         isModified: false
       }))
     );
+    setSelectedRiderDrawer(prev => {
+      if (prev) {
+        return {
+          ...prev,
+          deliveredParcels: initialRows[prev.riderId] ?? 0,
+          isModified: false
+        };
+      }
+      return prev;
+    });
     pushToast({
       title: 'Changes Reverted',
       description: 'Local edits have been restored to saved values.',
@@ -200,53 +223,46 @@ export function DailyParcelEntry() {
     });
   };
 
-  // Save single row
+  // Save single row & immediately remove rider from encoding queue
   const handleSaveRow = async (row: DailyParcelRow) => {
     setSavingRowId(row.riderId);
     try {
+      const isDrawerRow = selectedRiderDrawer?.riderId === row.riderId;
       await saveDailyParcelEntries(
         [
           {
             riderId: row.riderId,
             date: selectedDate,
             parcels: row.deliveredParcels,
-            notes: row.notes,
-            assignedParcels: row.assignedParcels,
-            failedDeliveries: row.failedDeliveries,
-            returnedParcels: row.returnedParcels
+            notes: isDrawerRow ? drawerNotes : row.notes,
+            assignedParcels: isDrawerRow ? drawerAssigned : row.assignedParcels,
+            failedDeliveries: isDrawerRow ? drawerFailed : row.failedDeliveries,
+            returnedParcels: isDrawerRow ? drawerReturned : row.returnedParcels
           }
         ],
-        user?.email || user?.name || 'Operations'
+        user?.id || user?.email || 'Operations'
       );
 
       const nowTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       setLastSavedTime(nowTime);
 
-      setInitialRows(prev => ({ ...prev, [row.riderId]: row.deliveredParcels }));
-      setRows(prev =>
-        prev.map(r =>
-          r.riderId === row.riderId
-            ? {
-                ...r,
-                isModified: false,
-                submissionStatus: 'saved',
-                lastUpdated: new Date().toISOString(),
-                recordedBy: user?.email || user?.name
-              }
-            : r
-        )
-      );
-
       pushToast({
         title: 'Parcel Entry Saved',
-        description: `Delivered parcels for ${row.riderName} updated to ${row.deliveredParcels}.`,
+        description: `Delivered parcels for ${row.riderName} committed. Rider moved to Parcel History.`,
         tone: 'success'
       });
-    } catch (err) {
+
+      if (isDrawerRow) {
+        setSelectedRiderDrawer(null);
+      }
+      // Reload queue to filter out saved rider
+      await loadEntries();
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Could not save parcel record to database.';
       console.error('Failed to save parcel entry:', err);
       pushToast({
         title: 'Save Failed',
-        description: 'Could not save parcel record to database.',
+        description: errMsg,
         tone: 'error'
       });
     } finally {
@@ -254,7 +270,7 @@ export function DailyParcelEntry() {
     }
   };
 
-  // Save all modified rows
+  // Save all modified rows & update queue
   const handleSaveAll = async () => {
     if (modifiedRows.length === 0) return;
     setSavingAll(true);
@@ -269,47 +285,31 @@ export function DailyParcelEntry() {
         returnedParcels: r.returnedParcels
       }));
 
-      await saveDailyParcelEntries(payload, user?.email || user?.name || 'Operations');
+      await saveDailyParcelEntries(payload, user?.id || user?.email || 'Operations');
 
       const nowTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       setLastSavedTime(nowTime);
 
-      const newInitMap = { ...initialRows };
-      modifiedRows.forEach(r => {
-        newInitMap[r.riderId] = r.deliveredParcels;
-      });
-      setInitialRows(newInitMap);
-
-      setRows(prev =>
-        prev.map(r => ({
-          ...r,
-          isModified: false,
-          submissionStatus: 'saved',
-          lastUpdated: new Date().toISOString(),
-          recordedBy: user?.email || user?.name
-        }))
-      );
-
       pushToast({
-        title: 'All Records Saved',
-        description: `Successfully persisted ${modifiedRows.length} rider parcel entries for ${selectedDate}.`,
+        title: 'Queue Records Saved',
+        description: `Successfully persisted ${modifiedRows.length} parcel entry log(s). Moved to Parcel History.`,
         tone: 'success'
       });
-    } catch (err) {
+
+      // Reload queue to remove saved riders
+      await loadEntries();
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Failed to update daily parcel manifest.';
       console.error('Failed to bulk save parcel entries:', err);
       pushToast({
         title: 'Bulk Save Failed',
-        description: 'Failed to update daily parcel manifest.',
+        description: errMsg,
         tone: 'error'
       });
     } finally {
       setSavingAll(false);
     }
   };
-
-  const numericTotalDelivered = useMemo(() => {
-    return rows.reduce((sum, r) => sum + (Number(r.deliveredParcels) || 0), 0);
-  }, [rows]);
 
   const renderRiderTableRows = (riderList: DailyParcelRow[]) => {
     return riderList.map(row => {
@@ -326,11 +326,7 @@ export function DailyParcelEntry() {
           {/* Rider */}
           <td className="px-4 py-3">
             <div className="flex items-center gap-2.5">
-              <img
-                src={row.riderAvatar}
-                alt=""
-                className="w-8 h-8 rounded-full bg-white border border-[#EFEAE2] object-cover shrink-0"
-              />
+              <RiderAvatar src={row.riderAvatar} name={row.riderName} className="w-8 h-8" />
               <div>
                 <button
                   type="button"
@@ -624,18 +620,24 @@ export function DailyParcelEntry() {
               <option value="on_leave">On Leave</option>
             </select>
           </div>
-        </div>
-
-        {/* Live Counters */}
-        <div className="pt-2 border-t border-[#EFEAE2] flex items-center justify-between text-xs text-[#6B6258]">
+        </div>        {/* Live Counters Snapshot */}
+        <div className="pt-2 border-t border-[#EFEAE2] flex items-center justify-between text-xs text-[#6B6258] flex-wrap gap-2">
           <div className="flex items-center gap-4 flex-wrap">
             <span className="inline-flex items-center gap-1.5 font-medium">
               <Users className="w-3.5 h-3.5 text-[#db6c00]" />
-              Active Eligible: <strong className="text-[#1A1410] font-mono">{activeRiders.length}</strong>
+              Pending Queue: <strong className="text-[#db6c00] font-bold font-mono">{displayRows.length}</strong>
             </span>
             <span className="inline-flex items-center gap-1.5 font-medium">
-              <PackageCheck className="w-3.5 h-3.5 text-[#db6c00]" />
-              Total Delivered: <strong className="text-[#1A1410] font-mono">{numericTotalDelivered.toLocaleString()}</strong>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              Present/Late Today: <strong className="text-[#1A1410] font-bold font-mono">{totalEligibleCount}</strong>
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <PackageCheck className="w-3.5 h-3.5 text-emerald-700" />
+              Encoded Today: <strong className="text-emerald-700 font-bold font-mono">{encodedCount}</strong>
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <UserX className="w-3.5 h-3.5 text-gray-500" />
+              Absent/Off Duty Today: <strong className="text-gray-700 font-bold font-mono">{absentCount}</strong>
             </span>
           </div>
 
@@ -648,30 +650,48 @@ export function DailyParcelEntry() {
         </div>
       </div>
 
-      {/* Main Active Encoding Table (Prioritizing Present & Late Riders) */}
+      {/* Main Active Encoding Queue Table */}
       <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-xs space-y-0">
         <div className="px-4 py-3 bg-[#FAFAF7] border-b border-[#EFEAE2] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span className="w-2 h-2 rounded-full bg-[#db6c00] animate-pulse" />
             <h3 className="text-xs font-bold text-[#1A1410] uppercase tracking-wider">
-              Eligible Encoding Queue ({activeRiders.length} Riders)
+              Eligible Encoding Queue ({displayRows.length} Pending)
             </h3>
           </div>
-          <span className="text-[11px] text-[#6B6258] font-mono">Present &amp; Late Riders</span>
+          <span className="text-[11px] text-[#6B6258] font-mono">Present &amp; Late On-Duty Riders</span>
         </div>
 
         {loading ? (
           <div className="p-12 text-center space-y-3">
             <Loader2 className="w-6 h-6 text-[#db6c00] animate-spin mx-auto" />
-            <p className="text-xs text-[#6B6258] font-medium">Loading operational parcel logs...</p>
+            <p className="text-xs text-[#6B6258] font-medium">Loading eligible encoding queue...</p>
           </div>
-        ) : activeRiders.length === 0 ? (
-          <div className="p-8 text-center space-y-2">
-            <PackageCheck className="w-7 h-7 text-[#A39988] mx-auto opacity-50" />
-            <p className="text-xs font-semibold text-[#1A1410]">No Active Couriers Present/Late</p>
-            <p className="text-[11px] text-[#6B6258]">
-              No active on-duty couriers found for selected date and filters. Check absent section below or change filters.
-            </p>
+        ) : displayRows.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <div className="p-3 rounded-full bg-[#FFF1E0] text-[#db6c00] w-fit mx-auto border border-[#db6c00]/20">
+              <PackageCheck className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-[#1A1410]">
+                {totalEligibleCount > 0 && encodedCount === totalEligibleCount
+                  ? 'All Eligible Riders Encoded!'
+                  : 'Eligible Encoding Queue Empty'}
+              </h4>
+              <p className="text-xs text-[#6B6258] max-w-md mx-auto leading-relaxed">
+                {totalEligibleCount > 0 && encodedCount === totalEligibleCount
+                  ? `All ${encodedCount} on-duty couriers for ${selectedDate} have completed parcel delivery logs recorded.`
+                  : `No Present or Late riders waiting in the queue for ${selectedDate}. Riders must clock in before daily parcel entry.`}
+              </p>
+            </div>
+            {encodedCount > 0 && (
+              <a
+                href="#parcel_history"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#db6c00] hover:bg-[#c56000] text-white text-xs font-semibold transition cursor-pointer shadow-xs mt-2"
+              >
+                View Parcel History ({encodedCount} Encoded Logs) &rarr;
+              </a>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -689,15 +709,15 @@ export function DailyParcelEntry() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EFEAE2]">
-                {renderRiderTableRows(activeRiders)}
+                {renderRiderTableRows(displayRows)}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Collapsible Absent / Off-Duty Riders Section */}
-      {!loading && absentRiders.length > 0 && (
+      {/* Section 2: Absent / Off-Duty Riders (Read-Only Operational View) */}
+      {!loading && displayAbsentRows.length > 0 && (
         <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-xs">
           <button
             type="button"
@@ -707,8 +727,9 @@ export function DailyParcelEntry() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-gray-400" />
               <h3 className="text-xs font-bold text-[#6B6258] uppercase tracking-wider">
-                Absent / Off-Duty Riders ({absentRiders.length})
+                Absent / Off-Duty Riders ({displayAbsentRows.length})
               </h3>
+              <span className="text-[10.5px] text-[#A39988] font-mono font-normal">(Read-Only Monitoring)</span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-[#6B6258] font-medium">
               <span>{absentCollapsed ? 'Expand Section' : 'Collapse Section'}</span>
@@ -723,16 +744,36 @@ export function DailyParcelEntry() {
                   <tr className="bg-[#FAFAF7]/40 border-b border-[#EFEAE2] text-[10.5px] uppercase tracking-wider text-[#6B6258] font-bold">
                     <th className="px-4 py-3">Rider</th>
                     <th className="px-4 py-3">Zone</th>
-                    <th className="px-4 py-3">Attendance</th>
+                    <th className="px-4 py-3">Attendance Status</th>
                     <th className="px-4 py-3">Time In</th>
-                    <th className="px-4 py-3 text-right">Delivered Parcels</th>
-                    <th className="px-4 py-3">Last Updated</th>
-                    <th className="px-4 py-3">Recorded By</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFEAE2]">
-                  {renderRiderTableRows(absentRiders)}
+                  {displayAbsentRows.map(row => (
+                    <tr key={row.riderId} className="hover:bg-[#FAFAF7]/60 transition-colors">
+                      <td className="px-4 py-3 font-medium text-[#1A1410]">
+                        <div className="flex items-center gap-2.5">
+                          <RiderAvatar src={row.riderAvatar} name={row.riderName} className="w-7 h-7" />
+                          <div>
+                            <div className="font-semibold text-[#1A1410]">{row.riderName}</div>
+                            <div className="text-[10px] text-[#6B6258] font-mono">{row.riderMkbId}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[#6B6258]">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-[#FAFAF7] text-[#6B6258] border border-[#EFEAE2]">
+                          <MapPin className="w-3 h-3 text-[#A39988]" />
+                          {row.zoneName}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={row.attendanceStatus} />
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[#6B6258]">
+                        {row.timeIn || '-'}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -766,11 +807,7 @@ export function DailyParcelEntry() {
                   {/* Drawer Header */}
                   <div className="p-5 border-b border-[#EFEAE2] flex items-center justify-between bg-[#FAFAF7]">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={selectedRiderDrawer.riderAvatar}
-                        alt=""
-                        className="w-10 h-10 rounded-full border border-[#EFEAE2] object-cover bg-white"
-                      />
+                      <RiderAvatar src={selectedRiderDrawer.riderAvatar} name={selectedRiderDrawer.riderName} className="w-10 h-10" />
                       <div>
                         <h3 className="font-bold text-[#1A1410] text-sm">{selectedRiderDrawer.riderName}</h3>
                         <p className="text-xs text-[#6B6258] font-mono">

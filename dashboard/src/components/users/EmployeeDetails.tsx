@@ -722,8 +722,14 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                     <div className="grid grid-cols-7 gap-1">
                       {calendarDays.map((cDay, idx) => {
                         const dayLog = logs.find(l => l.date === cDay.dateStr);
-                        const isToday = cDay.dateStr === new Date().toISOString().split('T')[0];
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const isToday = cDay.dateStr === todayStr;
                         
+                        // Check if date is on or after date of hire
+                        const hireDateStr = user.dateOfHire ? new Date(user.dateOfHire).toISOString().split('T')[0] : null;
+                        const isAfterOrOnHireDate = !hireDateStr || cDay.dateStr >= hireDateStr;
+                        const isPastWorkDay = cDay.isCurrentMonth && isAfterOrOnHireDate && cDay.dateStr < todayStr;
+
                         let bgStyle = 'bg-[#FAFAF7] text-[#6B6258]/60';
                         if (cDay.isCurrentMonth) {
                           bgStyle = 'bg-white border border-[#EFEAE2] text-[#1A1410] hover:border-[#db6c00]/50';
@@ -733,6 +739,9 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                           else if (dayLog.status === 'late') bgStyle = 'bg-amber-500 text-white font-bold hover:bg-amber-600';
                           else if (dayLog.status === 'on_leave') bgStyle = 'bg-indigo-500 text-white font-bold hover:bg-indigo-600';
                           else if (dayLog.status === 'absent') bgStyle = 'bg-red-500 text-white font-bold hover:bg-red-600';
+                        } else if (isPastWorkDay) {
+                          // Past working days within employment without a clock-in log are ABSENT (RED)
+                          bgStyle = 'bg-red-500 text-white font-bold hover:bg-red-600';
                         }
 
                         const isSelected = selectedDayLog?.date === cDay.dateStr;
@@ -785,19 +794,31 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                         <span className="font-bold text-[#1A1410]">
                           Date details: {new Date(selectedDayLog.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                         </span>
-                        <span className={`px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider ${
-                          selectedDayLog.id === '' 
-                            ? 'bg-gray-100 text-gray-600'
-                            : selectedDayLog.status === 'present' 
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-500/10'
-                              : selectedDayLog.status === 'late'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-500/10'
-                                : selectedDayLog.status === 'on_leave'
-                                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-500/10'
-                                  : 'bg-red-50 text-red-700 border border-red-500/10'
-                        }`}>
-                          {selectedDayLog.id === '' ? 'No Attendance Log' : selectedDayLog.status}
-                        </span>
+                        {(() => {
+                          const todayStr = new Date().toISOString().split('T')[0];
+                          const hireDateStr = user.dateOfHire ? new Date(user.dateOfHire).toISOString().split('T')[0] : null;
+                          const isAfterOrOnHireDate = !hireDateStr || selectedDayLog.date >= hireDateStr;
+                          const isPastWorkDay = isAfterOrOnHireDate && selectedDayLog.date < todayStr;
+                          const isNoLogAbsent = selectedDayLog.id === '' && isPastWorkDay;
+
+                          return (
+                            <span className={`px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider ${
+                              isNoLogAbsent
+                                ? 'bg-red-50 text-red-700 border border-red-500/20'
+                                : selectedDayLog.id === ''
+                                  ? 'bg-gray-100 text-gray-600'
+                                  : selectedDayLog.status === 'present' 
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-500/10'
+                                    : selectedDayLog.status === 'late'
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-500/10'
+                                      : selectedDayLog.status === 'on_leave'
+                                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-500/10'
+                                        : 'bg-red-50 text-red-700 border border-red-500/10'
+                            }`}>
+                              {isNoLogAbsent ? 'Absent (No Clock-In)' : selectedDayLog.id === '' ? 'No Attendance Log' : selectedDayLog.status}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {selectedDayLog.id !== '' ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

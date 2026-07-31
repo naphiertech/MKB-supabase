@@ -1,4 +1,155 @@
 import { supabase } from '../lib/supabaseClient';
+import { verifyFaceIdentity } from '../lib/faceAi';
+
+export interface EmployeeDuplicateCheckParams {
+  mkbRiderId?: string;
+  email?: string;
+  vehiclePlateNumber?: string;
+  contact?: string;
+  faceDescriptor?: number[] | null;
+  excludeRiderId?: string;
+  excludeUserId?: string;
+}
+
+export interface EmployeeDuplicateCheckResult {
+  hasDuplicate: boolean;
+  duplicateField?: 'mkb_id' | 'email' | 'vehicle_plate_number' | 'contact' | 'face_descriptor';
+  message?: string;
+  existingEmployeeName?: string;
+}
+
+/**
+ * Validates whether employee parameters (Rider ID, email, plate number, contact, face descriptor)
+ * conflict with existing employee records in database.
+ */
+export const checkEmployeeDuplicates = async (
+  params: EmployeeDuplicateCheckParams
+): Promise<EmployeeDuplicateCheckResult> => {
+  // 1. Check Rider ID (mkb_id)
+  if (params.mkbRiderId?.trim()) {
+    const mkbTrim = params.mkbRiderId.trim();
+    let q = supabase
+      .from('riders')
+      .select('id, name, mkb_id')
+      .ilike('mkb_id', mkbTrim);
+    if (params.excludeRiderId) q = q.neq('id', params.excludeRiderId);
+    const { data } = await q;
+    if (data && data.length > 0) {
+      return {
+        hasDuplicate: true,
+        duplicateField: 'mkb_id',
+        message: `Rider / Employee ID "${mkbTrim}" is already registered to ${data[0].name}.`,
+        existingEmployeeName: data[0].name
+      };
+    }
+  }
+
+  // 2. Check Email
+  if (params.email?.trim()) {
+    const emailTrim = params.email.trim();
+    let qRiders = supabase
+      .from('riders')
+      .select('id, name, email')
+      .ilike('email', emailTrim);
+    if (params.excludeRiderId) qRiders = qRiders.neq('id', params.excludeRiderId);
+    const { data: riderData } = await qRiders;
+    if (riderData && riderData.length > 0) {
+      return {
+        hasDuplicate: true,
+        duplicateField: 'email',
+        message: `Email "${emailTrim}" is already registered to employee ${riderData[0].name}.`,
+        existingEmployeeName: riderData[0].name
+      };
+    }
+
+    let qUsers = supabase
+      .from('users')
+      .select('id, full_name, email')
+      .ilike('email', emailTrim);
+    if (params.excludeUserId) qUsers = qUsers.neq('id', params.excludeUserId);
+    const { data: userData } = await qUsers;
+    if (userData && userData.length > 0) {
+      return {
+        hasDuplicate: true,
+        duplicateField: 'email',
+        message: `Email "${emailTrim}" is already registered to system user ${userData[0].full_name}.`,
+        existingEmployeeName: userData[0].full_name
+      };
+    }
+  }
+
+  // 3. Check Vehicle Plate Number
+  if (params.vehiclePlateNumber?.trim()) {
+    const plateTrim = params.vehiclePlateNumber.trim();
+    let q = supabase
+      .from('riders')
+      .select('id, name, vehicle_plate_number')
+      .ilike('vehicle_plate_number', plateTrim);
+    if (params.excludeRiderId) q = q.neq('id', params.excludeRiderId);
+    const { data } = await q;
+    if (data && data.length > 0) {
+      return {
+        hasDuplicate: true,
+        duplicateField: 'vehicle_plate_number',
+        message: `Vehicle plate number "${plateTrim}" is already registered to employee ${data[0].name}.`,
+        existingEmployeeName: data[0].name
+      };
+    }
+  }
+
+  // 4. Check Phone / Contact
+  if (params.contact?.trim()) {
+    const contactTrim = params.contact.trim();
+    const digitsOnly = contactTrim.replace(/\D/g, '');
+    if (digitsOnly.length > 0) {
+      let q = supabase.from('riders').select('id, name, contact');
+      if (params.excludeRiderId) q = q.neq('id', params.excludeRiderId);
+      const { data } = await q;
+      if (data) {
+        const match = data.find(r => r.contact && r.contact.replace(/\D/g, '') === digitsOnly);
+        if (match) {
+          return {
+            hasDuplicate: true,
+            duplicateField: 'contact',
+            message: `Phone number "${contactTrim}" is already registered to employee ${match.name}.`,
+            existingEmployeeName: match.name
+          };
+        }
+      }
+    }
+  }
+
+  // 5. Check Duplicate Face Descriptor against all stored employee facial descriptors
+  if (params.faceDescriptor && Array.isArray(params.faceDescriptor) && params.faceDescriptor.length === 128) {
+    const newDesc = new Float32Array(params.faceDescriptor);
+    let q = supabase
+      .from('riders')
+      .select('id, name, mkb_id, face_descriptor')
+      .not('face_descriptor', 'is', null);
+    if (params.excludeRiderId) q = q.neq('id', params.excludeRiderId);
+    const { data } = await q;
+
+    if (data) {
+      for (const rider of data) {
+        if (rider.face_descriptor && Array.isArray(rider.face_descriptor) && rider.face_descriptor.length === 128) {
+          const storedDesc = new Float32Array(rider.face_descriptor as number[]);
+          const { matched, distance } = verifyFaceIdentity(newDesc, storedDesc, 0.45);
+          if (matched || distance <= 0.45) {
+            console.warn(`[Biometric Duplicate Blocked] Matched existing rider ${rider.name} (${rider.mkb_id}) with distance ${distance.toFixed(4)}`);
+            return {
+              hasDuplicate: true,
+              duplicateField: 'face_descriptor',
+              message: 'This face is already registered to another employee.',
+              existingEmployeeName: rider.name
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return { hasDuplicate: false };
+};
 
 export interface UserProfileUpdateInput {
   name: string;
@@ -73,6 +224,26 @@ export const getUserRiderId = async (userId: string): Promise<string | null> => 
   return data?.rider_id || null;
 };
 
+function formatPostgresError(error: { code?: string; message?: string; details?: string }): Error {
+  if (error.code === '23505') {
+    const details = error.details || error.message || '';
+    if (details.includes('mkb_id')) {
+      return new Error('A rider with this Employee / MKB ID already exists.');
+    }
+    if (details.includes('email')) {
+      return new Error('An account with this email address already exists.');
+    }
+    if (details.includes('vehicle_plate_number')) {
+      return new Error('A vehicle with this plate number is already registered.');
+    }
+    if (details.includes('contact')) {
+      return new Error('A user with this phone / contact number already exists.');
+    }
+    return new Error(`Duplicate entry constraint violation: ${details}`);
+  }
+  return new Error(error.message || 'Database error occurred');
+}
+
 // Update rider profile details
 export const updateRiderProfile = async (riderId: string, input: RiderProfileInput) => {
   const { error } = await supabase
@@ -101,7 +272,7 @@ export const updateRiderProfile = async (riderId: string, input: RiderProfileInp
     })
     .eq('id', riderId);
 
-  if (error) throw error;
+  if (error) throw formatPostgresError(error);
 };
 
 // Create a new rider record in public.riders
@@ -136,7 +307,7 @@ export const createRiderProfile = async (input: RiderProfileInput): Promise<stri
     .select('id')
     .single();
 
-  if (error) throw error;
+  if (error) throw formatPostgresError(error);
   return data.id;
 };
 
@@ -167,7 +338,7 @@ export const createUserProfile = async (userId: string, riderId: string | null, 
       notes: input.notes || null
     });
 
-  if (error) throw error;
+  if (error) throw formatPostgresError(error);
 };
 
 // Fetch search index zones and users in parallel
