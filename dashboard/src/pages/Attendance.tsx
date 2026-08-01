@@ -107,7 +107,8 @@ export function Attendance() {
               id: string;
               name: string;
               mkb_id?: string;
-              zones: { name: string } | { name: string }[] | null;
+              zone_id?: string;
+              zones?: { name: string } | { name: string }[] | null;
             }) => {
               const zName = Array.isArray(r.zones) ? r.zones[0]?.name : r.zones?.name;
               return {
