@@ -755,12 +755,12 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         onlineStatus={onlineStatus} />
 
       {/* 2. Time-In/Out hero panel */}
-      <section className="rounded-2xl border border-[#EFEAE2] bg-white p-6 sm:p-8 shadow-sm">
+      <section className="rounded-2xl border border-border bg-white p-6 sm:p-8 shadow-sm">
         <div className="text-center mb-5">
-          <div className="text-center text-[10px] uppercase tracking-[0.2em] text-[#6B6258] font-mono">
+          <div className="text-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono">
             Attendance · Face Verified
           </div>
-          <h2 className="text-[#1A1410] font-semibold text-lg sm:text-xl tracking-tight mt-1">
+          <h2 className="text-foreground font-semibold text-lg sm:text-xl tracking-tight mt-1">
             {action === 'closed' ?
               "Today's attendance has already been finalized." :
               action === 'time-in' ?
@@ -779,7 +779,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           } />
 
         {locationLoading && (
-          <p className="text-center text-xs text-[#db6c00] animate-pulse mt-3 font-mono">
+          <p className="text-center text-xs text-primary animate-pulse mt-3 font-mono">
             Waiting for GPS coordinates lock...
           </p>
         )}
@@ -793,25 +793,25 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
       </section>
 
       {/* 3. My Location & Geofence */}
-      <section className="rounded-2xl border border-[#EFEAE2] bg-white p-5 space-y-4 shadow-sm">
+      <section className="rounded-2xl border border-border bg-white p-5 space-y-4 shadow-sm">
         <header className="flex items-center justify-between">
           <div>
-            <h2 className="text-[#1A1410] font-semibold text-base">
+            <h2 className="text-foreground font-semibold text-base">
               My Location
             </h2>
-            <p className="text-[11px] text-[#6B6258] font-mono mt-0.5">
+            <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
               Live GPS · {zoneName} geofence ({zoneRadius}m)
             </p>
           </div>
-          <span className="text-[10px] uppercase tracking-[0.16em] text-[#6B6258] font-mono">
+          <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono">
             Accuracy ±{Math.round(position.accuracy)}m
           </span>
         </header>
 
         {locationLoading ? (
-          <div className="h-[320px] bg-[#F5F0E8] rounded-xl border border-[#EFEAE2] animate-pulse flex flex-col items-center justify-center gap-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-[#db6c00] animate-bounce"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span className="text-[#6B6258] text-sm font-medium">Acquiring live GPS signal...</span>
+          <div className="h-[320px] bg-accent/40 rounded-xl border border-border animate-pulse flex flex-col items-center justify-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-primary animate-bounce"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span className="text-muted-foreground text-sm font-medium">Acquiring live GPS signal...</span>
           </div>
         ) : (
           <>
@@ -845,32 +845,32 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         onViolationsClick={handleViolationsClick} />
 
       {/* 5. My Earnings & Payslips Portal */}
-      <section className="rounded-2xl border border-[#EFEAE2] bg-white p-5 space-y-4 shadow-sm">
-        <header className="flex items-center justify-between pb-3 border-b border-[#EFEAE2]">
+      <section className="rounded-2xl border border-border bg-white p-5 space-y-4 shadow-sm">
+        <header className="flex items-center justify-between pb-3 border-b border-border">
           <div>
-            <h2 className="text-[#1A1410] font-semibold text-base flex items-center gap-2">
-              <span className="p-1 rounded-md bg-[#FFF1E0] text-[#db6c00] shrink-0">
+            <h2 className="text-foreground font-semibold text-base flex items-center gap-2">
+              <span className="p-1 rounded-md bg-accent text-primary shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                   <path fillRule="evenodd" d="M2.5 4A1.5 1.5 0 001 5.5V6h18v-.5A1.5 1.5 0 0017.5 4h-15zM19 8.5H1v6A1.5 1.5 0 002.5 16h15a1.5 1.5 0 001.5-1.5v-6zM3 11.25a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zm3.75-1.5a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" />
                 </svg>
               </span>
               My Earnings & Payslips
             </h2>
-            <p className="text-[11px] text-[#6B6258] font-mono mt-0.5">
+            <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
               Cutoff earnings progress and historical payslips
             </p>
           </div>
         </header>
 
         {myPayrollRecords.length === 0 ? (
-          <div className="py-6 text-center text-xs text-[#6B6258] italic">
+          <div className="py-6 text-center text-xs text-muted-foreground italic">
             No payroll records generated yet. Once the payroll cutoff ends, your payslips will appear here.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Active/Latest Cutoff Progress Card */}
             {myPayrollRecords[0] && (
-              <div className="p-4 rounded-xl border border-[#EFEAE2] bg-[#FAFAF7]/50 flex flex-col justify-between space-y-3">
+              <div className="p-4 rounded-xl border border-border bg-panel-bg/50 flex flex-col justify-between space-y-3">
                 <div>
                   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
                     myPayrollRecords[0].status === 'paid' ? 'bg-emerald-50 text-emerald-700' :
@@ -881,22 +881,22 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                      myPayrollRecords[0].status === 'approved' ? 'Approved' : 'Pending Verification'}
                   </span>
                   
-                  <div className="text-[11px] font-mono text-[#6B6258] mt-1.5">
+                  <div className="text-[11px] font-mono text-muted-foreground mt-1.5">
                     Current Period
                   </div>
-                  <div className="text-sm font-bold text-[#1A1410]">
+                  <div className="text-sm font-bold text-foreground">
                     {new Date(myPayrollRecords[0].cutoff_start).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} – {new Date(myPayrollRecords[0].cutoff_end).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </div>
                 </div>
 
-                <div className="flex items-baseline justify-between border-t border-[#EFEAE2] pt-3">
+                <div className="flex items-baseline justify-between border-t border-border pt-3">
                   <div>
-                    <div className="text-[10.5px] text-[#6B6258] font-mono">Delivered Parcels</div>
-                    <div className="text-base font-bold text-[#1A1410] font-mono">{myPayrollRecords[0].total_parcels} pcs</div>
+                    <div className="text-[10.5px] text-muted-foreground font-mono">Delivered Parcels</div>
+                    <div className="text-base font-bold text-foreground font-mono">{myPayrollRecords[0].total_parcels} pcs</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[10.5px] text-[#6B6258] font-mono">Estimated Wage</div>
-                    <div className="text-xl font-bold text-[#db6c00] font-mono">₱{(myPayrollRecords[0].gross_pay || (myPayrollRecords[0].total_parcels * (myPayrollRecords[0].rate_per_parcel || 50))).toLocaleString()}</div>
+                    <div className="text-[10.5px] text-muted-foreground font-mono">Estimated Wage</div>
+                    <div className="text-xl font-bold text-primary font-mono">₱{(myPayrollRecords[0].gross_pay || (myPayrollRecords[0].total_parcels * (myPayrollRecords[0].rate_per_parcel || 50))).toLocaleString()}</div>
                   </div>
                 </div>
 
@@ -905,7 +905,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                     setSelectedRecord(myPayrollRecords[0]);
                     setIsPayslipOpen(true);
                   }}
-                  className="w-full h-8 bg-[#db6c00] hover:bg-[#b85a00] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition shadow-sm"
+                  className="w-full h-8 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition shadow-sm cursor-pointer"
                 >
                   View Cutoff Details
                 </button>
@@ -914,11 +914,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
             {/* History of Payslips */}
             <div className="space-y-2 max-h-[170px] overflow-y-auto pr-1">
-              <div className="text-[10.5px] uppercase tracking-wider text-[#6B6258] font-bold font-mono">
+              <div className="text-[10.5px] uppercase tracking-wider text-muted-foreground font-bold font-mono">
                 Past Payslips
               </div>
               {myPayrollRecords.slice(1).length === 0 ? (
-                <div className="text-xs text-[#A39988] italic py-8 text-center">
+                <div className="text-xs text-subtle-text italic py-8 text-center">
                   No previous payslips logged.
                 </div>
               ) : (
@@ -930,18 +930,18 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                         setSelectedRecord(rec);
                         setIsPayslipOpen(true);
                       }}
-                      className="p-2.5 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] transition cursor-pointer flex items-center justify-between text-xs"
+                      className="p-2.5 rounded-lg border border-border hover:bg-panel-bg transition cursor-pointer flex items-center justify-between text-xs"
                     >
                       <div>
-                        <div className="font-semibold text-[#1A1410]">
+                        <div className="font-semibold text-foreground">
                           {new Date(rec.cutoff_start).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} – {new Date(rec.cutoff_end).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
                         </div>
-                        <div className="text-[10px] text-[#6B6258] font-mono">
+                        <div className="text-[10px] text-muted-foreground font-mono">
                           {rec.total_parcels} pcs delivered
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold font-mono text-[#1A1410]">
+                        <span className="font-semibold font-mono text-foreground">
                           ₱{(rec.gross_pay || (rec.total_parcels * (rec.rate_per_parcel || 50))).toLocaleString()}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
@@ -997,14 +997,14 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
           debugInfo={debugInfo} />
 
         <div className="mt-5 flex items-center justify-between gap-3">
-          <span className="text-[11px] text-[#6B6258] font-mono">
+          <span className="text-[11px] text-muted-foreground font-mono">
             {nowHHMM()} · {zoneName}
           </span>
           {phase === 'failed' ?
             <div className="flex gap-2">
               <button
                 onClick={() => setScanOpen(false)}
-                className="px-4 h-9 rounded-md text-sm text-[#1A1410] bg-[#FAFAF7] border border-[#EFEAE2] hover:bg-white hover:border-[#db6c00]/30 transition-colors">
+                className="px-4 h-9 rounded-md text-sm text-foreground bg-panel-bg border border-border hover:bg-white hover:border-primary/30 transition-colors cursor-pointer">
                 Cancel
               </button>
               <button
@@ -1012,20 +1012,20 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                   reset();
                   start();
                 }}
-                className="px-4 h-9 rounded-md text-sm text-white bg-[#db6c00] hover:bg-[#b85a00] transition-colors shadow-sm">
+                className="px-4 h-9 rounded-md text-sm text-white bg-primary hover:bg-primary-hover transition-colors shadow-sm cursor-pointer">
                 Retry scan
               </button>
             </div> :
             phase === 'matched' ?
               <button
                 onClick={() => setScanOpen(false)}
-                className="px-4 h-9 rounded-md text-sm text-white bg-[#16A34A] hover:bg-[#15803D] transition-colors shadow-sm">
+                className="px-4 h-9 rounded-md text-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer">
                 Done
               </button> :
               <button
                 onClick={() => setScanOpen(false)}
                 disabled={phase === 'scanning' || phase === 'initializing'}
-                className="px-4 h-9 rounded-md text-sm text-[#1A1410] bg-[#FAFAF7] border border-[#EFEAE2] hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                className="px-4 h-9 rounded-md text-sm text-foreground bg-panel-bg border border-border hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer">
                 Cancel
               </button>
           }
@@ -1042,11 +1042,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
       >
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
           {monthAttendanceLogs.length === 0 ? (
-            <p className="text-sm text-[#6B6258] text-center py-6">
+            <p className="text-sm text-muted-foreground text-center py-6">
               No attendance logs found for this month.
             </p>
           ) : (
-            <div className="divide-y divide-[#EFEAE2] border border-[#EFEAE2] rounded-xl overflow-hidden bg-white">
+            <div className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-white">
               {monthAttendanceLogs.map((log, index) => {
                 const isLate = log.status === 'late';
                 const isPresent = log.status === 'present';
@@ -1073,10 +1073,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                 const dateLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
                 return (
-                  <div key={log.id || index} className="p-3.5 flex items-center justify-between text-sm hover:bg-[#FAFAF7] transition-colors">
+                  <div key={log.id || index} className="p-3.5 flex items-center justify-between text-sm hover:bg-panel-bg transition-colors">
                     <div>
-                      <div className="font-semibold text-[#1A1410]">{dateLabel}</div>
-                      <div className="text-xs text-[#6B6258] font-mono mt-0.5">
+                      <div className="font-semibold text-foreground">{dateLabel}</div>
+                      <div className="text-xs text-muted-foreground font-mono mt-0.5">
                         {log.time_in ? format12h(toHHMM(log.time_in) || '00:00') : '—'} – {log.time_out ? format12h(toHHMM(log.time_out) || '00:00') : '—'}
                       </div>
                     </div>
@@ -1084,7 +1084,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                       <span className={`px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider ${badgeClass}`}>
                         {badgeText}
                       </span>
-                      <span className="font-semibold font-mono text-sm text-[#1A1410]">
+                      <span className="font-semibold font-mono text-sm text-foreground">
                         {log.hours ? `${log.hours.toFixed(1)} hrs` : '—'}
                       </span>
                     </div>
@@ -1105,11 +1105,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         size="md"
       >
         <div className="space-y-4">
-          <div className="p-3.5 bg-[#FFF1E0] border border-[#db6c00]/20 rounded-xl flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#b85a00] uppercase tracking-wider">
+          <div className="p-3.5 bg-accent border border-primary/20 rounded-xl flex items-center justify-between">
+            <span className="text-xs font-semibold text-accent-foreground uppercase tracking-wider">
               Total Hours This Week
             </span>
-            <span className="text-xl font-bold font-mono text-[#db6c00]">
+            <span className="text-xl font-bold font-mono text-primary">
               {stats.hoursThisWeek.toFixed(1)} hrs
             </span>
           </div>
@@ -1120,10 +1120,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
               return (
                 <div key={idx} className="space-y-1">
                   <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="text-[#1A1410]">
-                      {day.name} <span className="text-[#6B6258] font-mono font-normal">({day.dateLabel})</span>
+                    <span className="text-foreground">
+                      {day.name} <span className="text-muted-foreground font-mono font-normal">({day.dateLabel})</span>
                     </span>
-                    <span className="font-semibold font-mono text-[#1A1410]">
+                    <span className="font-semibold font-mono text-foreground">
                       {day.hours.toFixed(1)} hrs
                     </span>
                   </div>
@@ -1132,7 +1132,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                       className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${
                         isFutureOrEmpty
                           ? 'from-gray-300 to-gray-300'
-                          : 'from-[#db6c00]/60 to-[#db6c00]'
+                          : 'from-primary/60 to-primary'
                       }`}
                       style={{ width: `${Math.min(100, (day.hours / 8) * 100)}%` }}
                     />
@@ -1155,8 +1155,8 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
           {loadingViolations ? (
             <div className="py-12 flex flex-col items-center justify-center gap-3">
-              <div className="w-8 h-8 rounded-full border-4 border-[#db6c00] border-t-transparent animate-spin" />
-              <span className="text-xs text-[#6B6258] font-medium font-mono animate-pulse">
+              <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+              <span className="text-xs text-muted-foreground font-medium font-mono animate-pulse">
                 Fetching geofence log...
               </span>
             </div>
@@ -1165,8 +1165,8 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/20">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
               </div>
-              <h3 className="text-sm font-semibold text-[#1A1410]">Clean Record</h3>
-              <p className="text-xs text-[#6B6258] max-w-xs mx-auto">
+              <h3 className="text-sm font-semibold text-foreground">Clean Record</h3>
+              <p className="text-xs text-muted-foreground max-w-xs mx-auto">
                 Excellent! You have zero geofence violations recorded for this month. Keep up the great work!
               </p>
             </div>
@@ -1183,7 +1183,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                 });
 
                 return (
-                  <div key={v.id || idx} className="p-3.5 rounded-xl border border-[#EFEAE2] bg-white hover:border-[#db6c00]/30 hover:shadow-sm transition flex items-start gap-3">
+                  <div key={v.id || idx} className="p-3.5 rounded-xl border border-border bg-white hover:border-primary/30 hover:shadow-sm transition flex items-start gap-3">
                     <span className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${
                       v.resolved ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600 animate-pulse'
                     }`}>
@@ -1191,7 +1191,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-sm text-[#1A1410]">
+                        <span className="font-semibold text-sm text-foreground">
                           {v.type === 'boundary_exit' ? 'Boundary Exit Alert' : v.type === 'idle_excess' ? 'Excess Idle Warning' : 'Geofence Violation'}
                         </span>
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider ${
@@ -1200,10 +1200,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
                           {v.resolved ? 'Resolved' : 'Active'}
                         </span>
                       </div>
-                      <div className="text-xs text-[#6B6258] mt-1 font-medium">
+                      <div className="text-xs text-muted-foreground mt-1 font-medium">
                         Zone: {v.zone_name || 'Talon-Talon'}
                       </div>
-                      <div className="text-[11px] text-[#6B6258]/80 font-mono mt-0.5 flex items-center justify-between">
+                      <div className="text-[11px] text-muted-foreground/80 font-mono mt-0.5 flex items-center justify-between">
                         <span>{dateLabel}</span>
                         {v.lat && v.lng && (
                           <span>GPS: {v.lat.toFixed(5)}, {v.lng.toFixed(5)}</span>

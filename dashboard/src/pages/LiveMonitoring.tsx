@@ -60,20 +60,20 @@ export function LiveMonitoring() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left rail */}
         <aside
-          className={`${collapsed ? 'w-12' : 'w-80'} shrink-0 bg-white border-r border-[#EFEAE2] transition-all flex flex-col`}>
+          className={`${collapsed ? 'w-12' : 'w-80'} shrink-0 bg-white border-r border-border transition-all flex flex-col`}>
           
-          <div className="flex items-center justify-between p-3 border-b border-[#EFEAE2]">
+          <div className="flex items-center justify-between p-3 border-b border-border">
             {!collapsed &&
             <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-[#db6c00]" />
-                <span className="text-sm font-semibold text-[#1A1410]">
+                <Filter className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">
                   Filters
                 </span>
               </div>
             }
             <button
               onClick={() => setCollapsed((v) => !v)}
-              className="p-1.5 rounded-md text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]"
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg cursor-pointer"
               aria-label="Toggle rail">
               
               {collapsed ?
@@ -86,7 +86,7 @@ export function LiveMonitoring() {
 
           {!collapsed &&
           <>
-              <div className="p-3 space-y-3 border-b border-[#EFEAE2]">
+              <div className="p-3 space-y-3 border-b border-border">
                 <FilterRow
                 label="Zone"
                 value={zoneFilter}
@@ -127,7 +127,7 @@ export function LiveMonitoring() {
               
               </div>
 
-              <div className="px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-mono font-semibold">
+              <div className="px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-mono font-semibold">
                 Riders · {filtered.length}
               </div>
               <div className="ar-scroll overflow-y-auto flex-1 px-2 pb-2 space-y-1">
@@ -140,12 +140,12 @@ export function LiveMonitoring() {
                 'ring-amber-500/70' :
                 r.status === 'violation' ?
                 'ring-red-500/70' :
-                'ring-[#6B6258]/40';
+                'ring-muted-foreground/40';
                 return (
                   <button
                     key={r.id}
                     onClick={() => handleRiderClick(r.id)}
-                    className={`w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-[#FAFAF7] transition ${focusRiderId === r.id ? 'bg-[#FFF1E0]' : ''}`}>
+                    className={`w-full text-left flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-panel-bg transition cursor-pointer ${focusRiderId === r.id ? 'bg-accent' : ''}`}>
                     
                       <img
                       src={r.avatar}
@@ -153,10 +153,10 @@ export function LiveMonitoring() {
                       className={`w-7 h-7 rounded-full bg-white ring-2 ${ring}`} />
                     
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-[#1A1410] font-semibold truncate">
+                        <div className="text-xs text-foreground font-semibold truncate">
                           {r.name}
                         </div>
-                        <div className="text-[10px] text-[#6B6258] font-mono">
+                        <div className="text-[10px] text-muted-foreground font-mono">
                           {z?.name} · {relativeTime(r.lastPing, now)}
                         </div>
                       </div>
@@ -169,7 +169,7 @@ export function LiveMonitoring() {
         </aside>
 
         {/* Map */}
-        <main className="flex-1 flex flex-col relative bg-[#FAFAF7] overflow-hidden">
+        <main className="flex-1 flex flex-col relative bg-panel-bg overflow-hidden">
           {/* === Live Map (hidden when route fullscreen) === */}
           <AnimatePresence initial={false}>
             {!isRouteFullscreen && (
@@ -189,24 +189,24 @@ export function LiveMonitoring() {
                 />
 
                 {focused && (
-                  <div className="absolute top-6 right-6 w-72 z-[1100] max-h-[calc(100%-3rem)] overflow-y-auto bg-white/95 backdrop-blur-md border border-[#EFEAE2] rounded-xl p-4 shadow-2xl ar-slide-in custom-scrollbar">
+                  <div className="absolute top-6 right-6 w-72 z-[1100] max-h-[calc(100%-3rem)] overflow-y-auto bg-white/95 backdrop-blur-md border border-border rounded-xl p-4 shadow-2xl ar-slide-in custom-scrollbar">
                     <div className="flex items-center gap-3 mb-3">
                       <img
                         src={focused.avatar}
                         alt=""
-                        className="w-12 h-12 rounded-full bg-[#FAFAF7] border border-[#EFEAE2] ring-2 ring-[#db6c00]/15"
+                        className="w-12 h-12 rounded-full bg-panel-bg border border-border ring-2 ring-primary/15"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-[#1A1410] truncate">
+                        <div className="text-sm font-semibold text-foreground truncate">
                           {focused.name}
                         </div>
-                        <div className="text-[11px] text-[#6B6258] font-mono">
+                        <div className="text-[11px] text-muted-foreground font-mono">
                           {focused.riderCode}
                         </div>
                       </div>
                       <button
                         onClick={() => setFocusRiderId(null)}
-                        className="text-[#6B6258] hover:text-[#1A1410] text-xs"
+                        className="text-muted-foreground hover:text-foreground text-xs cursor-pointer"
                       >
                         ✕
                       </button>
@@ -216,7 +216,7 @@ export function LiveMonitoring() {
                       <Row
                         label="Status"
                         value={
-                          <span className={`capitalize font-semibold ${focused.status === 'active' ? 'text-emerald-600' : focused.status === 'idle' ? 'text-amber-600' : focused.status === 'violation' ? 'text-red-600' : 'text-[#6B6258]'}`}>
+                          <span className={`capitalize font-semibold ${focused.status === 'active' ? 'text-emerald-600' : focused.status === 'idle' ? 'text-amber-600' : focused.status === 'violation' ? 'text-red-600' : 'text-muted-foreground'}`}>
                             {focused.status === 'offline' && (focused.lat !== 0 || focused.lng !== 0) ? 'Offline (Last Known)' : focused.status}
                           </span>
                         }
@@ -238,7 +238,7 @@ export function LiveMonitoring() {
                         No location history available.
                       </div>
                     )}
-                    <div className="mt-3 pt-3 border-t border-[#EFEAE2] grid grid-cols-3 gap-1.5">
+                    <div className="mt-3 pt-3 border-t border-border grid grid-cols-3 gap-1.5">
                       <ActionBtn icon={MessageSquare} label="Message" />
                       <ActionBtn icon={Phone} label="Call" />
                       <ActionBtn icon={Flag} label="Flag" tone="red" />
@@ -258,18 +258,18 @@ export function LiveMonitoring() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 40 }}
                 transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                className={`border-t border-[#EFEAE2] p-4 bg-white flex flex-col overflow-hidden z-[500] min-h-0 transition-[flex] duration-300 ease-in-out ${
+                className={`border-t border-border p-4 bg-white flex flex-col overflow-hidden z-[500] min-h-0 transition-[flex] duration-300 ease-in-out ${
                   isRouteFullscreen ? 'flex-1' : ''
                 }`}
               >
                 <div className="flex items-center justify-between mb-3 shrink-0">
-                  <h3 className="text-sm font-semibold text-[#1A1410]">
+                  <h3 className="text-sm font-semibold text-foreground">
                     Rider Route Trail — Today
                   </h3>
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => setIsRouteFullscreen(!isRouteFullscreen)}
-                      className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-[#F5F0E8] text-[#db6c00] rounded hover:bg-[#db6c00]/10 transition-colors"
+                      className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 bg-accent text-accent-foreground rounded hover:bg-primary/10 transition-colors cursor-pointer"
                     >
                       {isRouteFullscreen ? 'Minimize' : 'Fullscreen'}
                     </button>
@@ -278,7 +278,7 @@ export function LiveMonitoring() {
                         setRouteDrawerOpen(false);
                         setIsRouteFullscreen(false);
                       }}
-                      className="text-xs text-[#888] hover:text-[#1A1410] transition-colors"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     >
                       Close
                     </button>
@@ -308,18 +308,10 @@ function FilterRow({
   value,
   onChange,
   options
-
-
-
-
-
-
-
-
 }: {label: string;value: string;onChange: (v: string) => void;options: {v: string;l: string;}[];}) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
+      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
         {label}
       </div>
       <div className="flex flex-wrap gap-1">
@@ -327,7 +319,7 @@ function FilterRow({
         <button
           key={o.v}
           onClick={() => onChange(o.v)}
-          className={`px-2 py-1 rounded text-[11px] border font-semibold transition ${value === o.v ? 'bg-[#FFF1E0] border-[#db6c00]/40 text-[#b85a00]' : 'bg-white border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410] hover:border-[#db6c00]/30'}`}>
+          className={`px-2 py-1 rounded text-[11px] border font-semibold transition cursor-pointer ${value === o.v ? 'bg-accent border-primary/40 text-accent-foreground' : 'bg-white border-border text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>
           
             {o.l}
           </button>
@@ -340,18 +332,14 @@ function Row({
   label,
   value,
   mono
-
-
-
-
 }: {label: string;value: React.ReactNode;mono?: boolean;}) {
   return (
-    <div className="flex items-center justify-between gap-3 py-1 border-b border-[#EFEAE2]/70 last:border-0">
-      <span className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+    <div className="flex items-center justify-between gap-3 py-1 border-b border-border/70 last:border-0">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
         {label}
       </span>
       <span
-        className={`text-[#1A1410] ${mono ? 'font-mono text-[11px] tabular-nums' : 'font-semibold'}`}>
+        className={`text-foreground ${mono ? 'font-mono text-[11px] tabular-nums' : 'font-semibold'}`}>
         
         {value}
       </span>
@@ -362,16 +350,10 @@ function ActionBtn({
   icon: Icon,
   label,
   tone
-
-
-
-
-
-
 }: {icon: ComponentType<{className?: string;}>;label: string;tone?: 'red';}) {
   return (
     <button
-      className={`flex flex-col items-center gap-1 py-2 rounded-md border text-[10px] font-semibold transition ${tone === 'red' ? 'bg-red-50 border-red-500/30 text-red-700 hover:bg-red-100' : 'bg-white border-[#EFEAE2] text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00]'}`}>
+      className={`flex flex-col items-center gap-1 py-2 rounded-md border text-[10px] font-semibold transition cursor-pointer ${tone === 'red' ? 'bg-red-50 border-red-500/30 text-red-700 hover:bg-red-100' : 'bg-white border-border text-foreground hover:border-primary/30 hover:text-primary'}`}>
       
       <Icon className="w-3.5 h-3.5" />
       {label}

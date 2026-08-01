@@ -221,33 +221,33 @@ export function AuditLogs() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Total Events */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-bold">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
               Total Log Entries
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-[#1A1410]">
+            <div className="mt-1 text-2xl font-bold font-mono text-foreground">
               {loading ? '...' : stats.total}
             </div>
-            <div className="text-[10px] text-[#6B6258] font-mono mt-0.5">
+            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
               since initialization
             </div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] flex items-center justify-center">
-            <Database className="w-5 h-5 text-[#db6c00]" />
+          <div className="w-10 h-10 rounded-lg bg-panel-bg border border-border flex items-center justify-center">
+            <Database className="w-5 h-5 text-primary" />
           </div>
         </div>
 
         {/* Login Events */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-bold">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
               Login Events
             </div>
             <div className="mt-1 text-2xl font-bold font-mono text-purple-700">
               {loading ? '...' : stats.logins}
             </div>
-            <div className="text-[10px] text-[#6B6258] font-mono mt-0.5">
+            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
               biometric & manual checkins
             </div>
           </div>
@@ -257,15 +257,15 @@ export function AuditLogs() {
         </div>
 
         {/* Payroll Actions */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-bold">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
               Payroll Status Audits
             </div>
             <div className="mt-1 text-2xl font-bold font-mono text-blue-700">
               {loading ? '...' : stats.payrollUpdates}
             </div>
-            <div className="text-[10px] text-[#6B6258] font-mono mt-0.5">
+            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
               approvals and modifications
             </div>
           </div>
@@ -275,38 +275,38 @@ export function AuditLogs() {
         </div>
 
         {/* Admin operations */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-bold">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
               Admin Modifications
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-[#db6c00]">
+            <div className="mt-1 text-2xl font-bold font-mono text-primary">
               {loading ? '...' : stats.adminEvents}
             </div>
-            <div className="text-[10px] text-[#db6c00]/80 font-mono mt-0.5">
+            <div className="text-[10px] text-primary/80 font-mono mt-0.5">
               system settings edits
             </div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-[#FFF1E0] border border-[#db6c00]/25 flex items-center justify-center">
-            <Activity className="w-5 h-5 text-[#db6c00]" />
+          <div className="w-10 h-10 rounded-lg bg-accent border border-primary/25 flex items-center justify-center">
+            <Activity className="w-5 h-5 text-primary" />
           </div>
         </div>
 
       </div>
 
       {/* Control panel (Filters + Search) */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm space-y-4">
+      <div className="bg-white border border-border rounded-xl p-4 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
           {/* Search bar */}
           <div className="relative flex-1 max-w-lg">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B6258]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search logs by description, user name, email, action..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full h-10 pl-9 pr-4 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] placeholder-[#A39988] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 transition"
+              className="w-full h-10 pl-9 pr-4 rounded-lg bg-panel-bg border border-border text-sm text-foreground placeholder-subtle-text outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition"
             />
           </div>
 
@@ -315,7 +315,7 @@ export function AuditLogs() {
             <button
               onClick={loadLogs}
               disabled={loading}
-              className="h-10 px-3 border border-[#EFEAE2] hover:border-[#db6c00]/40 rounded-lg text-sm text-[#6B6258] hover:text-[#1A1410] bg-white transition flex items-center gap-1.5 disabled:opacity-50"
+              className="h-10 px-3 border border-border hover:border-primary/40 rounded-lg text-sm text-muted-foreground hover:text-foreground bg-white transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               title="Reload logs from DB"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -323,7 +323,7 @@ export function AuditLogs() {
             </button>
             <button
               onClick={handleExportCSV}
-              className="h-10 px-4 bg-[#db6c00] hover:bg-[#b85a00] text-white rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm"
+              className="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm cursor-pointer"
             >
               <Download className="w-4 h-4" />
               Export Logs (CSV)
@@ -333,16 +333,16 @@ export function AuditLogs() {
         </div>
 
         {/* Advanced dropdown filters */}
-        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-[#FAFAF7]">
+        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-panel-bg">
           
           {/* Filter by Role */}
-          <div className="flex items-center gap-1.5 text-xs text-[#6B6258]">
-            <Filter className="w-3.5 h-3.5 text-[#db6c00]" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Filter className="w-3.5 h-3.5 text-primary" />
             <span>Role:</span>
             <select
               value={roleFilter}
               onChange={e => setRoleFilter(e.target.value as 'all' | 'admin' | 'hr' | 'payroll' | 'rider')}
-              className="h-8 border border-[#EFEAE2] rounded bg-white text-xs px-2 outline-none focus:border-[#db6c00]"
+              className="h-8 border border-border rounded bg-white text-xs px-2 outline-none focus:border-primary"
             >
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
@@ -353,12 +353,12 @@ export function AuditLogs() {
           </div>
 
           {/* Filter by Type */}
-          <div className="flex items-center gap-1.5 text-xs text-[#6B6258]">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span>Event:</span>
             <select
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              className="h-8 border border-[#EFEAE2] rounded bg-white text-xs px-2 outline-none focus:border-[#db6c00]"
+              className="h-8 border border-border rounded bg-white text-xs px-2 outline-none focus:border-primary"
             >
               <option value="all">All Events</option>
               {distinctEventTypes.map(type => (
@@ -368,13 +368,13 @@ export function AuditLogs() {
           </div>
 
           {/* Filter by Date range */}
-          <div className="flex items-center gap-1.5 text-xs text-[#6B6258]">
-            <Calendar className="w-3.5 h-3.5 text-[#db6c00]" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Calendar className="w-3.5 h-3.5 text-primary" />
             <span>Time Range:</span>
             <select
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value as 'all' | 'today' | '3days' | '7days')}
-              className="h-8 border border-[#EFEAE2] rounded bg-white text-xs px-2 outline-none focus:border-[#db6c00]"
+              className="h-8 border border-border rounded bg-white text-xs px-2 outline-none focus:border-primary"
             >
               <option value="all">All History</option>
               <option value="today">Today Only</option>
@@ -387,27 +387,27 @@ export function AuditLogs() {
       </div>
 
       {/* Main Table Grid */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
         
         {loading && (
           <div className="p-10 text-center space-y-4">
-            <RefreshCw className="w-8 h-8 animate-spin text-[#db6c00] mx-auto" />
-            <div className="text-sm text-[#6B6258] font-medium">Querying public.activity_logs...</div>
+            <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
+            <div className="text-sm text-muted-foreground font-medium">Querying public.activity_logs...</div>
           </div>
         )}
 
         {!loading && filteredLogs.length === 0 && (
           <div className="p-16 text-center space-y-2">
-            <Database className="w-10 h-10 text-[#A39988] mx-auto" />
-            <div className="text-sm font-semibold text-[#1A1410]">No logs matching filters found</div>
-            <div className="text-xs text-[#6B6258]">Try adjusting your search criteria or filters.</div>
+            <Database className="w-10 h-10 text-subtle-text mx-auto" />
+            <div className="text-sm font-semibold text-foreground">No logs matching filters found</div>
+            <div className="text-xs text-muted-foreground">Try adjusting your search criteria or filters.</div>
           </div>
         )}
 
         {!loading && filteredLogs.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
+              <thead className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                 <tr>
                   <th className="px-5 py-3">Timestamp</th>
                   <th className="px-5 py-3">Actor Profile</th>
@@ -417,7 +417,7 @@ export function AuditLogs() {
                   <th className="px-5 py-3 text-center">Metadata</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#EFEAE2]">
+              <tbody className="divide-y divide-border">
                 {filteredLogs.map(log => {
                   const isExpanded = expandedRow === log.id;
                   const actorName = log.users?.full_name || log.riders?.name || 'System / Automated';
@@ -431,16 +431,16 @@ export function AuditLogs() {
                     : 'System API';
 
                   return (
-                    <tr key={log.id} className="border-b border-[#EFEAE2]">
+                    <tr key={log.id} className="border-b border-border">
                       <td colSpan={6} className="p-0">
                         <div className="w-full">
                           {/* Row Summary */}
                           <div 
                             onClick={() => toggleRow(log.id)}
-                            className={`w-full grid grid-cols-1 md:grid-cols-6 items-center hover:bg-[#FAFAF7]/60 transition-colors cursor-pointer px-5 py-3.5 ${isExpanded ? 'bg-[#FFF1E0]/20 font-semibold' : ''}`}
+                            className={`w-full grid grid-cols-1 md:grid-cols-6 items-center hover:bg-panel-bg/60 transition-colors cursor-pointer px-5 py-3.5 ${isExpanded ? 'bg-accent/20 font-semibold' : ''}`}
                           >
                             {/* Timestamp */}
-                            <div className="text-[#6B6258] font-mono whitespace-nowrap">
+                            <div className="text-muted-foreground font-mono whitespace-nowrap">
                               {new Date(log.created_at).toLocaleString('en-PH', {
                                 month: 'short',
                                 day: '2-digit',
@@ -455,14 +455,14 @@ export function AuditLogs() {
                             {/* Actor Profile */}
                             <div>
                               <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-[#FAFAF7] border border-[#EFEAE2] flex items-center justify-center shrink-0">
-                                  <UserIcon className="w-4 h-4 text-[#db6c00]" />
+                                <div className="w-8 h-8 rounded-full bg-panel-bg border border-border flex items-center justify-center shrink-0">
+                                  <UserIcon className="w-4 h-4 text-primary" />
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="font-semibold text-[#1A1410] truncate max-w-[120px]" title={actorName}>
+                                  <div className="font-semibold text-foreground truncate max-w-[120px]" title={actorName}>
                                     {actorName}
                                   </div>
-                                  <div className="text-[10px] text-[#6B6258] truncate max-w-[120px] font-mono" title={actorEmail}>
+                                  <div className="text-[10px] text-muted-foreground truncate max-w-[120px] font-mono" title={actorEmail}>
                                     {actorEmail}
                                   </div>
                                 </div>
@@ -480,20 +480,20 @@ export function AuditLogs() {
                             </div>
 
                             {/* Description */}
-                            <div className="md:col-span-2 text-[#1A1410] truncate pr-4 min-w-0" title={log.description}>
+                            <div className="md:col-span-2 text-foreground truncate pr-4 min-w-0" title={log.description}>
                               {log.description}
                             </div>
 
                             {/* IP / Location & Toggle */}
                             <div className="flex items-center justify-between">
                               <div className="min-w-0 pr-2">
-                                <div className="font-mono text-[10px] text-[#1A1410] truncate">{ip}</div>
-                                <div className="text-[10px] text-[#6B6258] truncate" title={locString}>{locString}</div>
+                                <div className="font-mono text-[10px] text-foreground truncate">{ip}</div>
+                                <div className="text-[10px] text-muted-foreground truncate" title={locString}>{locString}</div>
                               </div>
                               <motion.button
                                 whileTap={{ scale: 0.92 }}
                                 type="button"
-                                className="p-1 rounded bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410] transition cursor-pointer"
+                                className="p-1 rounded bg-panel-bg border border-border text-muted-foreground hover:text-foreground transition cursor-pointer"
                               >
                                 <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ease-out ${isExpanded ? 'rotate-180' : ''}`} />
                               </motion.button>
@@ -508,52 +508,52 @@ export function AuditLogs() {
                                 animate={{ height: 'auto', opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
                                 transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-                                className="overflow-hidden border-t border-[#EFEAE2] bg-[#FAFAF7]/45"
+                                className="overflow-hidden border-t border-border bg-panel-bg/45"
                               >
-                                <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-5 text-[11px] text-[#6B6258]">
+                                <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-5 text-[11px] text-muted-foreground">
                                   
                                   {/* Column A: Network & Origin Details */}
-                                  <div className="space-y-2 border-r border-[#EFEAE2]/60 pr-4">
-                                    <div className="font-bold uppercase tracking-wider text-[#1A1410] flex items-center gap-1">
-                                      <Globe className="w-3.5 h-3.5 text-[#db6c00]" /> Network Credentials
+                                  <div className="space-y-2 border-r border-border/60 pr-4">
+                                    <div className="font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
+                                      <Globe className="w-3.5 h-3.5 text-primary" /> Network Credentials
                                     </div>
-                                    <div className="space-y-1 bg-white border border-[#EFEAE2] rounded-lg p-2.5 font-mono">
-                                      <div className="flex justify-between"><span className="text-[#6B6258]">IP Address:</span><span className="text-[#1A1410] font-semibold">{ip}</span></div>
-                                      <div className="flex justify-between"><span className="text-[#6B6258]">City:</span><span className="text-[#1A1410] font-semibold">{log.metadata?.city || 'N/A'}</span></div>
-                                      <div className="flex justify-between"><span className="text-[#6B6258]">Region:</span><span className="text-[#1A1410] font-semibold">{log.metadata?.region || 'N/A'}</span></div>
-                                      <div className="flex justify-between"><span className="text-[#6B6258]">Country:</span><span className="text-[#1A1410] font-semibold">{log.metadata?.country || 'N/A'}</span></div>
-                                      <div className="flex justify-between"><span className="text-[#6B6258]">ISP:</span><span className="text-[#1A1410] font-semibold truncate max-w-[120px]" title={log.metadata?.org}>{log.metadata?.org || 'N/A'}</span></div>
+                                    <div className="space-y-1 bg-white border border-border rounded-lg p-2.5 font-mono">
+                                      <div className="flex justify-between"><span className="text-muted-foreground">IP Address:</span><span className="text-foreground font-semibold">{ip}</span></div>
+                                      <div className="flex justify-between"><span className="text-muted-foreground">City:</span><span className="text-foreground font-semibold">{log.metadata?.city || 'N/A'}</span></div>
+                                      <div className="flex justify-between"><span className="text-muted-foreground">Region:</span><span className="text-foreground font-semibold">{log.metadata?.region || 'N/A'}</span></div>
+                                      <div className="flex justify-between"><span className="text-muted-foreground">Country:</span><span className="text-foreground font-semibold">{log.metadata?.country || 'N/A'}</span></div>
+                                      <div className="flex justify-between"><span className="text-muted-foreground">ISP:</span><span className="text-foreground font-semibold truncate max-w-[120px]" title={log.metadata?.org}>{log.metadata?.org || 'N/A'}</span></div>
                                     </div>
                                   </div>
 
                                   {/* Column B: Device / Browser credentials */}
-                                  <div className="space-y-2 border-r border-[#EFEAE2]/60 px-2 md:px-4">
-                                    <div className="font-bold uppercase tracking-wider text-[#1A1410] flex items-center gap-1">
-                                      <Laptop className="w-3.5 h-3.5 text-[#db6c00]" /> Client Environment
+                                  <div className="space-y-2 border-r border-border/60 px-2 md:px-4">
+                                    <div className="font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
+                                      <Laptop className="w-3.5 h-3.5 text-primary" /> Client Environment
                                     </div>
-                                    <div className="space-y-1 bg-white border border-[#EFEAE2] rounded-lg p-2.5">
+                                    <div className="space-y-1 bg-white border border-border rounded-lg p-2.5">
                                       <div className="flex justify-between">
-                                        <span className="text-[#6B6258]">App Role:</span>
-                                        <span className="text-[#1A1410] font-mono font-semibold uppercase">{actorRole}</span>
+                                        <span className="text-muted-foreground">App Role:</span>
+                                        <span className="text-foreground font-mono font-semibold uppercase">{actorRole}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-[#6B6258]">Event Type:</span>
-                                        <span className="text-[#1A1410] font-mono font-semibold">{log.event_type}</span>
+                                        <span className="text-muted-foreground">Event Type:</span>
+                                        <span className="text-foreground font-mono font-semibold">{log.event_type}</span>
                                       </div>
                                       <div className="flex justify-between">
-                                        <span className="text-[#6B6258]">Browser Agent:</span>
-                                        <span className="text-[#1A1410] font-semibold truncate max-w-[120px]" title={navigator.userAgent}>{navigator.userAgent.split(' ')[0]}</span>
+                                        <span className="text-muted-foreground">Browser Agent:</span>
+                                        <span className="text-foreground font-semibold truncate max-w-[120px]" title={navigator.userAgent}>{navigator.userAgent.split(' ')[0]}</span>
                                       </div>
                                     </div>
                                   </div>
 
                                   {/* Column C: Custom event metadata JSON */}
                                   <div className="space-y-2">
-                                    <div className="font-bold uppercase tracking-wider text-[#1A1410] flex items-center gap-1">
-                                      <Database className="w-3.5 h-3.5 text-[#db6c00]" /> Metadata Parameters
+                                    <div className="font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
+                                      <Database className="w-3.5 h-3.5 text-primary" /> Metadata Parameters
                                     </div>
-                                    <div className="bg-white border border-[#EFEAE2] rounded-lg p-2.5 font-mono overflow-x-auto max-h-[110px] text-[10px] leading-relaxed">
-                                      <pre className="text-[#1A1410]">{JSON.stringify(log.metadata || {}, null, 2)}</pre>
+                                    <div className="bg-white border border-border rounded-lg p-2.5 font-mono overflow-x-auto max-h-[110px] text-[10px] leading-relaxed">
+                                      <pre className="text-foreground">{JSON.stringify(log.metadata || {}, null, 2)}</pre>
                                     </div>
                                   </div>
 

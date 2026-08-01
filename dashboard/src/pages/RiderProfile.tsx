@@ -199,33 +199,33 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
       {/* Header */}
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-sm text-[#6B6258] hover:text-[#1A1410] transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to dashboard
       </button>
 
       {/* Header card */}
-      <div className="relative rounded-2xl border border-[#EFEAE2] bg-gradient-to-br from-[#FFF1E0] via-white to-white p-5 sm:p-6 flex items-center gap-4 shadow-sm overflow-hidden">
-        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-[#db6c00]/8 blur-2xl pointer-events-none" />
+      <div className="relative rounded-2xl border border-border bg-gradient-to-br from-accent via-white to-white p-5 sm:p-6 flex items-center gap-4 shadow-sm overflow-hidden">
+        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-primary/8 blur-2xl pointer-events-none" />
         <img
           src={rider.avatar}
           alt={`${rider.name} avatar`}
-          className="relative w-20 h-20 rounded-2xl border border-[#EFEAE2] bg-white shadow-sm"
+          className="relative w-20 h-20 rounded-2xl border border-border bg-white shadow-sm"
         />
         
         <div className="relative min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono font-semibold">
             Courier · MKB Corporation
           </div>
-          <h1 className="text-2xl font-semibold text-[#1A1410] truncate mt-0.5">
+          <h1 className="text-2xl font-semibold text-foreground truncate mt-0.5">
             {rider.name}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-mono">
             <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/50 uppercase tracking-wider font-semibold">
               {user?.status ?? 'active'}
             </span>
-            <span className="text-[#6B6258]">{rider.riderCode}</span>
+            <span className="text-muted-foreground">{rider.riderCode}</span>
           </div>
         </div>
       </div>
@@ -235,32 +235,32 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
         
         {/* Left Column: Account Details */}
         <div className="lg:col-span-7 space-y-5">
-          <div className="rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm space-y-4">
-            <h2 className="text-[#1A1410] font-semibold text-base">Account Settings</h2>
+          <div className="rounded-2xl border border-border bg-white p-5 shadow-sm space-y-4">
+            <h2 className="text-foreground font-semibold text-base">Account Settings</h2>
             
             <div className="space-y-3">
               {/* Email */}
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#EFEAE2]">
-                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 text-[#6B6258] ring-1 ring-gray-200 shrink-0">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-border">
+                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 text-muted-foreground ring-1 ring-gray-200 shrink-0">
                   <Mail className="w-4 h-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono font-semibold">
                     Email Address
                   </div>
-                  <div className="mt-0.5 text-sm text-[#6B6258] font-mono truncate">
+                  <div className="mt-0.5 text-sm text-muted-foreground font-mono truncate">
                     {user?.email ?? '—'}
                   </div>
                 </div>
               </div>
 
               {/* Phone (Editable) */}
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#EFEAE2] hover:border-[#db6c00]/20 transition-colors">
-                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#FFF1E0] text-[#db6c00] ring-1 ring-[#db6c00]/25 shrink-0">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-border hover:border-primary/20 transition-colors">
+                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-accent text-primary ring-1 ring-primary/25 shrink-0">
                   <Phone className="w-4 h-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono font-semibold">
                     Contact Phone
                   </div>
                   
@@ -271,12 +271,12 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
                         value={phoneInput}
                         onChange={e => setPhoneInput(e.target.value)}
                         disabled={isSavingPhone}
-                        className="h-8 px-2.5 rounded border border-[#EFEAE2] text-sm font-mono w-full max-w-xs focus:outline-none focus:border-[#db6c00] disabled:bg-gray-50"
+                        className="h-8 px-2.5 rounded border border-border text-sm font-mono w-full max-w-xs focus:outline-none focus:border-primary disabled:bg-gray-50"
                       />
                       <button
                         onClick={handleSavePhone}
                         disabled={isSavingPhone}
-                        className="w-8 h-8 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition-colors shrink-0"
+                        className="w-8 h-8 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
                       >
                         <Check className="w-4 h-4" />
                       </button>
@@ -286,19 +286,19 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
                           setIsEditingPhone(false);
                         }}
                         disabled={isSavingPhone}
-                        className="w-8 h-8 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition-colors shrink-0"
+                        className="w-8 h-8 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
                     <div className="mt-0.5 flex items-center justify-between gap-2">
-                      <span className="text-sm text-[#1A1410] font-mono">
+                      <span className="text-sm text-foreground font-mono">
                         {rider.phone || 'No phone registered'}
                       </span>
                       <button
                         onClick={() => setIsEditingPhone(true)}
-                        className="p-1 rounded-md text-[#6B6258] hover:text-[#db6c00] hover:bg-[#FFF1E0] transition"
+                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition cursor-pointer"
                         title="Edit Phone"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -309,15 +309,15 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
               </div>
 
               {/* Rider Code */}
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-[#EFEAE2]">
-                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 text-[#6B6258] ring-1 ring-gray-200 shrink-0">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white border border-border">
+                <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-gray-50 text-muted-foreground ring-1 ring-gray-200 shrink-0">
                   <IdCard className="w-4 h-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono font-semibold">
                     MKB Code
                   </div>
-                  <div className="mt-0.5 text-sm text-[#1A1410] font-mono">
+                  <div className="mt-0.5 text-sm text-foreground font-mono">
                     {rider.riderCode}
                   </div>
                 </div>
@@ -327,10 +327,10 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
             </div>
 
             {/* Password section */}
-            <div className="pt-3 border-t border-[#EFEAE2]/60">
+            <div className="pt-3 border-t border-border/60">
               {showPasswordForm ? (
-                <div className="space-y-3.5 bg-gray-50/50 p-4 rounded-xl border border-[#EFEAE2]">
-                  <h3 className="text-xs font-semibold text-[#1A1410] uppercase tracking-wider">Update Password</h3>
+                <div className="space-y-3.5 bg-gray-50/50 p-4 rounded-xl border border-border">
+                  <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Update Password</h3>
                   <div className="space-y-2">
                     <div className="relative">
                       <input
@@ -339,7 +339,7 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
                         value={newPassword}
                         onChange={e => setNewPassword(e.target.value)}
                         disabled={isSavingPassword}
-                        className="h-9 px-3 rounded border border-[#EFEAE2] text-sm w-full focus:outline-none focus:border-[#db6c00] pr-10"
+                        className="h-9 px-3 rounded border border-border text-sm w-full focus:outline-none focus:border-primary pr-10"
                       />
                       <button
                         type="button"
@@ -355,7 +355,7 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       disabled={isSavingPassword}
-                      className="h-9 px-3 rounded border border-[#EFEAE2] text-sm w-full focus:outline-none focus:border-[#db6c00]"
+                      className="h-9 px-3 rounded border border-border text-sm w-full focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div className="flex gap-2 justify-end">
@@ -366,14 +366,14 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
                         setConfirmPassword('');
                       }}
                       disabled={isSavingPassword}
-                      className="px-3 h-8 rounded text-xs text-[#6B6258] bg-white border border-[#EFEAE2] hover:bg-gray-100"
+                      className="px-3 h-8 rounded text-xs text-muted-foreground bg-white border border-border hover:bg-gray-100 cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleUpdatePassword}
                       disabled={isSavingPassword}
-                      className="px-3 h-8 rounded text-xs text-white bg-[#db6c00] hover:bg-[#b85a00] flex items-center gap-1.5"
+                      className="px-3 h-8 rounded text-xs text-white bg-primary hover:bg-primary-hover flex items-center gap-1.5 cursor-pointer"
                     >
                       {isSavingPassword && <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />}
                       Save Password
@@ -383,7 +383,7 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
               ) : (
                 <button
                   onClick={() => setShowPasswordForm(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#db6c00] hover:text-[#b85a00] uppercase tracking-wider mt-1 focus:outline-none"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover uppercase tracking-wider mt-1 focus:outline-none cursor-pointer"
                 >
                   <Lock className="w-3.5 h-3.5" />
                   Change Account Password
@@ -395,15 +395,15 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
 
         {/* Right Column: Visual Geofence Map */}
         <div className="lg:col-span-5 space-y-5">
-          <div className="rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm space-y-4">
+          <div className="rounded-2xl border border-border bg-white p-5 shadow-sm space-y-4">
             <div>
-              <h2 className="text-[#1A1410] font-semibold text-base">Assigned Geofence Map</h2>
-              <p className="text-xs text-[#6B6258] mt-0.5">
+              <h2 className="text-foreground font-semibold text-base">Assigned Geofence Map</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Riders must remain inside this boundary.
               </p>
             </div>
 
-            <div className="relative rounded-xl overflow-hidden border border-[#EFEAE2] h-[240px] bg-gray-50">
+            <div className="relative rounded-xl overflow-hidden border border-border h-[240px] bg-gray-50">
               <MapContainer
                 center={[zone.center[0], zone.center[1]]}
                 zoom={14}
@@ -438,21 +438,21 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
                 )}
               </MapContainer>
 
-              <div className="absolute top-3 left-3 z-[400] flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-sm border border-[#EFEAE2] text-xs shadow-sm">
+              <div className="absolute top-3 left-3 z-[400] flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-sm border border-border text-xs shadow-sm">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: zone.color }} />
-                <span className="text-[#1A1410] font-semibold">{zone.name}</span>
-                <span className="text-[#6B6258] font-mono text-[10px]">
+                <span className="text-foreground font-semibold">{zone.name}</span>
+                <span className="text-muted-foreground font-mono text-[10px]">
                   {zone.zone_type === 'polygon' ? 'Polygon' : `${zone.radius}m`}
                 </span>
               </div>
 
-              <div className="absolute bottom-3 left-3 z-[400] px-2 py-1 rounded-md bg-white/95 backdrop-blur-sm border border-[#EFEAE2] text-[10px] text-[#6B6258] font-mono">
+              <div className="absolute bottom-3 left-3 z-[400] px-2 py-1 rounded-md bg-white/95 backdrop-blur-sm border border-border text-[10px] text-muted-foreground font-mono">
                 Center: {zone.center[0].toFixed(4)}, {zone.center[1].toFixed(4)}
               </div>
             </div>
 
-            <div className="text-[11px] text-[#6B6258]/80 leading-relaxed font-medium bg-[#FAFAF7] p-3 rounded-xl border border-[#EFEAE2]/60 flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-[#db6c00] shrink-0 mt-0.5" />
+            <div className="text-[11px] text-muted-foreground/80 leading-relaxed font-medium bg-panel-bg p-3 rounded-xl border border-border/60 flex items-start gap-2">
+              <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
               <span>
                 Your GPS position is verified against this boundary. Being outside the boundary triggers boundary exit warnings automatically.
               </span>
@@ -462,9 +462,9 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
       </div>
 
       {/* Face enrollment info */}
-      <div className="rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm">
-        <h2 className="text-[#1A1410] font-semibold text-base">Face Enrollment</h2>
-        <p className="text-sm text-[#6B6258] mt-1">
+      <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">
+        <h2 className="text-foreground font-semibold text-base">Face Enrollment</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Your face template is enrolled and used to verify every time-in and
           time-out. To re-enroll (e.g. after a major appearance change), contact
           your dispatcher.
@@ -473,7 +473,7 @@ export function RiderProfile({ userId, onBack }: RiderProfileProps) {
           <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/50 text-[11px] uppercase tracking-wider font-semibold">
             ● Enrolled
           </span>
-          <span className="text-[11px] text-[#6B6258] font-mono">
+          <span className="text-[11px] text-muted-foreground font-mono">
             FaceNet v2 · captured CAM-01
           </span>
         </div>
