@@ -1002,9 +1002,9 @@ export function Settings() {
           padding-left: 14px;
           padding-right: 14px;
           background: #ffffff;
-          border: 1px solid var(--border, #EFEAE2);
+          border: 1px solid var(--border);
           border-radius: 12px;
-          color: var(--foreground, #1A1410);
+          color: var(--foreground);
           font-size: 13px;
           outline: none;
           transition: all 200ms ease;
@@ -1013,7 +1013,7 @@ export function Settings() {
           border-color: rgba(219, 108, 0, 0.4);
         }
         .prof-input:focus {
-          border-color: var(--primary, #db6c00);
+          border-color: var(--primary);
           box-shadow: 0 0 0 4px rgba(219, 108, 0, 0.08);
         }
         select.prof-input {

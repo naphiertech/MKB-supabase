@@ -54,8 +54,8 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           label="Riders On Duty"
           value={
             <>
-              <span className="text-[#1A1410]">{kpis.onDuty}</span>
-              <span className="text-[#A39988] text-xl"> / {riders.length}</span>
+              <span className="text-foreground">{kpis.onDuty}</span>
+              <span className="text-subtle-text text-xl"> / {riders.length}</span>
             </>
           }
           sub="Click to view time-in records →"

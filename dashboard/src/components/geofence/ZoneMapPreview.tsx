@@ -92,13 +92,13 @@ export function ZoneMapPreview({
   const activeZone = zones.find((z) => z.id === activeZoneId) ?? null;
 
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-sm flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#EFEAE2]">
+    <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-[#1A1410]">
+          <div className="text-sm font-semibold text-foreground">
             {isEditing ? 'Zone Editor · Build Geofence' : 'Zone Map · Zamboanga City'}
           </div>
-          <div className="text-[11px] text-[#6B6258] font-mono truncate">
+          <div className="text-[11px] text-muted-foreground font-mono truncate">
             {isEditing
               ? zoneType === 'circle'
                 ? pin
@@ -110,8 +110,8 @@ export function ZoneMapPreview({
                 : `${zones.length} geofenced zones`}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#FAFAF7] border border-[#EFEAE2] text-[10px] uppercase tracking-wider text-[#6B6258] font-semibold">
-          <span className={`w-1.5 h-1.5 rounded-full ${isEditing ? 'bg-red-500 animate-pulse' : 'bg-[#db6c00]'}`} />
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-panel-bg border border-border text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+          <span className={`w-1.5 h-1.5 rounded-full ${isEditing ? 'bg-red-500 animate-pulse' : 'bg-primary'}`} />
           {isEditing ? 'Interactive Draw' : 'Geofence View'}
         </div>
       </div>
@@ -209,7 +209,7 @@ export function ZoneMapPreview({
                 duration: 0.8,
               });
             }}
-            className="w-9 h-9 rounded-md bg-white border border-[#EFEAE2] text-[#1A1410] hover:text-[#db6c00] hover:border-[#db6c00]/30 shadow-md flex items-center justify-center transition"
+            className="w-9 h-9 rounded-md bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center justify-center transition"
             aria-label="Recenter map"
             title="Recenter map"
           >
@@ -218,12 +218,12 @@ export function ZoneMapPreview({
         </div>
 
         {/* Legend */}
-        <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-[#EFEAE2] rounded-lg px-3 py-2 text-xs shadow-lg">
-          <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold mb-1">
+        <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-border rounded-lg px-3 py-2 text-xs shadow-lg">
+          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold mb-1">
             Map Legend
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-[#1A1410]">
-            <span className="inline-block w-3 h-3 rounded-full border-2 border-dashed border-[#db6c00]" />
+          <div className="flex items-center gap-2 text-[11px] text-foreground">
+            <span className="inline-block w-3 h-3 rounded-full border-2 border-dashed border-primary" />
             <span>
               {isEditing 
                 ? zoneType === 'circle' 
@@ -235,12 +235,12 @@ export function ZoneMapPreview({
         </div>
 
         {/* Footer chip */}
-        <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-[#EFEAE2] rounded-lg px-3 py-2 flex items-center gap-2 shadow-lg">
+        <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-border rounded-lg px-3 py-2 flex items-center gap-2 shadow-lg">
           <span className="relative flex w-2 h-2">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-[#db6c00] opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#db6c00]" />
+            <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
           </span>
-          <span className="text-xs text-[#1A1410] font-mono">
+          <span className="text-xs text-foreground font-mono">
             {zones.length} zones · dark map preview
           </span>
         </div>

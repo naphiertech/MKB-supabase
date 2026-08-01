@@ -39,9 +39,9 @@ export function StatDetailsPanel({
   // Color theme mapping based on card types
   const themes = {
     active_riders: {
-      border: 'border-[#db6c00]/30',
-      bg: 'bg-[#FFF1E0]/5',
-      badge: 'bg-[#FFF1E0] text-[#db6c00] border-[#db6c00]/20',
+      border: 'border-primary/30',
+      bg: 'bg-accent/5',
+      badge: 'bg-accent text-primary border-primary/20',
       title: 'Total Active Riders Details'
     },
     on_duty: {
@@ -69,16 +69,16 @@ export function StatDetailsPanel({
   return (
     <div className={`border-2 ${currentTheme.border} rounded-xl bg-white p-5 shadow-sm space-y-4 transition-all duration-300 relative`}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#EFEAE2] pb-3">
+      <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <span className={`px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider border ${currentTheme.badge}`}>
             {type.replace('_', ' ')}
           </span>
-          <h3 className="text-sm font-semibold text-[#1A1410]">{currentTheme.title}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{currentTheme.title}</h3>
         </div>
         <button 
           onClick={onClose} 
-          className="text-[#6B6258] hover:text-[#1A1410] p-1.5 rounded-lg hover:bg-[#FAFAF7] transition-all"
+          className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-panel-bg transition-all"
           aria-label="Close Details Panel"
         >
           <X className="w-4 h-4" />
@@ -131,9 +131,9 @@ function ActiveRidersDetail({ riders, zones, now }: { riders: Rider[]; zones: Zo
     <div className="space-y-4">
       {/* Stats Quick Grid */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-xl p-3 text-center">
-          <div className="text-xl font-semibold text-[#1A1410]">{riders.length}</div>
-          <div className="text-[10px] text-[#6B6258] uppercase tracking-wider font-semibold">Total Accounts</div>
+        <div className="bg-panel-bg border border-border rounded-xl p-3 text-center">
+          <div className="text-xl font-semibold text-foreground">{riders.length}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Accounts</div>
         </div>
         <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3 text-center">
           <div className="text-xl font-semibold text-emerald-700">{activeRiders.length}</div>
@@ -146,16 +146,16 @@ function ActiveRidersDetail({ riders, zones, now }: { riders: Rider[]; zones: Zo
       </div>
 
       {/* Filter and Search Row */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between pt-1 border-t border-[#EFEAE2]/60">
-        <div className="flex rounded-lg bg-[#FAFAF7] p-0.5 border border-[#EFEAE2] w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between pt-1 border-t border-border/60">
+        <div className="flex rounded-lg bg-panel-bg p-0.5 border border-border w-full sm:w-auto">
           {(['all', 'active', 'offline'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-3 py-1.5 text-xs font-medium capitalize rounded-md transition-all ${
                 activeTab === tab 
-                  ? 'bg-white text-[#1A1410] shadow-sm' 
-                  : 'text-[#6B6258] hover:text-[#1A1410]'
+                  ? 'bg-white text-foreground shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {tab}
@@ -164,13 +164,13 @@ function ActiveRidersDetail({ riders, zones, now }: { riders: Rider[]; zones: Zo
         </div>
 
         <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search by name, code..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
           />
         </div>
       </div>
@@ -178,18 +178,18 @@ function ActiveRidersDetail({ riders, zones, now }: { riders: Rider[]; zones: Zo
       {/* List */}
       <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
         {filteredRiders.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258] border border-dashed border-[#EFEAE2] rounded-xl bg-[#FAFAF7]">
+          <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl bg-panel-bg">
             No matching riders found.
           </div>
         ) : (
           filteredRiders.map((rider) => (
-            <div key={rider.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-[#EFEAE2] hover:border-[#db6c00]/25 rounded-xl transition-all">
+            <div key={rider.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-border hover:border-primary/25 rounded-xl transition-all">
               <div className="flex items-center gap-3">
                 <div className="relative flex-shrink-0">
                   {rider.avatar ? (
-                    <img src={rider.avatar} alt={rider.name} className="w-10 h-10 rounded-full object-cover border border-[#EFEAE2]" />
+                    <img src={rider.avatar} alt={rider.name} className="w-10 h-10 rounded-full object-cover border border-border" />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-[#FFF1E0] flex items-center justify-center font-bold text-[#db6c00] text-sm">
+                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center font-bold text-primary text-sm">
                       {rider.name.charAt(0)}
                     </div>
                   )}
@@ -199,12 +199,12 @@ function ActiveRidersDetail({ riders, zones, now }: { riders: Rider[]; zones: Zo
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-semibold text-[#1A1410]">{rider.name}</h4>
-                    <span className="text-[10px] text-[#6B6258] font-mono font-medium">{rider.riderCode}</span>
+                    <h4 className="text-xs font-semibold text-foreground">{rider.name}</h4>
+                    <span className="text-[10px] text-muted-foreground font-mono font-medium">{rider.riderCode}</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-[#6B6258]">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#db6c00]/70" />
+                      <MapPin className="w-3 h-3 text-primary/70" />
                       {getZoneName(rider.zoneId)}
                     </span>
                     <span>•</span>
@@ -219,15 +219,15 @@ function ActiveRidersDetail({ riders, zones, now }: { riders: Rider[]; zones: Zo
                 </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#EFEAE2]/60">
+              <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
                 <div className="text-left sm:text-right">
-                  <div className="text-[10px] text-[#6B6258]">Last Active</div>
-                  <div className="text-[11px] font-mono text-[#1A1410] font-medium mt-0.5">
+                  <div className="text-[10px] text-muted-foreground">Last Active</div>
+                  <div className="text-[11px] font-mono text-foreground font-medium mt-0.5">
                     {relativeTime(rider.lastPing, now)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <a href={`tel:${rider.phone}`} className="p-1.5 text-[#6B6258] hover:text-[#db6c00] bg-[#FAFAF7] hover:bg-[#FFF1E0] border border-[#EFEAE2] rounded-lg transition-all" title="Call Rider">
+                  <a href={`tel:${rider.phone}`} className="p-1.5 text-muted-foreground hover:text-primary bg-panel-bg hover:bg-accent border border-border rounded-lg transition-all" title="Call Rider">
                     <Phone className="w-3.5 h-3.5" />
                   </a>
                 </div>
@@ -275,9 +275,9 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
     <div className="space-y-4">
       {/* Metrics Summary */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-xl p-3 text-center">
-          <div className="text-xl font-semibold text-[#1A1410]">{logs.length}</div>
-          <div className="text-[10px] text-[#6B6258] uppercase tracking-wider font-semibold">Total Clocked-In</div>
+        <div className="bg-panel-bg border border-border rounded-xl p-3 text-center">
+          <div className="text-xl font-semibold text-foreground">{logs.length}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Clocked-In</div>
         </div>
         <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3 text-center">
           <div className="text-xl font-semibold text-emerald-700">{presentCount}</div>
@@ -290,16 +290,16 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between pt-1 border-t border-[#EFEAE2]/60">
-        <div className="flex rounded-lg bg-[#FAFAF7] p-0.5 border border-[#EFEAE2] w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between pt-1 border-t border-border/60">
+        <div className="flex rounded-lg bg-panel-bg p-0.5 border border-border w-full sm:w-auto">
           {(['all', 'present', 'late'] as const).map((filter) => (
             <button
               key={filter}
               onClick={() => setStatusFilter(filter)}
               className={`px-3 py-1.5 text-xs font-medium capitalize rounded-md transition-all ${
                 statusFilter === filter 
-                  ? 'bg-white text-[#1A1410] shadow-sm' 
-                  : 'text-[#6B6258] hover:text-[#1A1410]'
+                  ? 'bg-white text-foreground shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {filter}
@@ -308,13 +308,13 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
         </div>
 
         <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search name, zone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
           />
         </div>
       </div>
@@ -322,25 +322,25 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
       {/* List */}
       <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258] border border-dashed border-[#EFEAE2] rounded-xl bg-[#FAFAF7]">
+          <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl bg-panel-bg">
             No attendance logs found for today.
           </div>
         ) : (
           filteredLogs.map((log) => (
-            <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-[#EFEAE2] rounded-xl hover:border-[#db6c00]/25 transition-all">
+            <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-border rounded-xl hover:border-primary/25 transition-all">
               <div className="flex items-center gap-3">
                 {log.riderAvatar ? (
-                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-[#EFEAE2]" />
+                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-[#FFF1E0] flex items-center justify-center font-bold text-[#db6c00] text-sm">
+                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center font-bold text-primary text-sm">
                     {log.riderName.charAt(0)}
                   </div>
                 )}
                 <div>
-                  <h4 className="text-xs font-semibold text-[#1A1410]">{log.riderName}</h4>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-[#6B6258]">
+                  <h4 className="text-xs font-semibold text-foreground">{log.riderName}</h4>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#db6c00]/70" />
+                      <MapPin className="w-3 h-3 text-primary/70" />
                       {log.zoneName}
                     </span>
                     <span>•</span>
@@ -349,15 +349,15 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#EFEAE2]/60">
+              <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
                 <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-left sm:text-right">
                   <div>
-                    <span className="text-[9px] text-[#6B6258] uppercase">Clock In</span>
-                    <div className="text-xs font-mono font-semibold text-[#1A1410]">{log.timeIn || '--:--'}</div>
+                    <span className="text-[9px] text-muted-foreground uppercase">Clock In</span>
+                    <div className="text-xs font-mono font-semibold text-foreground">{log.timeIn || '--:--'}</div>
                   </div>
                   <div>
-                    <span className="text-[9px] text-[#6B6258] uppercase">Clock Out</span>
-                    <div className="text-xs font-mono font-semibold text-[#1A1410]">{log.timeOut || '--:--'}</div>
+                    <span className="text-[9px] text-muted-foreground uppercase">Clock Out</span>
+                    <div className="text-xs font-mono font-semibold text-foreground">{log.timeOut || '--:--'}</div>
                   </div>
                 </div>
 
@@ -366,7 +366,7 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
                   {log.faceScanUrl ? (
                     <button
                       onClick={() => setSelectedPhoto(log.faceScanUrl || null)}
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] text-[#db6c00] hover:text-[#b85a00] bg-[#FFF1E0] border border-[#db6c00]/20 rounded-md font-semibold transition-all"
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] text-primary hover:text-accent-foreground bg-accent border border-primary/20 rounded-md font-semibold transition-all"
                     >
                       <Eye className="w-3 h-3" />
                       Scan
@@ -385,16 +385,16 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
       {selectedPhoto && (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/60 p-4">
           <div className="relative max-w-sm w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-4">
-            <div className="flex justify-between items-center pb-3 border-b border-[#EFEAE2]">
-              <span className="text-xs font-semibold text-[#1A1410]">Clock-in Face Verification</span>
+            <div className="flex justify-between items-center pb-3 border-b border-border">
+              <span className="text-xs font-semibold text-foreground">Clock-in Face Verification</span>
               <button 
                 onClick={() => setSelectedPhoto(null)} 
-                className="text-[#6B6258] hover:text-[#1A1410] p-1 rounded-md hover:bg-[#FAFAF7]"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-panel-bg"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="mt-4 flex justify-center bg-[#FAFAF7] rounded-xl overflow-hidden border border-[#EFEAE2]">
+            <div className="mt-4 flex justify-center bg-panel-bg rounded-xl overflow-hidden border border-border">
               <img src={selectedPhoto} alt="Face Scan Preview" className="max-h-[300px] w-auto object-contain" />
             </div>
           </div>
@@ -472,7 +472,7 @@ function ViolationsDetail({
       {/* List */}
       <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
         {violations.length === 0 ? (
-          <div className="py-16 text-center text-xs text-[#6B6258] border border-dashed border-[#EFEAE2] rounded-xl bg-[#FAFAF7]">
+          <div className="py-16 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl bg-panel-bg">
             Awesome! No active geofence violations today.
           </div>
         ) : (
@@ -480,14 +480,14 @@ function ViolationsDetail({
             const style = getViolationStyle(v.type);
             const Icon = style.icon;
             return (
-              <div key={v.id} className={`flex items-center justify-between gap-3 p-3 bg-white border ${v.read ? 'border-[#EFEAE2]' : 'border-red-200 shadow-sm'} rounded-xl hover:shadow-sm transition-all`}>
+              <div key={v.id} className={`flex items-center justify-between gap-3 p-3 bg-white border ${v.read ? 'border-border' : 'border-red-200 shadow-sm'} rounded-xl hover:shadow-sm transition-all`}>
                 <div className="flex items-center gap-3 min-w-0">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${style.bg} flex-shrink-0`}>
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-[#1A1410] truncate max-w-[120px]">{v.riderName}</span>
+                      <span className="text-xs font-semibold text-foreground truncate max-w-[120px]">{v.riderName}</span>
                       {!v.read && (
                         <span className="w-1.5 h-1.5 bg-red-500 rounded-full" title="Unread Alert" />
                       )}
@@ -495,8 +495,8 @@ function ViolationsDetail({
                         {getViolationTypeLabel(v.type)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[10px] text-[#6B6258] mt-1">
-                      <MapPin className="w-3 h-3 text-[#db6c00]/60" />
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1">
+                      <MapPin className="w-3 h-3 text-primary/60" />
                       <span>Zone: <span className="font-semibold">{v.zoneName}</span></span>
                       <span>•</span>
                       <span>{relativeTime(v.ts, now)}</span>
@@ -506,7 +506,7 @@ function ViolationsDetail({
 
                 <button
                   onClick={() => onViewViolation(v.riderId)}
-                  className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold text-white bg-[#db6c00] hover:bg-[#b85a00] rounded-lg transition-all shadow-sm active:scale-[0.98]"
+                  className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold text-white bg-primary hover:bg-primary-hover rounded-lg transition-all shadow-sm active:scale-[0.98]"
                 >
                   <MapPin className="w-3 h-3" />
                   View Map
@@ -559,12 +559,12 @@ function AttendanceDetail({ logs }: { logs: AttendanceLog[] }) {
   return (
     <div className="space-y-4">
       {/* Main circular percentage card */}
-      <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-white border border-[#EFEAE2] rounded-xl shadow-sm">
+      <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-white border border-border rounded-xl shadow-sm">
         {/* Progress Circular Gauge */}
         <div className="relative flex items-center justify-center w-24 h-24 flex-shrink-0">
           <svg className="w-full h-full transform -rotate-90">
             <circle
-              className="text-[#EFEAE2]"
+              className="text-border"
               strokeWidth="8"
               stroke="currentColor"
               fill="transparent"
@@ -586,23 +586,23 @@ function AttendanceDetail({ logs }: { logs: AttendanceLog[] }) {
             />
           </svg>
           <div className="absolute flex flex-col items-center justify-center text-center">
-            <span className="text-xl font-bold text-[#1A1410]">{rate}%</span>
+            <span className="text-xl font-bold text-foreground">{rate}%</span>
           </div>
         </div>
 
         <div className="flex-1 text-center sm:text-left space-y-1">
           <div className="flex items-center justify-center sm:justify-start gap-2">
-            <h3 className="text-xs font-semibold text-[#1A1410]">Overall Attendance Rate</h3>
+            <h3 className="text-xs font-semibold text-foreground">Overall Attendance Rate</h3>
             {targetMet ? (
               <span className="px-1.5 py-0.2 text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">Target Met</span>
             ) : (
               <span className="px-1.5 py-0.2 text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-md">Below Target</span>
             )}
           </div>
-          <p className="text-[11px] text-[#6B6258]">
+          <p className="text-[11px] text-muted-foreground">
             Current active attendance rate is {rate}%. The target set by operations is ≥ {target}%.
           </p>
-          <div className="flex items-center justify-center sm:justify-start gap-4 pt-1 text-[10px] font-semibold text-[#6B6258]">
+          <div className="flex items-center justify-center sm:justify-start gap-4 pt-1 text-[10px] font-semibold text-muted-foreground">
             <span className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               Target: {target}%
@@ -617,22 +617,22 @@ function AttendanceDetail({ logs }: { logs: AttendanceLog[] }) {
 
       {/* 7-Day Trend Breakdown */}
       <div className="space-y-2 pt-1">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-[#1A1410]">
-          <Calendar className="w-4 h-4 text-[#db6c00]" />
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          <Calendar className="w-4 h-4 text-primary" />
           <span>Last 7 Days Trend</span>
         </div>
 
-        <div className="border border-[#EFEAE2] rounded-xl overflow-hidden bg-white">
-          <div className="grid grid-cols-3 px-3 py-2 bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase font-semibold tracking-wider text-[#6B6258]">
+        <div className="border border-border rounded-xl overflow-hidden bg-white">
+          <div className="grid grid-cols-3 px-3 py-2 bg-panel-bg border-b border-border text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">
             <div>Date</div>
             <div className="text-center">Active/Total Logs</div>
             <div className="text-right">Daily Rate</div>
           </div>
-          <div className="divide-y divide-[#EFEAE2] max-h-[160px] overflow-y-auto custom-scrollbar">
+          <div className="divide-y divide-border max-h-[160px] overflow-y-auto custom-scrollbar">
             {dailyTrends.map((t) => (
               <div key={t.date} className="grid grid-cols-3 items-center px-3 py-2 text-xs">
-                <div className="font-medium text-[#1A1410]">{t.label}</div>
-                <div className="text-center text-[#6B6258]">
+                <div className="font-medium text-foreground">{t.label}</div>
+                <div className="text-center text-muted-foreground">
                   {t.total > 0 ? `${t.present} / ${t.total}` : 'No Logs'}
                 </div>
                 <div className="text-right font-mono font-semibold">

@@ -360,10 +360,10 @@ export function RiderPayrollList({
   };
 
   const renderSortIcon = (column: 'riderName' | 'total_parcels' | 'gross_pay' | 'net_pay' | 'status') => {
-    if (sortBy !== column) return <ArrowUpDown className="w-3 h-3 text-[#A39988] transition-colors ml-1.5 shrink-0 opacity-40 group-hover:opacity-100" />;
+    if (sortBy !== column) return <ArrowUpDown className="w-3 h-3 text-subtle-text transition-colors ml-1.5 shrink-0 opacity-40 group-hover:opacity-100" />;
     return sortOrder === 'asc' 
-      ? <ChevronUp className="w-3.5 h-3.5 text-[#db6c00] ml-1.5 shrink-0" />
-      : <ChevronDown className="w-3.5 h-3.5 text-[#db6c00] ml-1.5 shrink-0" />;
+      ? <ChevronUp className="w-3.5 h-3.5 text-primary ml-1.5 shrink-0" />
+      : <ChevronDown className="w-3.5 h-3.5 text-primary ml-1.5 shrink-0" />;
   };
 
   // Multi-select handlers
@@ -399,19 +399,19 @@ export function RiderPayrollList({
     <div className="space-y-4">
       {/* Bulk Actions Banner */}
       {selectedRecordIds.size > 0 && (
-        <div className="p-3 px-4 rounded-xl border border-[#db6c00]/30 bg-[#FFF1E0]/50 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200">
+        <div className="p-3 px-4 rounded-xl border border-primary/30 bg-accent/50 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#db6c00] text-white text-[10px] font-bold">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
               {selectedRecordIds.size}
             </span>
-            <span className="text-xs font-semibold text-[#b85a00]">
+            <span className="text-xs font-semibold text-accent-foreground">
               Riders selected for bulk actions
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               disabled
-              className="h-8 px-3 rounded-lg border border-[#EFEAE2] bg-white/50 text-[#A39988] text-xs font-semibold cursor-not-allowed"
+              className="h-8 px-3 rounded-lg border border-border bg-white/50 text-subtle-text text-xs font-semibold cursor-not-allowed"
               title="Bulk Export coming soon"
             >
               Bulk Export
@@ -421,7 +421,7 @@ export function RiderPayrollList({
                 <button
                   onClick={handleSubmitForApproval}
                   disabled={submitting || deleting}
-                  className="h-8 px-3 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="h-8 px-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {submitting ? (
                     <>
@@ -446,14 +446,14 @@ export function RiderPayrollList({
               <>
                 <button
                   disabled
-                  className="h-8 px-3 rounded-lg border border-[#EFEAE2] bg-white/50 text-[#A39988] text-xs font-semibold cursor-not-allowed"
+                  className="h-8 px-3 rounded-lg border border-border bg-white/50 text-subtle-text text-xs font-semibold cursor-not-allowed"
                   title="Bulk Approval coming soon"
                 >
                   Bulk Approve
                 </button>
                 <button
                   disabled
-                  className="h-8 px-3 rounded-lg bg-[#db6c00]/40 text-white text-xs font-semibold cursor-not-allowed"
+                  className="h-8 px-3 rounded-lg bg-primary/40 text-white text-xs font-semibold cursor-not-allowed"
                   title="Bulk Pay coming soon"
                 >
                   Bulk Pay
@@ -462,7 +462,7 @@ export function RiderPayrollList({
             )}
             <button 
               onClick={() => setSelectedRecordIds(new Set())}
-              className="h-8 px-2.5 text-[#6B6258] hover:text-[#1A1410] text-xs font-semibold transition"
+              className="h-8 px-2.5 text-muted-foreground hover:text-foreground text-xs font-semibold transition"
             >
               Deselect All
             </button>
@@ -471,37 +471,37 @@ export function RiderPayrollList({
       )}
 
       {/* Main Table Container */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-[#EFEAE2] flex items-center justify-between">
+      <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-[#1A1410]">Rider Payroll List</span>
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FAFAF7] border border-[#EFEAE2] text-[9px] font-medium text-[#6B6258]">
+              <span className="text-sm font-semibold text-foreground">Rider Payroll List</span>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-panel-bg border border-border text-[9px] font-medium text-muted-foreground">
                 <Lock className="w-2.5 h-2.5" /> Read-only
               </span>
             </div>
-            <div className="text-[11px] text-[#6B6258] font-mono mt-0.5">
+            <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
               {totalCount} records · {cutoffLabel} · Click rows or chevron to inspect daily breakdowns
             </div>
           </div>
         </div>
 
         {/* Table Control Bar */}
-        <div className="px-5 py-3 border-b border-[#EFEAE2] bg-[#FAFAF7]/50 flex flex-col md:flex-row items-center gap-3 justify-between">
+        <div className="px-5 py-3 border-b border-border bg-panel-bg/50 flex flex-col md:flex-row items-center gap-3 justify-between">
           {/* Search Input */}
           <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#A39988]" />
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-subtle-text" />
             <input
               type="text"
               placeholder="Search rider name, ID, zone..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 h-9 rounded-lg bg-white border border-[#EFEAE2] text-xs text-[#1A1410] placeholder:text-[#A39988] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
+              className="w-full pl-9 pr-8 py-2 h-9 rounded-lg bg-white border border-border text-xs text-foreground placeholder:text-subtle-text outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
             {search && (
               <button 
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-2 text-xs font-semibold text-[#A39988] hover:text-[#1A1410]"
+                className="absolute right-3 top-2 text-xs font-semibold text-subtle-text hover:text-foreground"
               >
                 Clear
               </button>
@@ -512,11 +512,11 @@ export function RiderPayrollList({
           <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
             {/* Zone Filter */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">Zone:</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Zone:</span>
               <select
                 value={zoneFilter}
                 onChange={e => setZoneFilter(e.target.value)}
-                className="h-9 px-2.5 rounded-lg bg-white border border-[#EFEAE2] text-xs text-[#1A1410] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 cursor-pointer"
+                className="h-9 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer"
               >
                 <option value="all">All Zones</option>
                 {allZones.map(z => (
@@ -527,11 +527,11 @@ export function RiderPayrollList({
 
             {/* Status Filter */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">Status:</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Status:</span>
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="h-9 px-2.5 rounded-lg bg-white border border-[#EFEAE2] text-xs text-[#1A1410] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 cursor-pointer font-mono text-[11px]"
+                className="h-9 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer font-mono text-[11px]"
               >
                 <option value="all">All Statuses</option>
                 <option value="draft">Draft</option>
@@ -547,18 +547,18 @@ export function RiderPayrollList({
 
         {loading && (
           <div className="p-10 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-[#db6c00]" />
-            <span className="text-sm text-[#6B6258]">Loading cutoff statistics from Supabase...</span>
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">Loading cutoff statistics from Supabase...</span>
           </div>
         )}
 
         {!loading && payrollRecords.length === 0 && (
           <div className="p-12 text-center space-y-2">
-            <div className="text-sm font-semibold text-[#1A1410]">
+            <div className="text-sm font-semibold text-foreground">
               No payroll records computed for {cutoffLabel} yet.
             </div>
-            <p className="text-xs text-[#6B6258] max-w-md mx-auto leading-relaxed">
-              Use <span className="font-semibold text-[#db6c00]">&ldquo;Initialize Fleet Cutoff&rdquo;</span> above to generate draft records for all active riders, or <span className="font-semibold text-[#1A1410]">&ldquo;Search & Pick Rider&rdquo;</span> to log daily parcels individually.
+            <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+              Use <span className="font-semibold text-primary">&ldquo;Initialize Fleet Cutoff&rdquo;</span> above to generate draft records for all active riders, or <span className="font-semibold text-foreground">&ldquo;Search & Pick Rider&rdquo;</span> to log daily parcels individually.
             </p>
           </div>
         )}
@@ -566,43 +566,43 @@ export function RiderPayrollList({
         {!loading && payrollRecords.length > 0 && (
           <div className="overflow-x-auto max-h-[600px] overflow-y-auto relative">
             <table className="w-full text-sm">
-              <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2] sticky top-0 z-10 shadow-sm">
-                <tr className="text-left text-[10px] uppercase tracking-[0.12em] text-[#6B6258] font-semibold">
-                  <th className="px-5 py-3 w-32 bg-[#FAFAF7]">
+              <thead className="bg-panel-bg border-b border-border sticky top-0 z-10 shadow-sm">
+                <tr className="text-left text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold">
+                  <th className="px-5 py-3 w-32 bg-panel-bg">
                     <div className="flex items-center justify-center gap-2">
                       <input
                         type="checkbox"
                         checked={payrollRecords.length > 0 && selectedRecordIds.size === payrollRecords.length}
                         onChange={handleToggleSelectAll}
-                        className="rounded border-[#EFEAE2] text-[#db6c00] focus:ring-[#db6c00] h-3.5 w-3.5 cursor-pointer accent-[#db6c00]"
+                        className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5 cursor-pointer accent-primary"
                       />
                     </div>
                   </th>
                   <th 
                     onClick={() => handleSort('riderName')}
-                    className="px-3 py-3 cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7]"
+                    className="px-3 py-3 cursor-pointer hover:bg-panel-bg group transition-colors bg-panel-bg"
                   >
                     <div className="flex items-center">
                       Rider {renderSortIcon('riderName')}
                     </div>
                   </th>
-                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7] whitespace-nowrap">Rider ID</th>}
-                  <th className="px-3 py-3 bg-[#FAFAF7]">Zone</th>
-                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7] whitespace-nowrap">Cutoff</th>}
+                  {isAdminOrHr && <th className="px-3 py-3 bg-panel-bg whitespace-nowrap">Rider ID</th>}
+                  <th className="px-3 py-3 bg-panel-bg">Zone</th>
+                  {isAdminOrHr && <th className="px-3 py-3 bg-panel-bg whitespace-nowrap">Cutoff</th>}
                   {!isAdminOrHr && (
                     <th 
                       onClick={() => handleSort('total_parcels')}
-                      className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7] whitespace-nowrap"
+                      className="px-3 py-3 text-right cursor-pointer hover:bg-panel-bg group transition-colors bg-panel-bg whitespace-nowrap"
                     >
                       <div className="flex items-center justify-end">
                         Parcels {renderSortIcon('total_parcels')}
                       </div>
                     </th>
                   )}
-                  {!isAdminOrHr && <th className="px-3 py-3 text-right bg-[#FAFAF7] whitespace-nowrap">Rate</th>}
+                  {!isAdminOrHr && <th className="px-3 py-3 text-right bg-panel-bg whitespace-nowrap">Rate</th>}
                   <th 
                     onClick={() => handleSort('gross_pay')}
-                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7] whitespace-nowrap"
+                    className="px-3 py-3 text-right cursor-pointer hover:bg-panel-bg group transition-colors bg-panel-bg whitespace-nowrap"
                   >
                     <div className="flex items-center justify-end">
                       Gross Pay {renderSortIcon('gross_pay')}
@@ -610,17 +610,17 @@ export function RiderPayrollList({
                   </th>
                   <th 
                     onClick={() => handleSort('net_pay')}
-                    className="px-3 py-3 text-right cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7] whitespace-nowrap"
+                    className="px-3 py-3 text-right cursor-pointer hover:bg-panel-bg group transition-colors bg-panel-bg whitespace-nowrap"
                   >
                     <div className="flex items-center justify-end">
                       Net Pay {renderSortIcon('net_pay')}
                     </div>
                   </th>
-                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7] whitespace-nowrap">Submitted By</th>}
-                  {isAdminOrHr && <th className="px-3 py-3 bg-[#FAFAF7] whitespace-nowrap">Submitted Date</th>}
+                  {isAdminOrHr && <th className="px-3 py-3 bg-panel-bg whitespace-nowrap">Submitted By</th>}
+                  {isAdminOrHr && <th className="px-3 py-3 bg-panel-bg whitespace-nowrap">Submitted Date</th>}
                   <th 
                     onClick={() => handleSort('status')}
-                    className="px-3 py-3 pr-5 cursor-pointer hover:bg-[#FAFAF7] group transition-colors bg-[#FAFAF7] whitespace-nowrap"
+                    className="px-3 py-3 pr-5 cursor-pointer hover:bg-panel-bg group transition-colors bg-panel-bg whitespace-nowrap"
                   >
                     <div className="flex items-center">
                       Status {renderSortIcon('status')}
@@ -645,7 +645,7 @@ export function RiderPayrollList({
                     <Fragment key={r.id}>
                       <tr
                         onClick={() => onOpenDetails(r, payrollRecords)}
-                        className={`border-b border-[#EFEAE2] cursor-pointer transition hover:bg-[#FFF1E0]/20`}
+                        className={`border-b border-border cursor-pointer transition hover:bg-accent/20`}
                       >
                         <td className="px-5 py-3 relative" onClick={e => e.stopPropagation()}>
                           {r.status === 'flagged' && (
@@ -656,15 +656,15 @@ export function RiderPayrollList({
                               type="checkbox"
                               checked={selectedRecordIds.has(r.id)}
                               onChange={() => handleToggleSelectRow(r.id)}
-                              className="rounded border-[#EFEAE2] text-[#db6c00] focus:ring-[#db6c00] h-3.5 w-3.5 cursor-pointer accent-[#db6c00]"
+                              className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5 cursor-pointer accent-primary"
                             />
-                            <ChevronRight className="w-4 h-4 text-[#6B6258] hover:text-[#db6c00] transition-colors" />
+                            <ChevronRight className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
                             {onComputeRider && (
                               <button
                                 onClick={() => onComputeRider(r)}
                                 className={`px-2 py-0.5 text-[10px] font-bold rounded transition cursor-pointer ${
                                   isEditableStatus(r.status)
-                                    ? 'bg-[#db6c00]/10 hover:bg-[#db6c00] hover:text-white text-[#db6c00]'
+                                    ? 'bg-primary/10 hover:bg-primary hover:text-white text-primary'
                                     : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
                                 }`}
                               >
@@ -679,7 +679,7 @@ export function RiderPayrollList({
                                   setRecordToDelete(r);
                                   setConfirmSingleDeleteOpen(true);
                                 }}
-                                className="p-1 rounded text-[#A39988] hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                className="p-1 rounded text-subtle-text hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                                 title="Delete this payroll record"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -689,47 +689,47 @@ export function RiderPayrollList({
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-[#FAFAF7] border border-[#EFEAE2] flex items-center justify-center shrink-0">
-                              <Users className="w-4 h-4 text-[#db6c00]" />
+                            <div className="w-7 h-7 rounded-full bg-panel-bg border border-border flex items-center justify-center shrink-0">
+                              <Users className="w-4 h-4 text-primary" />
                             </div>
                             <div className="min-w-0">
-                              <div className="text-[13px] font-semibold text-[#1A1410] truncate">{riderName}</div>
-                              {!isAdminOrHr && <div className="text-[10.5px] font-mono text-[#6B6258]">{riderId}</div>}
+                              <div className="text-[13px] font-semibold text-foreground truncate">{riderName}</div>
+                              {!isAdminOrHr && <div className="text-[10.5px] font-mono text-muted-foreground">{riderId}</div>}
                             </div>
                           </div>
                         </td>
                         {isAdminOrHr && (
-                          <td className="px-3 py-3 text-[#1A1410] font-mono text-xs whitespace-nowrap">{riderId}</td>
+                          <td className="px-3 py-3 text-foreground font-mono text-xs whitespace-nowrap">{riderId}</td>
                         )}
-                        <td className="px-3 py-3 text-[#1A1410]">{zone}</td>
+                        <td className="px-3 py-3 text-foreground">{zone}</td>
                         {isAdminOrHr && (
-                          <td className="px-3 py-3 text-[#6B6258] text-xs whitespace-nowrap">
+                          <td className="px-3 py-3 text-muted-foreground text-xs whitespace-nowrap">
                             {formatCutoff(r.cutoff_start, r.cutoff_end)}
                           </td>
                         )}
                         {!isAdminOrHr && (
-                          <td className="px-3 py-3 text-right font-mono tabular-nums text-[#1A1410] whitespace-nowrap">
+                          <td className="px-3 py-3 text-right font-mono tabular-nums text-foreground whitespace-nowrap">
                             {r.total_parcels}
                           </td>
                         )}
                         {!isAdminOrHr && (
-                          <td className="px-3 py-3 text-right font-mono tabular-nums text-[#6B6258] whitespace-nowrap">
+                          <td className="px-3 py-3 text-right font-mono tabular-nums text-muted-foreground whitespace-nowrap">
                             ₱{ratePerParcel.toFixed(2)}
                           </td>
                         )}
-                        <td className="px-3 py-3 text-right font-mono tabular-nums text-[#6B6258] whitespace-nowrap">
+                        <td className="px-3 py-3 text-right font-mono tabular-nums text-muted-foreground whitespace-nowrap">
                           {phpFmt(grossPay)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold text-[#db6c00] whitespace-nowrap">
+                        <td className="px-3 py-3 text-right font-mono tabular-nums font-semibold text-primary whitespace-nowrap">
                           {phpFmt(netPay)}
                         </td>
                         {isAdminOrHr && (
-                          <td className="px-3 py-3 text-[#1A1410] text-xs truncate max-w-[120px] whitespace-nowrap">
+                          <td className="px-3 py-3 text-foreground text-xs truncate max-w-[120px] whitespace-nowrap">
                             {r.submitted_user?.full_name || '—'}
                           </td>
                         )}
                         {isAdminOrHr && (
-                          <td className="px-3 py-3 text-[#6B6258] text-xs whitespace-nowrap">
+                          <td className="px-3 py-3 text-muted-foreground text-xs whitespace-nowrap">
                             {r.submitted_at ? formatDate(r.submitted_at) : '—'}
                           </td>
                         )}
@@ -747,7 +747,7 @@ export function RiderPayrollList({
 
         {/* Pagination Footer Controls */}
         {!loading && payrollRecords.length > 0 && (
-          <div className="px-5 py-3.5 border-t border-[#EFEAE2] bg-[#FAFAF7]/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#6B6258]">
+          <div className="px-5 py-3.5 border-t border-border bg-panel-bg/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
                 <span>Show:</span>
@@ -757,7 +757,7 @@ export function RiderPayrollList({
                     setPageSize(Number(e.target.value));
                     setPage(1);
                   }}
-                  className="h-7 px-2.5 rounded border border-[#EFEAE2] bg-white text-xs outline-none cursor-pointer focus:border-[#db6c00]"
+                  className="h-7 px-2.5 rounded border border-border bg-white text-xs outline-none cursor-pointer focus:border-primary"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>
@@ -775,18 +775,18 @@ export function RiderPayrollList({
               <button
                 disabled={page <= 1}
                 onClick={() => setPage(p => Math.max(p - 1, 1))}
-                className="h-8 px-2.5 rounded-lg border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] font-semibold flex items-center justify-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="h-8 px-2.5 rounded-lg border border-border bg-white hover:bg-panel-bg text-foreground font-semibold flex items-center justify-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 Prev
               </button>
-              <span className="font-medium text-[#1A1410]">
+              <span className="font-medium text-foreground">
                 Page {page} of {Math.max(Math.ceil(totalCount / pageSize), 1)}
               </span>
               <button
                 disabled={page >= Math.ceil(totalCount / pageSize)}
                 onClick={() => setPage(p => Math.min(p + 1, Math.ceil(totalCount / pageSize)))}
-                className="h-8 px-2.5 rounded-lg border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] font-semibold flex items-center justify-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="h-8 px-2.5 rounded-lg border border-border bg-white hover:bg-panel-bg text-foreground font-semibold flex items-center justify-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -808,27 +808,27 @@ export function RiderPayrollList({
                 setConfirmSingleDeleteOpen(false);
                 setRecordToDelete(null);
               }}
-              className="absolute inset-0 bg-[#1A1410]/55 backdrop-blur-sm"
+              className="absolute inset-0 bg-foreground/55 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white border border-[#EFEAE2] rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+              className="relative w-full max-w-md bg-white border border-border rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#1A1410]">Delete Payroll Record?</h3>
-                  <p className="text-[11px] text-[#6B6258] mt-0.5">
+                  <h3 className="text-base font-bold text-foreground">Delete Payroll Record?</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
                     {recordToDelete.riders?.name} ({recordToDelete.riders?.mkb_id || 'MKB-RIDER'})
                   </p>
                 </div>
               </div>
 
-              <p className="text-xs text-[#6B6258] leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 Are you sure you want to delete this payroll record? This action will remove the entry for this rider for the cutoff period.
               </p>
 
@@ -839,7 +839,7 @@ export function RiderPayrollList({
                     setConfirmSingleDeleteOpen(false);
                     setRecordToDelete(null);
                   }}
-                  className="px-4 h-9 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold text-[#1A1410] transition"
+                  className="px-4 h-9 rounded-lg border border-border hover:bg-panel-bg text-xs font-semibold text-foreground transition"
                 >
                   Cancel
                 </button>
@@ -873,33 +873,33 @@ export function RiderPayrollList({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setConfirmBulkDeleteOpen(false)}
-              className="absolute inset-0 bg-[#1A1410]/55 backdrop-blur-sm"
+              className="absolute inset-0 bg-foreground/55 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white border border-[#EFEAE2] rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+              className="relative w-full max-w-md bg-white border border-border rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#1A1410]">Delete Selected Records?</h3>
-                  <p className="text-[11px] text-[#6B6258] mt-0.5">{selectedRecordIds.size} rider record(s) selected</p>
+                  <h3 className="text-base font-bold text-foreground">Delete Selected Records?</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">{selectedRecordIds.size} rider record(s) selected</p>
                 </div>
               </div>
 
-              <p className="text-xs text-[#6B6258] leading-relaxed">
-                Are you sure you want to delete <strong className="text-[#1A1410]">{selectedRecordIds.size} selected payroll record(s)</strong>?
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Are you sure you want to delete <strong className="text-foreground">{selectedRecordIds.size} selected payroll record(s)</strong>?
               </p>
 
               <div className="pt-2 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setConfirmBulkDeleteOpen(false)}
-                  className="px-4 h-9 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold text-[#1A1410] transition"
+                  className="px-4 h-9 rounded-lg border border-border hover:bg-panel-bg text-xs font-semibold text-foreground transition"
                 >
                   Cancel
                 </button>

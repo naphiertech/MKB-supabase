@@ -319,7 +319,7 @@ export function BulkParcelUploadModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="absolute inset-0 bg-[#1A1410]/55 backdrop-blur-md"
+            className="absolute inset-0 bg-foreground/55 backdrop-blur-md"
           />
 
           {/* Centered Modal Card */}
@@ -328,22 +328,22 @@ export function BulkParcelUploadModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="relative w-full max-w-[90vw] md:max-w-4xl lg:max-w-5xl max-h-[90vh] bg-white border border-[#EFEAE2] rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10"
+            className="relative w-full max-w-[90vw] md:max-w-4xl lg:max-w-5xl max-h-[90vh] bg-white border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10"
           >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-[#EFEAE2] flex items-center justify-between bg-white shrink-0">
+        <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#FFF1E0] border border-[#db6c00]/30 flex items-center justify-center">
-              <FileSpreadsheet className="w-5 h-5 text-[#db6c00]" />
+            <div className="w-10 h-10 rounded-xl bg-accent border border-primary/30 flex items-center justify-center">
+              <FileSpreadsheet className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[#1A1410]">Smart Excel Bulk Importer</h3>
-              <p className="text-[11px] text-[#6B6258] mt-0.5">Automate daily delivery parcel inputs for all 300+ riders</p>
+              <h3 className="text-base font-bold text-foreground">Smart Excel Bulk Importer</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Automate daily delivery parcel inputs for all 300+ riders</p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="w-8 h-8 rounded-full bg-[#FAFAF7] hover:bg-[#FFF1E0]/50 hover:text-[#db6c00] transition flex items-center justify-center"
+            className="w-8 h-8 rounded-full bg-panel-bg hover:bg-accent/50 hover:text-primary transition flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>
@@ -351,19 +351,19 @@ export function BulkParcelUploadModal({
 
 
         {/* Wizard Progress Steps Bar */}
-        <div className="px-6 py-3 bg-[#FAFAF7] border-b border-[#EFEAE2] flex items-center gap-6 text-xs font-semibold shrink-0">
-          <div className={`flex items-center gap-1.5 ${step === 1 ? 'text-[#db6c00]' : 'text-[#6B6258]'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 1 ? 'border-[#db6c00] bg-[#db6c00] text-white' : 'border-[#EFEAE2] bg-white'}`}>1</span>
+        <div className="px-6 py-3 bg-panel-bg border-b border-border flex items-center gap-6 text-xs font-semibold shrink-0">
+          <div className={`flex items-center gap-1.5 ${step === 1 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 1 ? 'border-primary bg-primary text-white' : 'border-border bg-white'}`}>1</span>
             Upload Spreadsheet
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-[#6B6258]/30" />
-          <div className={`flex items-center gap-1.5 ${step === 2 ? 'text-[#db6c00]' : 'text-[#6B6258]'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 2 ? 'border-[#db6c00] bg-[#db6c00] text-white' : 'border-[#EFEAE2] bg-white'}`}>2</span>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30" />
+          <div className={`flex items-center gap-1.5 ${step === 2 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 2 ? 'border-primary bg-primary text-white' : 'border-border bg-white'}`}>2</span>
             Map Columns
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-[#6B6258]/30" />
-          <div className={`flex items-center gap-1.5 ${step === 3 ? 'text-[#db6c00]' : 'text-[#6B6258]'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 3 ? 'border-[#db6c00] bg-[#db6c00] text-white' : 'border-[#EFEAE2] bg-white'}`}>3</span>
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30" />
+          <div className={`flex items-center gap-1.5 ${step === 3 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 3 ? 'border-primary bg-primary text-white' : 'border-border bg-white'}`}>3</span>
             Preview & Confirm
           </div>
         </div>
@@ -380,8 +380,8 @@ export function BulkParcelUploadModal({
               onDrop={handleDrop}
               className={`h-72 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-6 text-center transition cursor-pointer relative ${
                 dragActive 
-                  ? 'border-[#db6c00] bg-[#FFF1E0]/20' 
-                  : 'border-[#EFEAE2] hover:border-[#db6c00]/40 hover:bg-[#FAFAF7]'
+                  ? 'border-primary bg-accent/20' 
+                  : 'border-border hover:border-primary/40 hover:bg-panel-bg'
               }`}
             >
               <input
@@ -391,14 +391,14 @@ export function BulkParcelUploadModal({
                 accept=".xlsx,.xls,.csv"
                 onChange={handleFileInput}
               />
-              <div className="w-16 h-16 rounded-full bg-[#FFF1E0] flex items-center justify-center mb-4">
-                <Upload className="w-8 h-8 text-[#db6c00]" />
+              <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center mb-4">
+                <Upload className="w-8 h-8 text-primary" />
               </div>
-              <h4 className="text-sm font-bold text-[#1A1410] mb-1">Drag and drop your spreadsheet here</h4>
-              <p className="text-xs text-[#6B6258] mb-4">Supports .xlsx, .xls, and .csv files from Shopee / Courier platforms</p>
+              <h4 className="text-sm font-bold text-foreground mb-1">Drag and drop your spreadsheet here</h4>
+              <p className="text-xs text-muted-foreground mb-4">Supports .xlsx, .xls, and .csv files from Shopee / Courier platforms</p>
               <button 
                 type="button" 
-                className="px-4 py-2 bg-white border border-[#EFEAE2] hover:border-[#db6c00]/40 text-[#1A1410] text-xs font-semibold rounded-lg shadow-sm"
+                className="px-4 py-2 bg-white border border-border hover:border-primary/40 text-foreground text-xs font-semibold rounded-lg shadow-sm"
               >
                 Browse Files
               </button>
@@ -408,11 +408,11 @@ export function BulkParcelUploadModal({
           {/* STEP 2: COLUMN MAPPER */}
           {step === 2 && (
             <div className="space-y-6">
-              <div className="p-4 bg-[#FFF1E0]/30 border border-[#db6c00]/10 rounded-xl flex items-start gap-3">
-                <HelpCircle className="w-5 h-5 text-[#db6c00] shrink-0 mt-0.5" />
+              <div className="p-4 bg-accent/30 border border-primary/10 rounded-xl flex items-start gap-3">
+                <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-xs font-bold text-[#db6c00]">Map Your Spreadsheet Columns</h4>
-                  <p className="text-[11px] text-[#6B6258] mt-1 leading-relaxed">
+                  <h4 className="text-xs font-bold text-primary">Map Your Spreadsheet Columns</h4>
+                  <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
                     Select which columns in your Excel file contain the target data. This prevents errors even if the spreadsheet format changes in the future!
                   </p>
                 </div>
@@ -421,82 +421,82 @@ export function BulkParcelUploadModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Rider Col */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#1A1410] block">Rider Identifier Column *</label>
+                  <label className="text-xs font-bold text-foreground block">Rider Identifier Column *</label>
                   <select
                     value={riderCol}
                     onChange={(e) => setRiderCol(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-xs focus:ring-1 focus:ring-[#db6c00]/30 outline-none text-[#1A1410]"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-panel-bg text-xs focus:ring-1 focus:ring-primary/30 outline-none text-foreground"
                   >
                     <option value="">-- Choose Column --</option>
                     {headers.map(h => (
                       <option key={h} value={h}>{h}</option>
                     ))}
                   </select>
-                  <span className="text-[10px] text-[#6B6258]">Matches rider name, email, or MKB ID</span>
+                  <span className="text-[10px] text-muted-foreground">Matches rider name, email, or MKB ID</span>
                 </div>
 
                 {/* Date Col */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#1A1410] block">Date Column *</label>
+                  <label className="text-xs font-bold text-foreground block">Date Column *</label>
                   <select
                     value={dateCol}
                     onChange={(e) => setDateCol(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-xs focus:ring-1 focus:ring-[#db6c00]/30 outline-none text-[#1A1410]"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-panel-bg text-xs focus:ring-1 focus:ring-primary/30 outline-none text-foreground"
                   >
                     <option value="">-- Choose Column --</option>
                     {headers.map(h => (
                       <option key={h} value={h}>{h}</option>
                     ))}
                   </select>
-                  <span className="text-[10px] text-[#6B6258]">Contains target date for the parcels</span>
+                  <span className="text-[10px] text-muted-foreground">Contains target date for the parcels</span>
                 </div>
 
                 {/* Parcels Col */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#1A1410] block">Delivered Parcels Count *</label>
+                  <label className="text-xs font-bold text-foreground block">Delivered Parcels Count *</label>
                   <select
                     value={parcelsCol}
                     onChange={(e) => setParcelsCol(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-xs focus:ring-1 focus:ring-[#db6c00]/30 outline-none text-[#1A1410]"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-panel-bg text-xs focus:ring-1 focus:ring-primary/30 outline-none text-foreground"
                   >
                     <option value="">-- Choose Column --</option>
                     {headers.map(h => (
                       <option key={h} value={h}>{h}</option>
                     ))}
                   </select>
-                  <span className="text-[10px] text-[#6B6258]">Number of successfully delivered parcels</span>
+                  <span className="text-[10px] text-muted-foreground">Number of successfully delivered parcels</span>
                 </div>
 
                 {/* Rate Col */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#1A1410] block">Rate Per Parcel Column (Optional)</label>
+                  <label className="text-xs font-bold text-foreground block">Rate Per Parcel Column (Optional)</label>
                   <select
                     value={rateCol}
                     onChange={(e) => setRateCol(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-xs focus:ring-1 focus:ring-[#db6c00]/30 outline-none text-[#1A1410]"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-panel-bg text-xs focus:ring-1 focus:ring-primary/30 outline-none text-foreground"
                   >
                     <option value="">-- Default Rate (₱{defaultRate}/parcel) --</option>
                     {headers.map(h => (
                       <option key={h} value={h}>{h}</option>
                     ))}
                   </select>
-                  <span className="text-[10px] text-[#6B6258]">Uses sheet value, or defaults to standard below</span>
+                  <span className="text-[10px] text-muted-foreground">Uses sheet value, or defaults to standard below</span>
                 </div>
               </div>
 
               {/* Default Rate Config */}
-              <div className="p-4 bg-[#FAFAF7] border border-[#EFEAE2] rounded-xl flex items-center justify-between">
+              <div className="p-4 bg-panel-bg border border-border rounded-xl flex items-center justify-between">
                 <div>
-                  <h5 className="text-xs font-bold text-[#1A1410]">Fallback Rate Per Parcel</h5>
-                  <p className="text-[10px] text-[#6B6258] mt-0.5">Applied when rate is missing in spreadsheet</p>
+                  <h5 className="text-xs font-bold text-foreground">Fallback Rate Per Parcel</h5>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Applied when rate is missing in spreadsheet</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-[#6B6258]">₱</span>
+                  <span className="text-xs font-semibold text-muted-foreground">₱</span>
                   <input
                     type="number"
                     value={defaultRate}
                     onChange={(e) => setDefaultRate(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-20 h-9 px-2 text-center rounded-lg border border-[#EFEAE2] text-xs font-semibold focus:ring-1 focus:ring-[#db6c00]/30 outline-none text-[#1A1410]"
+                    className="w-20 h-9 px-2 text-center rounded-lg border border-border text-xs font-semibold focus:ring-1 focus:ring-primary/30 outline-none text-foreground"
                   />
                 </div>
               </div>
@@ -509,9 +509,9 @@ export function BulkParcelUploadModal({
               
               {/* Summary Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
-                <div className="p-3 bg-[#FAFAF7] border border-[#EFEAE2] rounded-xl text-center">
-                  <div className="text-[10px] text-[#6B6258] font-bold">Total Rows</div>
-                  <div className="text-lg font-bold text-[#1A1410] mt-0.5">{totals.total}</div>
+                <div className="p-3 bg-panel-bg border border-border rounded-xl text-center">
+                  <div className="text-[10px] text-muted-foreground font-bold">Total Rows</div>
+                  <div className="text-lg font-bold text-foreground mt-0.5">{totals.total}</div>
                 </div>
                 <div className="p-3 bg-emerald-50 border border-emerald-500/10 rounded-xl text-center">
                   <div className="text-[10px] text-emerald-700 font-bold">Ready to Save</div>
@@ -521,32 +521,32 @@ export function BulkParcelUploadModal({
                   <div className="text-[10px] text-red-700 font-bold">Errors found</div>
                   <div className="text-lg font-bold text-red-500 mt-0.5">{totals.invalid}</div>
                 </div>
-                <div className="p-3 bg-[#FFF1E0]/50 border border-[#db6c00]/10 rounded-xl text-center">
-                  <div className="text-[10px] text-[#db6c00] font-bold">Total Gross Pay</div>
-                  <div className="text-lg font-bold text-[#db6c00] mt-0.5">₱{totals.gross.toLocaleString('en-PH', { maximumFractionDigits: 0 })}</div>
+                <div className="p-3 bg-accent/50 border border-primary/10 rounded-xl text-center">
+                  <div className="text-[10px] text-primary font-bold">Total Gross Pay</div>
+                  <div className="text-lg font-bold text-primary mt-0.5">₱{totals.gross.toLocaleString('en-PH', { maximumFractionDigits: 0 })}</div>
                 </div>
               </div>
 
               {/* Scrollable Preview Grid */}
-              <div className="flex-1 overflow-auto border border-[#EFEAE2] rounded-xl min-h-0 max-h-[300px]">
+              <div className="flex-1 overflow-auto border border-border rounded-xl min-h-0 max-h-[300px]">
                 <table className="w-full text-[11px] text-left border-collapse">
-                  <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2] sticky top-0 z-[10]">
+                  <thead className="bg-panel-bg border-b border-border sticky top-0 z-[10]">
                     <tr>
-                      <th className="px-4 py-2.5 font-bold text-[#6B6258]">Status</th>
-                      <th className="px-4 py-2.5 font-bold text-[#6B6258]">Rider Name</th>
-                      <th className="px-4 py-2.5 font-bold text-[#6B6258]">MKB ID</th>
-                      <th className="px-4 py-2.5 font-bold text-[#6B6258]">Date</th>
-                      <th className="px-4 py-2.5 font-bold text-[#6B6258] text-right">Parcels</th>
-                      <th className="px-4 py-2.5 font-bold text-[#6B6258] text-right">Rate</th>
-                      <th className="px-4 py-2.5 font-bold text-[#6B6258] text-right">Gross Pay</th>
+                      <th className="px-4 py-2.5 font-bold text-muted-foreground">Status</th>
+                      <th className="px-4 py-2.5 font-bold text-muted-foreground">Rider Name</th>
+                      <th className="px-4 py-2.5 font-bold text-muted-foreground">MKB ID</th>
+                      <th className="px-4 py-2.5 font-bold text-muted-foreground">Date</th>
+                      <th className="px-4 py-2.5 font-bold text-muted-foreground text-right">Parcels</th>
+                      <th className="px-4 py-2.5 font-bold text-muted-foreground text-right">Rate</th>
+                      <th className="px-4 py-2.5 font-bold text-muted-foreground text-right">Gross Pay</th>
                     </tr>
                   </thead>
                   <tbody>
                     {parsedRecords.map((r, i) => (
                       <tr 
                         key={i} 
-                        className={`border-b border-[#EFEAE2] transition ${
-                          r.isValid ? 'hover:bg-[#FAFAF7]' : 'bg-red-50/40 hover:bg-red-50/60'
+                        className={`border-b border-border transition ${
+                          r.isValid ? 'hover:bg-panel-bg' : 'bg-red-50/40 hover:bg-red-50/60'
                         }`}
                       >
                         <td className="px-4 py-2">
@@ -562,12 +562,12 @@ export function BulkParcelUploadModal({
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-2 font-semibold text-[#1A1410] truncate max-w-[150px]">{r.riderName}</td>
-                        <td className="px-4 py-2 font-mono text-[#6B6258]">{r.mkbId}</td>
-                        <td className="px-4 py-2 text-[#6B6258]">{r.date || 'N/A'}</td>
-                        <td className="px-4 py-2 text-right font-semibold text-[#1A1410]">{r.parcels}</td>
-                        <td className="px-4 py-2 text-right text-[#6B6258]">₱{r.rate.toFixed(1)}</td>
-                        <td className="px-4 py-2 text-right font-bold text-[#db6c00]">
+                        <td className="px-4 py-2 font-semibold text-foreground truncate max-w-[150px]">{r.riderName}</td>
+                        <td className="px-4 py-2 font-mono text-muted-foreground">{r.mkbId}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{r.date || 'N/A'}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-foreground">{r.parcels}</td>
+                        <td className="px-4 py-2 text-right text-muted-foreground">₱{r.rate.toFixed(1)}</td>
+                        <td className="px-4 py-2 text-right font-bold text-primary">
                           ₱{(r.parcels * r.rate).toFixed(2)}
                         </td>
                       </tr>
@@ -589,12 +589,12 @@ export function BulkParcelUploadModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#EFEAE2] bg-[#FAFAF7] flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-t border-border bg-panel-bg flex items-center justify-between shrink-0">
           <div>
             {step > 1 && (
               <button
                 onClick={() => setStep(step === 3 ? 2 : 1)}
-                className="h-10 px-4 rounded-lg border border-[#EFEAE2] hover:bg-white text-xs font-semibold transition text-[#1A1410]"
+                className="h-10 px-4 rounded-lg border border-border hover:bg-white text-xs font-semibold transition text-foreground"
               >
                 Back
               </button>
@@ -604,7 +604,7 @@ export function BulkParcelUploadModal({
           <div className="flex items-center gap-2">
             <button
               onClick={handleClose}
-              className="h-10 px-4 rounded-lg bg-white border border-[#EFEAE2] hover:bg-red-50/30 text-xs font-semibold text-[#6B6258] transition"
+              className="h-10 px-4 rounded-lg bg-white border border-border hover:bg-red-50/30 text-xs font-semibold text-muted-foreground transition"
             >
               Cancel
             </button>
@@ -622,7 +622,7 @@ export function BulkParcelUploadModal({
                   }
                   setStep(3);
                 }}
-                className="h-10 px-4 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-semibold transition inline-flex items-center gap-1.5"
+                className="h-10 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition inline-flex items-center gap-1.5"
               >
                 Continue to Preview
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -633,7 +633,7 @@ export function BulkParcelUploadModal({
               <button
                 onClick={handleImportSave}
                 disabled={uploading || totals.valid === 0}
-                className="h-10 px-5 rounded-lg bg-[#1A1410] hover:bg-black text-white text-xs font-semibold transition inline-flex items-center gap-2 disabled:opacity-50"
+                className="h-10 px-5 rounded-lg bg-foreground hover:bg-black text-white text-xs font-semibold transition inline-flex items-center gap-2 disabled:opacity-50"
               >
                 {uploading ? (
                   <>

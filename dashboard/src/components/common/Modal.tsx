@@ -61,28 +61,28 @@ export function Modal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-[#1A1410]/40 backdrop-blur-sm cursor-default border-none outline-none appearance-none w-screen h-screen" />
+            className="fixed inset-0 bg-foreground/40 backdrop-blur-sm cursor-default border-none outline-none appearance-none w-screen h-screen" />
           
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", duration: 0.4, bounce: 0 }}
-            className={`relative w-full ${SIZE[size]} bg-white border border-[#EFEAE2] rounded-2xl shadow-[0_30px_60px_-20px_rgba(26,20,16,0.25)] overflow-hidden`}>
+            className={`relative w-full ${SIZE[size]} bg-white border border-border rounded-2xl shadow-[0_30px_60px_-20px_rgba(26,20,16,0.25)] overflow-hidden`}>
             
             {(title || dismissible) &&
-        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-[#EFEAE2]/70">
+        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-border/70">
             <div className="min-w-0">
               {title &&
             <h2
               id="modal-title"
-              className="text-[#1A1410] font-semibold text-base tracking-tight">
+              className="text-foreground font-semibold text-base tracking-tight">
               
                   {title}
                 </h2>
             }
               {subtitle &&
-            <p className="text-xs text-[#6B6258] mt-0.5">{subtitle}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
             }
             </div>
             {dismissible &&
@@ -90,7 +90,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="text-[#6B6258] hover:text-[#1A1410] p-1.5 -mr-1.5 -mt-1.5 rounded-md hover:bg-[#FAFAF7]">
+            className="text-muted-foreground hover:text-foreground p-1.5 -mr-1.5 -mt-1.5 rounded-md hover:bg-panel-bg">
             
                 <X className="w-4 h-4" />
               </button>

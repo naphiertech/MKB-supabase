@@ -39,8 +39,8 @@ export function ViolationAlert({ alert, onView, isNew, isFlagged }: ViolationAle
         backgroundColor: alert.resolved 
           ? "#f0fdf4" 
           : !alert.read 
-            ? ["#FAFAF7", "#fef2f2", "#FAFAF7"] 
-            : "#FAFAF7"
+            ? ["var(--panel-bg)", "#fef2f2", "var(--panel-bg)"] 
+            : "var(--panel-bg)"
       }}
       transition={{ 
         duration: isNew ? 0.5 : undefined,
@@ -52,11 +52,11 @@ export function ViolationAlert({ alert, onView, isNew, isFlagged }: ViolationAle
           ease: "easeInOut"
         }
       }}
-      className={`relative flex items-start gap-3 p-3 rounded-lg border border-[#EFEAE2] ${
+      className={`relative flex items-start gap-3 p-3 rounded-lg border border-border ${
         alert.resolved 
           ? 'border-l-2 border-l-emerald-500 opacity-75' 
           : isFlagged 
-            ? 'border-l-2 border-l-[#db6c00]' 
+            ? 'border-l-2 border-l-primary' 
             : !alert.read 
               ? 'border-l-2 border-l-red-500' 
               : 'opacity-80'
@@ -70,11 +70,11 @@ export function ViolationAlert({ alert, onView, isNew, isFlagged }: ViolationAle
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-[#1A1410] truncate">
+          <span className="text-sm font-semibold text-foreground truncate">
             {alert.riderName}
           </span>
           {isFlagged && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold bg-[#FFF1E0] text-[#b85a00] border border-[#db6c00]/30 shrink-0">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold bg-accent text-accent-foreground border border-primary/30 shrink-0">
               <Check className="w-2.5 h-2.5" /> Flagged
             </span>
           )}
@@ -82,29 +82,29 @@ export function ViolationAlert({ alert, onView, isNew, isFlagged }: ViolationAle
           <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
           }
         </div>
-        <div className="text-[11px] text-[#6B6258] mt-0.5 flex flex-wrap items-center">
-          <span className="text-[#1A1410] font-medium">
+        <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center">
+          <span className="text-foreground font-medium">
             {TYPE_LABEL[alert.type]}
           </span>
-          <span className="text-[#6B6258]/60 mx-1.5">·</span>
+          <span className="text-muted-foreground/60 mx-1.5">·</span>
           <span>{alert.zoneName}</span>
           {alert.type === 'boundary_exit' && (
             <>
-              <span className="text-[#6B6258]/60 mx-1.5">·</span>
+              <span className="text-muted-foreground/60 mx-1.5">·</span>
               <span className={alert.resolved ? "text-emerald-600 font-semibold" : "text-red-500 font-bold"}>
                 {durationText}
               </span>
             </>
           )}
         </div>
-        <div className="mt-1 flex items-center gap-1 text-[11px] text-[#6B6258] font-mono">
+        <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
           <Clock className="w-3 h-3" />
           {relativeTime(alert.ts, now)}
         </div>
       </div>
       <button
         onClick={() => onView?.(alert.riderId)}
-        className="inline-flex items-center gap-1 self-center px-2.5 h-7 rounded-md bg-[#db6c00] text-white border border-[#db6c00] text-xs font-semibold hover:bg-[#b85a00]">
+        className="inline-flex items-center gap-1 self-center px-2.5 h-7 rounded-md bg-primary text-white border border-primary text-xs font-semibold hover:bg-primary-hover">
         
         View <ChevronRight className="w-3 h-3" />
       </button>

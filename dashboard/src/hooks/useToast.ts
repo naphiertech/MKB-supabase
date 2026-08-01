@@ -25,13 +25,13 @@ export function pushToast(input: {
     { className: "flex flex-col text-left" },
     React.createElement(
       "span",
-      { className: "text-sm font-semibold text-[#1A1410]" },
+      { className: "text-sm font-semibold text-foreground" },
       input.title,
     ),
     input.description &&
       React.createElement(
         "span",
-        { className: "text-[11px] text-[#6B6258] mt-0.5" },
+        { className: "text-[11px] text-muted-foreground mt-0.5" },
         input.description,
       ),
   );

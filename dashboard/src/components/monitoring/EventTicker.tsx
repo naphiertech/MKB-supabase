@@ -64,7 +64,7 @@ const TONES = {
   green: 'text-emerald-600',
   red: 'text-red-600',
   amber: 'text-amber-600',
-  brand: 'text-[#db6c00]'
+  brand: 'text-primary'
 };
 export function EventTicker({ riders, zones, violations }: EventTickerProps) {
   const events = useMemo(
@@ -72,13 +72,13 @@ export function EventTicker({ riders, zones, violations }: EventTickerProps) {
     [riders, zones, violations]
   );
   return (
-    <div className="relative overflow-hidden bg-[#FAFAF7] border-t border-[#EFEAE2] py-2.5">
-      <div className="absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-[#FAFAF7] to-transparent pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-[#FAFAF7] to-transparent pointer-events-none" />
+    <div className="relative overflow-hidden bg-panel-bg border-t border-border py-2.5">
+      <div className="absolute left-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-r from-panel-bg to-transparent pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-24 z-10 bg-gradient-to-l from-panel-bg to-transparent pointer-events-none" />
 
-      <div className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#FFF1E0] border border-[#db6c00]/30">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#db6c00] animate-pulse" />
-        <span className="text-[10px] uppercase tracking-[0.18em] text-[#b85a00] font-mono font-semibold">
+      <div className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex items-center gap-1.5 px-2 py-0.5 rounded bg-accent border border-primary/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+        <span className="text-[10px] uppercase tracking-[0.18em] text-accent-foreground font-mono font-semibold">
           Live
         </span>
       </div>
@@ -90,11 +90,11 @@ export function EventTicker({ riders, zones, violations }: EventTickerProps) {
             return (
               <span
                 key={i}
-                className="inline-flex items-center gap-1.5 mx-5 text-xs font-mono text-[#1A1410]">
+                className="inline-flex items-center gap-1.5 mx-5 text-xs font-mono text-foreground">
                 
                 <Icon className={`w-3.5 h-3.5 ${TONES[e.tone]}`} />
                 {e.text}
-                <span className="text-[#6B6258]/40 ml-3">•</span>
+                <span className="text-muted-foreground/40 ml-3">•</span>
               </span>);
 
           })}

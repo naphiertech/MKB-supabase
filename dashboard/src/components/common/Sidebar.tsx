@@ -594,7 +594,7 @@ export function Sidebar({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
               onClick={onMobileClose}
-              className="absolute inset-0 bg-[#1A1410]/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
             />
             
             {/* Drawer panel */}

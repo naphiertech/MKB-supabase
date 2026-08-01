@@ -62,6 +62,6 @@ export function PunctualityPill({ punctuality }: PunctualityPillProps) {
       );
     case 'none':
     default:
-      return <span className="text-xs text-[#6B6258] font-mono">—</span>;
+      return <span className="text-xs text-muted-foreground font-mono">—</span>;
   }
 }

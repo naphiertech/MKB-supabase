@@ -130,7 +130,7 @@ export function RiderMap({
     <div
       className={
       'relative rounded-xl overflow-hidden border ' + (
-      inZone ? 'border-[#EFEAE2]' : 'border-[#DC2626]/50') +
+      inZone ? 'border-border' : 'border-[#DC2626]/50') +
       ' bg-[#0a0c12] ' + (
       inZone ? 'shadow-sm' : 'shadow-[0_0_0_3px_rgba(220,38,38,0.15)]')
       }
@@ -182,7 +182,7 @@ export function RiderMap({
             duration: 0.6
           })
           }
-          className="w-9 h-9 rounded-md bg-white border border-[#EFEAE2] text-[#1A1410] hover:bg-[#FFF1E0] hover:border-[#db6c00]/40 hover:text-[#db6c00] flex items-center justify-center shadow-sm transition-colors"
+          className="w-9 h-9 rounded-md bg-white border border-border text-foreground hover:bg-accent hover:border-primary/40 hover:text-primary flex items-center justify-center shadow-sm transition-colors"
           aria-label="Recenter on me"
           title="Recenter">
           
@@ -193,7 +193,7 @@ export function RiderMap({
           onClick={() =>
           setActiveLayer((l) => l === 'dark' ? 'satellite' : 'dark')
           }
-          className="h-9 px-2.5 rounded-md bg-white border border-[#EFEAE2] text-[#1A1410] hover:bg-[#FFF1E0] hover:border-[#db6c00]/40 hover:text-[#db6c00] flex items-center gap-1.5 shadow-sm transition-colors text-xs font-medium"
+          className="h-9 px-2.5 rounded-md bg-white border border-border text-foreground hover:bg-accent hover:border-primary/40 hover:text-primary flex items-center gap-1.5 shadow-sm transition-colors text-xs font-medium"
           aria-label={
           isSatellite ? 'Switch to default map' : 'Switch to satellite map'
           }
@@ -207,22 +207,22 @@ export function RiderMap({
       </div>
 
       {/* Zone tag */}
-      <div className="absolute top-3 left-3 z-[400] flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-md border border-[#EFEAE2] text-xs shadow-sm">
+      <div className="absolute top-3 left-3 z-[400] flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-md border border-border text-xs shadow-sm">
         <span
           className="w-2 h-2 rounded-full"
           style={{
             background: zone.color
           }} />
         
-        <span className="text-[#1A1410] font-medium">{zone.name}</span>
-        <span className="text-[#A39988] font-mono">·</span>
-        <span className="text-[#6B6258] font-mono">
+        <span className="text-foreground font-medium">{zone.name}</span>
+        <span className="text-subtle-text font-mono">·</span>
+        <span className="text-muted-foreground font-mono">
           {zone.zone_type === 'polygon' ? 'Polygon' : `${zone.radius}m`}
         </span>
       </div>
 
       {/* Coords pill */}
-      <div className="absolute bottom-3 left-3 z-[400] px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-md border border-[#EFEAE2] text-[11px] text-[#6B6258] font-mono tabular-nums shadow-sm">
+      <div className="absolute bottom-3 left-3 z-[400] px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-md border border-border text-[11px] text-muted-foreground font-mono tabular-nums shadow-sm">
         {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
       </div>
     </div>);

@@ -46,17 +46,17 @@ export function OnlineRiders({
     return filter === 'all' ? online : online.filter((r) => r.status === filter);
   }, [riders, filter]);
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-full min-h-[400px] lg:h-[512px] shadow-sm">
-      <div className="flex items-center justify-between p-4 border-b border-[#EFEAE2]">
+    <div className="bg-white border border-border rounded-xl flex flex-col h-full min-h-[400px] lg:h-[512px] shadow-sm">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-emerald-50 ring-1 ring-emerald-500/25 flex items-center justify-center">
             <UsersIcon className="w-4 h-4 text-emerald-600" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-[#1A1410]">
+            <div className="text-sm font-semibold text-foreground">
               Online Riders
             </div>
-            <div className="text-[11px] text-[#6B6258] font-mono">
+            <div className="text-[11px] text-muted-foreground font-mono">
               {filtered.length} of {riders.length}
             </div>
           </div>
@@ -65,13 +65,13 @@ export function OnlineRiders({
         <div className="relative">
           <button
             onClick={() => setOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md bg-[#FAFAF7] border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30">
+            className="inline-flex items-center gap-1.5 px-2.5 h-8 rounded-md bg-panel-bg border border-border text-xs text-foreground hover:border-primary/30">
             
             {FILTERS.find((f) => f.key === filter)?.label}
-            <ChevronDown className="w-3.5 h-3.5 text-[#6B6258]" />
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
           {open &&
-          <div className="absolute right-0 mt-1 w-32 bg-white border border-[#EFEAE2] rounded-md shadow-xl z-10 overflow-hidden">
+          <div className="absolute right-0 mt-1 w-32 bg-white border border-border rounded-md shadow-xl z-10 overflow-hidden">
               {FILTERS.map((f) =>
             <button
               key={f.key}
@@ -79,7 +79,7 @@ export function OnlineRiders({
                 setFilter(f.key);
                 setOpen(false);
               }}
-              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[#FFF1E0] ${filter === f.key ? 'text-[#db6c00] font-semibold' : 'text-[#1A1410]'}`}>
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent ${filter === f.key ? 'text-primary font-semibold' : 'text-foreground'}`}>
               
                   {f.label}
                 </button>
@@ -91,7 +91,7 @@ export function OnlineRiders({
 
       <div className="ar-scroll overflow-y-auto flex-1 p-2 space-y-1.5">
         {filtered.length === 0 &&
-        <div className="text-center text-sm text-[#6B6258] py-10">
+        <div className="text-center text-sm text-muted-foreground py-10">
             No riders match filter.
           </div>
         }
@@ -108,7 +108,7 @@ export function OnlineRiders({
             <button
               key={r.id}
               onClick={() => onSelectRider?.(r.id)}
-              className={`group w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#FAFAF7] hover:bg-[#FFF1E0]/60 border border-transparent hover:border-[#EFEAE2] transition ${isViolation ? 'border-l-2 border-l-red-500' : ''}`}>
+              className={`group w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg bg-panel-bg hover:bg-accent/60 border border-transparent hover:border-border transition ${isViolation ? 'border-l-2 border-l-red-500' : ''}`}>
               
               <div className="relative">
                 <img
@@ -119,7 +119,7 @@ export function OnlineRiders({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-[#1A1410] truncate">
+                  <span className="text-sm font-semibold text-foreground truncate">
                     {r.name}
                   </span>
                   {isViolation &&
@@ -128,8 +128,8 @@ export function OnlineRiders({
                     </span>
                   }
                 </div>
-                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[#6B6258]">
-                  <span className="px-1.5 py-0.5 rounded bg-white border border-[#EFEAE2] text-[#1A1410]">
+                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <span className="px-1.5 py-0.5 rounded bg-white border border-border text-foreground">
                     {zone?.name ?? '—'}
                   </span>
                   <span className="font-mono">
@@ -137,7 +137,7 @@ export function OnlineRiders({
                   </span>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-[#6B6258] group-hover:text-[#db6c00] transition" />
+              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition" />
             </button>);
 
         })}

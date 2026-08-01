@@ -234,7 +234,7 @@ export function App() {
     const zone = allZones.find((z) => z.id === rider.zoneId);
     const zoneName = zone?.name || 'Zamboanga City';
     return (
-      <div className="min-h-screen w-full bg-[#FAFAF7] text-[#1A1410] font-[Geist,sans-serif] flex flex-col">
+      <div className="min-h-screen w-full bg-panel-bg text-foreground font-[Geist,sans-serif] flex flex-col">
         <RiderTopNav
           current={riderPage}
           onNavigate={setRiderPage}
@@ -342,7 +342,7 @@ export function App() {
 
 
   return (
-    <div className="min-h-screen w-full bg-[#FAFAF7] text-[#1A1410] font-[Geist,sans-serif] flex">
+    <div className="min-h-screen w-full bg-panel-bg text-foreground font-[Geist,sans-serif] flex">
       <Sidebar
         current={safePage}
         onNavigate={handleNavigate}

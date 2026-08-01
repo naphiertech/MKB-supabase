@@ -63,38 +63,38 @@ export function RiderStatusGrid({
     });
   }, [riders, filter, query]);
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl shadow-sm">
-      <div className="flex flex-wrap items-center gap-3 justify-between p-4 border-b border-[#EFEAE2]">
+    <div className="bg-white border border-border rounded-xl shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/25 flex items-center justify-center">
-            <UsersIcon className="w-4 h-4 text-[#db6c00]" />
+          <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/25 flex items-center justify-center">
+            <UsersIcon className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-[#1A1410]">
+            <div className="text-sm font-semibold text-foreground">
               Rider Status
             </div>
-            <div className="text-[11px] text-[#6B6258] font-mono">
+            <div className="text-[11px] text-muted-foreground font-mono">
               {filtered.length} of {riders.length} riders
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 px-2.5 h-8 rounded-md bg-[#FAFAF7] border border-[#EFEAE2] w-56 focus-within:border-[#db6c00]/40 focus-within:ring-2 focus-within:ring-[#db6c00]/15 transition">
-            <Search className="w-3.5 h-3.5 text-[#6B6258]" />
+          <div className="flex items-center gap-2 px-2.5 h-8 rounded-md bg-panel-bg border border-border w-56 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15 transition">
+            <Search className="w-3.5 h-3.5 text-muted-foreground" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search rider or code…"
-              className="bg-transparent text-xs text-[#1A1410] placeholder:text-[#6B6258]/70 outline-none flex-1" />
+              className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 outline-none flex-1" />
             
           </div>
-          <div className="inline-flex p-0.5 rounded-md bg-[#FAFAF7] border border-[#EFEAE2]">
+          <div className="inline-flex p-0.5 rounded-md bg-panel-bg border border-border">
             {FILTERS.map((f) =>
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`px-2.5 py-1 text-xs rounded font-semibold transition ${filter === f.key ? 'bg-white text-[#db6c00] shadow-sm' : 'text-[#6B6258] hover:text-[#1A1410]'}`}>
+              className={`px-2.5 py-1 text-xs rounded font-semibold transition ${filter === f.key ? 'bg-white text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
               
                 {f.label}
               </button>
@@ -105,7 +105,7 @@ export function RiderStatusGrid({
 
       <div className="p-4">
         {filtered.length === 0 ?
-        <div className="text-center py-12 text-sm text-[#6B6258]">
+        <div className="text-center py-12 text-sm text-muted-foreground">
             No riders match your filters.
           </div> :
 

@@ -77,7 +77,7 @@ export function SearchableRiderComboboxModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-[#1A1410]/55 backdrop-blur-md"
+            className="absolute inset-0 bg-foreground/55 backdrop-blur-md"
           />
 
           <motion.div
@@ -85,11 +85,11 @@ export function SearchableRiderComboboxModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-            className="relative w-full max-w-xl bg-white border border-[#EFEAE2] rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10 max-h-[80vh]"
+            className="relative w-full max-w-xl bg-white border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10 max-h-[80vh]"
           >
             {/* Search Input Box */}
-            <div className="px-4 py-3.5 border-b border-[#EFEAE2] flex items-center gap-3 bg-white sticky top-0 shrink-0">
-              <Search className="w-5 h-5 text-[#db6c00] shrink-0" />
+            <div className="px-4 py-3.5 border-b border-border flex items-center gap-3 bg-white sticky top-0 shrink-0">
+              <Search className="w-5 h-5 text-primary shrink-0" />
               <input
                 type="text"
                 autoFocus
@@ -97,13 +97,13 @@ export function SearchableRiderComboboxModal({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full bg-transparent text-sm text-[#1A1410] placeholder:text-[#A39988] outline-none font-medium"
+                className="w-full bg-transparent text-sm text-foreground placeholder:text-subtle-text outline-none font-medium"
               />
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery('')}
-                  className="p-1 text-[#A39988] hover:text-[#1A1410] rounded transition"
+                  className="p-1 text-subtle-text hover:text-foreground rounded transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -113,7 +113,7 @@ export function SearchableRiderComboboxModal({
             {/* Results List */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
               {filteredRiders.length === 0 ? (
-                <div className="p-8 text-center text-xs text-[#6B6258]">
+                <div className="p-8 text-center text-xs text-muted-foreground">
                   No riders matching &ldquo;<span className="font-semibold">{query}</span>&rdquo;
                 </div>
               ) : (
@@ -129,27 +129,27 @@ export function SearchableRiderComboboxModal({
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={`px-3.5 py-3 rounded-xl cursor-pointer transition flex items-center justify-between ${
                         isSelected
-                          ? 'bg-[#FFF1E0] border border-[#db6c00]/30 text-[#1A1410]'
-                          : 'hover:bg-[#FAFAF7] border border-transparent text-[#1A1410]'
+                          ? 'bg-accent border border-primary/30 text-foreground'
+                          : 'hover:bg-panel-bg border border-transparent text-foreground'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
                           className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${
                             isSelected
-                              ? 'bg-[#db6c00] text-white border-[#db6c00]'
-                              : 'bg-[#FAFAF7] border-[#EFEAE2] text-[#db6c00]'
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-panel-bg border-border text-primary'
                           }`}
                         >
                           <User className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-bold truncate">{r.name}</div>
-                          <div className="text-[11px] font-mono text-[#6B6258] flex items-center gap-2 mt-0.5">
+                          <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-2 mt-0.5">
                             <span>{r.mkb_id || 'MKB-RIDER'}</span>
                             <span>&bull;</span>
                             <span className="flex items-center gap-0.5">
-                              <MapPin className="w-3 h-3 text-[#db6c00]/70" />
+                              <MapPin className="w-3 h-3 text-primary/70" />
                               {r.zones?.name || 'No Zone'}
                             </span>
                           </div>
@@ -157,7 +157,7 @@ export function SearchableRiderComboboxModal({
                       </div>
                       <ChevronRight
                         className={`w-4 h-4 transition ${
-                          isSelected ? 'text-[#db6c00] translate-x-0.5' : 'text-[#A39988]'
+                          isSelected ? 'text-primary translate-x-0.5' : 'text-subtle-text'
                         }`}
                       />
                     </div>
@@ -167,13 +167,13 @@ export function SearchableRiderComboboxModal({
             </div>
 
             {/* Footer tips */}
-            <div className="px-4 py-2.5 bg-[#FAFAF7] border-t border-[#EFEAE2] flex items-center justify-between text-[10.5px] text-[#6B6258] font-mono shrink-0">
+            <div className="px-4 py-2.5 bg-panel-bg border-t border-border flex items-center justify-between text-[10.5px] text-muted-foreground font-mono shrink-0">
               <div className="flex items-center gap-2">
-                <span className="px-1.5 py-0.5 rounded bg-white border border-[#EFEAE2] font-bold">
+                <span className="px-1.5 py-0.5 rounded bg-white border border-border font-bold">
                   &uarr;&darr;
                 </span>
                 <span>Navigate</span>
-                <span className="px-1.5 py-0.5 rounded bg-white border border-[#EFEAE2] font-bold">
+                <span className="px-1.5 py-0.5 rounded bg-white border border-border font-bold">
                   &crarr;
                 </span>
                 <span>Select</span>

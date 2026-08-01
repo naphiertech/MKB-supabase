@@ -24,8 +24,8 @@ const SHORTCUTS: {
   title: "Today's Attendance Report",
   caption: 'Pre-filtered for today · CSV / PDF',
   icon: CalendarDays,
-  iconCls: 'text-[#db6c00]',
-  ring: 'ring-[#db6c00]/25 bg-[#FFF1E0]'
+  iconCls: 'text-primary',
+  ring: 'ring-primary/25 bg-accent'
 },
 {
   key: 'weekly',
@@ -53,7 +53,7 @@ export function QuickReportShortcuts({ onSelect }: QuickReportShortcutsProps) {
           <button
             key={s.key}
             onClick={() => onSelect(s.key)}
-            className="group text-left bg-white border border-[#EFEAE2] hover:border-[#db6c00]/30 rounded-xl p-4 transition flex items-center gap-3 ar-card-hover">
+            className="group text-left bg-white border border-border hover:border-primary/30 rounded-xl p-4 transition flex items-center gap-3 ar-card-hover">
             
             <div
               className={`w-10 h-10 rounded-lg ring-1 ${s.ring} flex items-center justify-center shrink-0`}>
@@ -61,14 +61,14 @@ export function QuickReportShortcuts({ onSelect }: QuickReportShortcutsProps) {
               <Icon className={`w-5 h-5 ${s.iconCls}`} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-[#1A1410] truncate">
+              <div className="text-sm font-semibold text-foreground truncate">
                 {s.title}
               </div>
-              <div className="text-[11px] text-[#6B6258] truncate">
+              <div className="text-[11px] text-muted-foreground truncate">
                 {s.caption}
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-[#6B6258] group-hover:text-[#db6c00] group-hover:translate-x-0.5 transition" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition" />
           </button>);
 
       })}

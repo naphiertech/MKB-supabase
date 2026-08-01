@@ -22,8 +22,8 @@ const COPY: Record<
     label: 'TAP TO TIME-IN',
     sub: 'Facial recognition required',
     icon: LogIn,
-    ring: 'border-[#db6c00]/60',
-    fill: 'bg-[#db6c00] hover:bg-[#b85a00] active:bg-[#a04e00]',
+    ring: 'border-primary/60',
+    fill: 'bg-primary hover:bg-primary-hover active:bg-primary-hover',
     text: 'text-white',
     glow: 'shadow-[0_10px_30px_-10px_rgba(219,108,0,0.45)] hover:shadow-[0_18px_42px_-10px_rgba(219,108,0,0.65)]'
   },
@@ -31,18 +31,18 @@ const COPY: Record<
     label: 'TAP TO TIME-OUT',
     sub: 'End your shift securely',
     icon: LogOut,
-    ring: 'border-[#db6c00]/60',
-    fill: 'bg-white hover:bg-[#FFF1E0] active:bg-[#FFE5C2]',
-    text: 'text-[#db6c00]',
+    ring: 'border-primary/60',
+    fill: 'bg-white hover:bg-accent active:bg-accent',
+    text: 'text-primary',
     glow: 'shadow-[0_10px_30px_-12px_rgba(219,108,0,0.25)] hover:shadow-[0_18px_42px_-12px_rgba(219,108,0,0.35)]'
   },
   completed: {
     label: 'SHIFT COMPLETED',
     sub: 'You may close the app',
     icon: CheckCircle2,
-    ring: 'border-[#EFEAE2]',
-    fill: 'bg-[#FAFAF7]',
-    text: 'text-[#6B6258]',
+    ring: 'border-border',
+    fill: 'bg-panel-bg',
+    text: 'text-muted-foreground',
     glow: ''
   },
   closed: {
@@ -85,7 +85,7 @@ export function AttendanceButton({
       }
 
       <span
-        className={`flex items-center justify-center w-16 h-16 rounded-full border-2 ${isPrimary ? 'bg-white/15 border-white/30 text-white' : 'bg-[#FFF1E0] border-[#db6c00]/30 text-[#db6c00]'} ${inactive ? 'bg-white border-[#EFEAE2] text-[#6B6258]' : ''}`}>
+        className={`flex items-center justify-center w-16 h-16 rounded-full border-2 ${isPrimary ? 'bg-white/15 border-white/30 text-white' : 'bg-accent border-primary/30 text-primary'} ${inactive ? 'bg-white border-border text-muted-foreground' : ''}`}>
         
         <Icon className="w-7 h-7" strokeWidth={2} />
       </span>
@@ -97,7 +97,7 @@ export function AttendanceButton({
           {c.label}
         </div>
         <div
-          className={`text-[11px] uppercase tracking-[0.16em] mt-1 font-mono ${isPrimary ? 'text-white/80' : 'text-[#6B6258]'}`}>
+          className={`text-[11px] uppercase tracking-[0.16em] mt-1 font-mono ${isPrimary ? 'text-white/80' : 'text-muted-foreground'}`}>
           
           {c.sub}
         </div>

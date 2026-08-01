@@ -181,7 +181,7 @@ export function LiveMonitoringMap({
   const isSatellite = activeLayer === 'satellite';
   return (
     <div
-      className="relative rounded-xl overflow-hidden border border-[#EFEAE2] bg-[#0a0c12] shadow-sm"
+      className="relative rounded-xl overflow-hidden border border-border bg-[#0a0c12] shadow-sm"
       style={{
         height
       }}>
@@ -243,8 +243,8 @@ export function LiveMonitoringMap({
       </MapContainer>
 
       {/* Legend (top-left) */}
-      <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-[#EFEAE2] rounded-lg p-2.5 text-xs shadow-lg">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
+      <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-border rounded-lg p-2.5 text-xs shadow-lg">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
           Status
         </div>
         <div className="space-y-1">
@@ -267,7 +267,7 @@ export function LiveMonitoringMap({
             duration: 0.8
           })
           }
-          className="w-9 h-9 rounded-md bg-white border border-[#EFEAE2] text-[#1A1410] hover:text-[#db6c00] hover:border-[#db6c00]/30 shadow-md flex items-center justify-center transition"
+          className="w-9 h-9 rounded-md bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center justify-center transition"
           aria-label="Recenter"
           title="Recenter">
           
@@ -275,7 +275,7 @@ export function LiveMonitoringMap({
         </button>
         <button
           onClick={() => setShowGeofences((v) => !v)}
-          className={`w-9 h-9 rounded-md border shadow-md flex items-center justify-center transition ${showGeofences ? 'bg-[#FFF1E0] border-[#db6c00]/40 text-[#db6c00]' : 'bg-white border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410]'}`}
+          className={`w-9 h-9 rounded-md border shadow-md flex items-center justify-center transition ${showGeofences ? 'bg-accent border-primary/40 text-primary' : 'bg-white border-border text-muted-foreground hover:text-foreground'}`}
           aria-label="Toggle geofences"
           title="Toggle geofences">
           
@@ -287,7 +287,7 @@ export function LiveMonitoringMap({
         </button>
         <button
           onClick={() => setShowLabels((v) => !v)}
-          className={`w-9 h-9 rounded-md border shadow-md flex items-center justify-center transition ${showLabels ? 'bg-[#FFF1E0] border-[#db6c00]/40 text-[#db6c00]' : 'bg-white border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410]'}`}
+          className={`w-9 h-9 rounded-md border shadow-md flex items-center justify-center transition ${showLabels ? 'bg-accent border-primary/40 text-primary' : 'bg-white border-border text-muted-foreground hover:text-foreground'}`}
           aria-label="Toggle labels"
           title="Toggle rider labels">
           
@@ -301,7 +301,7 @@ export function LiveMonitoringMap({
           onClick={() =>
           setActiveLayer((l) => l === 'dark' ? 'satellite' : 'dark')
           }
-          className="h-9 px-2.5 rounded-md bg-white border border-[#EFEAE2] text-[#1A1410] hover:text-[#db6c00] hover:border-[#db6c00]/30 shadow-md flex items-center gap-1.5 transition text-xs font-medium"
+          className="h-9 px-2.5 rounded-md bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center gap-1.5 transition text-xs font-medium"
           aria-label={
           isSatellite ? 'Switch to default map' : 'Switch to satellite map'
           }
@@ -315,12 +315,12 @@ export function LiveMonitoringMap({
       </div>
 
       {/* Mini stat (bottom-left) */}
-      <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-[#EFEAE2] rounded-lg px-3 py-2 flex items-center gap-2 shadow-lg">
+      <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-border rounded-lg px-3 py-2 flex items-center gap-2 shadow-lg">
         <span className="relative flex w-2 h-2">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-[#db6c00] opacity-75 animate-ping" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#db6c00]" />
+          <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
         </span>
-        <span className="text-xs text-[#1A1410] font-mono">
+        <span className="text-xs text-foreground font-mono">
           Tracking {riders.length} riders · updated {tick % 3 + 1}s ago
         </span>
       </div>
@@ -346,8 +346,8 @@ function LegendRow({
           background: color
         }} />
       
-      <span className="text-[#1A1410] flex-1 font-medium">{label}</span>
-      <span className="font-mono text-[#6B6258] tabular-nums">{count}</span>
+      <span className="text-foreground flex-1 font-medium">{label}</span>
+      <span className="font-mono text-muted-foreground tabular-nums">{count}</span>
     </div>);
 
 }

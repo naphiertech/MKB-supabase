@@ -245,23 +245,23 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#FAFAF7] text-[#1A1410] font-[Geist,sans-serif]">
+    <div className="flex flex-col min-h-screen bg-panel-bg text-foreground font-[Geist,sans-serif]">
       {/* Top Header */}
-      <div className="sticky top-0 bg-[#FAFAF7]/90 backdrop-blur-md border-b border-[#EFEAE2] z-50 px-4 py-3 md:px-6 flex items-center justify-between gap-4">
+      <div className="sticky top-0 bg-panel-bg/90 backdrop-blur-md border-b border-border z-50 px-4 py-3 md:px-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="p-2 -ml-2 rounded-lg text-[#6B6258] hover:text-[#1A1410] hover:bg-[#EFEAE2]/50 transition shrink-0 cursor-pointer"
+            className="p-2 -ml-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-border/50 transition shrink-0 cursor-pointer"
             aria-label="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-[#1A1410]">
+            <h1 className="text-lg font-bold tracking-tight text-foreground">
               Employee Profile Dashboard
             </h1>
-            <p className="text-xs text-[#6B6258] hidden sm:block">
+            <p className="text-xs text-muted-foreground hidden sm:block">
               Detailed registry overview, operational status, and biometrics.
             </p>
           </div>
@@ -272,24 +272,24 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
             <button
               type="button"
               onClick={handleDownloadDTR}
-              className="px-3.5 h-9 rounded-md border border-[#EFEAE2] bg-white text-[#1A1410] hover:bg-[#FAFAF7] text-sm font-semibold transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+              className="px-3.5 h-9 rounded-md border border-border bg-white text-foreground hover:bg-panel-bg text-sm font-semibold transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
             >
-              <FileText className="w-4 h-4 text-[#db6c00]" />
+              <FileText className="w-4 h-4 text-primary" />
               Export DTR
             </button>
           )}
           <button
             type="button"
             onClick={handleExportPDF}
-            className="px-3.5 h-9 rounded-md border border-[#EFEAE2] bg-white text-[#1A1410] hover:bg-[#FAFAF7] text-sm font-semibold transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+            className="px-3.5 h-9 rounded-md border border-border bg-white text-foreground hover:bg-panel-bg text-sm font-semibold transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
           >
-            <Download className="w-4 h-4 text-[#db6c00]" />
+            <Download className="w-4 h-4 text-primary" />
             Export PDF
           </button>
           <button
             type="button"
             onClick={onEdit}
-            className="px-4 h-9 rounded-md bg-[#db6c00] hover:bg-[#b85a00] active:bg-[#a04e00] text-white text-sm font-semibold focus:ring-2 focus:ring-[#db6c00]/25 transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+            className="px-4 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary/90 text-white text-sm font-semibold focus:ring-2 focus:ring-primary/25 transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
           >
             <Pencil className="w-4 h-4" />
             Edit Profile
@@ -303,13 +303,13 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
           
           {/* Left Column: Avatar & Quick Info Panel */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-xl border border-[#EFEAE2] p-6 shadow-sm flex flex-col items-center">
+            <div className="bg-white rounded-xl border border-border p-6 shadow-sm flex flex-col items-center">
               {/* Profile Photo */}
               <div className="relative mb-4">
                 <img
                   src={user.avatar}
                   alt={user.name}
-                  className="w-32 h-32 rounded-2xl border border-[#EFEAE2] object-cover shadow-sm bg-[#FAFAF7]"
+                  className="w-32 h-32 rounded-2xl border border-border object-cover shadow-sm bg-panel-bg"
                 />
                 <span 
                   className={`absolute bottom-2 right-2 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${
@@ -319,30 +319,30 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                 />
               </div>
 
-              <h2 className="text-lg font-bold text-[#1A1410]">{user.name}</h2>
-              <p className="text-xs text-[#6B6258] capitalize mt-0.5 font-medium">
+              <h2 className="text-lg font-bold text-foreground">{user.name}</h2>
+              <p className="text-xs text-muted-foreground capitalize mt-0.5 font-medium">
                 {user.role} &bull; {user.employmentType || 'Contractual'}
               </p>
 
               {/* Basic Quick Stats */}
-              <div className="w-full space-y-3.5 border-t border-[#EFEAE2]/60 pt-5 mt-5 text-xs text-[#6B6258]">
+              <div className="w-full space-y-3.5 border-t border-border/60 pt-5 mt-5 text-xs text-muted-foreground">
                 <div className="flex justify-between items-center py-0.5">
                   <span>Employee ID</span>
-                  <span className="font-mono font-bold text-[#1A1410] bg-[#FAFAF7] px-2 py-0.5 border border-[#EFEAE2] rounded">
+                  <span className="font-mono font-bold text-foreground bg-panel-bg px-2 py-0.5 border border-border rounded">
                     {user.mkbRiderId || '—'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-0.5">
                   <span>Date Joined</span>
-                  <span className="font-semibold text-[#1A1410]">{formattedHireDate}</span>
+                  <span className="font-semibold text-foreground">{formattedHireDate}</span>
                 </div>
                 <div className="flex justify-between items-center py-0.5">
                   <span>Email address</span>
-                  <span className="font-semibold text-[#1A1410] truncate max-w-[180px]">{user.email}</span>
+                  <span className="font-semibold text-foreground truncate max-w-[180px]">{user.email}</span>
                 </div>
                 <div className="flex justify-between items-center py-0.5">
                   <span>Phone Number</span>
-                  <span className="font-mono font-semibold text-[#1A1410]">{user.contact || '—'}</span>
+                  <span className="font-mono font-semibold text-foreground">{user.contact || '—'}</span>
                 </div>
               </div>
 
@@ -350,15 +350,15 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
               <div className="grid grid-cols-2 gap-3 w-full mt-6">
                 <a
                   href={`mailto:${user.email}`}
-                  className="flex items-center justify-center gap-1.5 h-9 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-xs text-[#1A1410] font-semibold hover:bg-[#EFEAE2]/40 transition text-center"
+                  className="flex items-center justify-center gap-1.5 h-9 rounded-lg border border-border bg-panel-bg text-xs text-foreground font-semibold hover:bg-border/40 transition text-center"
                 >
-                  <Mail className="w-3.5 h-3.5 text-[#db6c00]" /> Email
+                  <Mail className="w-3.5 h-3.5 text-primary" /> Email
                 </a>
                 <a
                   href={`https://wa.me/${cleanContactNumber || '639000000000'}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-center gap-1.5 h-9 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-xs text-[#1A1410] font-semibold hover:bg-[#EFEAE2]/40 transition text-center"
+                  className="flex items-center justify-center gap-1.5 h-9 rounded-lg border border-border bg-panel-bg text-xs text-foreground font-semibold hover:bg-border/40 transition text-center"
                 >
                   <MessageCircle className="w-3.5 h-3.5 text-emerald-500" /> WhatsApp
                 </a>
@@ -366,18 +366,18 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
             </div>
 
             {/* Document Verification Checklist */}
-            <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm space-y-4">
-              <div className="text-[11px] font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2]/60 pb-2 flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-[#db6c00]/80" />
+            <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4">
+              <div className="text-[11px] font-bold text-accent-foreground uppercase tracking-wider border-b border-border/60 pb-2 flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-primary/80" />
                 Registry Verifications
               </div>
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-2 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2] text-xs">
+                <div className="flex items-center justify-between p-2 bg-panel-bg rounded-lg border border-border text-xs">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-[#db6c00] shrink-0" />
+                    <FileText className="w-4 h-4 text-primary shrink-0" />
                     <div>
-                      <div className="font-bold text-[#1A1410]">Employment Record</div>
-                      <div className="text-[9px] text-[#6B6258]">{user.employmentType ? 'Onboarded' : 'Pending Details'}</div>
+                      <div className="font-bold text-foreground">Employment Record</div>
+                      <div className="text-[9px] text-muted-foreground">{user.employmentType ? 'Onboarded' : 'Pending Details'}</div>
                     </div>
                   </div>
                   {user.employmentType ? (
@@ -387,12 +387,12 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                   )}
                 </div>
 
-                <div className="flex items-center justify-between p-2 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2] text-xs">
+                <div className="flex items-center justify-between p-2 bg-panel-bg rounded-lg border border-border text-xs">
                   <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-[#db6c00] shrink-0" />
+                    <Shield className="w-4 h-4 text-primary shrink-0" />
                     <div>
-                      <div className="font-bold text-[#1A1410]">License &amp; Vehicle Info</div>
-                      <div className="text-[9px] text-[#6B6258]">
+                      <div className="font-bold text-foreground">License &amp; Vehicle Info</div>
+                      <div className="text-[9px] text-muted-foreground">
                         {isRider 
                           ? (user.vehiclePlateNumber ? `Plate: ${user.vehiclePlateNumber}` : 'Pending Plate') 
                           : 'Not required'
@@ -407,16 +407,16 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                       <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                     )
                   ) : (
-                    <span className="text-[10px] text-[#6B6258] font-bold">N/A</span>
+                    <span className="text-[10px] text-muted-foreground font-bold">N/A</span>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between p-2 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2] text-xs">
+                <div className="flex items-center justify-between p-2 bg-panel-bg rounded-lg border border-border text-xs">
                   <div className="flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-[#db6c00] shrink-0" />
+                    <Lock className="w-4 h-4 text-primary shrink-0" />
                     <div>
-                      <div className="font-bold text-[#1A1410]">Biometric Face Scan</div>
-                      <div className="text-[9px] text-[#6B6258]">
+                      <div className="font-bold text-foreground">Biometric Face Scan</div>
+                      <div className="text-[9px] text-muted-foreground">
                         {user.faceImage ? 'Registered Face Key' : 'Pending Enrolment'}
                       </div>
                     </div>
@@ -426,18 +426,18 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                   ) : isRider ? (
                     <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                   ) : (
-                    <span className="text-[10px] text-[#6B6258] font-bold">N/A</span>
+                    <span className="text-[10px] text-muted-foreground font-bold">N/A</span>
                   )}
                 </div>
 
                 {isRider && (
-                  <div className="flex flex-col p-2.5 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2] text-xs gap-2">
+                  <div className="flex flex-col p-2.5 bg-panel-bg rounded-lg border border-border text-xs gap-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Smartphone className="w-4 h-4 text-[#db6c00] shrink-0" />
+                        <Smartphone className="w-4 h-4 text-primary shrink-0" />
                         <div>
-                          <div className="font-bold text-[#1A1410]">Trusted Device</div>
-                          <div className="text-[9px] text-[#6B6258] truncate max-w-[140px]">
+                          <div className="font-bold text-foreground">Trusted Device</div>
+                          <div className="text-[9px] text-muted-foreground truncate max-w-[140px]">
                             {deviceLoading
                               ? 'Checking device state…'
                               : device
@@ -458,7 +458,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                     </div>
 
                     {device && (
-                      <div className="pt-1.5 border-t border-[#EFEAE2]/60 flex items-center justify-between text-[10px] text-[#6B6258]">
+                      <div className="pt-1.5 border-t border-border/60 flex items-center justify-between text-[10px] text-muted-foreground">
                         <span>Reg: {new Date(device.registeredAt).toLocaleDateString()}</span>
                         <button
                           type="button"
@@ -479,41 +479,41 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
           <div className="lg:col-span-8 space-y-6">
             
             {/* Main Header Banner */}
-            <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm flex items-center justify-between">
+            <div className="bg-white rounded-xl border border-border p-5 shadow-sm flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-[#1A1410]">Employment Details</h3>
-                <p className="text-[11px] text-[#6B6258] mt-0.5">Rider logistics profile metadata and geofence assignments.</p>
+                <h3 className="text-sm font-bold text-foreground">Employment Details</h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Rider logistics profile metadata and geofence assignments.</p>
               </div>
-              <span className="text-xs bg-[#FFF1E0] border border-[#db6c00]/15 text-[#b85a00] font-bold px-2.5 py-1 rounded-full">
+              <span className="text-xs bg-accent border border-primary/15 text-accent-foreground font-bold px-2.5 py-1 rounded-full">
                 Tenure: {tenure}
               </span>
             </div>
 
             {/* Tabs Navigation */}
             {isRider && (
-              <div className="flex border-b border-[#EFEAE2] gap-6 text-sm">
+              <div className="flex border-b border-border gap-6 text-sm">
                 <button
                   type="button"
                   onClick={() => setActiveTab('profile')}
                   className={`pb-3 font-semibold relative cursor-pointer outline-none transition-colors ${
-                    activeTab === 'profile' ? 'text-[#db6c00]' : 'text-[#6B6258] hover:text-[#1A1410]'
+                    activeTab === 'profile' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Rider Profile Details
                   {activeTab === 'profile' && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#db6c00] rounded-t-full" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary rounded-t-full" />
                   )}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('attendance')}
                   className={`pb-3 font-semibold relative cursor-pointer outline-none transition-colors ${
-                    activeTab === 'attendance' ? 'text-[#db6c00]' : 'text-[#6B6258] hover:text-[#1A1410]'
+                    activeTab === 'attendance' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Attendance History Calendar
                   {activeTab === 'attendance' && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#db6c00] rounded-t-full" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary rounded-t-full" />
                   )}
                 </button>
               </div>
@@ -523,90 +523,90 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               
               {/* Card 1: HR & Employment Status */}
-              <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 border-b border-[#EFEAE2]/60 pb-2">
-                  <UserCheck className="w-4 h-4 text-[#db6c00]" />
-                  <span className="text-xs font-bold text-[#b85a00] uppercase tracking-wider">Employment Profile</span>
+              <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+                  <UserCheck className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-accent-foreground uppercase tracking-wider">Employment Profile</span>
                 </div>
                 <div className="space-y-3.5 text-xs">
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Role</span>
-                    <span className="font-semibold text-[#1A1410] capitalize">{user.role}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Role</span>
+                    <span className="font-semibold text-foreground capitalize">{user.role}</span>
                   </div>
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Employment Type</span>
-                    <span className="font-semibold text-[#1A1410] capitalize">{user.employmentType || 'Not Set'}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Employment Type</span>
+                    <span className="font-semibold text-foreground capitalize">{user.employmentType || 'Not Set'}</span>
                   </div>
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Date of Hire</span>
-                    <span className="font-semibold text-[#1A1410]">{formattedHireDate}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Date of Hire</span>
+                    <span className="font-semibold text-foreground">{formattedHireDate}</span>
                   </div>
                 </div>
               </div>
 
               {/* Card 2: Operational Location / Geofence */}
-              <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 border-b border-[#EFEAE2]/60 pb-2">
-                  <MapPin className="w-4 h-4 text-[#db6c00]" />
-                  <span className="text-xs font-bold text-[#b85a00] uppercase tracking-wider">Operational Area</span>
+              <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-accent-foreground uppercase tracking-wider">Operational Area</span>
                 </div>
                 <div className="space-y-3.5 text-xs">
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Assigned Zone</span>
-                    <span className="font-semibold text-[#1A1410]">{zoneName}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Assigned Zone</span>
+                    <span className="font-semibold text-foreground">{zoneName}</span>
                   </div>
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Last Activity</span>
-                    <span className="font-semibold text-[#1A1410]">{formattedLastLogin}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Last Activity</span>
+                    <span className="font-semibold text-foreground">{formattedLastLogin}</span>
                   </div>
                 </div>
               </div>
 
               {/* Card 3: Address Details */}
-              <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm space-y-4 sm:col-span-2">
-                <div className="flex items-center gap-2 border-b border-[#EFEAE2]/60 pb-2">
-                  <MapPin className="w-4 h-4 text-[#db6c00]" />
-                  <span className="text-xs font-bold text-[#b85a00] uppercase tracking-wider">Residential Address</span>
+              <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4 sm:col-span-2">
+                <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-accent-foreground uppercase tracking-wider">Residential Address</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Street Address</span>
-                    <span className="font-semibold text-[#1A1410]">{user.streetAddress || '—'}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Street Address</span>
+                    <span className="font-semibold text-foreground">{user.streetAddress || '—'}</span>
                   </div>
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Barangay</span>
-                    <span className="font-semibold text-[#1A1410]">{user.barangay || '—'}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Barangay</span>
+                    <span className="font-semibold text-foreground">{user.barangay || '—'}</span>
                   </div>
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">City</span>
-                    <span className="font-semibold text-[#1A1410]">{user.city || '—'}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">City</span>
+                    <span className="font-semibold text-foreground">{user.city || '—'}</span>
                   </div>
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Province</span>
-                    <span className="font-semibold text-[#1A1410]">{user.province || '—'}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Province</span>
+                    <span className="font-semibold text-foreground">{user.province || '—'}</span>
                   </div>
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Zip Code</span>
-                    <span className="font-semibold text-[#1A1410]">{user.zipCode || '—'}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Zip Code</span>
+                    <span className="font-semibold text-foreground">{user.zipCode || '—'}</span>
                   </div>
                 </div>
               </div>
 
               {/* Card 4: Vehicle Information (Conditional) */}
               {isRider && (
-                <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm space-y-4">
-                  <div className="flex items-center gap-2 border-b border-[#EFEAE2]/60 pb-2">
-                    <Bike className="w-4 h-4 text-[#db6c00]" />
-                    <span className="text-xs font-bold text-[#b85a00] uppercase tracking-wider">Vehicle Specifications</span>
+                <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+                    <Bike className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-bold text-accent-foreground uppercase tracking-wider">Vehicle Specifications</span>
                   </div>
                   <div className="space-y-3.5 text-xs">
                     <div>
-                      <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Vehicle Type</span>
-                      <span className="font-semibold text-[#1A1410] capitalize">{user.vehicleType || 'Not Specified'}</span>
+                      <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Vehicle Type</span>
+                      <span className="font-semibold text-foreground capitalize">{user.vehicleType || 'Not Specified'}</span>
                     </div>
                     <div>
-                      <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">License Plate Number</span>
-                      <span className="font-mono font-bold text-[#1A1410] bg-[#FAFAF7] border border-[#EFEAE2] px-2 py-0.5 rounded inline-block">
+                      <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">License Plate Number</span>
+                      <span className="font-mono font-bold text-foreground bg-panel-bg border border-border px-2 py-0.5 rounded inline-block">
                         {user.vehiclePlateNumber || '—'}
                       </span>
                     </div>
@@ -615,35 +615,35 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
               )}
 
               {/* Card 5: Emergency Details */}
-              <div className={`bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm space-y-4 ${!isRider ? 'sm:col-span-2' : ''}`}>
-                <div className="flex items-center gap-2 border-b border-[#EFEAE2]/60 pb-2">
-                  <Heart className="w-4 h-4 text-[#db6c00]" />
-                  <span className="text-xs font-bold text-[#b85a00] uppercase tracking-wider">Emergency Contact</span>
+              <div className={`bg-white rounded-xl border border-border p-5 shadow-sm space-y-4 ${!isRider ? 'sm:col-span-2' : ''}`}>
+                <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+                  <Heart className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-accent-foreground uppercase tracking-wider">Emergency Contact</span>
                 </div>
                 <div className="space-y-3.5 text-xs">
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Contact Person</span>
-                    <span className="font-semibold text-[#1A1410]">{user.emergencyContactName || '—'}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Contact Person</span>
+                    <span className="font-semibold text-foreground">{user.emergencyContactName || '—'}</span>
                   </div>
                   <div>
-                    <span className="text-[#6B6258] block text-[10px] uppercase font-bold tracking-wider">Phone Number</span>
-                    <span className="font-mono font-semibold text-[#1A1410]">{user.emergencyContactPhone || '—'}</span>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Phone Number</span>
+                    <span className="font-mono font-semibold text-foreground">{user.emergencyContactPhone || '—'}</span>
                   </div>
                 </div>
               </div>
 
               {/* Card 6: HR Remarks & Notes */}
-              <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm space-y-4 sm:col-span-2">
-                <div className="flex items-center gap-2 border-b border-[#EFEAE2]/60 pb-2">
-                  <Clipboard className="w-4 h-4 text-[#db6c00]" />
-                  <span className="text-xs font-bold text-[#b85a00] uppercase tracking-wider">HR Remarks &amp; Notes</span>
+              <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4 sm:col-span-2">
+                <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+                  <Clipboard className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-accent-foreground uppercase tracking-wider">HR Remarks &amp; Notes</span>
                 </div>
                 {user.notes ? (
-                  <p className="text-xs text-[#6B6258] italic leading-relaxed bg-[#FAFAF7] p-3 rounded-lg border border-[#EFEAE2] whitespace-pre-wrap">
+                  <p className="text-xs text-muted-foreground italic leading-relaxed bg-panel-bg p-3 rounded-lg border border-border whitespace-pre-wrap">
                     "{user.notes}"
                   </p>
                 ) : (
-                  <p className="text-xs text-[#6B6258] italic text-center py-4">
+                  <p className="text-xs text-muted-foreground italic text-center py-4">
                     No onboarding notes recorded for this profile.
                   </p>
                 )}
@@ -653,14 +653,14 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
 
             {/* Card 7: Attendance Calendar Grid */}
             {isRider && activeTab === 'attendance' && (
-              <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 shadow-sm space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#EFEAE2]/60 pb-3">
+              <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/60 pb-3">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-[#db6c00]" />
-                      <span className="text-xs font-bold text-[#b85a00] uppercase tracking-wider">Attendance Calendar</span>
+                      <Calendar className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-bold text-accent-foreground uppercase tracking-wider">Attendance Calendar</span>
                     </div>
                     {/* Legend */}
-                    <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-[#6B6258]">
+                    <div className="flex flex-wrap gap-3 text-[10px] font-semibold text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <span className="w-2.5 h-2.5 rounded bg-emerald-500" /> Present
                       </div>
@@ -685,11 +685,11 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                         setCalendarDate(prev);
                         setSelectedDayLog(null);
                       }}
-                      className="p-1.5 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] transition cursor-pointer text-[#6B6258]"
+                      className="p-1.5 rounded-lg border border-border hover:bg-panel-bg transition cursor-pointer text-muted-foreground hover:text-foreground"
                     >
                       &larr;
                     </button>
-                    <span className="text-sm font-bold text-[#1A1410]">
+                    <span className="text-sm font-bold text-foreground">
                       {calendarDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
                     </span>
                     <button
@@ -700,7 +700,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                         setCalendarDate(next);
                         setSelectedDayLog(null);
                       }}
-                      className="p-1.5 rounded-lg border border-[#EFEAE2] hover:bg-[#FAFAF7] transition cursor-pointer text-[#6B6258]"
+                      className="p-1.5 rounded-lg border border-border hover:bg-panel-bg transition cursor-pointer text-muted-foreground hover:text-foreground"
                     >
                       &rarr;
                     </button>
@@ -709,7 +709,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                   {/* Calendar Grid */}
                   <div className="space-y-1">
                     {/* Days of week header */}
-                    <div className="grid grid-cols-7 gap-1 text-center font-bold text-[10px] text-[#6B6258] uppercase tracking-wider py-1">
+                    <div className="grid grid-cols-7 gap-1 text-center font-bold text-[10px] text-muted-foreground uppercase tracking-wider py-1">
                       <span>Su</span>
                       <span>Mo</span>
                       <span>Tu</span>
@@ -730,9 +730,9 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                         const isAfterOrOnHireDate = !hireDateStr || cDay.dateStr >= hireDateStr;
                         const isPastWorkDay = cDay.isCurrentMonth && isAfterOrOnHireDate && cDay.dateStr < todayStr;
 
-                        let bgStyle = 'bg-[#FAFAF7] text-[#6B6258]/60';
+                        let bgStyle = 'bg-panel-bg text-muted-foreground/60';
                         if (cDay.isCurrentMonth) {
-                          bgStyle = 'bg-white border border-[#EFEAE2] text-[#1A1410] hover:border-[#db6c00]/50';
+                          bgStyle = 'bg-white border border-border text-foreground hover:border-primary/50';
                         }
                         if (dayLog) {
                           if (dayLog.status === 'present') bgStyle = 'bg-emerald-500 text-white font-bold hover:bg-emerald-600';
@@ -774,12 +774,12 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                               }
                             }}
                             className={`h-9 flex flex-col items-center justify-center rounded-lg text-xs relative transition cursor-pointer ${bgStyle} ${
-                              isSelected ? 'ring-2 ring-[#db6c00] ring-offset-1' : ''
+                              isSelected ? 'ring-2 ring-primary ring-offset-1' : ''
                             }`}
                           >
                             <span>{cDay.dayNum}</span>
                             {isToday && (
-                              <span className="absolute bottom-1 w-1 h-1 rounded-full bg-[#db6c00]" />
+                              <span className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
                             )}
                           </button>
                         );
@@ -789,9 +789,9 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
 
                   {/* Day Details Panel */}
                   {selectedDayLog && (
-                    <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg p-3 text-xs space-y-2">
-                      <div className="flex items-center justify-between border-b border-[#EFEAE2]/60 pb-1.5">
-                        <span className="font-bold text-[#1A1410]">
+                    <div className="bg-panel-bg border border-border rounded-lg p-3 text-xs space-y-2">
+                      <div className="flex items-center justify-between border-b border-border/60 pb-1.5">
+                        <span className="font-bold text-foreground">
                           Date details: {new Date(selectedDayLog.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                         </span>
                         {(() => {
@@ -823,20 +823,20 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                       {selectedDayLog.id !== '' ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           <div>
-                            <span className="text-[#6B6258] block text-[9px] uppercase font-bold tracking-wider">Clock In</span>
-                            <span className="font-mono font-bold text-[#1A1410]">{formatTimeString(selectedDayLog.timeIn)}</span>
+                            <span className="text-muted-foreground block text-[9px] uppercase font-bold tracking-wider">Clock In</span>
+                            <span className="font-mono font-bold text-foreground">{formatTimeString(selectedDayLog.timeIn)}</span>
                           </div>
                           <div>
-                            <span className="text-[#6B6258] block text-[9px] uppercase font-bold tracking-wider">Clock Out</span>
-                            <span className="font-mono font-bold text-[#1A1410]">{formatTimeString(selectedDayLog.timeOut)}</span>
+                            <span className="text-muted-foreground block text-[9px] uppercase font-bold tracking-wider">Clock Out</span>
+                            <span className="font-mono font-bold text-foreground">{formatTimeString(selectedDayLog.timeOut)}</span>
                           </div>
                           <div>
-                            <span className="text-[#6B6258] block text-[9px] uppercase font-bold tracking-wider">Hours Worked</span>
-                            <span className="font-semibold text-[#1A1410]">{selectedDayLog.hours ? `${Number(selectedDayLog.hours).toFixed(2)} hrs` : '—'}</span>
+                            <span className="text-muted-foreground block text-[9px] uppercase font-bold tracking-wider">Hours Worked</span>
+                            <span className="font-semibold text-foreground">{selectedDayLog.hours ? `${Number(selectedDayLog.hours).toFixed(2)} hrs` : '—'}</span>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-[10px] text-[#6B6258] italic">No attendance activity or log recorded for this date.</p>
+                        <p className="text-[10px] text-muted-foreground italic">No attendance activity or log recorded for this date.</p>
                       )}
                     </div>
                   )}

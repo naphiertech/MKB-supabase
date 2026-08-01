@@ -520,17 +520,17 @@ export function Reports() {
         .rep-ctrl-input {
           height: 34px;
           padding: 0 10px;
-          background: var(--panel-bg, #FAFAF7);
-          border: 1px solid var(--border, #EFEAE2);
+          background: var(--panel-bg);
+          border: 1px solid var(--border);
           border-radius: 6px;
-          color: var(--foreground, #1A1410);
+          color: var(--foreground);
           font-size: 12px;
           outline: none;
           font-family: 'Geist Mono', monospace;
           transition: border-color 150ms ease, box-shadow 150ms ease;
         }
         .rep-ctrl-input:focus {
-          border-color: var(--primary, #db6c00);
+          border-color: var(--primary);
           box-shadow: 0 0 0 3px rgba(219, 108, 0, 0.12);
         }
         select.rep-ctrl-input {

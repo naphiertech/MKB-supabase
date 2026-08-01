@@ -44,8 +44,8 @@ export function ZoneSummaryCards({
         label="Active Zones"
         value={
         <>
-            <span className="text-[#1A1410]">{activeZones}</span>
-            <span className="text-[#6B6258] text-xl"> / {totalZones}</span>
+            <span className="text-foreground">{activeZones}</span>
+            <span className="text-muted-foreground text-xl"> / {totalZones}</span>
           </>
         }
         sub={`${totalZones - activeZones} inactive`}
