@@ -511,6 +511,45 @@ export function ParcelHistory() {
                       </div>
                     </div>
 
+                    {/* Delivery Outcome Breakdown Card */}
+                    <div className="p-4 rounded-xl bg-[#FAFAF7] border border-[#EFEAE2] space-y-3">
+                      <div className="text-[11px] font-bold text-[#6B6258] uppercase tracking-wider flex items-center justify-between">
+                        <span>Delivery Outcome Breakdown</span>
+                        <span className="text-[10px] font-mono text-[#6B6258] font-normal">Manifest Audit</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="p-2.5 rounded-lg bg-emerald-50/80 border border-emerald-500/20">
+                          <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">Delivered</div>
+                          <div className="text-base font-bold font-mono text-emerald-700 tabular-nums mt-0.5">
+                            {selectedDetailRow.deliveredParcels.toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-500/20">
+                          <div className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">Failed</div>
+                          <div className="text-base font-bold font-mono text-amber-700 tabular-nums mt-0.5">
+                            {(selectedDetailRow.failedDeliveries || 0).toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-red-50/80 border border-red-500/20">
+                          <div className="text-[10px] uppercase font-bold text-red-800 tracking-wider">Returned</div>
+                          <div className="text-base font-bold font-mono text-red-700 tabular-nums mt-0.5">
+                            {(selectedDetailRow.returnedParcels || 0).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      {selectedDetailRow.assignedParcels ? (
+                        <div className="text-[11px] text-[#6B6258] flex justify-between items-center border-t border-[#EFEAE2]/60 pt-2 font-mono">
+                          <span>Assigned Manifest:</span>
+                          <strong className="text-[#1A1410] font-bold">{selectedDetailRow.assignedParcels} parcels</strong>
+                        </div>
+                      ) : null}
+                      {selectedDetailRow.notes ? (
+                        <div className="text-[11px] text-[#6B6258] bg-white p-2.5 rounded-lg border border-[#EFEAE2] italic whitespace-pre-wrap">
+                          "{selectedDetailRow.notes}"
+                        </div>
+                      ) : null}
+                    </div>
+
                     <div className="p-4 rounded-xl bg-[#FAFAF7] border border-[#EFEAE2] space-y-2">
                       <div className="text-[11px] font-bold text-[#6B6258] uppercase tracking-wider flex items-center justify-between">
                         <span>Gross Wage Preview (Secondary)</span>
