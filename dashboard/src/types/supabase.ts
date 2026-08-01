@@ -194,35 +194,47 @@ export type Database = {
       }
       parcel_logs: {
         Row: {
+          assigned_parcels: number | null
           created_at: string
           created_by: string | null
           daily_gross: number | null
           date: string
+          failed_parcels: number | null
           id: string
+          notes: string | null
           parcels: number
           rate: number
+          returned_parcels: number | null
           rider_id: string
           updated_at: string
         }
         Insert: {
+          assigned_parcels?: number | null
           created_at?: string
           created_by?: string | null
           daily_gross?: number | null
           date: string
+          failed_parcels?: number | null
           id?: string
+          notes?: string | null
           parcels?: number
           rate?: number
+          returned_parcels?: number | null
           rider_id: string
           updated_at?: string
         }
         Update: {
+          assigned_parcels?: number | null
           created_at?: string
           created_by?: string | null
           daily_gross?: number | null
           date?: string
+          failed_parcels?: number | null
           id?: string
+          notes?: string | null
           parcels?: number
           rate?: number
+          returned_parcels?: number | null
           rider_id?: string
           updated_at?: string
         }
