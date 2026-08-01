@@ -576,30 +576,23 @@ export function PayrollReports() {
                 if (t.key === 'individual_payslips') setFormat('pdf');
                 if (t.key === 'parcel_logs') setFormat('csv');
               }}
-              className={`group text-left bg-white border rounded-xl p-5 transition relative overflow-hidden ar-card-hover ${active ? 'border-[#db6c00] ring-2 ring-[#db6c00]/15' : 'border-[#EFEAE2] hover:border-[#db6c00]/30'}`}
+              className={`group text-left bg-white border rounded-xl p-5 transition relative overflow-hidden ar-card-hover ${active ? 'border-primary ring-2 ring-primary/15' : 'border-border hover:border-primary/30'}`}
             >
               <div className="flex items-start justify-between mb-3">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center animate-fade-in"
-                  style={{
-                    background: `${t.accent}18`,
-                    color: t.accent,
-                    boxShadow: `inset 0 0 0 1px ${t.accent}38`
-                  }}
-                >
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center animate-fade-in bg-accent text-accent-foreground border border-primary/20">
                   <Icon className="w-5 h-5" />
                 </div>
                 <ArrowUpRight
-                  className={`w-4 h-4 transition ${active ? 'text-[#db6c00]' : 'text-[#6B6258] group-hover:text-[#db6c00] group-hover:-translate-y-0.5 group-hover:translate-x-0.5'}`}
+                  className={`w-4 h-4 transition ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-primary group-hover:-translate-y-0.5 group-hover:translate-x-0.5'}`}
                 />
               </div>
-              <div className="text-sm font-semibold text-[#1A1410]">{t.title}</div>
-              <div className="text-xs text-[#6B6258] mt-1 leading-relaxed">{t.description}</div>
-              <div className="mt-4 pt-3 border-t border-[#EFEAE2] flex items-center gap-2 text-[11px] text-[#6B6258] font-mono">
+              <div className="text-sm font-semibold text-foreground">{t.title}</div>
+              <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{t.description}</div>
+              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
                 <FileText className="w-3 h-3" />
                 {t.meta}
               </div>
-              {active && <span className="absolute top-0 left-0 right-0 h-[2px] bg-[#db6c00]" />}
+              {active && <span className="absolute top-0 left-0 right-0 h-[2px] bg-primary" />}
             </button>
           );
         })}
@@ -609,16 +602,16 @@ export function PayrollReports() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
           {/* Inputs Panel */}
-          <div className="bg-white border border-[#EFEAE2] rounded-xl p-5">
+          <div className="bg-white border border-border rounded-xl p-5">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-[#db6c00]" />
+              <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-[#1A1410]">
+                <div className="text-sm font-semibold text-foreground">
                   {TEMPLATES.find(t => t.key === template)?.title}
                 </div>
-                <div className="text-[11px] text-[#6B6258] font-mono">Configure parameters & export</div>
+                <div className="text-[11px] text-muted-foreground font-mono">Configure parameters & export</div>
               </div>
             </div>
 
@@ -626,7 +619,7 @@ export function PayrollReports() {
               {/* Range */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">From</div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">From</div>
                   <input
                     type="date"
                     value={from}
@@ -634,11 +627,11 @@ export function PayrollReports() {
                       setFrom(e.target.value);
                       if (error) setError(null);
                     }}
-                    className="w-full h-10 px-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] font-mono outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
+                    className="w-full h-10 px-3 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">To</div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">To</div>
                   <input
                     type="date"
                     value={to}
@@ -646,13 +639,13 @@ export function PayrollReports() {
                       setTo(e.target.value);
                       if (error) setError(null);
                     }}
-                    className="w-full h-10 px-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] font-mono outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
+                    className="w-full h-10 px-3 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
               </div>
 
               {error && (
-                <div className="flex items-start gap-1.5 text-[12px] text-[#DC2626]">
+                <div className="flex items-start gap-1.5 text-[12px] text-red-600">
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -661,7 +654,7 @@ export function PayrollReports() {
               {/* Rate Per Parcel (needed for payslips) */}
               {template === 'individual_payslips' && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
                     Default Rate per Parcel (₱)
                   </div>
                   <input
@@ -669,14 +662,14 @@ export function PayrollReports() {
                     min={0}
                     value={rate}
                     onChange={e => setRate(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full h-10 px-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] font-mono outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
+                    className="w-full h-10 px-3 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
               )}
 
               {/* Zones Selector */}
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
                   Filter Zones {selectedZones.length === 0 && '(all)'}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -686,7 +679,7 @@ export function PayrollReports() {
                       <button
                         key={z.id}
                         onClick={() => toggleZone(z.id)}
-                        className={`px-2.5 py-1 rounded text-[11px] border transition ${on ? 'bg-[#FFF1E0] border-[#db6c00]/40 text-[#b85a00] font-semibold' : 'bg-[#FAFAF7] border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410]'}`}
+                        className={`px-2.5 py-1 rounded text-[11px] border transition ${on ? 'bg-accent border-primary/40 text-accent-foreground font-semibold' : 'bg-panel-bg border-border text-muted-foreground hover:text-foreground'}`}
                       >
                         {z.name}
                       </button>
@@ -698,18 +691,18 @@ export function PayrollReports() {
               {/* Mode Selector for Individual Payslips & Logs */}
               {template !== 'cutoff_summary' && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">Mode</div>
-                  <div className="inline-flex rounded-md border border-[#EFEAE2] bg-[#FAFAF7] p-0.5 mb-3">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">Mode</div>
+                  <div className="inline-flex rounded-md border border-border bg-panel-bg p-0.5 mb-3">
                     <button
                       onClick={() => setBulkMode('single')}
-                      className={`h-8 px-3 rounded text-xs font-semibold transition inline-flex items-center gap-1.5 ${bulkMode === 'single' ? 'bg-[#db6c00] text-white shadow-sm' : 'text-[#6B6258] hover:text-[#1A1410]'}`}
+                      className={`h-8 px-3 rounded text-xs font-semibold transition inline-flex items-center gap-1.5 ${bulkMode === 'single' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       <Receipt className="w-3.5 h-3.5" />
                       Single rider
                     </button>
                     <button
                       onClick={() => setBulkMode('bulk')}
-                      className={`h-8 px-3 rounded text-xs font-semibold transition inline-flex items-center gap-1.5 ${bulkMode === 'bulk' ? 'bg-[#db6c00] text-white shadow-sm' : 'text-[#6B6258] hover:text-[#1A1410]'}`}
+                      className={`h-8 px-3 rounded text-xs font-semibold transition inline-flex items-center gap-1.5 ${bulkMode === 'bulk' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       <Users className="w-3.5 h-3.5" />
                       All riders ({filteredRiders().length})
@@ -720,7 +713,7 @@ export function PayrollReports() {
                     <select
                       value={singleRiderId}
                       onChange={e => setSingleRiderId(e.target.value)}
-                      className="w-full h-10 px-3 pr-8 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] font-mono outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 cursor-pointer"
+                      className="w-full h-10 px-3 pr-8 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer"
                     >
                       {ridersList.map(r => (
                         <option key={r.id} value={r.id}>
@@ -734,7 +727,7 @@ export function PayrollReports() {
 
               {/* Formats Selector */}
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] mb-1.5 font-semibold">Format</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">Format</div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {(['pdf', 'csv', 'xlsx'] as const).map(f => {
                     const disabled =
@@ -746,7 +739,7 @@ export function PayrollReports() {
                         key={f}
                         onClick={() => !disabled && setFormat(f)}
                         disabled={disabled}
-                        className={`h-9 rounded-md border text-xs uppercase transition ${selected && !disabled ? 'bg-[#FFF1E0] border-[#db6c00] text-[#b85a00] font-bold' : disabled ? 'bg-[#FAFAF7] border-[#EFEAE2] text-[#6B6258]/30 cursor-not-allowed' : 'bg-[#FAFAF7] border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410]'}`}
+                        className={`h-9 rounded-md border text-xs uppercase transition ${selected && !disabled ? 'bg-accent border-primary text-accent-foreground font-bold' : disabled ? 'bg-panel-bg border-border text-muted-foreground/30 cursor-not-allowed' : 'bg-panel-bg border-border text-muted-foreground hover:text-foreground'}`}
                       >
                         {f}
                       </button>
@@ -758,7 +751,7 @@ export function PayrollReports() {
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="w-full h-11 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#db6c00]/30 shadow-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full h-11 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isGenerating ? (
                   <>
@@ -775,32 +768,32 @@ export function PayrollReports() {
 
         <div>
           {/* AI Payroll Summary Card */}
-          <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 flex flex-col justify-between h-full">
+          <div className="bg-white border border-border rounded-xl p-5 flex flex-col justify-between h-full">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-[#db6c00]" />
+                <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-[#1A1410]">AI Payroll Summary</div>
-                  <div className="text-[11px] text-[#6B6258] font-mono">Dynamic insights</div>
+                  <div className="text-sm font-semibold text-foreground">AI Payroll Summary</div>
+                  <div className="text-[11px] text-muted-foreground font-mono">Dynamic insights</div>
                 </div>
               </div>
 
               {loadingSummary ? (
                 <div className="space-y-3 py-4 animate-pulse">
-                  <div className="h-4 bg-[#FAFAF7] rounded w-full" />
-                  <div className="h-4 bg-[#FAFAF7] rounded w-5/6" />
-                  <div className="h-4 bg-[#FAFAF7] rounded w-2/3" />
+                  <div className="h-4 bg-panel-bg rounded w-full" />
+                  <div className="h-4 bg-panel-bg rounded w-5/6" />
+                  <div className="h-4 bg-panel-bg rounded w-2/3" />
                 </div>
               ) : (
-                <div className="text-xs text-[#6B6258] leading-relaxed space-y-4">
+                <div className="text-xs text-muted-foreground leading-relaxed space-y-4">
                   <p>
-                    This cutoff has <span className="font-semibold text-[#1A1410]">{totalRiders} active riders</span> who delivered a total of{' '}
-                    <span className="font-semibold text-[#1A1410]">{totalParcels.toLocaleString()} parcels</span>.
+                    This cutoff has <span className="font-semibold text-foreground">{totalRiders} active riders</span> who delivered a total of{' '}
+                    <span className="font-semibold text-foreground">{totalParcels.toLocaleString()} parcels</span>.
                   </p>
                   <p>
-                    Total gross payroll calculated at <span className="font-semibold text-[#db6c00]">₱{totalGross.toLocaleString()}</span>.{' '}
+                    Total gross payroll calculated at <span className="font-semibold text-primary">₱{totalGross.toLocaleString()}</span>.{' '}
                     {flaggedRiders > 0 && (
                       <span className="text-amber-600 font-medium">
                         {flaggedRiders} rider{flaggedRiders > 1 ? 's are' : ' is'} flagged for unusual delivery counts (&gt;100 parcels/day).{' '}
@@ -818,17 +811,17 @@ export function PayrollReports() {
             </div>
 
             <div className="grid grid-cols-2 gap-2 mt-5">
-              <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg p-3 text-center">
-                <div className="text-[20px] font-bold text-[#1A1410] font-mono">
+              <div className="bg-panel-bg border border-border rounded-lg p-3 text-center">
+                <div className="text-[20px] font-bold text-foreground font-mono">
                   {loadingSummary ? '...' : totalParcels.toLocaleString()}
                 </div>
-                <div className="text-[9px] uppercase tracking-wider text-[#6B6258] font-semibold mt-0.5">Parcels</div>
+                <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">Parcels</div>
               </div>
-              <div className="bg-[#FFF1E0]/50 border border-[#db6c00]/25 rounded-lg p-3 text-center">
-                <div className="text-[20px] font-bold text-[#db6c00] font-mono">
+              <div className="bg-accent/50 border border-primary/25 rounded-lg p-3 text-center">
+                <div className="text-[20px] font-bold text-primary font-mono">
                   {loadingSummary ? '...' : `₱${totalGross.toLocaleString()}`}
                 </div>
-                <div className="text-[9px] uppercase tracking-wider text-[#db6c00] font-semibold mt-0.5">Gross</div>
+                <div className="text-[9px] uppercase tracking-wider text-primary font-semibold mt-0.5">Gross</div>
               </div>
             </div>
           </div>
@@ -838,39 +831,39 @@ export function PayrollReports() {
       {/* Bottom Chart Row */}
       <div className="w-full">
         {/* Parcels Delivered per Rider Chart */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-5">
+        <div className="bg-white border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-              <Package className="w-4 h-4 text-[#db6c00]" />
+            <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
+              <Package className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-[#1A1410]">Parcels Delivered per Rider</div>
-              <div className="text-[11px] text-[#6B6258] font-mono">Visual comparison for this cutoff</div>
+              <div className="text-sm font-semibold text-foreground">Parcels Delivered per Rider</div>
+              <div className="text-[11px] text-muted-foreground font-mono">Visual comparison for this cutoff</div>
             </div>
           </div>
 
           {loadingSummary ? (
-            <div className="h-48 flex items-end justify-around gap-4 px-4 py-2 border-b border-[#EFEAE2] animate-pulse">
+            <div className="h-48 flex items-end justify-around gap-4 px-4 py-2 border-b border-border animate-pulse">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="w-12 bg-[#FAFAF7] rounded-t-md" style={{ height: `${20 + i * 15}%` }} />
+                <div key={i} className="w-12 bg-panel-bg rounded-t-md" style={{ height: `${20 + i * 15}%` }} />
               ))}
             </div>
           ) : chartData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-xs text-[#6B6258] border border-dashed border-[#EFEAE2] rounded-lg">
+            <div className="h-48 flex items-center justify-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
               No parcel data available for this range.
             </div>
           ) : (
             <div className="space-y-4">
               {/* Bars container */}
-              <div className="h-56 flex items-end justify-around gap-4 px-4 pb-2 border-b border-[#EFEAE2]">
+              <div className="h-56 flex items-end justify-around gap-4 px-4 pb-2 border-b border-border">
                 {chartData.map(d => {
                   const heightPercent = maxParcels > 0 ? (d.parcels / maxParcels) * 100 : 0;
                   const isLow = d.parcels > 0 && d.parcels < 60;
-                  const barColor = isLow ? 'bg-orange-500' : 'bg-[#db6c00] hover:bg-[#b85a00]';
+                  const barColor = isLow ? 'bg-amber-500' : 'bg-primary hover:bg-primary-hover';
 
                   return (
                     <div key={d.name} className="flex-1 flex flex-col items-center max-w-[80px] group">
-                      <div className="text-[11px] font-bold text-[#1A1410] mb-2 font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="text-[11px] font-bold text-foreground mb-2 font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         {d.parcels}
                       </div>
                       <motion.div
@@ -879,7 +872,7 @@ export function PayrollReports() {
                         transition={{ duration: 0.8, ease: 'easeOut' }}
                         className={`w-full ${barColor} rounded-t-md transition-all duration-300 relative shadow-sm cursor-pointer group-hover:shadow-md`}
                       >
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#1A1410] font-mono group-hover:hidden block">
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-foreground font-mono group-hover:hidden block">
                           {d.parcels}
                         </div>
                       </motion.div>
@@ -891,7 +884,7 @@ export function PayrollReports() {
               {/* X Axis Labels */}
               <div className="flex justify-around gap-4 px-4">
                 {chartData.map(d => (
-                  <div key={d.name} className="flex-1 text-center text-[10.5px] font-semibold text-[#6B6258] truncate max-w-[80px]" title={d.name}>
+                  <div key={d.name} className="flex-1 text-center text-[10.5px] font-semibold text-muted-foreground truncate max-w-[80px]" title={d.name}>
                     {d.name.split(' ')[0]}
                   </div>
                 ))}
@@ -904,20 +897,20 @@ export function PayrollReports() {
       {/* Expanded Sections: History, archives, and exports */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
         {/* Previous Cutoffs & Payroll History */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-sm space-y-4">
+        <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-              <CalendarRange className="w-4 h-4 text-[#db6c00]" />
+            <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
+              <CalendarRange className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-[#1A1410]">Payroll History & Archives</div>
-              <div className="text-[11px] text-[#6B6258] font-mono">Load previous cutoff dates into generator</div>
+              <div className="text-sm font-semibold text-foreground">Payroll History & Archives</div>
+              <div className="text-[11px] text-muted-foreground font-mono">Load previous cutoff dates into generator</div>
             </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase font-bold text-[#6B6258]">
+              <thead className="bg-panel-bg border-b border-border text-[10px] uppercase font-bold text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 text-left">Period</th>
                   <th className="px-3 py-2 text-right">Riders</th>
@@ -933,8 +926,8 @@ export function PayrollReports() {
                   { start: '2026-06-01', end: '2026-06-15', label: 'Jun 1–15, 2026', riders: 22, gross: 9820, status: 'Paid' },
                   { start: '2026-05-16', end: '2026-05-31', label: 'May 16–31, 2026', riders: 25, gross: 12400, status: 'Paid' },
                 ].map((item, idx) => (
-                  <tr key={idx} className="border-b border-[#EFEAE2] hover:bg-[#FAFAF7] transition-colors">
-                    <td className="px-3 py-2.5 font-semibold text-[#1A1410]">{item.label}</td>
+                  <tr key={idx} className="border-b border-border hover:bg-panel-bg transition-colors">
+                    <td className="px-3 py-2.5 font-semibold text-foreground">{item.label}</td>
                     <td className="px-3 py-2.5 text-right font-mono tabular-nums">{item.riders}</td>
                     <td className="px-3 py-2.5 text-right font-mono tabular-nums">₱{item.gross.toLocaleString()}</td>
                     <td className="px-3 py-2.5 text-center">
@@ -951,7 +944,7 @@ export function PayrollReports() {
                           setTo(item.end);
                           pushToast({ title: 'Cutoff Dates Loaded', description: `${item.label} set.`, tone: 'success' });
                         }}
-                        className="px-2.5 py-1 text-[10px] font-bold text-[#db6c00] hover:text-[#b85a00] bg-[#FFF1E0] hover:bg-[#db6c00]/25 rounded transition cursor-pointer"
+                        className="px-2.5 py-1 text-[10px] font-bold text-accent-foreground hover:text-white bg-accent hover:bg-primary rounded transition cursor-pointer"
                       >
                         Load
                       </button>
@@ -964,29 +957,29 @@ export function PayrollReports() {
         </div>
 
         {/* Generated Reports & Export History */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-sm space-y-4">
+        <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-              <FileText className="w-4 h-4 text-[#db6c00]" />
+            <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
+              <FileText className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-[#1A1410]">Export & Download History</div>
-              <div className="text-[11px] text-[#6B6258] font-mono">Recent reports exported during this session</div>
+              <div className="text-sm font-semibold text-foreground">Export & Download History</div>
+              <div className="text-[11px] text-muted-foreground font-mono">Recent reports exported during this session</div>
             </div>
           </div>
 
           <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
             {exportHistory.length === 0 ? (
-              <div className="py-12 text-center text-xs text-[#6B6258] italic border border-dashed border-[#EFEAE2] rounded-lg">
+              <div className="py-12 text-center text-xs text-muted-foreground italic border border-dashed border-border rounded-lg">
                 No exports run in this session yet. Generate a report above.
               </div>
             ) : (
               exportHistory.map((hist, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7]/50 hover:bg-[#FAFAF7] transition">
+                <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-panel-bg/50 hover:bg-panel-bg transition">
                   <div className="min-w-0 flex-1 pr-3">
-                    <div className="text-xs font-semibold text-[#1A1410] truncate">{hist.filename}</div>
-                    <div className="text-[10px] text-[#6B6258] mt-0.5 flex items-center gap-2">
-                      <span className="uppercase font-semibold font-mono text-[#db6c00]">{hist.format}</span>
+                    <div className="text-xs font-semibold text-foreground truncate">{hist.filename}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-2">
+                      <span className="uppercase font-semibold font-mono text-primary">{hist.format}</span>
                       <span>&bull;</span>
                       <span>{hist.time}</span>
                     </div>

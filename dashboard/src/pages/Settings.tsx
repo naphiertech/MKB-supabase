@@ -366,11 +366,11 @@ export function Settings() {
 
   return (
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
-      <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-sm font-[Geist,sans-serif]">
+      <div className="bg-white border border-border rounded-xl p-5 shadow-sm font-[Geist,sans-serif]">
         <form onSubmit={handleSubmit} className="flex flex-col bg-white">
           {/* Top Tab Bar & Actions Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EFEAE2] mb-5 bg-white z-10 shrink-0">
-            <div className="flex gap-1 p-1 bg-[#FAFAF7] border border-[#EFEAE2] rounded-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border mb-5 bg-white z-10 shrink-0">
+            <div className="flex gap-1 p-1 bg-panel-bg border border-border rounded-xl">
               {(['Personal Detail', 'Security', 'Notification'] as const).map((tab) => {
                 const active = activeTab === tab;
                 return (
@@ -380,8 +380,8 @@ export function Settings() {
                     onClick={() => setActiveTab(tab)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
                       active
-                        ? 'bg-white text-[#1A1410] border border-[#EFEAE2] shadow-xs'
-                        : 'text-[#6B6258] hover:text-[#1A1410] hover:bg-white/50'
+                        ? 'bg-white text-foreground border border-border shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-white/50'
                     }`}
                   >
                     {tab}
@@ -395,14 +395,14 @@ export function Settings() {
               <button
                 type="button"
                 onClick={handleResetAll}
-                className="px-3.5 py-1.5 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#6B6258] hover:text-[#1A1410] rounded-lg text-xs font-bold transition duration-200 cursor-pointer shadow-xs"
+                className="px-3.5 py-1.5 border border-border bg-white hover:bg-panel-bg text-muted-foreground hover:text-foreground rounded-lg text-xs font-bold transition duration-200 cursor-pointer shadow-xs"
               >
                 Reset All
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-1.5 bg-[#1b3d32] hover:bg-[#132c24] text-white rounded-lg text-xs font-bold transition duration-200 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="px-4 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition duration-200 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {submitting ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -415,20 +415,20 @@ export function Settings() {
           </div>
 
           {/* Contents Area */}
-          <div className="bg-[#FAFAF7]/30 space-y-6">
+          <div className="bg-panel-bg/30 space-y-6">
             {activeTab === 'Personal Detail' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 {/* Left Column Forms */}
                 <div className="lg:col-span-2 space-y-6">
                   
                   {/* Personal Detail Block */}
-                  <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 shadow-xs">
-                    <h3 className="text-sm font-bold text-[#1A1410] mb-0.5">Personal Detail</h3>
-                    <p className="text-xs text-[#6B6258] mb-4">Update your profile details to keep your account information up to date.</p>
+                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs">
+                    <h3 className="text-sm font-bold text-foreground mb-0.5">Personal Detail</h3>
+                    <p className="text-xs text-muted-foreground mb-4">Update your profile details to keep your account information up to date.</p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           First Name
                         </label>
                         <input
@@ -442,7 +442,7 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Last Name
                         </label>
                         <input
@@ -456,7 +456,7 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Email Address
                         </label>
                         <input
@@ -470,7 +470,7 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Phone Number
                         </label>
                         <input
@@ -483,7 +483,7 @@ export function Settings() {
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Preferred Language
                         </label>
                         <div className="relative">
@@ -499,12 +499,12 @@ export function Settings() {
                             <option value="Tagalog">Tagalog</option>
                             <option value="Chavacano">Chavacano</option>
                           </select>
-                          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B6258] pointer-events-none" />
+                          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Country
                         </label>
                         <div className="relative">
@@ -520,12 +520,12 @@ export function Settings() {
                               </option>
                             ))}
                           </select>
-                          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B6258] pointer-events-none" />
+                          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Province
                         </label>
                         <div className="relative">
@@ -543,7 +543,7 @@ export function Settings() {
                                   </option>
                                 ))}
                               </select>
-                              <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B6258] pointer-events-none" />
+                              <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                             </>
                           ) : (
                             <input
@@ -559,7 +559,7 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           City
                         </label>
                         <div className="relative">
@@ -577,7 +577,7 @@ export function Settings() {
                                   </option>
                                 ))}
                               </select>
-                              <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B6258] pointer-events-none" />
+                              <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                             </>
                           ) : (
                             <input
@@ -593,7 +593,7 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Zip Code
                         </label>
                         <input
@@ -610,11 +610,11 @@ export function Settings() {
 
                 {/* Right Column Profile Photo Upload */}
                 <div className="space-y-6">
-                  <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 shadow-xs flex flex-col">
-                    <h3 className="text-sm font-bold text-[#1A1410] mb-0.5">Profile Photo</h3>
-                    <p className="text-xs text-[#6B6258] mb-5 leading-relaxed">
+                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs flex flex-col">
+                    <h3 className="text-sm font-bold text-foreground mb-0.5">Profile Photo</h3>
+                    <p className="text-xs text-muted-foreground mb-5 leading-relaxed">
                       Upload a clear profile image to personalize your workspace and team collaboration.
-                  </p>
+                    </p>
 
                     {/* Circle image container with Red trash button */}
                     <div className="flex justify-center mb-5">
@@ -622,7 +622,7 @@ export function Settings() {
                         <img
                           src={avatarUrl || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(firstName || 'mkb')}`}
                           alt="Avatar Preview"
-                          className="w-32 h-32 rounded-full object-cover bg-white border border-[#EFEAE2] p-1.5 shadow-sm ring-4 ring-[#1b3d32]/5 group-hover:ring-[#1b3d32]/10 transition-all duration-200"
+                          className="w-32 h-32 rounded-full object-cover bg-white border border-border p-1.5 shadow-sm ring-4 ring-primary/5 group-hover:ring-primary/10 transition-all duration-200"
                         />
                         {avatarUrl && (
                           <button
@@ -641,7 +641,7 @@ export function Settings() {
                     </div>
 
                     {/* Upload new photo area (drag and drop) */}
-                    <h4 className="text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">Upload New Photo</h4>
+                    <h4 className="text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">Upload New Photo</h4>
                     <div
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
@@ -649,8 +649,8 @@ export function Settings() {
                       onClick={() => fileInputRef.current?.click()}
                       className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center min-h-[140px] ${
                         dragOver 
-                          ? 'border-[#1b3d32] bg-[#1b3d32]/5' 
-                          : 'border-[#EFEAE2] hover:border-[#1b3d32]/40 bg-[#FAFAF7]/40 hover:bg-[#FAFAF7]/80'
+                          ? 'border-primary bg-accent/40' 
+                          : 'border-border hover:border-primary/40 bg-panel-bg/40 hover:bg-panel-bg/80'
                       }`}
                     >
                       <input
@@ -660,13 +660,13 @@ export function Settings() {
                         accept="image/*"
                         className="hidden"
                       />
-                      <div className="w-10 h-10 rounded-full bg-[#1b3d32]/10 flex items-center justify-center text-[#1b3d32] mb-3 transition-colors duration-250">
+                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-primary mb-3 transition-colors duration-250">
                         <Upload className="w-5 h-5" />
                       </div>
-                      <p className="text-xs text-[#1A1410] font-medium mb-1">
-                        Drop your images here, or <span className="text-[#1b3d32] hover:underline font-bold">Click to browse</span>
+                      <p className="text-xs text-foreground font-medium mb-1">
+                        Drop your images here, or <span className="text-primary hover:underline font-bold">Click to browse</span>
                       </p>
-                      <p className="text-[10px] text-[#6B6258]">Upload File, .PNG/.JPG format (Max 2MB)</p>
+                      <p className="text-[10px] text-muted-foreground">Upload File, .PNG/.JPG format (Max 2MB)</p>
                     </div>
                   </div>
                 </div>
@@ -679,15 +679,15 @@ export function Settings() {
                 <div className="lg:col-span-2 space-y-6">
                   
                   {/* Email Update Panel */}
-                  <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 shadow-xs">
-                    <h3 className="text-sm font-bold text-[#1A1410] mb-0.5 flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-[#db6c00]" />
+                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs">
+                    <h3 className="text-sm font-bold text-foreground mb-0.5 flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-primary" />
                       <span>Email Address</span>
                     </h3>
-                    <p className="text-xs text-[#6B6258] mb-4">Modify your primary log in email address.</p>
+                    <p className="text-xs text-muted-foreground mb-4">Modify your primary log in email address.</p>
                     
                     <div>
-                      <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                      <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                         Email Address
                       </label>
                       <input
@@ -702,17 +702,17 @@ export function Settings() {
                   </div>
 
                   {/* Password Update Panel */}
-                  <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 shadow-xs space-y-4">
+                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
                     <div>
-                      <h3 className="text-sm font-bold text-[#1A1410] mb-0.5 flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-[#db6c00]" />
+                      <h3 className="text-sm font-bold text-foreground mb-0.5 flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-primary" />
                         <span>Change Password</span>
                       </h3>
-                      <p className="text-xs text-[#6B6258] mb-4">Enter a new password. Minimum length is 8 characters.</p>
+                      <p className="text-xs text-muted-foreground mb-4">Enter a new password. Minimum length is 8 characters.</p>
                     </div>
 
-                    <div className="p-3 bg-[#FFF1E0] border border-[#db6c00]/20 text-[#b85a00] rounded-xl flex items-start gap-2.5 shadow-xs">
-                      <AlertTriangle className="w-4.5 h-4.5 text-[#db6c00] shrink-0 mt-0.5" />
+                    <div className="p-3 bg-accent border border-primary/20 text-primary rounded-xl flex items-start gap-2.5 shadow-xs">
+                      <AlertTriangle className="w-4.5 h-4.5 text-primary shrink-0 mt-0.5" />
                       <p className="text-[11px] leading-relaxed font-medium">
                         Leave password fields blank if you do not want to modify your current credentials.
                       </p>
@@ -720,7 +720,7 @@ export function Settings() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           New Password
                         </label>
                         <div className="relative">
@@ -735,7 +735,7 @@ export function Settings() {
                           <button
                             type="button"
                             onClick={() => setShowPassword((s) => !s)}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-[#6B6258] hover:text-[#1A1410] rounded cursor-pointer"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
                           >
                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
@@ -744,7 +744,7 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-[#6B6258] mb-1.5 uppercase tracking-wider">
+                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Confirm Password
                         </label>
                         <input
@@ -764,14 +764,14 @@ export function Settings() {
                 <div className="space-y-6">
                   
                   {/* Advanced Security Card */}
-                  <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 shadow-xs space-y-4">
-                    <h3 className="text-sm font-bold text-[#1A1410] mb-0.5">Account Security</h3>
+                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
+                    <h3 className="text-sm font-bold text-foreground mb-0.5">Account Security</h3>
                     
                     {/* Toggle 1 */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-[#1A1410]">2-Step Verification</h4>
-                        <p className="text-[10px] text-[#6B6258] leading-relaxed">
+                        <h4 className="text-xs font-semibold text-foreground">2-Step Verification</h4>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
                           Add an extra layer of protection to secure authentication.
                         </p>
                       </div>
@@ -786,8 +786,8 @@ export function Settings() {
                             tone: 'info'
                           });
                         }}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
-                          twoStepVerification ? 'bg-[#1b3d32]' : 'bg-[#EFEAE2]'
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                          twoStepVerification ? 'bg-primary' : 'bg-border'
                         }`}
                       >
                         <span
@@ -798,13 +798,13 @@ export function Settings() {
                       </button>
                     </div>
 
-                    <div className="h-px bg-[#EFEAE2]" />
+                    <div className="h-px bg-border" />
 
                     {/* Toggle 2 */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-[#1A1410]">Support Access</h4>
-                        <p className="text-[10px] text-[#6B6258] leading-relaxed">
+                        <h4 className="text-xs font-semibold text-foreground">Support Access</h4>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
                           Allow administrators or tech representatives to audit your current dashboard.
                         </p>
                       </div>
@@ -819,8 +819,8 @@ export function Settings() {
                             tone: 'info'
                           });
                         }}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
-                          supportAccess ? 'bg-[#1b3d32]' : 'bg-[#EFEAE2]'
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                          supportAccess ? 'bg-primary' : 'bg-border'
                         }`}
                       >
                         <span
@@ -833,9 +833,9 @@ export function Settings() {
                   </div>
 
                   {/* Force Sessions Log Out */}
-                  <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 shadow-xs space-y-3">
-                    <h3 className="text-xs font-bold text-[#1A1410] uppercase tracking-wider">Active Sessions</h3>
-                    <p className="text-[11px] text-[#6B6258] leading-relaxed">
+                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-3">
+                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Active Sessions</h3>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
                       Log out of all other active browser sessions on other devices or locations.
                     </p>
                     <button
@@ -846,7 +846,7 @@ export function Settings() {
                           pushToast({ title: 'Success', description: 'Terminated all other active sessions.', tone: 'success' });
                         }, 1000);
                       }}
-                      className="w-full py-2 bg-white hover:bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] hover:text-[#1A1410] rounded-xl text-xs font-bold transition duration-200 cursor-pointer"
+                      className="w-full py-2 bg-white hover:bg-panel-bg border border-border text-muted-foreground hover:text-foreground rounded-xl text-xs font-bold transition duration-200 cursor-pointer"
                     >
                       Log out of all other devices
                     </button>
@@ -883,61 +883,61 @@ export function Settings() {
                 <div className="lg:col-span-2 space-y-6">
                   
                   {/* Email Notifications */}
-                  <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 shadow-xs space-y-4">
+                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
                     <div>
-                      <h3 className="text-sm font-bold text-[#1A1410] mb-0.5">Email Notifications</h3>
-                      <p className="text-xs text-[#6B6258] mb-4">Manage when and how you receive email compliance digests.</p>
+                      <h3 className="text-sm font-bold text-foreground mb-0.5">Email Notifications</h3>
+                      <p className="text-xs text-muted-foreground mb-4">Manage when and how you receive email compliance digests.</p>
                     </div>
 
                     {/* Toggle 1 */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-[#1A1410]">Geofence Violations</h4>
-                        <p className="text-[10px] text-[#6B6258] leading-relaxed">Receive instant alerts when riders breach boundaries.</p>
+                        <h4 className="text-xs font-semibold text-foreground">Geofence Violations</h4>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">Receive instant alerts when riders breach boundaries.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setNotifBoundaryExit(!notifBoundaryExit)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
-                          notifBoundaryExit ? 'bg-[#1b3d32]' : 'bg-[#EFEAE2]'
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                          notifBoundaryExit ? 'bg-primary' : 'bg-border'
                         }`}
                       >
                         <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifBoundaryExit ? 'translate-x-5' : 'translate-x-0'}`} />
                       </button>
                     </div>
 
-                    <div className="h-px bg-[#EFEAE2]" />
+                    <div className="h-px bg-border" />
 
                     {/* Toggle 2 */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-[#1A1410]">Attendance Logs</h4>
-                        <p className="text-[10px] text-[#6B6258] leading-relaxed">Get notified on late check-ins or absences.</p>
+                        <h4 className="text-xs font-semibold text-foreground">Attendance Logs</h4>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">Get notified on late check-ins or absences.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setNotifAttendance(!notifAttendance)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
-                          notifAttendance ? 'bg-[#1b3d32]' : 'bg-[#EFEAE2]'
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                          notifAttendance ? 'bg-primary' : 'bg-border'
                         }`}
                       >
                         <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifAttendance ? 'translate-x-5' : 'translate-x-0'}`} />
                       </button>
                     </div>
 
-                    <div className="h-px bg-[#EFEAE2]" />
+                    <div className="h-px bg-border" />
 
                     {/* Toggle 3 */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-[#1A1410]">Weekly Digests</h4>
-                        <p className="text-[10px] text-[#6B6258] leading-relaxed">Subscribe to weekly operations and payroll data logs.</p>
+                        <h4 className="text-xs font-semibold text-foreground">Weekly Digests</h4>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">Subscribe to weekly operations and payroll data logs.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setNotifReports(!notifReports)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
-                          notifReports ? 'bg-[#1b3d32]' : 'bg-[#EFEAE2]'
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                          notifReports ? 'bg-primary' : 'bg-border'
                         }`}
                       >
                         <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifReports ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -949,39 +949,39 @@ export function Settings() {
                 {/* Right Column Alerts */}
                 <div className="space-y-6">
                   {/* System Alerts Card */}
-                  <div className="bg-white border border-[#EFEAE2] rounded-2xl p-5 shadow-xs space-y-4">
-                    <h3 className="text-sm font-bold text-[#1A1410] mb-0.5">System Alerts</h3>
+                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
+                    <h3 className="text-sm font-bold text-foreground mb-0.5">System Alerts</h3>
 
                     {/* sound */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-[#1A1410]">Sound Effects</h4>
-                        <p className="text-[10px] text-[#6B6258] leading-relaxed">Play chime sound when geofence violations trigger.</p>
+                        <h4 className="text-xs font-semibold text-foreground">Sound Effects</h4>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">Play chime sound when geofence violations trigger.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setNotifSound(!notifSound)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
-                          notifSound ? 'bg-[#1b3d32]' : 'bg-[#EFEAE2]'
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                          notifSound ? 'bg-primary' : 'bg-border'
                         }`}
                       >
                         <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifSound ? 'translate-x-5' : 'translate-x-0'}`} />
                       </button>
                     </div>
 
-                    <div className="h-px bg-[#EFEAE2]" />
+                    <div className="h-px bg-border" />
 
                     {/* push */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-[#1A1410]">Push Notifications</h4>
-                        <p className="text-[10px] text-[#6B6258] leading-relaxed">Display browser notification alerts in the background.</p>
+                        <h4 className="text-xs font-semibold text-foreground">Push Notifications</h4>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">Display browser notification alerts in the background.</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setNotifPush(!notifPush)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
-                          notifPush ? 'bg-[#1b3d32]' : 'bg-[#EFEAE2]'
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                          notifPush ? 'bg-primary' : 'bg-border'
                         }`}
                       >
                         <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifPush ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -1002,19 +1002,19 @@ export function Settings() {
           padding-left: 14px;
           padding-right: 14px;
           background: #ffffff;
-          border: 1px solid #EFEAE2;
+          border: 1px solid var(--border, #EFEAE2);
           border-radius: 12px;
-          color: #1A1410;
+          color: var(--foreground, #1A1410);
           font-size: 13px;
           outline: none;
           transition: all 200ms ease;
         }
         .prof-input:hover {
-          border-color: rgba(27, 61, 50, 0.4);
+          border-color: rgba(219, 108, 0, 0.4);
         }
         .prof-input:focus {
-          border-color: #1b3d32;
-          box-shadow: 0 0 0 4px rgba(27, 61, 50, 0.08);
+          border-color: var(--primary, #db6c00);
+          box-shadow: 0 0 0 4px rgba(219, 108, 0, 0.08);
         }
         select.prof-input {
           background-image: none;

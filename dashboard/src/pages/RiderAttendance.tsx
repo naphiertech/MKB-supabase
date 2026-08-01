@@ -245,12 +245,12 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm text-[#6B6258] hover:text-[#1A1410] transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to dashboard
         </button>
-        <div className="text-[10px] uppercase tracking-[0.2em] text-[#6B6258] font-mono font-semibold">
+        <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono font-semibold">
           Attendance Portal
         </div>
       </div>
@@ -275,7 +275,7 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
           </div>
           <div className="flex items-center justify-between sm:justify-end gap-5">
             <div className="text-right sm:pr-2">
-              <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-mono font-semibold">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono font-semibold">
                 Duration Elapsed
               </div>
               <div className="text-2xl font-bold font-mono tracking-tight text-emerald-800">
@@ -284,7 +284,7 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
             </div>
             <button
               onClick={onBack}
-              className="h-10 px-4 rounded-md bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-semibold tracking-wider uppercase transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#db6c00]/25"
+              className="h-10 px-4 rounded-md bg-primary hover:bg-primary-hover text-white text-xs font-semibold tracking-wider uppercase transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/25"
             >
               Clock Out
             </button>
@@ -294,43 +294,43 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-[#EFEAE2] bg-white p-4 shadow-sm flex items-center gap-3.5">
+        <div className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3.5">
           <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/20 shrink-0">
             <Calendar className="w-5 h-5" />
           </span>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-mono font-semibold">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono font-semibold">
               Days Present
             </div>
-            <div className="text-xl font-bold text-[#1A1410] mt-0.5 font-mono">
+            <div className="text-xl font-bold text-foreground mt-0.5 font-mono">
               {stats.daysPresent} days
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#EFEAE2] bg-white p-4 shadow-sm flex items-center gap-3.5">
-          <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#FFF1E0] text-[#db6c00] ring-1 ring-[#db6c00]/20 shrink-0">
+        <div className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3.5">
+          <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-accent text-primary ring-1 ring-primary/20 shrink-0">
             <Hourglass className="w-5 h-5" />
           </span>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-mono font-semibold">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono font-semibold">
               Attendance Rate
             </div>
-            <div className="text-xl font-bold text-[#1A1410] mt-0.5 font-mono">
+            <div className="text-xl font-bold text-foreground mt-0.5 font-mono">
               {stats.attendanceRate}%
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#EFEAE2] bg-white p-4 shadow-sm flex items-center gap-3.5">
+        <div className="rounded-2xl border border-border bg-white p-4 shadow-sm flex items-center gap-3.5">
           <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-500/20 shrink-0">
             <Activity className="w-5 h-5" />
           </span>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-mono font-semibold">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono font-semibold">
               Hours This Week
             </div>
-            <div className="text-xl font-bold text-[#1A1410] mt-0.5 font-mono">
+            <div className="text-xl font-bold text-foreground mt-0.5 font-mono">
               {stats.hoursThisWeek.toFixed(1)} hrs
             </div>
           </div>
@@ -338,13 +338,13 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
       </div>
 
       {/* History Log */}
-      <section className="rounded-2xl border border-[#EFEAE2] bg-white p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-[#EFEAE2]/60">
+      <section className="rounded-2xl border border-border bg-white p-5 sm:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-border/60">
           <div>
-            <h2 className="text-[#1A1410] font-semibold text-base">
+            <h2 className="text-foreground font-semibold text-base">
               Attendance Log History
             </h2>
-            <p className="text-xs text-[#6B6258] mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Your detailed attendance checks for the current month.
             </p>
           </div>
@@ -352,11 +352,11 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
           {/* Controls: Filter & Sort */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative inline-flex items-center">
-              <Calendar className="w-3.5 h-3.5 absolute left-2.5 text-[#6B6258] pointer-events-none" />
+              <Calendar className="w-3.5 h-3.5 absolute left-2.5 text-muted-foreground pointer-events-none" />
               <select
                 value={monthFilter}
                 onChange={(e) => setMonthFilter(e.target.value as typeof monthFilter)}
-                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] font-medium focus:outline-none focus:ring-1 focus:ring-[#db6c00] appearance-none cursor-pointer"
+                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-border bg-panel-bg text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
               >
                 <option value="current">Current Month</option>
                 <option value="all">All Months</option>
@@ -364,11 +364,11 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
             </div>
 
             <div className="relative inline-flex items-center">
-              <Filter className="w-3.5 h-3.5 absolute left-2.5 text-[#6B6258] pointer-events-none" />
+              <Filter className="w-3.5 h-3.5 absolute left-2.5 text-muted-foreground pointer-events-none" />
               <select
                 value={attendanceFilter}
                 onChange={(e) => setAttendanceFilter(e.target.value as typeof attendanceFilter)}
-                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] font-medium focus:outline-none focus:ring-1 focus:ring-[#db6c00] appearance-none cursor-pointer"
+                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-border bg-panel-bg text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
               >
                 <option value="all">All Attendance</option>
                 <option value="present">Present Only</option>
@@ -378,11 +378,11 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
             </div>
 
             <div className="relative inline-flex items-center">
-              <Clock className="w-3.5 h-3.5 absolute left-2.5 text-[#6B6258] pointer-events-none" />
+              <Clock className="w-3.5 h-3.5 absolute left-2.5 text-muted-foreground pointer-events-none" />
               <select
                 value={punctualityFilter}
                 onChange={(e) => setPunctualityFilter(e.target.value as typeof punctualityFilter)}
-                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] font-medium focus:outline-none focus:ring-1 focus:ring-[#db6c00] appearance-none cursor-pointer"
+                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-border bg-panel-bg text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
               >
                 <option value="all">All Punctuality</option>
                 <option value="on_time">On Time Only</option>
@@ -391,11 +391,11 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
             </div>
 
             <div className="relative inline-flex items-center">
-              <ArrowUpDown className="w-3.5 h-3.5 absolute left-2.5 text-[#6B6258] pointer-events-none" />
+              <ArrowUpDown className="w-3.5 h-3.5 absolute left-2.5 text-muted-foreground pointer-events-none" />
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
-                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-[#1A1410] font-medium focus:outline-none focus:ring-1 focus:ring-[#db6c00] appearance-none cursor-pointer"
+                className="h-8 pl-8 pr-7 text-xs rounded-lg border border-border bg-panel-bg text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
               >
                 <option value="desc">Newest First</option>
                 <option value="asc">Oldest First</option>
@@ -406,23 +406,23 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
 
         {/* Counter Header */}
         {monthLogs.length > 0 && (
-          <div className="text-[11px] font-mono text-[#6B6258] uppercase tracking-wider">
+          <div className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">
             Showing {filteredLogs.length} of {monthLogs.length} records
           </div>
         )}
 
         {filteredLogs.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-[#EFEAE2] rounded-xl space-y-2">
+          <div className="p-8 text-center border border-dashed border-border rounded-xl space-y-2">
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-50 text-amber-600">
               <AlertCircle className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-semibold text-[#1A1410]">No Matching Records</h3>
-            <p className="text-xs text-[#6B6258] max-w-xs mx-auto">
+            <h3 className="text-sm font-semibold text-foreground">No Matching Records</h3>
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
               No attendance logs match your selected filter criteria. Try clearing filters to view all records.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#EFEAE2] border border-[#EFEAE2] rounded-xl overflow-hidden bg-white">
+          <div className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-white">
             {filteredLogs.map((log, index) => {
               const isLate = log.status === 'late' || log.punctuality === 'late';
               const isPresent = !!log.time_in || log.status === 'present' || isLate;
@@ -434,11 +434,11 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
               return (
                 <div
                   key={log.id || index}
-                  className="p-3.5 flex items-center justify-between text-sm hover:bg-[#FAFAF7] transition-colors"
+                  className="p-3.5 flex items-center justify-between text-sm hover:bg-panel-bg transition-colors"
                 >
                   <div>
-                    <div className="font-semibold text-[#1A1410]">{dateLabel}</div>
-                    <div className="text-xs text-[#6B6258] font-mono mt-0.5">
+                    <div className="font-semibold text-foreground">{dateLabel}</div>
+                    <div className="text-xs text-muted-foreground font-mono mt-0.5">
                       {log.time_in ? format12h(toHHMM(log.time_in) || '00:00') : '—'} –{' '}
                       {log.time_out ? format12h(toHHMM(log.time_out) || '00:00') : '—'}
                     </div>
@@ -468,7 +468,7 @@ export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
                       </span>
                     )}
 
-                    <span className="font-semibold font-mono text-sm text-[#1A1410] ml-1">
+                    <span className="font-semibold font-mono text-sm text-foreground ml-1">
                       {log.hours ? `${log.hours.toFixed(1)} hrs` : '—'}
                     </span>
                   </div>

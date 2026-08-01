@@ -174,9 +174,9 @@ export function Reports() {
       {/* ------------------------------------------------------------- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Attendance Rate */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-[#db6c00]/40 transition">
+        <div className="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-primary/40 transition">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-[#6B6258] uppercase font-mono tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase font-mono tracking-wider">
               Attendance Rate
             </span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
@@ -184,7 +184,7 @@ export function Reports() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold font-mono text-[#1A1410]">
+            <div className="text-2xl font-bold font-mono text-foreground">
               {metrics.attendanceRate}%
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-600 font-medium">
@@ -195,9 +195,9 @@ export function Reports() {
         </div>
 
         {/* KPI 2: Total Violations */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-red-300 transition">
+        <div className="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-red-300 transition">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-[#6B6258] uppercase font-mono tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase font-mono tracking-wider">
               Total Violations
             </span>
             <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 border border-red-200 flex items-center justify-center">
@@ -205,7 +205,7 @@ export function Reports() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold font-mono text-[#1A1410]">
+            <div className="text-2xl font-bold font-mono text-foreground">
               {metrics.totalViolations}
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-600 font-medium">
@@ -216,9 +216,9 @@ export function Reports() {
         </div>
 
         {/* KPI 3: Average Shift Hours */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-amber-300 transition">
+        <div className="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-amber-300 transition">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-[#6B6258] uppercase font-mono tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase font-mono tracking-wider">
               Avg Shift Duration
             </span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
@@ -226,10 +226,10 @@ export function Reports() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold font-mono text-[#1A1410]">
-              {metrics.avgHours} <span className="text-sm font-sans font-normal text-[#6B6258]">hrs</span>
+            <div className="text-2xl font-bold font-mono text-foreground">
+              {metrics.avgHours} <span className="text-sm font-sans font-normal text-muted-foreground">hrs</span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-[#6B6258]">
+            <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <span>Target: 8.0 hrs / shift</span>
             </div>
@@ -237,9 +237,9 @@ export function Reports() {
         </div>
 
         {/* KPI 4: Active Fleet Deployment */}
-        <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-blue-300 transition">
+        <div className="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-blue-300 transition">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-[#6B6258] uppercase font-mono tracking-wider">
+            <span className="text-xs font-semibold text-muted-foreground uppercase font-mono tracking-wider">
               Riders Active
             </span>
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
@@ -247,8 +247,8 @@ export function Reports() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold font-mono text-[#1A1410]">
-              {metrics.activeRiders} <span className="text-sm font-sans font-normal text-[#6B6258]">/ {metrics.totalRiders}</span>
+            <div className="text-2xl font-bold font-mono text-foreground">
+              {metrics.activeRiders} <span className="text-sm font-sans font-normal text-muted-foreground">/ {metrics.totalRiders}</span>
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-xs text-blue-600 font-medium">
               <span>{Math.round((metrics.activeRiders / metrics.totalRiders) * 100)}% active deployment</span>
@@ -260,9 +260,9 @@ export function Reports() {
       {/* ------------------------------------------------------------- */}
       {/* 2. CATEGORY TABS & UNIFIED HORIZONTAL CONTROLS TOOLBAR        */}
       {/* ------------------------------------------------------------- */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 md:p-5 shadow-sm space-y-4">
+      <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-4">
         {/* Category Tabs */}
-        <div className="flex items-center justify-between border-b border-[#EFEAE2]/60 pb-3 flex-wrap gap-3">
+        <div className="flex items-center justify-between border-b border-border/60 pb-3 flex-wrap gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             {[
               { id: 'weekly_attendance', label: 'Attendance', icon: CheckCircle2 },
@@ -278,8 +278,8 @@ export function Reports() {
                   onClick={() => setActiveTab(t.id as CategoryTab)}
                   className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#db6c00] text-white shadow-2xs'
-                      : 'bg-[#FAFAF7] text-[#6B6258] hover:text-[#1A1410] border border-[#EFEAE2] hover:bg-white'
+                      ? 'bg-primary text-white shadow-2xs'
+                      : 'bg-panel-bg text-muted-foreground hover:text-foreground border border-border hover:bg-white'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -295,8 +295,8 @@ export function Reports() {
             onClick={handleResetFilters}
             className={`text-xs font-semibold transition flex items-center gap-1.5 ${
               isFilterModified
-                ? 'text-[#db6c00] hover:text-[#b85a00] cursor-pointer opacity-100'
-                : 'text-[#6B6258] opacity-40 cursor-not-allowed'
+                ? 'text-primary hover:text-primary-hover cursor-pointer opacity-100'
+                : 'text-muted-foreground opacity-40 cursor-not-allowed'
             }`}
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -310,16 +310,16 @@ export function Reports() {
           <div className="flex flex-wrap items-end gap-3 flex-1">
             {/* Quick Date Presets */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#6B6258] font-mono">
+              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
                 Presets
               </span>
-              <div className="flex items-center gap-1 bg-[#FAFAF7] border border-[#EFEAE2] rounded-md p-0.5 h-[34px]">
+              <div className="flex items-center gap-1 bg-panel-bg border border-border rounded-md p-0.5 h-[34px]">
                 {(['7d', '14d', '30d'] as const).map((p) => (
                   <button
                     key={p}
                     onClick={() => handleApplyPreset(p)}
                     className={`px-2.5 h-7 rounded text-[11px] font-semibold transition cursor-pointer ${
-                      datePreset === p ? 'bg-white text-[#db6c00] shadow-2xs border border-[#EFEAE2]' : 'text-[#6B6258] hover:text-[#1A1410]'
+                      datePreset === p ? 'bg-white text-primary shadow-2xs border border-border' : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {p.toUpperCase()}
@@ -330,7 +330,7 @@ export function Reports() {
 
             {/* From Date */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#6B6258] font-mono">
+              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
                 From
               </span>
               <input
@@ -346,7 +346,7 @@ export function Reports() {
 
             {/* To Date */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#6B6258] font-mono">
+              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
                 To
               </span>
               <input
@@ -362,7 +362,7 @@ export function Reports() {
 
             {/* Zone Selector */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#6B6258] font-mono">
+              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
                 Zone
               </span>
               <select
@@ -381,19 +381,19 @@ export function Reports() {
           </div>
 
           {/* Right Controls: Format & Export CTA */}
-          <div className="flex items-end gap-2.5 shrink-0 flex-wrap pt-2 lg:pt-0 border-t lg:border-t-0 border-[#EFEAE2]">
+          <div className="flex items-end gap-2.5 shrink-0 flex-wrap pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
             {/* Format Segmented Selector */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#6B6258] font-mono">
+              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
                 Format
               </span>
-              <div className="flex items-center bg-[#FAFAF7] border border-[#EFEAE2] rounded-md p-0.5 h-[34px]">
+              <div className="flex items-center bg-panel-bg border border-border rounded-md p-0.5 h-[34px]">
                 {(['pdf', 'csv', 'xlsx'] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFormat(f)}
                     className={`px-3 h-7 rounded text-xs font-bold uppercase transition cursor-pointer ${
-                      format === f ? 'bg-white text-[#db6c00] shadow-2xs border border-[#EFEAE2]' : 'text-[#6B6258] hover:text-[#1A1410]'
+                      format === f ? 'bg-white text-primary shadow-2xs border border-border' : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {f}
@@ -406,7 +406,7 @@ export function Reports() {
             <button
               onClick={handleGenerate}
               disabled={isGenerating}
-              className="inline-flex items-center gap-2 px-5 h-[34px] rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-bold shadow-sm transition disabled:opacity-60 cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 h-[34px] rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm transition disabled:opacity-60 cursor-pointer"
             >
               {isGenerating ? (
                 <>
@@ -452,63 +452,63 @@ export function Reports() {
       {/* ------------------------------------------------------------- */}
       {/* 4. AUTOMATED EXECUTIVE INSIGHTS CARD                           */}
       {/* ------------------------------------------------------------- */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-[#EFEAE2]/60 pb-3">
+      <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#FFF1E0] border border-[#db6c00]/30 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-[#db6c00]" />
+            <div className="w-7 h-7 rounded-lg bg-accent border border-primary/30 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#1A1410]">Executive Operations Insights</h3>
-              <p className="text-[11px] text-[#6B6258] font-mono">Automated pattern detection across active logs</p>
+              <h3 className="text-sm font-bold text-foreground">Executive Operations Insights</h3>
+              <p className="text-[11px] text-muted-foreground font-mono">Automated pattern detection across active logs</p>
             </div>
           </div>
-          <span className="text-[11px] bg-[#FFF1E0] text-[#b85a00] font-mono font-semibold px-2.5 py-1 rounded-full border border-[#db6c00]/20">
+          <span className="text-[11px] bg-accent text-accent-foreground font-mono font-semibold px-2.5 py-1 rounded-full border border-primary/20">
             Live AI Summary
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* Insight 1 */}
-          <div className="p-3.5 bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg space-y-1.5">
+          <div className="p-3.5 bg-panel-bg border border-border rounded-lg space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Attendance Rate</span>
             </div>
-            <p className="text-xs text-[#1A1410] leading-relaxed">
+            <p className="text-xs text-foreground leading-relaxed">
               Attendance compliance averaged <strong className="font-mono">{metrics.attendanceRate}%</strong> over the period, maintaining peak punctuality on mid-week shifts.
             </p>
           </div>
 
           {/* Insight 2 */}
-          <div className="p-3.5 bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#db6c00]">
+          <div className="p-3.5 bg-panel-bg border border-border rounded-lg space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
               <MapPin className="w-3.5 h-3.5" />
               <span>Top Zone Coverage</span>
             </div>
-            <p className="text-xs text-[#1A1410] leading-relaxed">
+            <p className="text-xs text-foreground leading-relaxed">
               <strong>Pasobolong & Guiwan</strong> achieved 100% on-time arrivals with zero boundary breaches recorded during active shifts.
             </p>
           </div>
 
           {/* Insight 3 */}
-          <div className="p-3.5 bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg space-y-1.5">
+          <div className="p-3.5 bg-panel-bg border border-border rounded-lg space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
               <AlertTriangle className="w-3.5 h-3.5" />
               <span>Geofence Hotspot</span>
             </div>
-            <p className="text-xs text-[#1A1410] leading-relaxed">
+            <p className="text-xs text-foreground leading-relaxed">
               <strong>Pasonanca & Baliwasan</strong> accounted for 65% of total geofence boundary exit alerts. Zone boundary review recommended.
             </p>
           </div>
 
           {/* Insight 4 */}
-          <div className="p-3.5 bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg space-y-1.5">
+          <div className="p-3.5 bg-panel-bg border border-border rounded-lg space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
               <Users className="w-3.5 h-3.5" />
               <span>Rider Attention</span>
             </div>
-            <p className="text-xs text-[#1A1410] leading-relaxed">
+            <p className="text-xs text-foreground leading-relaxed">
               <strong>3 riders</strong> logged consecutive late check-ins (&gt;15 min delay). Prompt HR review recommended before cutoff.
             </p>
           </div>
@@ -520,17 +520,17 @@ export function Reports() {
         .rep-ctrl-input {
           height: 34px;
           padding: 0 10px;
-          background: #FAFAF7;
-          border: 1px solid #EFEAE2;
+          background: var(--panel-bg, #FAFAF7);
+          border: 1px solid var(--border, #EFEAE2);
           border-radius: 6px;
-          color: #1A1410;
+          color: var(--foreground, #1A1410);
           font-size: 12px;
           outline: none;
           font-family: 'Geist Mono', monospace;
           transition: border-color 150ms ease, box-shadow 150ms ease;
         }
         .rep-ctrl-input:focus {
-          border-color: #db6c00;
+          border-color: var(--primary, #db6c00);
           box-shadow: 0 0 0 3px rgba(219, 108, 0, 0.12);
         }
         select.rep-ctrl-input {

@@ -394,10 +394,10 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           {/* Header */}
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <div className="text-2xl font-semibold text-[#1A1410] tracking-tight">
+              <div className="text-2xl font-semibold text-foreground tracking-tight">
                 {currentUserRole === 'hr' ? counts.rider : userList.length}
               </div>
-              <div className="text-sm text-[#6B6258]">
+              <div className="text-sm text-muted-foreground">
                 {currentUserRole === 'hr' ? 'total riders' : 'total users'}
               </div>
               <div className="hidden md:flex items-center gap-1.5 ml-3">
@@ -440,9 +440,9 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md border border-[#EFEAE2] bg-white text-[#1A1410] hover:bg-[#FAFAF7] text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-[#db6c00]/15 shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md border border-border bg-white text-foreground hover:bg-panel-bg text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-primary/15 shadow-sm cursor-pointer"
               >
-                <Download className="w-4 h-4 text-[#db6c00]" />
+                <Download className="w-4 h-4 text-primary" />
                 Export Excel
               </button>
               <button
@@ -451,7 +451,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                   setEditing(null);
                   setView('form');
                 }}
-                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-[#db6c00] hover:bg-[#b85a00] text-white text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-[#db6c00]/25 shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-primary/25 shadow-sm cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Add Rider
               </button>
@@ -459,14 +459,14 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           </div>
 
           {/* Filters */}
-          <div className="bg-white border border-[#EFEAE2] rounded-xl p-3 flex flex-wrap gap-2 items-center shadow-sm">
-            <div className="flex items-center gap-2 px-3 h-9 rounded-md bg-[#FAFAF7] border border-[#EFEAE2] flex-1 min-w-[220px] max-w-md focus-within:border-[#db6c00] focus-within:ring-2 focus-within:ring-[#db6c00]/15 transition-shadow">
-              <Search className="w-4 h-4 text-[#6B6258]" />
+          <div className="bg-white border border-border rounded-xl p-3 flex flex-wrap gap-2 items-center shadow-sm">
+            <div className="flex items-center gap-2 px-3 h-9 rounded-md bg-panel-bg border border-border flex-1 min-w-[220px] max-w-md focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-shadow">
+              <Search className="w-4 h-4 text-muted-foreground" />
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder={currentUserRole === 'hr' ? "Search riders by name or email…" : "Search by name or email…"}
-                className="bg-transparent outline-none text-sm text-[#1A1410] placeholder:text-[#A39988] flex-1" />
+                className="bg-transparent outline-none text-sm text-foreground placeholder:text-subtle-text flex-1" />
               
             </div>
             {currentUserRole !== 'hr' && (
@@ -516,13 +516,13 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
               } />
             
             <div className="flex-1" />
-            <div className="text-xs text-[#6B6258] font-mono px-2">
+            <div className="text-xs text-muted-foreground font-mono px-2">
               {filtered.length} shown
             </div>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center h-48 text-[#6B6258] text-sm">
+            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
               Loading users from Supabase...
             </div>
           ) : (
@@ -551,16 +551,9 @@ function RoleChip({
   label,
   count,
   tone
-
-
-
-
-  
-
-
 }: {icon: ComponentType<{className?: string;}>;label: string;count: number;tone: 'orange' | 'amber' | 'slate' | 'indigo';}) {
   const styles = {
-    orange: 'bg-[#FFF1E0] border-[#db6c00]/30 text-[#b85a00]',
+    orange: 'bg-accent border-primary/30 text-accent-foreground',
     amber: 'bg-[#FEF3C7] border-[#D97706]/30 text-[#B45309]',
     slate: 'bg-slate-100 border-slate-300 text-slate-600',
     indigo: 'bg-indigo-50 border-indigo-500/30 text-indigo-700'
@@ -579,21 +572,14 @@ function Segmented({
   value,
   onChange,
   options
-
-
-
-
-
-
-
 }: {value: string;onChange: (v: string) => void;options: {v: string;l: string;}[];}) {
   return (
-    <div className="inline-flex p-0.5 rounded-md bg-[#FAFAF7] border border-[#EFEAE2]">
+    <div className="inline-flex p-0.5 rounded-md bg-panel-bg border border-border">
       {options.map((o) =>
       <button
         key={o.v}
         onClick={() => onChange(o.v)}
-        className={`px-2.5 h-8 rounded text-xs transition-colors ${value === o.v ? 'bg-white text-[#1A1410] shadow-sm border border-[#EFEAE2]' : 'text-[#6B6258] hover:text-[#1A1410]'}`}>
+        className={`px-2.5 h-8 rounded text-xs transition-colors ${value === o.v ? 'bg-white text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
         
           {o.l}
         </button>

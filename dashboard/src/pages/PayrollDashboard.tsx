@@ -196,9 +196,9 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
     <div className="p-4 md:p-6 lg:p-7 space-y-5">
       
       {/* Banner */}
-      <div className="flex items-start gap-2.5 px-4 py-2.5 rounded-lg bg-[#FFF1E0] border border-[#db6c00]/30">
-        <Lock className="w-4 h-4 text-[#db6c00] mt-0.5 shrink-0" />
-        <div className="text-[12.5px] text-[#db6c00] leading-relaxed">
+      <div className="flex items-start gap-2.5 px-4 py-2.5 rounded-lg bg-accent border border-primary/30">
+        <Lock className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+        <div className="text-[12.5px] text-primary leading-relaxed">
           <span className="font-semibold">
             {role === 'payroll' 
               ? 'Payroll Dashboard.' 
@@ -228,8 +228,8 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
             label="Total Parcels Delivered"
             value={
               <>
-                <span className="text-[#1A1410]">{totals.totalParcels.toLocaleString()}</span>
-                <span className="text-[#A39988] text-xl"> pcs</span>
+                <span className="text-foreground">{totals.totalParcels.toLocaleString()}</span>
+                <span className="text-subtle-text text-xl"> pcs</span>
               </>
             }
             sub="Fleet total logs"
@@ -315,17 +315,17 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
       )}
 
       {/* Date Pickers */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 sm:p-5">
+      <div className="bg-white border border-border rounded-xl p-4 sm:p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/30 flex items-center justify-center">
-              <Calendar className="w-4 h-4 text-[#db6c00]" />
+            <div className="w-9 h-9 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
                 Cutoff Period
               </div>
-              <div className="text-sm font-semibold text-[#1A1410]">
+              <div className="text-sm font-semibold text-foreground">
                 {cutoffLabel}, {currentYear}
               </div>
             </div>
@@ -335,7 +335,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
             <select
               value={month}
               onChange={e => setMonth(Number(e.target.value))}
-              className="h-9 px-3 pr-8 rounded-md bg-[#FAFAF7] border border-[#EFEAE2] text-sm text-[#1A1410] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 font-mono cursor-pointer"
+              className="h-9 px-3 pr-8 rounded-md bg-panel-bg border border-border text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono cursor-pointer"
             >
               {MONTHS.map((m, idx) => (
                 <option key={m} value={idx}>
@@ -344,16 +344,16 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
               ))}
             </select>
 
-            <div className="inline-flex rounded-md border border-[#EFEAE2] bg-[#FAFAF7] p-0.5">
+            <div className="inline-flex rounded-md border border-border bg-panel-bg p-0.5">
               <button
                 onClick={() => setHalf('first')}
-                className={`h-8 px-3 rounded text-xs font-semibold transition ${half === 'first' ? 'bg-[#db6c00] text-white shadow-sm' : 'text-[#6B6258] hover:text-[#1A1410]'}`}
+                className={`h-8 px-3 rounded text-xs font-semibold transition ${half === 'first' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {MONTHS[month].slice(0, 3)} 1–15
               </button>
               <button
                 onClick={() => setHalf('second')}
-                className={`h-8 px-3 rounded text-xs font-semibold transition ${half === 'second' ? 'bg-[#db6c00] text-white shadow-sm' : 'text-[#6B6258] hover:text-[#1A1410]'}`}
+                className={`h-8 px-3 rounded text-xs font-semibold transition ${half === 'second' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {MONTHS[month].slice(0, 3)} 16–{new Date(currentYear, month + 1, 0).getDate()}
               </button>
@@ -366,15 +366,15 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
       {role === 'payroll' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Recent Activity */}
-          <div className="lg:col-span-2 bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-[#EFEAE2] pb-3">
-              <h3 className="text-sm font-bold text-[#1A1410] flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#db6c00]" />
+          <div className="lg:col-span-2 bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
                 Recent Payroll Activity
               </h3>
               <button 
                 onClick={() => setReloadTrigger(prev => prev + 1)}
-                className="text-[11px] font-semibold text-[#db6c00] hover:text-[#b85a00] transition cursor-pointer"
+                className="text-[11px] font-semibold text-primary hover:text-accent-foreground transition cursor-pointer"
               >
                 Refresh
               </button>
@@ -382,18 +382,18 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
 
             {loadingActivities ? (
               <div className="py-12 flex flex-col items-center justify-center gap-2">
-                <Loader2 className="w-6 h-6 animate-spin text-[#db6c00]" />
-                <span className="text-xs text-[#6B6258]">Loading activity trail...</span>
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground">Loading activity trail...</span>
               </div>
             ) : activities.length === 0 ? (
-              <div className="py-12 text-center text-xs text-[#6B6258] italic">
+              <div className="py-12 text-center text-xs text-muted-foreground italic">
                 No recent payroll activity recorded.
               </div>
             ) : (
-              <div className="relative border-l border-[#EFEAE2] ml-3 pl-5 space-y-5 py-1">
+              <div className="relative border-l border-border ml-3 pl-5 space-y-5 py-1">
                 {activities.map((act) => {
                   let IconComponent = Clock;
-                  let iconBg = 'bg-[#FAFAF7] border-[#EFEAE2] text-[#6B6258]';
+                  let iconBg = 'bg-panel-bg border-border text-muted-foreground';
 
                   if (act.event_type.includes('status_update') || act.event_type.includes('finalize')) {
                     if (act.description?.includes('approved')) {
@@ -408,7 +408,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
                     }
                   } else if (act.event_type.includes('adjustments_update')) {
                     IconComponent = Layers;
-                    iconBg = 'bg-[#FFF1E0] border-[#db6c00]/20 text-[#db6c00]';
+                    iconBg = 'bg-accent border-primary/20 text-primary';
                   }
 
                   return (
@@ -418,10 +418,10 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
                         <IconComponent className="w-2.5 h-2.5" />
                       </span>
                       <div>
-                        <p className="text-xs font-semibold text-[#1A1410] leading-snug">
+                        <p className="text-xs font-semibold text-foreground leading-snug">
                           {act.description}
                         </p>
-                        <div className="flex items-center gap-2 mt-1 text-[10px] text-[#A39988]">
+                        <div className="flex items-center gap-2 mt-1 text-[10px] text-subtle-text">
                           <span>{formatActivityTime(act.created_at)}</span>
                           {act.users && (
                             <>
@@ -439,25 +439,25 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white border border-[#EFEAE2] rounded-xl p-5 shadow-sm space-y-4 h-fit">
-            <h3 className="text-sm font-bold text-[#1A1410] border-b border-[#EFEAE2] pb-3">
+          <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4 h-fit">
+            <h3 className="text-sm font-bold text-foreground border-b border-border pb-3">
               Quick Actions
             </h3>
             <div className="space-y-3">
               {/* Action 1 */}
               <button
                 onClick={() => onNavigate?.('computation')}
-                className="w-full text-left p-3.5 rounded-xl border border-[#EFEAE2] hover:border-[#db6c00]/30 hover:bg-[#FAFAF7] transition group flex items-start gap-3 cursor-pointer"
+                className="w-full text-left p-3.5 rounded-xl border border-border hover:border-primary/30 hover:bg-panel-bg transition group flex items-start gap-3 cursor-pointer"
               >
-                <div className="w-8 h-8 rounded-lg bg-[#FFF1E0] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Calculator className="w-4 h-4 text-[#db6c00]" />
+                <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Calculator className="w-4 h-4 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-[#1A1410] group-hover:text-[#db6c00] transition-colors flex items-center gap-1.5">
+                  <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
                     Continue Computation
-                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-[#db6c00]" />
+                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
                   </div>
-                  <p className="text-[10.5px] text-[#6B6258] mt-0.5 leading-relaxed">
+                  <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-relaxed">
                     Compute daily parcel counts, adjust allowances/deductions, and submit payroll.
                   </p>
                 </div>
@@ -466,17 +466,17 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
               {/* Action 2 */}
               <button
                 onClick={() => onNavigate?.('reports')}
-                className="w-full text-left p-3.5 rounded-xl border border-[#EFEAE2] hover:border-[#db6c00]/30 hover:bg-[#FAFAF7] transition group flex items-start gap-3 cursor-pointer"
+                className="w-full text-left p-3.5 rounded-xl border border-border hover:border-primary/30 hover:bg-panel-bg transition group flex items-start gap-3 cursor-pointer"
               >
-                <div className="w-8 h-8 rounded-lg bg-[#EFEAE2]/40 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Layers className="w-4 h-4 text-[#6B6258]" />
+                <div className="w-8 h-8 rounded-lg bg-border/40 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <Layers className="w-4 h-4 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-[#1A1410] group-hover:text-[#db6c00] transition-colors flex items-center gap-1.5">
+                  <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
                     View Payroll Reports
-                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-[#db6c00]" />
+                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
                   </div>
-                  <p className="text-[10.5px] text-[#6B6258] mt-0.5 leading-relaxed">
+                  <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-relaxed">
                     Access generated payslips, previous cutoff archives, and export payout documents.
                   </p>
                 </div>

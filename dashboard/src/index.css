@@ -54,6 +54,9 @@
   --sidebar-accent-foreground: #b85a00;
   --sidebar-border: #efeae2;
   --sidebar-ring: #db6c00;
+  --primary-hover: #c56000;
+  --panel-bg: #fafaf7;
+  --subtle-text: #a39988;
 }
 /* Dark mode intentionally mirrors light tokens — AttenRider is a light-only brand now */
 :root.dark {
@@ -64,6 +67,9 @@
   --popover: #ffffff;
   --popover-foreground: #1a1410;
   --primary: #db6c00;
+  --primary-hover: #c56000;
+  --panel-bg: #fafaf7;
+  --subtle-text: #a39988;
   --primary-foreground: #ffffff;
   --secondary: #fafaf7;
   --secondary-foreground: #1a1410;

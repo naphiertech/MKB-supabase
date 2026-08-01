@@ -65,8 +65,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           label="Total Active Riders"
           value={
             <>
-              <span className="text-[#1A1410]">{activeCount}</span>
-              <span className="text-[#6B6258] text-xl"> / {riders.length}</span>
+              <span className="text-foreground">{activeCount}</span>
+              <span className="text-muted-foreground text-xl"> / {riders.length}</span>
             </>
           }
           sub={`${riders.length - activeCount} offline`}
@@ -115,7 +115,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           value={
             <>
               {attendanceRate}
-              <span className="text-[#6B6258] text-xl">%</span>
+              <span className="text-muted-foreground text-xl">%</span>
             </>
           }
           sub="Target ≥ 92%"
@@ -149,19 +149,19 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       {/* Map + Online Riders */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-3">
-          <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#EFEAE2]">
+          <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <div>
-                <div className="text-sm font-semibold text-[#1A1410]">
+                <div className="text-sm font-semibold text-foreground">
                   Live Rider Map
                 </div>
-                <div className="text-[11px] text-[#6B6258] font-mono">
+                <div className="text-[11px] text-muted-foreground font-mono">
                   Zamboanga City · 5 geofenced zones
                 </div>
               </div>
               <button
                 onClick={() => onNavigate("monitoring")}
-                className="text-xs text-[#db6c00] hover:text-[#b85a00] font-semibold"
+                className="text-xs text-primary hover:text-accent-foreground font-semibold"
               >
                 Open full view →
               </button>

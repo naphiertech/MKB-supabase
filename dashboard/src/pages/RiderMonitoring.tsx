@@ -136,20 +136,20 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
     <div className="p-4 md:p-6 lg:p-7 max-w-5xl mx-auto space-y-4">
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-sm text-[#6B6258] hover:text-[#1A1410] transition-colors">
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="w-4 h-4" />
         Back to dashboard
       </button>
 
       <div className="flex items-center gap-2">
-        <MapPin className="w-4 h-4 text-[#db6c00]" />
-        <h1 className="text-[#1A1410] font-semibold text-lg">My Location</h1>
+        <MapPin className="w-4 h-4 text-primary" />
+        <h1 className="text-foreground font-semibold text-lg">My Location</h1>
       </div>
 
       {locationLoading ? (
-        <div className="h-[500px] bg-[#F5F0E8] rounded-xl border border-[#EFEAE2] animate-pulse flex flex-col items-center justify-center gap-3">
-          <MapPin className="w-6 h-6 text-[#db6c00] animate-bounce" />
-          <span className="text-[#6B6258] text-sm font-medium">Acquiring live GPS signal...</span>
+        <div className="h-[500px] bg-panel-bg rounded-xl border border-border animate-pulse flex flex-col items-center justify-center gap-3">
+          <MapPin className="w-6 h-6 text-primary animate-bounce" />
+          <span className="text-muted-foreground text-sm font-medium">Acquiring live GPS signal...</span>
         </div>
       ) : (
         <>
@@ -168,19 +168,19 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
       )}
 
       {/* Today's Route Trail */}
-      <div className="bg-white rounded-xl border border-[#EFEAE2] overflow-hidden">
+      <div className="bg-white rounded-xl border border-border overflow-hidden">
         {/* Section header */}
-        <div className="px-5 py-4 border-b border-[#EFEAE2] flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-[#1A1410]">
+            <h3 className="text-sm font-semibold text-foreground">
               Today's Route
             </h3>
-            <p className="text-xs text-[#888] mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Your duty trail · {new Date().toLocaleDateString()}
             </p>
           </div>
           {routeStats && (
-            <span className="text-xs font-mono text-[#db6c00] bg-[#FFF1E0] px-2 py-1 rounded-lg">
+            <span className="text-xs font-mono text-primary bg-accent px-2 py-1 rounded-lg">
               {routeStats.totalDistanceKm} km today
             </span>
           )}
@@ -189,13 +189,13 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
         {/* Map or loading/empty state */}
         <div className="p-4">
           {loadingRoute ? (
-            <div className="h-[340px] bg-[#F5F0E8] rounded-xl animate-pulse" />
+            <div className="h-[340px] bg-panel-bg rounded-xl animate-pulse" />
           ) : routePoints.length < 2 ? (
             <div className="h-[200px] flex flex-col items-center justify-center text-center gap-2">
-              <p className="text-sm font-medium text-[#1A1410]">
+              <p className="text-sm font-medium text-foreground">
                 No route recorded yet
               </p>
-              <p className="text-xs text-[#888]">
+              <p className="text-xs text-muted-foreground">
                 Your route will appear here once you clock in and GPS tracking begins
               </p>
             </div>
