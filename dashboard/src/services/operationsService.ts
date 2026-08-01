@@ -242,7 +242,7 @@ export async function getDailyParcelEntries(params: {
   // 3. Fetch existing parcel logs for target date
   const { data: parcelLogsData, error: parcelError } = await supabase
     .from('parcel_logs')
-    .select('id, rider_id, date, parcels, created_by, updated_at, rate, daily_gross')
+    .select('id, rider_id, date, parcels, assigned_parcels, failed_parcels, returned_parcels, notes, created_by, updated_at, rate, daily_gross')
     .eq('date', targetDate);
 
   if (parcelError) {
@@ -290,6 +290,10 @@ export async function getDailyParcelEntries(params: {
       timeOut: formattedTimeOut,
       hours: att?.hours || 0,
       deliveredParcels: existingLog ? existingLog.parcels : 0,
+      assignedParcels: existingLog?.assigned_parcels ?? 0,
+      failedDeliveries: existingLog?.failed_parcels ?? 0,
+      returnedParcels: existingLog?.returned_parcels ?? 0,
+      notes: existingLog?.notes ?? '',
       recordedBy: existingLog?.created_by || undefined,
       recordedByName: recorderInfo.name,
       recordedByDetail: recorderInfo.detail,
@@ -360,6 +364,10 @@ export async function saveDailyParcelEntries(
     rider_id: e.riderId,
     date: e.date,
     parcels: e.parcels,
+    assigned_parcels: e.assignedParcels || 0,
+    failed_parcels: e.failedDeliveries || 0,
+    returned_parcels: e.returnedParcels || 0,
+    notes: e.notes || null,
     rate: 10, // Default baseline schema requirement
     created_by: validCreatedBy,
     updated_at: new Date().toISOString(),
@@ -370,7 +378,7 @@ export async function saveDailyParcelEntries(
   const res = await supabase
     .from('parcel_logs')
     .upsert(payloads, { onConflict: 'rider_id,date' })
-    .select('id, rider_id, date, parcels, rate, daily_gross');
+    .select('id, rider_id, date, parcels, assigned_parcels, failed_parcels, returned_parcels, notes, rate, daily_gross');
 
   console.log('[ParcelOps] Supabase Response:', {
     data: res.data,
@@ -399,6 +407,10 @@ interface DbHistoryRow {
   rider_id: string;
   date: string;
   parcels: number;
+  assigned_parcels?: number | null;
+  failed_parcels?: number | null;
+  returned_parcels?: number | null;
+  notes?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -433,6 +445,10 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
       rider_id,
       date,
       parcels,
+      assigned_parcels,
+      failed_parcels,
+      returned_parcels,
+      notes,
       created_by,
       created_at,
       updated_at,
@@ -531,6 +547,10 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
       zoneName: zoneObj?.name || 'Unassigned',
       date: row.date,
       deliveredParcels: row.parcels,
+      assignedParcels: row.assigned_parcels || 0,
+      failedDeliveries: row.failed_parcels || 0,
+      returnedParcels: row.returned_parcels || 0,
+      notes: row.notes || undefined,
       grossWagePreview: row.parcels * 10,
       payrollCutoff: getCutoffLabel(row.date),
       createdBy: row.created_by || 'System',
