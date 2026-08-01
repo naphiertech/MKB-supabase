@@ -72,18 +72,18 @@ export function AssignedRidersByZone({
     timeInByRider[l.riderId] = l.timeIn;
   });
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl shadow-sm">
-      <div className="px-4 py-3 border-b border-[#EFEAE2] flex items-center justify-between">
+    <div className="bg-white border border-border rounded-xl shadow-sm">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold text-[#1A1410]">
+          <div className="text-sm font-semibold text-foreground">
             Assigned Riders by Zone
           </div>
-          <div className="text-[11px] text-[#6B6258] font-mono">
+          <div className="text-[11px] text-muted-foreground font-mono">
             Tap a header to expand · click any rider to highlight their zone
           </div>
         </div>
       </div>
-      <div className="divide-y divide-[#EFEAE2]">
+      <div className="divide-y divide-border">
         {zones.map((zone) => {
           const zoneRiders = riders.filter((r) => r.zoneId === zone.id);
           const isOpen = openGroupIds.has(zone.id);
@@ -92,7 +92,7 @@ export function AssignedRidersByZone({
               <button
                 type="button"
                 onClick={() => onToggleGroup(zone.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#FAFAF7] transition text-left border-l-4 border-[#db6c00]">
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-panel-bg transition text-left border-l-4 border-primary">
                 
                 <span
                   className="w-2.5 h-2.5 rounded-full ring-2 ring-white shadow"
@@ -101,10 +101,10 @@ export function AssignedRidersByZone({
                   }} />
                 
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-[#1A1410]">
+                  <div className="text-sm font-semibold text-foreground">
                     {zone.name}
                   </div>
-                  <div className="text-[11px] text-[#6B6258] font-mono">
+                  <div className="text-[11px] text-muted-foreground font-mono">
                     {zoneRiders.length}{' '}
                     {zoneRiders.length === 1 ? 'rider' : 'riders'} assigned
                   </div>
@@ -115,19 +115,19 @@ export function AssignedRidersByZone({
                   </span>
                 }
                 <ChevronDown
-                  className={`w-4 h-4 text-[#6B6258] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  className={`w-4 h-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 
               </button>
               {isOpen &&
               <div className="overflow-x-auto">
                   {zoneRiders.length === 0 ?
-                <div className="px-6 py-6 text-sm text-[#6B6258]">
+                <div className="px-6 py-6 text-sm text-muted-foreground">
                       No riders assigned to this zone yet.
                     </div> :
 
                 <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-[#6B6258] bg-[#FAFAF7]">
+                        <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground bg-panel-bg">
                           <th className="px-4 py-2 font-semibold">
                             Rider Name
                           </th>
@@ -148,20 +148,20 @@ export function AssignedRidersByZone({
                         <tr
                           key={r.id}
                           onClick={() => onSelectZone(zone.id)}
-                          className="border-t border-[#EFEAE2] hover:bg-[#FFF1E0]/40 cursor-pointer transition">
+                          className="border-t border-border hover:bg-accent/40 cursor-pointer transition">
                           
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center gap-2.5">
                                   <img
                                 src={r.avatar}
                                 alt=""
-                                className="w-7 h-7 rounded-full bg-[#FAFAF7] border border-[#EFEAE2]" />
+                                className="w-7 h-7 rounded-full bg-panel-bg border border-border" />
                               
                                   <div className="min-w-0">
-                                    <div className="text-[#1A1410] font-medium truncate">
+                                    <div className="text-foreground font-medium truncate">
                                       {r.name}
                                     </div>
-                                    <div className="text-[10px] text-[#6B6258] font-mono">
+                                    <div className="text-[10px] text-muted-foreground font-mono">
                                       {r.riderCode}
                                     </div>
                                   </div>
@@ -170,7 +170,7 @@ export function AssignedRidersByZone({
                               <td className="px-4 py-2.5">
                                 <RiderStatusPill status={r.status} />
                               </td>
-                              <td className="px-4 py-2.5 text-[#1A1410] font-mono tabular-nums">
+                              <td className="px-4 py-2.5 text-foreground font-mono tabular-nums">
                                 {timeIn ?? '—'}
                               </td>
                               <td className="px-4 py-2.5 text-right">
@@ -179,7 +179,7 @@ export function AssignedRidersByZone({
                                     {v}
                                   </span> :
 
-                            <span className="text-[#6B6258]">—</span>
+                            <span className="text-muted-foreground">—</span>
                             }
                               </td>
                             </tr>);

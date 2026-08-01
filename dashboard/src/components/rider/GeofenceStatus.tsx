@@ -17,20 +17,20 @@ export function GeofenceStatus({
   const overshoot = Math.max(0, distance - radius);
   if (inZone) {
     return (
-      <div className="relative flex items-center gap-3 px-4 py-3 rounded-xl bg-[#FFF1E0] border border-[#db6c00]/30 shadow-sm overflow-hidden">
+      <div className="relative flex items-center gap-3 px-4 py-3 rounded-xl bg-accent border border-primary/30 shadow-sm overflow-hidden">
         <motion.span 
           animate={{ scale: [1, 1.02, 1], opacity: [0.4, 0, 0.4] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="absolute inset-0 rounded-xl border border-[#db6c00]/40" 
+          className="absolute inset-0 rounded-xl border border-primary/40" 
         />
-        <span className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white text-[#db6c00] ring-1 ring-[#db6c00]/25">
+        <span className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white text-primary ring-1 ring-primary/25">
           <ShieldCheck className="w-5 h-5" />
         </span>
         <div className="relative flex-1 min-w-0">
-          <div className="text-sm text-[#b85a00] font-semibold">
+          <div className="text-sm text-accent-foreground font-semibold">
             You are within your assigned zone
           </div>
-          <div className="text-[11px] text-[#b85a00]/80 font-mono mt-0.5">
+          <div className="text-[11px] text-accent-foreground/80 font-mono mt-0.5">
             {zoneName} · {Math.round(distance)}m from center · {radius}m radius
           </div>
         </div>

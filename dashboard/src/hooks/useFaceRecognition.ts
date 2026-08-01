@@ -365,7 +365,7 @@ export function useFaceRecognition({
               ctx.strokeRect(r.x, r.y, r.width, r.height);
               ctx.setLineDash([]);
 
-              ctx.strokeStyle = '#db6c00';
+              ctx.strokeStyle = 'var(--primary)';
               ctx.lineWidth = 4;
               const len = Math.min(24, r.width * 0.15);
 

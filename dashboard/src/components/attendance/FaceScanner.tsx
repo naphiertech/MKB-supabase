@@ -91,8 +91,8 @@ export function FaceScanner({
   failed ?
   'border-red-500' :
   phase === 'scanning' ?
-  'border-[#db6c00]' :
-  'border-[#EFEAE2]';
+  'border-primary' :
+  'border-border';
   return (
     <div className="space-y-4">
       {/* Viewfinder */}
@@ -130,7 +130,7 @@ export function FaceScanner({
         {/* Centered target reticle */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div
-            className={`relative w-40 h-40 rounded-full border-2 border-dashed ${matched ? 'border-emerald-400/80 animate-pulse bg-emerald-500/10' : failed ? 'border-red-400/80 bg-red-500/10' : 'border-[#db6c00]/70'} bg-transparent`}
+            className={`relative w-40 h-40 rounded-full border-2 border-dashed ${matched ? 'border-emerald-400/80 animate-pulse bg-emerald-500/10' : failed ? 'border-red-400/80 bg-red-500/10' : 'border-primary/70'} bg-transparent`}
           >
             {/* Small floating rider profile avatar as reference */}
             {matched && (
@@ -144,9 +144,9 @@ export function FaceScanner({
             {/* Face overlay grid */}
             {(phase === 'scanning' || phase === 'initializing') && (
               <div className="absolute inset-0">
-                <div className="absolute inset-3 border border-[#db6c00]/50 rounded-full" />
-                <div className="absolute top-1/2 left-3 right-3 h-px bg-[#db6c00]/40" />
-                <div className="absolute top-3 bottom-3 left-1/2 w-px bg-[#db6c00]/40" />
+                <div className="absolute inset-3 border border-primary/50 rounded-full" />
+                <div className="absolute top-1/2 left-3 right-3 h-px bg-primary/40" />
+                <div className="absolute top-3 bottom-3 left-1/2 w-px bg-primary/40" />
               </div>
             )}
           </div>
@@ -161,14 +161,14 @@ export function FaceScanner({
         map((c, i) =>
         <span
           key={i}
-          className={`absolute w-6 h-6 rounded ${c} ${matched ? 'border-emerald-400' : failed ? 'border-red-400' : 'border-[#db6c00]'}`} />
+          className={`absolute w-6 h-6 rounded ${c} ${matched ? 'border-emerald-400' : failed ? 'border-red-400' : 'border-primary'}`} />
 
         )}
 
         {/* Scan line */}
         {phase === 'scanning' &&
         <div
-          className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#db6c00] to-transparent shadow-[0_0_12px_rgba(219,108,0,0.7)]"
+              className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent shadow-[0_0_12px_rgba(219,108,0,0.7)]"
           style={{
             top: `${scanLineY}%`
           }} />
@@ -201,10 +201,10 @@ export function FaceScanner({
             <Camera className="w-3 h-3" />
             CAM-01
           </span>
-          <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/50 text-[#db6c00] backdrop-blur-sm">
+          <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/50 text-primary backdrop-blur-sm">
             <span className="relative flex w-1.5 h-1.5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-[#db6c00] opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#db6c00]" />
+              <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
             </span>
             LIVE
           </span>
@@ -215,7 +215,7 @@ export function FaceScanner({
       {/* Biometric Debug Overlay (outside the camera feed viewfinder) */}
       {phase === 'scanning' && debugInfo && (
         <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300 space-y-2 max-w-[280px] mx-auto shadow-md">
-          <div className="text-[#db6c00] font-bold uppercase tracking-wider mb-2.5 flex justify-between">
+          <div className="text-primary font-bold uppercase tracking-wider mb-2.5 flex justify-between">
             <span>Biometric Scan Status</span>
             <span className="animate-pulse text-[10px]">● RUNNING</span>
           </div>
@@ -261,18 +261,18 @@ export function FaceScanner({
       {/* Caption row */}
       <div className="text-center min-h-[44px]">
         {phase === 'idle' &&
-          <div className="flex items-center justify-center gap-2 text-[#6B6258] text-sm">
+          <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
             <ScanFace className="w-4 h-4" />
             Position your face within the frame.
           </div>
         }
         {phase === 'initializing' &&
-          <div className="text-[#db6c00] text-sm font-semibold text-center">
+          <div className="text-primary text-sm font-semibold text-center">
             {livenessPrompt || 'Initializing camera…'}
           </div>
         }
         {phase === 'scanning' &&
-          <div className="text-[#db6c00] text-sm font-semibold text-center">
+          <div className="text-primary text-sm font-semibold text-center">
             {livenessPrompt || 'Scanning facial features…'}
           </div>
         }
@@ -281,7 +281,7 @@ export function FaceScanner({
             <div className="text-emerald-600 font-semibold">
               Identity verified — {riderName.split(' ')[0]}
             </div>
-            <div className="text-[11px] text-[#6B6258] font-mono mt-0.5">
+            <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
               Confidence {(confidence ?? 0.96).toFixed(2)} · FaceNet match
             </div>
           </div>
@@ -291,7 +291,7 @@ export function FaceScanner({
             <div className="text-red-600 font-semibold">
               Face did not match enrolled template
             </div>
-            <div className="text-[11px] text-[#6B6258] mt-0.5">
+            <div className="text-[11px] text-muted-foreground mt-0.5">
               Try again with better lighting or contact your supervisor.
             </div>
           </div>

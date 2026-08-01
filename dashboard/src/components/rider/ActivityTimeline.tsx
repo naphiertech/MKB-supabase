@@ -36,8 +36,8 @@ const KIND_META: Record<
   },
   time_out: {
     icon: LogOut,
-    tone: 'text-[#db6c00]',
-    ring: 'bg-[#FFF1E0] border-[#db6c00]/30'
+    tone: 'text-primary',
+    ring: 'bg-accent border-primary/30'
   },
   geofence_ok: {
     icon: ShieldCheck,
@@ -56,8 +56,8 @@ const KIND_META: Record<
   },
   note: {
     icon: Clock,
-    tone: 'text-[#1A1410]',
-    ring: 'bg-[#FAFAF7] border-[#EFEAE2]'
+    tone: 'text-foreground',
+    ring: 'bg-panel-bg border-border'
   }
 };
 interface ActivityTimelineProps {
@@ -65,28 +65,28 @@ interface ActivityTimelineProps {
 }
 export function ActivityTimeline({ events }: ActivityTimelineProps) {
   return (
-    <section className="rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-border bg-white p-5 shadow-sm">
       <header className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-[#1A1410] font-semibold text-base">
+          <h2 className="text-foreground font-semibold text-base">
             Today's Activity
           </h2>
-          <p className="text-[11px] text-[#6B6258] font-mono mt-0.5">
+          <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
             Live event log · synced from geofence + scanner
           </p>
         </div>
-        <span className="text-[10px] uppercase tracking-[0.16em] text-[#6B6258] font-mono font-semibold">
+        <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono font-semibold">
           {events.length} events
         </span>
       </header>
 
       {events.length === 0 ?
-      <div className="text-sm text-[#6B6258] py-8 text-center">
+      <div className="text-sm text-muted-foreground py-8 text-center">
           No activity recorded yet today.
         </div> :
 
       <ol className="relative pl-6 space-y-3">
-          <span className="absolute left-[10px] top-1 bottom-1 w-px bg-[#EFEAE2]" />
+          <span className="absolute left-[10px] top-1 bottom-1 w-px bg-border" />
           {events.map((e, index) => {
           const meta = KIND_META[e.kind];
           const Icon = meta.icon;
@@ -103,7 +103,7 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
                 
                   <Icon className={`w-3 h-3 ${meta.tone}`} />
                 </span>
-                <span className="text-[12px] font-mono tabular-nums text-[#6B6258] w-14 shrink-0 mt-0.5">
+                <span className="text-[12px] font-mono tabular-nums text-muted-foreground w-14 shrink-0 mt-0.5">
                   {e.ts}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -111,7 +111,7 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
                     {e.label}
                   </div>
                   {e.detail &&
-                <div className="text-[11px] text-[#6B6258] mt-0.5">
+                <div className="text-[11px] text-muted-foreground mt-0.5">
                       {e.detail}
                     </div>
                 }

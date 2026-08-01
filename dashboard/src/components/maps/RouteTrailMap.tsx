@@ -350,11 +350,11 @@ export const RouteTrailMap = ({
 
   return (
     <div className="flex flex-col h-full gap-0 rounded-xl overflow-hidden
-                    border border-[#EFEAE2]">
+                    border border-border">
 
       {/* Stats Bar — above the map */}
       {stats && (
-        <div className="bg-[#1A1410] px-4 py-3 
+        <div className="bg-foreground px-4 py-3 
                         grid grid-cols-3 gap-4">
           <div className="text-center">
             <p className="text-2xl font-semibold text-white">
@@ -510,7 +510,7 @@ export const RouteTrailMap = ({
               zIndexOffset={1000}
             >
               <Tooltip permanent direction="top" offset={[0, -12]}>
-                <span className="text-xs font-semibold text-[#db6c00]">Rider</span>
+                <span className="text-xs font-semibold text-primary">Rider</span>
               </Tooltip>
             </Marker>
           )}
@@ -526,8 +526,8 @@ export const RouteTrailMap = ({
               setProgress(0);
             }}
             className="absolute bottom-3 left-3 z-[1000]
-                       bg-[#db6c00] hover:bg-[#b85a00] text-white
-                       border border-[#db6c00] rounded-lg px-3 py-1.5 text-xs 
+                       bg-primary hover:bg-primary-hover text-white
+                       border border-primary rounded-lg px-3 py-1.5 text-xs 
                        font-semibold shadow-md hover:scale-105 active:scale-95
                        transition-all flex items-center gap-1.5"
           >
@@ -539,7 +539,7 @@ export const RouteTrailMap = ({
         {/* Replay Controls Glassmorphic Dock */}
         {isReplayMode && (
           <div className="absolute bottom-3 left-3 right-3 z-[1000]
-                          backdrop-blur-md bg-[#1A1410]/90 border border-white/10 
+                          backdrop-blur-md bg-foreground/90 border border-white/10 
                           rounded-xl shadow-2xl p-3 md:p-4 text-white
                           flex flex-col md:flex-row items-center justify-between gap-3
                           transition-all duration-300">
@@ -550,7 +550,7 @@ export const RouteTrailMap = ({
                 {/* Play / Pause */}
                 <button
                   onClick={handlePlayPause}
-                  className="w-10 h-10 rounded-full bg-[#db6c00] hover:bg-[#b85a00] 
+                  className="w-10 h-10 rounded-full bg-primary hover:bg-primary-hover 
                              flex items-center justify-center shadow-md transition-all 
                              hover:scale-105 active:scale-95 text-white"
                   title={isPlaying ? 'Pause' : 'Play'}
@@ -580,7 +580,7 @@ export const RouteTrailMap = ({
                     onClick={() => setPlaybackSpeed(speed)}
                     className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
                       playbackSpeed === speed
-                        ? 'bg-[#db6c00] text-white shadow-sm'
+                        ? 'bg-primary text-white shadow-sm'
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
@@ -636,10 +636,10 @@ export const RouteTrailMap = ({
         <button
           onClick={() => setSatellite(s => !s)}
           className={`absolute right-3 z-[1000]
-                     bg-white border border-[#EFEAE2] 
+                     bg-white border border-border 
                      rounded-lg px-3 py-1.5 text-xs 
-                     font-medium text-[#1A1410] shadow-sm
-                     hover:bg-[#F5F0E8] transition-all duration-300
+                     font-medium text-foreground shadow-sm
+                     hover:bg-accent transition-all duration-300
                      flex items-center gap-1.5 ${
                        isReplayMode ? 'bottom-20 md:bottom-[76px]' : 'bottom-3'
                      }`}
@@ -649,7 +649,7 @@ export const RouteTrailMap = ({
       </div>
 
       {/* Footer bar — below the map */}
-      <div className="bg-[#FAFAF7] border-t border-[#EFEAE2]
+      <div className="bg-panel-bg border-t border-border
                       px-4 py-2.5 flex items-center 
                       justify-between">
         <div className="flex items-center gap-4 text-xs text-[#888]">
@@ -680,7 +680,7 @@ export const RouteTrailMap = ({
           </div>
           <div className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full 
-                             bg-[#db6c00] inline-block" />
+                             bg-primary inline-block" />
             Current
           </div>
         </div>

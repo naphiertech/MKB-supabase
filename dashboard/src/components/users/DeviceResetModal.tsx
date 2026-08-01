@@ -74,13 +74,13 @@ export function DeviceResetModal({
           initial="initial"
           animate="animate"
           exit="exit"
-          className="bg-white border border-[#EFEAE2] rounded-2xl max-w-md w-full p-6 shadow-xl relative text-[#1A1410] font-[Geist,sans-serif]"
+          className="bg-white border border-border rounded-2xl max-w-md w-full p-6 shadow-xl relative text-foreground font-[Geist,sans-serif]"
         >
           {/* Close button */}
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 text-[#6B6258] hover:text-[#1A1410] p-1 rounded-lg transition-colors cursor-pointer"
+            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -91,8 +91,8 @@ export function DeviceResetModal({
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[#1A1410]">Reset Trusted Device</h3>
-              <p className="text-xs text-[#6B6258]">Revoke active hardware binding for rider</p>
+              <h3 className="text-base font-bold text-foreground">Reset Trusted Device</h3>
+              <p className="text-xs text-muted-foreground">Revoke active hardware binding for rider</p>
             </div>
           </div>
 
@@ -105,13 +105,13 @@ export function DeviceResetModal({
           </div>
 
           {/* Current Device Details Card */}
-          <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-xl p-3.5 mb-5 space-y-2 text-xs">
+          <div className="bg-panel-bg border border-border rounded-xl p-3.5 mb-5 space-y-2 text-xs">
             <div className="flex items-center justify-between font-semibold">
-              <div className="flex items-center gap-2 text-[#1A1410]">
+              <div className="flex items-center gap-2 text-foreground">
                 {isMobile ? (
-                  <Smartphone className="w-4 h-4 text-[#db6c00]" />
+                  <Smartphone className="w-4 h-4 text-primary" />
                 ) : (
-                  <Laptop className="w-4 h-4 text-[#db6c00]" />
+                  <Laptop className="w-4 h-4 text-primary" />
                 )}
                 <span>{device.deviceName}</span>
               </div>
@@ -119,12 +119,12 @@ export function DeviceResetModal({
                 Trusted
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-[11px] text-[#6B6258] pt-1 border-t border-[#EFEAE2]/60">
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground pt-1 border-t border-border/60">
               <div>
-                Platform: <span className="font-mono text-[#1A1410] capitalize">{device.platform}</span>
+                Platform: <span className="font-mono text-foreground capitalize">{device.platform}</span>
               </div>
               <div>
-                Registered: <span className="text-[#1A1410]">{new Date(device.registeredAt).toLocaleDateString()}</span>
+                Registered: <span className="text-foreground">{new Date(device.registeredAt).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
@@ -132,13 +132,13 @@ export function DeviceResetModal({
           {/* Form: Select Reason for Reset */}
           <form onSubmit={handleConfirm} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6258] mb-1.5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                 Reason for Device Reset <span className="text-rose-500">*</span>
               </label>
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value as ResetReason)}
-                className="w-full h-9 px-3 rounded-lg border border-[#EFEAE2] bg-white text-xs font-semibold text-[#1A1410] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
+                className="w-full h-9 px-3 rounded-lg border border-border bg-white text-xs font-semibold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
               >
                 {RESET_REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -150,7 +150,7 @@ export function DeviceResetModal({
 
             {reason === 'Other' && (
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#6B6258] mb-1.5">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
                   Custom Audit Explanation
                 </label>
                 <textarea
@@ -159,7 +159,7 @@ export function DeviceResetModal({
                   placeholder="State the reason for resetting this device..."
                   rows={2}
                   required
-                  className="w-full p-2.5 rounded-lg border border-[#EFEAE2] bg-white text-xs text-[#1A1410] outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15"
+                  className="w-full p-2.5 rounded-lg border border-border bg-white text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
                 />
               </div>
             )}
@@ -170,7 +170,7 @@ export function DeviceResetModal({
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="flex-1 h-9 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-xs font-semibold text-[#6B6258] hover:bg-[#EFEAE2]/40 transition cursor-pointer"
+                className="flex-1 h-9 rounded-lg border border-border bg-panel-bg text-xs font-semibold text-muted-foreground hover:bg-border/40 transition cursor-pointer"
               >
                 Cancel
               </button>

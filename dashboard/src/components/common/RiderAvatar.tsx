@@ -31,7 +31,7 @@ export function RiderAvatar({ src, name, className = 'w-7 h-7', size }: RiderAva
       loading="lazy"
       decoding="async"
       onError={() => setHasError(true)}
-      className={`${sizeClass} rounded-full bg-[#FAFAF7] border border-[#EFEAE2] object-cover shrink-0 select-none`}
+      className={`${sizeClass} rounded-full bg-panel-bg border border-border object-cover shrink-0 select-none`}
     />
   );
 }

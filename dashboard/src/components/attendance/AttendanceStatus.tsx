@@ -20,25 +20,25 @@ function Slot({
   tone === 'emerald' ?
   'text-emerald-600' :
   tone === 'brand' ?
-  'text-[#db6c00]' :
-  'text-[#6B6258]';
+  'text-primary' :
+  'text-muted-foreground';
   const toneIcon =
   tone === 'emerald' ?
   'text-emerald-600' :
   tone === 'brand' ?
-  'text-[#db6c00]' :
-  'text-[#6B6258]';
+  'text-primary' :
+  'text-muted-foreground';
   const slotBg =
   tone === 'emerald' ?
   'bg-emerald-50 border-emerald-500/25' :
   tone === 'brand' ?
-  'bg-[#FFF1E0] border-[#db6c00]/25' :
-  'bg-[#FAFAF7] border-[#EFEAE2]';
+  'bg-accent border-primary/25' :
+  'bg-panel-bg border-border';
   return (
     <div
       className={`flex-1 flex flex-col items-center py-3 px-4 rounded-xl border ${slotBg}`}>
       
-      <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-[#6B6258] font-mono font-semibold">
+      <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono font-semibold">
         <Icon className={`w-3 h-3 ${toneIcon}`} />
         {label}
       </span>
@@ -72,7 +72,7 @@ export function AttendanceStatus({
         
       </div>
       {duration &&
-      <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-[#6B6258] font-mono">
+      <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground font-mono">
           <Clock className="w-3 h-3" />
           On shift · {duration}
         </div>

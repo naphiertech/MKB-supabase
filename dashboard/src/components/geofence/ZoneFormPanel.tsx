@@ -31,7 +31,7 @@ interface ZoneFormPanelProps {
 }
 
 const AVAILABLE_COLORS = [
-  { value: '#db6c00', label: 'Orange', bg: 'bg-[#db6c00]', ring: 'ring-[#db6c00]' },
+  { value: '#db6c00', label: 'Orange', bg: 'bg-primary', ring: 'ring-primary' },
   { value: '#2563EB', label: 'Blue', bg: 'bg-[#2563EB]', ring: 'ring-[#2563EB]' },
   { value: '#059669', label: 'Green', bg: 'bg-[#059669]', ring: 'ring-[#059669]' },
   { value: '#DC2626', label: 'Red', bg: 'bg-[#DC2626]', ring: 'ring-[#DC2626]' },
@@ -76,20 +76,20 @@ export function ZoneFormPanel({
   };
 
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl shadow-sm flex flex-col h-[585px] lg:h-[645px] overflow-hidden">
+    <div className="bg-white border border-border rounded-xl shadow-sm flex flex-col h-[585px] lg:h-[645px] overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-[#EFEAE2] flex justify-between items-start flex-shrink-0">
+      <div className="px-5 py-4 border-b border-border flex justify-between items-start flex-shrink-0">
         <div>
-          <h2 className="text-sm font-semibold text-[#1A1410] tracking-tight">
+          <h2 className="text-sm font-semibold text-foreground tracking-tight">
             {isEditMode ? 'Edit Zone' : 'Add Zone'}
           </h2>
-          <p className="text-[11px] text-[#6B6258] mt-0.5 font-mono">
+          <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
             {isEditMode ? 'Adjust bounds and assignments' : 'Define new Zamboanga City zone'}
           </p>
         </div>
         <button
           onClick={onCancel}
-          className="p-1 rounded-md text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] transition-colors"
+          className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg transition-colors"
           title="Cancel editing"
         >
           <X size={16} />
@@ -100,7 +100,7 @@ export function ZoneFormPanel({
       <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
         {/* Toggle Zone Type */}
         <div>
-          <label className="text-[10px] font-semibold text-[#6B6258] tracking-widest uppercase block mb-1.5 font-mono">
+          <label className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase block mb-1.5 font-mono">
             Geofence Type
           </label>
           <div className="flex gap-2">
@@ -111,8 +111,8 @@ export function ZoneFormPanel({
                 onClick={() => setZoneType(type)}
                 className={`flex-1 py-1.5 rounded-lg text-xs border font-semibold transition-all capitalize ${
                   zoneType === type
-                    ? 'border-[#db6c00] bg-[#FFF1E0] text-[#db6c00]'
-                    : 'border-[#EFEAE2] text-[#6B6258] hover:bg-[#FAFAF7]'
+                    ? 'border-primary bg-accent text-primary'
+                    : 'border-border text-muted-foreground hover:bg-panel-bg'
                 }`}
               >
                 {type} geofence
@@ -128,7 +128,7 @@ export function ZoneFormPanel({
               ? 'bg-emerald-50/50 border-emerald-500/20 text-emerald-900' 
               : errors.pin 
                 ? 'bg-red-50 border-red-500/20 text-red-900 animate-pulse'
-                : 'bg-[#FFF1E0] border-[#db6c00]/20 text-[#b85a00]'
+                : 'bg-accent border-primary/20 text-accent-foreground'
           }`}>
             {pin ? (
               <p className="font-semibold flex items-center gap-1.5 font-mono text-[11px]">
@@ -147,7 +147,7 @@ export function ZoneFormPanel({
               ? 'bg-emerald-50/50 border-emerald-500/20 text-emerald-900' 
               : errors.polygon 
                 ? 'bg-red-50 border-red-500/20 text-red-900 animate-pulse'
-                : 'bg-[#FFF1E0] border-[#db6c00]/20 text-[#b85a00]'
+                : 'bg-accent border-primary/20 text-accent-foreground'
           }`}>
             <div className="flex items-center justify-between">
               <span className="font-semibold font-mono text-[11px]">
@@ -163,7 +163,7 @@ export function ZoneFormPanel({
                     className={`p-1 rounded transition ${
                       polygonCoords.length >= 3 
                         ? 'hover:bg-emerald-500/10 text-emerald-700' 
-                        : 'hover:bg-[#db6c00]/10 text-[#db6c00]'
+                        : 'hover:bg-primary/10 text-primary'
                     }`}
                     title="Undo last point"
                   >
@@ -191,7 +191,7 @@ export function ZoneFormPanel({
 
         {/* Zone Name */}
         <div>
-          <label className="text-[10px] font-semibold text-[#6B6258] tracking-widest uppercase block mb-1.5 font-mono">
+          <label className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase block mb-1.5 font-mono">
             Zone Name
           </label>
           <input
@@ -199,10 +199,10 @@ export function ZoneFormPanel({
             placeholder="e.g. Talon-Talon"
             value={zoneName}
             onChange={(e) => setZoneName(e.target.value)}
-            className={`w-full px-3 py-2 rounded-lg border bg-[#FAFAF7] text-xs outline-none transition-all ${
+            className={`w-full px-3 py-2 rounded-lg border bg-panel-bg text-xs outline-none transition-all ${
               errors.zoneName 
                 ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500/10' 
-                : 'border-[#EFEAE2] focus:border-[#db6c00] focus:ring-1 focus:ring-[#db6c00]/10'
+                : 'border-border focus:border-primary focus:ring-1 focus:ring-primary/10'
             }`}
           />
           {errors.zoneName && (
@@ -212,7 +212,7 @@ export function ZoneFormPanel({
 
         {/* Zone Color Selector */}
         <div>
-          <label className="text-[10px] font-semibold text-[#6B6258] tracking-widest uppercase block mb-1.5 font-mono">
+          <label className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase block mb-1.5 font-mono">
             Geofence Color
           </label>
           <div className="flex flex-wrap gap-2.5">
@@ -253,10 +253,10 @@ export function ZoneFormPanel({
         {zoneType === 'circle' && (
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] font-semibold text-[#6B6258] tracking-widest uppercase font-mono">
+              <label className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase font-mono">
                 Radius
               </label>
-              <span className="text-[11px] text-[#db6c00] font-mono font-semibold">
+              <span className="text-[11px] text-primary font-mono font-semibold">
                 {radius} m ({(radius / 1000).toFixed(2)} km)
               </span>
             </div>
@@ -267,7 +267,7 @@ export function ZoneFormPanel({
               step={50}
               value={radius}
               onChange={(e) => setRadius(Number(e.target.value))}
-              className="w-full accent-[#db6c00]"
+              className="w-full accent-primary"
             />
             <div className="flex justify-between text-[9px] text-[#AAA] font-mono mt-0.5">
               <span>100m</span>
@@ -278,7 +278,7 @@ export function ZoneFormPanel({
 
         {/* Status */}
         <div>
-          <label className="text-[10px] font-semibold text-[#6B6258] tracking-widest uppercase block mb-1.5 font-mono">
+          <label className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase block mb-1.5 font-mono">
             Status
           </label>
           <div className="flex gap-2">
@@ -289,8 +289,8 @@ export function ZoneFormPanel({
                 onClick={() => setStatus(s)}
                 className={`flex-1 py-1.5 rounded-lg text-xs border font-semibold transition-all capitalize ${
                   status === s
-                    ? 'border-[#db6c00] bg-[#FFF1E0] text-[#db6c00]'
-                    : 'border-[#EFEAE2] text-[#6B6258] hover:bg-[#FAFAF7]'
+                    ? 'border-primary bg-accent text-primary'
+                    : 'border-border text-muted-foreground hover:bg-panel-bg'
                 }`}
               >
                 {s === 'active' && (
@@ -305,10 +305,10 @@ export function ZoneFormPanel({
         {/* Assign Riders */}
         <div className="relative">
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[10px] font-semibold text-[#6B6258] tracking-widest uppercase font-mono">
+            <label className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase font-mono">
               Assign Riders
             </label>
-            <span className="text-[10px] text-[#6B6258] font-mono">
+            <span className="text-[10px] text-muted-foreground font-mono">
               {selectedRiders.length} selected
             </span>
           </div>
@@ -316,29 +316,29 @@ export function ZoneFormPanel({
           <button
             type="button"
             onClick={() => setRiderDropdownOpen((o) => !o)}
-            className="w-full px-3 py-2 rounded-lg border border-[#EFEAE2] bg-[#FAFAF7] text-xs text-left flex items-center justify-between hover:border-[#db6c00] transition-colors"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-panel-bg text-xs text-left flex items-center justify-between hover:border-primary transition-colors"
           >
-            <span className="text-[#6B6258] truncate">
+            <span className="text-muted-foreground truncate">
               {selectedRiders.length === 0
                 ? 'Select riders...'
                 : `${selectedRiders.length} rider${selectedRiders.length === 1 ? '' : 's'} selected`}
             </span>
             <ChevronDown
               size={14}
-              className={`text-[#6B6258] transition-transform duration-200 ${riderDropdownOpen ? 'rotate-180' : ''}`}
+              className={`text-muted-foreground transition-transform duration-200 ${riderDropdownOpen ? 'rotate-180' : ''}`}
             />
           </button>
 
           {riderDropdownOpen && (
-            <div className="absolute top-[102%] left-0 right-0 z-50 border border-[#EFEAE2] rounded-lg bg-white overflow-hidden shadow-lg animate-in fade-in zoom-in-95 duration-150">
-              <div className="px-3 py-1.5 border-b border-[#EFEAE2] flex items-center gap-2 bg-[#FAFAF7]">
+            <div className="absolute top-[102%] left-0 right-0 z-50 border border-border rounded-lg bg-white overflow-hidden shadow-lg animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-3 py-1.5 border-b border-border flex items-center gap-2 bg-panel-bg">
                 <Search size={12} className="text-[#AAA]" />
                 <input
                   type="text"
                   placeholder="Search riders..."
                   value={riderSearch}
                   onChange={(e) => setRiderSearch(e.target.value)}
-                  className="flex-1 text-xs outline-none bg-transparent text-[#1A1410] placeholder:text-[#AAA]"
+                  className="flex-1 text-xs outline-none bg-transparent text-foreground placeholder:text-[#AAA]"
                 />
               </div>
               <div className="max-h-[160px] overflow-y-auto custom-scrollbar">
@@ -350,7 +350,7 @@ export function ZoneFormPanel({
                   .map((rider) => (
                     <label
                       key={rider.id}
-                      className="flex items-center gap-2.5 px-3 py-2 hover:bg-[#FFF1E0]/50 cursor-pointer transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2 hover:bg-accent/50 cursor-pointer transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -362,15 +362,15 @@ export function ZoneFormPanel({
                               : [...prev, rider.id]
                           );
                         }}
-                        className="accent-[#db6c00] flex-shrink-0"
+                        className="accent-primary flex-shrink-0"
                       />
                       <img
                         src={rider.avatar}
                         alt={rider.name}
-                        className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-[#EFEAE2]"
+                        className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-border"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-[#1A1410] truncate font-semibold">
+                        <p className="text-xs text-foreground truncate font-semibold">
                           {rider.name}
                         </p>
                         <p className="text-[9px] font-mono text-[#888]">
@@ -391,18 +391,18 @@ export function ZoneFormPanel({
       </div>
 
       {/* Footer Controls */}
-      <div className="px-5 py-4 border-t border-[#EFEAE2] flex gap-2 flex-shrink-0 bg-[#FAFAF7]">
+      <div className="px-5 py-4 border-t border-border flex gap-2 flex-shrink-0 bg-panel-bg">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 py-2 text-xs font-semibold text-[#6B6258] hover:text-[#1A1410] hover:bg-[#EFEAE2] rounded-lg transition-colors border border-[#EFEAE2]"
+          className="flex-1 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-border rounded-lg transition-colors border border-border"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={onSave}
-          className="flex-1 py-2 text-xs font-semibold text-white bg-[#db6c00] hover:bg-[#b85a00] rounded-lg shadow-sm transition-colors"
+          className="flex-1 py-2 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-lg shadow-sm transition-colors"
         >
           Save Zone
         </button>

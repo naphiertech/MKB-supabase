@@ -31,14 +31,14 @@ export function ViolationFeed({
     loadFlagged();
   }, [alerts]);
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-[480px] min-h-[360px] shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b border-[#EFEAE2] sticky top-0 bg-white z-10">
+    <div className="bg-white border border-border rounded-xl flex flex-col h-[480px] min-h-[360px] shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-white z-10">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-red-50 ring-1 ring-red-500/25 flex items-center justify-center">
             <Siren className="w-4 h-4 text-red-600" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-[#1A1410] flex items-center gap-2">
+            <div className="text-sm font-semibold text-foreground flex items-center gap-2">
               Violation Alerts
               {unread > 0 &&
               <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-500/25 text-[10px] font-mono font-semibold animate-pulse">
@@ -46,7 +46,7 @@ export function ViolationFeed({
                 </span>
               }
             </div>
-            <div className="text-[11px] text-[#6B6258] font-mono">
+            <div className="text-[11px] text-muted-foreground font-mono">
               {alerts.length} total · realtime
             </div>
           </div>
@@ -54,7 +54,7 @@ export function ViolationFeed({
         <button
           onClick={onMarkAllRead}
           disabled={unread === 0}
-          className="text-xs text-[#db6c00] hover:text-[#b85a00] font-semibold disabled:opacity-40 disabled:cursor-not-allowed disabled:text-[#6B6258]">
+          className="text-xs text-primary hover:text-accent-foreground font-semibold disabled:opacity-40 disabled:cursor-not-allowed disabled:text-muted-foreground">
           
           Mark all read
         </button>
@@ -62,7 +62,7 @@ export function ViolationFeed({
 
       <div className="ar-scroll overflow-y-auto flex-1 p-3 space-y-2">
         {alerts.length === 0 &&
-        <div className="text-center py-10 text-sm text-[#6B6258]">
+        <div className="text-center py-10 text-sm text-muted-foreground">
             No violations — all riders within bounds.
           </div>
         }

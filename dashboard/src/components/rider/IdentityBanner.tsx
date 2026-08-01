@@ -63,9 +63,9 @@ const ONLINE_THEME: Record<
     pulse: false
   },
   offline: {
-    dot: 'bg-[#6B6258]',
-    ring: 'border-[#EFEAE2] bg-[#FAFAF7]',
-    text: 'text-[#6B6258]',
+    dot: 'bg-muted-foreground',
+    ring: 'border-border bg-panel-bg',
+    text: 'text-muted-foreground',
     label: 'Offline',
     pulse: false
   }
@@ -92,31 +92,31 @@ export function IdentityBanner({
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="relative overflow-hidden rounded-2xl border border-[#EFEAE2] bg-gradient-to-br from-[#FFF1E0] via-white to-white p-5 sm:p-6 shadow-sm"
+      className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-accent via-white to-white p-5 sm:p-6 shadow-sm"
     >
       {/* Decorative accents */}
-      <div className="pointer-events-none absolute -top-20 -right-16 w-72 h-72 rounded-full bg-[#db6c00]/10 blur-3xl" />
+      <div className="pointer-events-none absolute -top-20 -right-16 w-72 h-72 rounded-full bg-primary/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -left-10 w-72 h-72 rounded-full bg-[#f59e0b]/8 blur-3xl" />
 
       <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
-            <Icon className="w-3.5 h-3.5 text-[#db6c00]" />
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-mono font-semibold">
+            <Icon className="w-3.5 h-3.5 text-primary" />
             {text}
           </div>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight text-[#1A1410] truncate">
-            {text}, <span className="text-[#db6c00]">{firstName}</span>!
+          <h1 className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight text-foreground truncate">
+            {text}, <span className="text-primary">{firstName}</span>!
           </h1>
-          <p className="mt-1 text-sm text-[#6B6258] font-mono">{dateStr}</p>
+          <p className="mt-1 text-sm text-muted-foreground font-mono">{dateStr}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#EFEAE2] text-sm shadow-sm">
-            <MapPin className="w-3.5 h-3.5 text-[#db6c00]" />
-            <span className="text-[10px] uppercase tracking-[0.16em] text-[#6B6258] font-mono font-semibold">
+          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-border text-sm shadow-sm">
+            <MapPin className="w-3.5 h-3.5 text-primary" />
+            <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono font-semibold">
               Zone
             </span>
-            <span className="text-[#1A1410] font-semibold">{zoneName}</span>
+            <span className="text-foreground font-semibold">{zoneName}</span>
           </span>
 
           <span

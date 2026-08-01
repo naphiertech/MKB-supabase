@@ -329,11 +329,11 @@ export function Attendance() {
       )}
 
       {/* Enhanced Filter & Action Toolbar */}
-      <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 md:p-5 shadow-sm space-y-4">
+      <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-4">
         {/* Quick Date Presets Row */}
-        <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#EFEAE2]/60">
+        <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-border/60">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#6B6258] mr-1">
+            <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground mr-1">
               DATE PRESETS:
             </span>
             {(['today', 'this_week', 'this_cutoff', 'this_month'] as const).map((rKey) => {
@@ -350,8 +350,8 @@ export function Attendance() {
                   onClick={() => handleApplyQuickRange(rKey)}
                   className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-[#db6c00] text-white border border-[#db6c00] shadow-2xs'
-                      : 'bg-[#FAFAF7] text-[#6B6258] hover:text-[#1A1410] border border-[#EFEAE2] hover:bg-white'
+                      ? 'bg-primary text-white border border-primary shadow-2xs'
+                      : 'bg-panel-bg text-muted-foreground hover:text-foreground border border-border hover:bg-white'
                   }`}
                 >
                   {labels[rKey]}
@@ -366,8 +366,8 @@ export function Attendance() {
             onClick={handleResetFilters}
             className={`text-xs font-semibold transition flex items-center gap-1.5 ${
               isFilterModified
-                ? 'text-[#db6c00] hover:text-[#b85a00] cursor-pointer opacity-100'
-                : 'text-[#6B6258] opacity-40 cursor-not-allowed'
+                ? 'text-primary hover:text-accent-foreground cursor-pointer opacity-100'
+                : 'text-muted-foreground opacity-40 cursor-not-allowed'
             }`}
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -445,7 +445,7 @@ export function Attendance() {
 
             <FilterField label="Search Rider">
               <div className="relative flex items-center">
-                <Search className="w-3.5 h-3.5 text-[#6B6258] absolute left-2.5 pointer-events-none z-10" />
+                <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 pointer-events-none z-10" />
                 <input
                   type="text"
                   placeholder="Search by Rider Name or Rider ID"
@@ -459,11 +459,11 @@ export function Attendance() {
           </div>
 
           {/* Right Actions Section */}
-          <div className="flex items-end gap-2 shrink-0 flex-wrap pt-2 lg:pt-0 border-t lg:border-t-0 border-[#EFEAE2]">
+          <div className="flex items-end gap-2 shrink-0 flex-wrap pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
             {/* Export CSV Ghost */}
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 h-[34px] rounded-lg text-xs font-semibold text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 h-[34px] rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-panel-bg transition cursor-pointer"
               title="Export CSV"
             >
               <Download className="w-3.5 h-3.5" /> CSV
@@ -472,7 +472,7 @@ export function Attendance() {
             {/* Export PDF Ghost */}
             <button
               onClick={handleExportPDF}
-              className="inline-flex items-center gap-1.5 px-3 h-[34px] rounded-lg text-xs font-semibold text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 h-[34px] rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-panel-bg transition cursor-pointer"
               title="Export PDF"
             >
               <FileText className="w-3.5 h-3.5" /> PDF
@@ -481,16 +481,16 @@ export function Attendance() {
             {/* Import DTR Secondary Outline */}
             <button
               onClick={() => setImportModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 h-[34px] rounded-lg border border-[#EFEAE2] bg-white text-[#1A1410] hover:bg-[#FAFAF7] text-xs font-semibold shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 h-[34px] rounded-lg border border-border bg-white text-foreground hover:bg-panel-bg text-xs font-semibold shadow-2xs transition cursor-pointer"
             >
-              <Upload className="w-3.5 h-3.5 text-[#db6c00]" />
+              <Upload className="w-3.5 h-3.5 text-primary" />
               <span>Import DTR</span>
             </button>
 
             {/* Generate DTR Primary */}
             <button
               onClick={() => setDtrModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 h-[34px] rounded-lg bg-[#db6c00] hover:bg-[#b85a00] text-white text-xs font-bold shadow-sm hover:shadow-md transition cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 h-[34px] rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm hover:shadow-md transition cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Generate DTR</span>
@@ -502,17 +502,17 @@ export function Attendance() {
           .att-input {
             height: 34px;
             padding: 0 10px;
-            background: #FAFAF7;
-            border: 1px solid #EFEAE2;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
             border-radius: 6px;
-            color: #1A1410;
+            color: var(--foreground);
             font-size: 12px;
             outline: none;
             font-family: 'Geist Mono', monospace;
             transition: border-color 150ms ease, box-shadow 150ms ease;
           }
           .att-input:focus {
-            border-color: #db6c00;
+            border-color: var(--primary);
             box-shadow: 0 0 0 3px rgba(219, 108, 0, 0.12);
           }
           select.att-input {
@@ -555,16 +555,16 @@ export function Attendance() {
           return (
             <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4">
               <div className="relative max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex justify-between items-center pb-3 border-b border-[#EFEAE2]">
+                <div className="flex justify-between items-center pb-3 border-b border-border">
                   <div>
-                    <h3 className="text-base font-bold text-[#1A1410]">Generate Daily Time Record (DTR)</h3>
-                    <p className="text-xs text-[#6B6258]">
+                    <h3 className="text-base font-bold text-foreground">Generate Daily Time Record (DTR)</h3>
+                    <p className="text-xs text-muted-foreground">
                       Select an employee and period to export an official DTR Form.
                     </p>
                   </div>
                   <button
                     onClick={() => setDtrModalOpen(false)}
-                    className="text-[#6B6258] hover:text-[#1A1410] p-1.5 rounded-lg hover:bg-[#FAFAF7]"
+                    className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-panel-bg"
                   >
                     <Printer className="w-5 h-5 opacity-0" /> {/* Spacer */}
                   </button>
@@ -597,32 +597,32 @@ export function Attendance() {
                 </div>
 
                 {dtrRiderId && (
-                  <div className="bg-[#FAFAF7] border border-[#EFEAE2] rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between text-xs border-b border-[#EFEAE2] pb-2">
-                      <span className="font-semibold text-[#1A1410]">Preview Information</span>
-                      <span className="text-[#6B6258] font-mono">{dtrDays.length} Days in Period</span>
+                  <div className="bg-panel-bg border border-border rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between text-xs border-b border-border pb-2">
+                      <span className="font-semibold text-foreground">Preview Information</span>
+                      <span className="text-muted-foreground font-mono">{dtrDays.length} Days in Period</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-[#6B6258]">
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                       <div>
-                        Rider: <strong className="text-[#1A1410]">{selectedDtrRider?.name}</strong>
+                        Rider: <strong className="text-foreground">{selectedDtrRider?.name}</strong>
                       </div>
                       <div>
-                        Zone: <strong className="text-[#1A1410]">{selectedDtrRider?.zoneName}</strong>
+                        Zone: <strong className="text-foreground">{selectedDtrRider?.zoneName}</strong>
                       </div>
                       <div>
-                        Role: <strong className="text-[#1A1410]">RIDER</strong>
+                        Role: <strong className="text-foreground">RIDER</strong>
                       </div>
                       <div>
-                        Month: <strong className="text-[#1A1410]">{dtrDateFrom}</strong>
+                        Month: <strong className="text-foreground">{dtrDateFrom}</strong>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 pt-3 border-t border-[#EFEAE2]">
+                <div className="flex justify-end gap-3 pt-3 border-t border-border">
                   <button
                     onClick={() => setDtrModalOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-[#6B6258] hover:text-[#1A1410] rounded-lg hover:bg-[#FAFAF7] transition"
+                    className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-lg hover:bg-panel-bg transition"
                   >
                     Cancel
                   </button>
@@ -632,7 +632,7 @@ export function Attendance() {
                       handleDownloadDTR(dtrRiderId);
                       setDtrModalOpen(false);
                     }}
-                    className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition shadow-sm"
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition shadow-sm"
                   >
                     <Printer className="w-4 h-4" />
                     <span>Download PDF DTR</span>
@@ -647,10 +647,10 @@ export function Attendance() {
       {importModalOpen && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4">
           <div className="relative max-w-xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center pb-3 border-b border-[#EFEAE2]">
+            <div className="flex justify-between items-center pb-3 border-b border-border">
               <div>
-                <h3 className="text-base font-bold text-[#1A1410]">Import Attendance DTR (PDF)</h3>
-                <p className="text-xs text-[#6B6258]">
+                <h3 className="text-base font-bold text-foreground">Import Attendance DTR (PDF)</h3>
+                <p className="text-xs text-muted-foreground">
                   Upload an official DTR PDF form to parse and import attendance logs into database.
                 </p>
               </div>
@@ -660,7 +660,7 @@ export function Attendance() {
                   setImportFile(null);
                   setParsedLogs([]);
                 }}
-                className="text-[#6B6258] hover:text-[#1A1410] p-1.5 rounded-lg hover:bg-[#FAFAF7]"
+                className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-panel-bg"
               >
                 ✕
               </button>
@@ -668,23 +668,23 @@ export function Attendance() {
 
             {!parsedLogs.length ? (
               <div className="space-y-4">
-                <div className="border-2 border-dashed border-[#EFEAE2] hover:border-[#db6c00]/50 rounded-xl p-8 text-center bg-[#FAFAF7] transition-colors cursor-pointer relative">
+                <div className="border-2 border-dashed border-border hover:border-primary/50 rounded-xl p-8 text-center bg-panel-bg transition-colors cursor-pointer relative">
                   <input
                     type="file"
                     accept="application/pdf"
                     onChange={(e) => setImportFile(e.target.files?.[0] || null)}
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
-                  <Upload className="w-8 h-8 text-[#db6c00] mx-auto mb-2 opacity-80" />
-                  <div className="text-xs font-semibold text-[#1A1410]">
+                  <Upload className="w-8 h-8 text-primary mx-auto mb-2 opacity-80" />
+                  <div className="text-xs font-semibold text-foreground">
                     {importFile ? importFile.name : 'Click or drag PDF DTR file here'}
                   </div>
-                  <div className="text-[11px] text-[#6B6258] mt-1">Supports standard DTR PDF exports</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">Supports standard DTR PDF exports</div>
                 </div>
 
                 {isParsing && (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-2">
-                    <Clock className="w-4 h-4 animate-spin text-[#db6c00]" />
+                    <Clock className="w-4 h-4 animate-spin text-primary" />
                     <span>{parsingStatus || 'Parsing PDF file...'}</span>
                   </div>
                 )}
@@ -697,27 +697,27 @@ export function Attendance() {
                   </span>
                   <button
                     onClick={() => setParsedLogs([])}
-                    className="text-xs text-[#6B6258] hover:text-[#1A1410] underline"
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
                   >
                     Re-upload file
                   </button>
                 </div>
 
-                <div className="max-h-[250px] overflow-y-auto border border-[#EFEAE2] rounded-lg p-2 space-y-1.5 bg-[#FAFAF7] custom-scrollbar text-xs">
+                <div className="max-h-[250px] overflow-y-auto border border-border rounded-lg p-2 space-y-1.5 bg-panel-bg custom-scrollbar text-xs">
                   {parsedLogs.map((log, i) => (
                     <div
                       key={i}
-                      className="p-2 bg-white rounded border border-[#EFEAE2] flex justify-between items-center font-mono text-[11px]"
+                      className="p-2 bg-white rounded border border-border flex justify-between items-center font-mono text-[11px]"
                     >
                       <div>
-                        <span className="font-bold text-[#1A1410]">{log.riderName}</span>
-                        <span className="text-[#6B6258] ml-2">({log.date})</span>
+                        <span className="font-bold text-foreground">{log.riderName}</span>
+                        <span className="text-muted-foreground ml-2">({log.date})</span>
                       </div>
                       <div>
                         <span>
                           {log.timeIn || '—'} → {log.timeOut || '—'}
                         </span>
-                        <span className="ml-2 font-bold text-[#db6c00]">{log.hours}h</span>
+                        <span className="ml-2 font-bold text-primary">{log.hours}h</span>
                       </div>
                     </div>
                   ))}
@@ -725,14 +725,14 @@ export function Attendance() {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-[#EFEAE2]">
+            <div className="flex justify-end gap-3 pt-3 border-t border-border">
               <button
                 onClick={() => {
                   setImportModalOpen(false);
                   setImportFile(null);
                   setParsedLogs([]);
                 }}
-                className="px-4 py-2 text-xs font-semibold text-[#6B6258] hover:text-[#1A1410] rounded-lg hover:bg-[#FAFAF7] transition"
+                className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-lg hover:bg-panel-bg transition"
               >
                 Cancel
               </button>
@@ -741,7 +741,7 @@ export function Attendance() {
                 <button
                   disabled={!importFile || isParsing}
                   onClick={handleProcessImport}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[#db6c00] hover:bg-[#b85a00] disabled:opacity-50 text-white text-xs font-bold transition shadow-sm"
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-xs font-bold transition shadow-sm"
                 >
                   <span>Parse PDF DTR</span>
                 </button>
@@ -765,7 +765,7 @@ export function Attendance() {
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">{label}</label>
+      <label className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">{label}</label>
       {children}
     </div>
   );

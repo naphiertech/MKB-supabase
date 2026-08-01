@@ -514,7 +514,7 @@ export function PayrollDetailsModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-[#1A1410]/25 backdrop-blur-sm z-[1200]"
+        className="fixed inset-0 bg-foreground/25 backdrop-blur-sm z-[1200]"
       />
 
       {/* Drawer Container */}
@@ -523,12 +523,12 @@ export function PayrollDetailsModal({
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "tween", duration: 0.3, ease: "easeOut" }}
-        className="fixed top-0 bottom-0 right-0 h-full w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-[70vw] 2xl:max-w-[60vw] bg-white border-l border-[#EFEAE2] shadow-[0_0_50px_rgba(26,20,16,0.15)] flex flex-col z-[1201] font-[Geist,sans-serif]"
+        className="fixed top-0 bottom-0 right-0 h-full w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-[70vw] 2xl:max-w-[60vw] bg-white border-l border-border shadow-[0_0_50px_rgba(26,20,16,0.15)] flex flex-col z-[1201] font-[Geist,sans-serif]"
       >
         {/* Modal Header */}
-        <div className="px-5 py-3.5 border-b border-[#EFEAE2] flex items-center justify-between shrink-0 bg-[#FAFAF7]">
+        <div className="px-5 py-3.5 border-b border-border flex items-center justify-between shrink-0 bg-panel-bg">
           <div className="flex items-center gap-3">
-            <h3 className="text-base font-bold text-[#1A1410]">
+            <h3 className="text-base font-bold text-foreground">
               Payroll Details
             </h3>
             <span
@@ -542,16 +542,16 @@ export function PayrollDetailsModal({
           <div className="flex items-center gap-3">
             {/* Navigation arrows (if provided) */}
             {(onPrev || onNext) && (
-              <div className="flex items-center border border-[#EFEAE2] rounded-lg bg-white overflow-hidden p-0.5">
+              <div className="flex items-center border border-border rounded-lg bg-white overflow-hidden p-0.5">
                 {indexLabel && (
-                  <span className="px-2.5 text-[11px] font-mono text-[#6B6258] border-r border-[#EFEAE2]">
+                  <span className="px-2.5 text-[11px] font-mono text-muted-foreground border-r border-border">
                     {indexLabel}
                   </span>
                 )}
                 <button
                   disabled={!hasPrev}
                   onClick={onPrev}
-                  className="p-1.5 text-[#6B6258] hover:text-[#1A1410] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAFAF7] transition"
+                  className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed hover:bg-panel-bg transition"
                   title="Previous Rider"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -559,7 +559,7 @@ export function PayrollDetailsModal({
                 <button
                   disabled={!hasNext}
                   onClick={onNext}
-                  className="p-1.5 text-[#6B6258] hover:text-[#1A1410] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#FAFAF7] transition"
+                  className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed hover:bg-panel-bg transition"
                   title="Next Rider"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -569,7 +569,7 @@ export function PayrollDetailsModal({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg border border-[#EFEAE2] bg-white text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] transition"
+              className="p-1.5 rounded-lg border border-border bg-white text-muted-foreground hover:text-foreground hover:bg-panel-bg transition"
             >
               <X className="w-4 h-4" />
             </button>
@@ -579,10 +579,10 @@ export function PayrollDetailsModal({
         {/* Modal Content - Scrollable grid */}
         <div className="flex-1 overflow-y-auto lg:overflow-hidden grid grid-cols-1 lg:grid-cols-12">
           {/* LEFT SIDE: Employee Details and Daily Logs (Col 1-8) */}
-          <div className="lg:col-span-8 p-5 space-y-5 border-r border-[#EFEAE2] overflow-y-auto">
+          <div className="lg:col-span-8 p-5 space-y-5 border-r border-border overflow-y-auto">
             {/* Rider profile card */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-xl border border-[#EFEAE2] bg-[#FAFAF7]/50">
-              <div className="w-14 h-14 rounded-full bg-white border border-[#EFEAE2] flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-xl border border-border bg-panel-bg/50">
+              <div className="w-14 h-14 rounded-full bg-white border border-border flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
                 {riderAvatar ? (
                   <img
                     src={riderAvatar}
@@ -590,30 +590,30 @@ export function PayrollDetailsModal({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <UserIcon className="w-6 h-6 text-[#A39988]" />
+                  <UserIcon className="w-6 h-6 text-subtle-text" />
                 )}
               </div>
 
               <div className="text-center sm:text-left space-y-1">
-                <h4 className="text-base font-bold text-[#1A1410]">
+                <h4 className="text-base font-bold text-foreground">
                   {riderName}
                 </h4>
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1 text-xs text-[#6B6258] font-mono">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1 text-xs text-muted-foreground font-mono">
                   <span>
                     Code:{" "}
-                    <span className="font-semibold text-[#1A1410]">
+                    <span className="font-semibold text-foreground">
                       {riderMkbId}
                     </span>
                   </span>
                   <span className="hidden sm:inline">·</span>
                   <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-[#db6c00]" />
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
                     {zoneName}
                   </span>
                   <span className="hidden sm:inline">·</span>
                   <span>
                     Shift:{" "}
-                    <span className="font-semibold capitalize text-[#1A1410]">
+                    <span className="font-semibold capitalize text-foreground">
                       {shiftText}
                     </span>
                   </span>
@@ -622,8 +622,8 @@ export function PayrollDetailsModal({
 
               {role !== "rider" && (
                 <div className="sm:ml-auto">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold tracking-wider uppercase border border-[#EFEAE2] rounded-lg bg-white text-[#6B6258]">
-                    <Building className="w-3.5 h-3.5 text-[#db6c00]" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold tracking-wider uppercase border border-border rounded-lg bg-white text-muted-foreground">
+                    <Building className="w-3.5 h-3.5 text-primary" />
                     Manager View
                   </span>
                 </div>
@@ -632,8 +632,8 @@ export function PayrollDetailsModal({
 
             {loading ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-[#db6c00]" />
-                <span className="text-sm text-[#6B6258]">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">
                   Fetching performance telemetry metrics...
                 </span>
               </div>
@@ -657,7 +657,7 @@ export function PayrollDetailsModal({
 
                 {/* Daily Breakdown Table */}
                 <div className="space-y-2">
-                  <div className="text-[11px] uppercase tracking-wider text-[#6B6258] font-bold font-sans">
+                  <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold font-sans">
                     Daily Log Breakdown
                   </div>
                   <AttendanceLogsTable
@@ -673,48 +673,48 @@ export function PayrollDetailsModal({
           </div>
 
           {/* RIGHT SIDE: Payslip Slip Voucher (Col 9-12) */}
-          <div className="lg:col-span-4 p-5 bg-[#FAFAF7] flex flex-col justify-between overflow-y-auto">
+          <div className="lg:col-span-4 p-5 bg-panel-bg flex flex-col justify-between overflow-y-auto">
             <div className="space-y-4">
               {/* Workflow Timeline */}
-              <div className="bg-white border border-[#EFEAE2] rounded-xl p-3.5 shadow-sm space-y-3">
-                <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
+              <div className="bg-white border border-border rounded-xl p-3.5 shadow-sm space-y-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                   Workflow Timeline & Audit
                 </div>
                 
-                <div className="relative pl-4 space-y-3 border-l-2 border-[#EFEAE2]">
+                <div className="relative pl-4 space-y-3 border-l-2 border-border">
                   {/* Draft State */}
                   <div className="relative">
                     <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border bg-white ${
-                      record.status === 'draft' ? 'border-[#db6c00] bg-[#db6c00] ring-4 ring-[#db6c00]/10' : 'border-[#A39988]'
+                      record.status === 'draft' ? 'border-primary bg-primary ring-4 ring-primary/10' : 'border-subtle-text'
                     }`} />
-                    <div className="text-[11px] font-semibold text-[#1A1410]">Draft Prepared</div>
-                    <div className="text-[9.5px] text-[#6B6258]">Initial payroll worksheet setup</div>
+                    <div className="text-[11px] font-semibold text-foreground">Draft Prepared</div>
+                    <div className="text-[9.5px] text-muted-foreground">Initial payroll worksheet setup</div>
                   </div>
 
                   {/* Submitted State */}
                   <div className="relative">
                     <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border bg-white ${
-                      record.status === 'pending' ? 'border-[#db6c00] bg-[#db6c00] ring-4 ring-[#db6c00]/10' :
-                      (record.submitted_at || ['approved', 'paid'].includes(record.status)) ? 'border-[#db6c00] bg-[#db6c00]' : 'border-[#EFEAE2]'
+                      record.status === 'pending' ? 'border-primary bg-primary ring-4 ring-primary/10' :
+                      (record.submitted_at || ['approved', 'paid'].includes(record.status)) ? 'border-primary bg-primary' : 'border-border'
                     }`} />
-                    <div className="text-[11px] font-semibold text-[#1A1410]">Submitted for Review</div>
+                    <div className="text-[11px] font-semibold text-foreground">Submitted for Review</div>
                     {record.submitted_at ? (
-                      <div className="text-[9.5px] text-[#6B6258]">
+                      <div className="text-[9.5px] text-muted-foreground">
                         By {record.submitted_user?.full_name || 'Payroll Officer'} on {new Date(record.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     ) : (
-                      <div className="text-[9.5px] text-[#A39988] italic">Awaiting submission</div>
+                      <div className="text-[9.5px] text-subtle-text italic">Awaiting submission</div>
                     )}
                   </div>
 
                   {/* Approved/Rejected State */}
                   <div className="relative">
                     <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border bg-white ${
-                      record.status === 'approved' ? 'border-[#db6c00] bg-[#db6c00] ring-4 ring-[#db6c00]/10' :
+                      record.status === 'approved' ? 'border-primary bg-primary ring-4 ring-primary/10' :
                       record.status === 'rejected' ? 'border-rose-500 bg-rose-500 ring-4 ring-rose-500/10' :
-                      record.status === 'paid' ? 'border-[#db6c00] bg-[#db6c00]' : 'border-[#EFEAE2]'
+                      record.status === 'paid' ? 'border-primary bg-primary' : 'border-border'
                     }`} />
-                    <div className="text-[11px] font-semibold text-[#1A1410]">
+                    <div className="text-[11px] font-semibold text-foreground">
                       {record.status === 'rejected' ? 'Rejected' : 'Approved by Management'}
                     </div>
                     {record.status === 'rejected' && record.rejected_at ? (
@@ -722,41 +722,41 @@ export function PayrollDetailsModal({
                         By {record.rejected_user?.full_name || 'Admin'} on {new Date(record.rejected_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     ) : record.approved_at ? (
-                      <div className="text-[9.5px] text-[#6B6258]">
+                      <div className="text-[9.5px] text-muted-foreground">
                         By {record.approved_user?.full_name || 'Admin'} on {new Date(record.approved_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     ) : (
-                      <div className="text-[9.5px] text-[#A39988] italic">Awaiting validation</div>
+                      <div className="text-[9.5px] text-subtle-text italic">Awaiting validation</div>
                     )}
                   </div>
 
                   {/* Paid State */}
                   <div className="relative">
                     <div className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full border bg-white ${
-                      record.status === 'paid' ? 'border-emerald-500 bg-emerald-500 ring-4 ring-emerald-500/10' : 'border-[#EFEAE2]'
+                      record.status === 'paid' ? 'border-emerald-500 bg-emerald-500 ring-4 ring-emerald-500/10' : 'border-border'
                     }`} />
-                    <div className="text-[11px] font-semibold text-[#1A1410]">Paid & Disbursed</div>
+                    <div className="text-[11px] font-semibold text-foreground">Paid & Disbursed</div>
                     {record.paid_at ? (
                       <div className="text-[9.5px] text-emerald-600">
                         Disbursed on {new Date(record.paid_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     ) : (
-                      <div className="text-[9.5px] text-[#A39988] italic">Awaiting disbursal</div>
+                      <div className="text-[9.5px] text-subtle-text italic">Awaiting disbursal</div>
                     )}
                   </div>
                 </div>
 
                 {/* Audit Details */}
-                <div className="border-t border-[#EFEAE2] pt-3.5 space-y-1.5 text-[10.5px]">
+                <div className="border-t border-border pt-3.5 space-y-1.5 text-[10.5px]">
                   <div className="flex justify-between">
-                    <span className="text-[#6B6258]">Prepared By:</span>
-                    <span className="font-semibold text-[#1A1410] truncate max-w-[150px]">
+                    <span className="text-muted-foreground">Prepared By:</span>
+                    <span className="font-semibold text-foreground truncate max-w-[150px]">
                       {record.submitted_user?.full_name || 'Payroll Officer'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#6B6258]">Last Updated:</span>
-                    <span className="font-mono text-[#1A1410]">
+                    <span className="text-muted-foreground">Last Updated:</span>
+                    <span className="font-mono text-foreground">
                       {new Date(record.updated_at || record.created_at || new Date().toISOString()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                   </div>
@@ -789,7 +789,7 @@ export function PayrollDetailsModal({
             </div>
 
             {/* Manager Actions / Rider actions */}
-            <div className="mt-5 space-y-3 shrink-0 border-t border-[#EFEAE2] pt-4">
+            <div className="mt-5 space-y-3 shrink-0 border-t border-border pt-4">
               {role !== "rider" ? (
                 <div className="space-y-3">
                   {/* Rejection Form */}
@@ -864,7 +864,7 @@ export function PayrollDetailsModal({
                               Submit for Approval
                             </button>
                           ) : (
-                            <div className="h-9 w-full bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 italic">
+                            <div className="h-9 w-full bg-panel-bg border border-border text-muted-foreground rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 italic">
                               {record.status === "pending" && "Submitted. Awaiting review."}
                               {record.status === "approved" && "Approved. Awaiting disbursal."}
                               {record.status === "paid" && "Paid and Disbursed."}
@@ -896,7 +896,7 @@ export function PayrollDetailsModal({
                               <button
                                 disabled={isUpdatingStatus}
                                 onClick={() => handleUpdateStatus("draft")}
-                                className="w-full h-8 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#6B6258] rounded-lg text-xs font-semibold transition"
+                                className="w-full h-8 border border-border bg-white hover:bg-panel-bg text-muted-foreground rounded-lg text-xs font-semibold transition"
                               >
                                 Return for Revision
                               </button>
@@ -926,7 +926,7 @@ export function PayrollDetailsModal({
                           )}
 
                           {isEditableStatus(record.status) && (
-                            <div className="h-9 w-full bg-[#FAFAF7] border border-[#EFEAE2] text-[#6B6258] rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 italic">
+                            <div className="h-9 w-full bg-panel-bg border border-border text-muted-foreground rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 italic">
                               Awaiting payroll officer submission.
                             </div>
                           )}
@@ -936,18 +936,18 @@ export function PayrollDetailsModal({
                   )}
 
                   {/* Export Options */}
-                  <div className="flex gap-2 pt-2 border-t border-[#EFEAE2]/50">
+                  <div className="flex gap-2 pt-2 border-t border-border/50">
                     <button
                       onClick={handleExportPDF}
-                      className="flex-1 h-9 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                      className="flex-1 h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
-                      <Printer className="w-3.5 h-3.5 text-[#db6c00]" />
+                      <Printer className="w-3.5 h-3.5 text-primary" />
                       PDF
                     </button>
 
                     <button
                       onClick={handleExportExcel}
-                      className="flex-1 h-9 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                      className="flex-1 h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                       Excel
@@ -988,10 +988,10 @@ export function PayrollDetailsModal({
                           });
                         }
                       }}
-                      className="h-9 px-2 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-[11px] font-semibold flex items-center justify-center transition"
+                      className="h-9 px-2 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center transition"
                       title="Export CSV"
                     >
-                      <Download className="w-3.5 h-3.5 text-[#6B6258]" />
+                      <Download className="w-3.5 h-3.5 text-muted-foreground" />
                     </button>
                   </div>
                 </div>
@@ -1000,7 +1000,7 @@ export function PayrollDetailsModal({
                 <div className="space-y-2">
                   <button
                     onClick={handleExportPDF}
-                    className="w-full h-9 bg-[#db6c00] hover:bg-[#b85a00] text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
+                    className="w-full h-9 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <Download className="w-3.5 h-3.5" />
                     Download Payslip PDF
@@ -1008,13 +1008,13 @@ export function PayrollDetailsModal({
 
                   <button
                     onClick={handleExportExcel}
-                    className="w-full h-9 border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
+                    className="w-full h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                     Download Payslip Excel
                   </button>
 
-                  <p className="text-[10px] text-[#A39988] text-center">
+                  <p className="text-[10px] text-subtle-text text-center">
                     Contact HR or Payroll for wage corrections or discrepancy
                     reports.
                   </p>

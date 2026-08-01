@@ -31,10 +31,10 @@ const TONE: Record<
     topBar: 'bg-emerald-500'
   },
   brand: {
-    iconBg: 'bg-[#FFF1E0]',
-    iconText: 'text-[#db6c00]',
-    iconRing: 'ring-[#db6c00]/25',
-    topBar: 'bg-[#db6c00]'
+    iconBg: 'bg-accent',
+    iconText: 'text-primary',
+    iconRing: 'ring-primary/25',
+    topBar: 'bg-primary'
   },
   amber: {
     iconBg: 'bg-amber-50',
@@ -59,19 +59,19 @@ function StatTile({
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      className={`relative overflow-hidden rounded-2xl border border-[#EFEAE2] bg-white p-5 shadow-sm text-left w-full transition-all focus:outline-none focus:ring-2 focus:ring-[#db6c00]/30 ${
+      className={`relative overflow-hidden rounded-2xl border border-border bg-white p-5 shadow-sm text-left w-full transition-all focus:outline-none focus:ring-2 focus:ring-primary/30 ${
         onClick
-          ? 'hover:shadow-md hover:border-[#db6c00]/30 cursor-pointer active:scale-[0.98]'
+          ? 'hover:shadow-md hover:border-primary/30 cursor-pointer active:scale-[0.98]'
           : ''
       }`}
     >
       <div className={`absolute top-0 left-0 right-0 h-[2px] ${t.topBar}`} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-[#6B6258] font-mono font-semibold">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono font-semibold">
             {label}
           </div>
-          <div className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-[#1A1410]">
+          <div className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-foreground">
             {value}
           </div>
         </div>
@@ -83,7 +83,7 @@ function StatTile({
       </div>
       <div
         className={`mt-2 text-[11px] ${
-          positive ? 'text-emerald-600' : 'text-[#6B6258]'
+          positive ? 'text-emerald-600' : 'text-muted-foreground'
         } font-mono font-medium`}
       >
         {positive && '● '}

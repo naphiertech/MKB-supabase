@@ -27,9 +27,9 @@ export function HRDetailsPanel({
   // Theme configuration for the 4 panels
   const themes = {
     on_duty: {
-      border: 'border-[#db6c00]/30',
-      bg: 'bg-[#FFF1E0]/5',
-      badge: 'bg-[#FFF1E0] text-[#db6c00] border-[#db6c00]/20',
+      border: 'border-primary/30',
+      bg: 'bg-accent/5',
+      badge: 'bg-accent text-primary border-primary/20',
       title: 'Riders On Duty Today'
     },
     complete: {
@@ -57,16 +57,16 @@ export function HRDetailsPanel({
   return (
     <div className={`border-2 ${currentTheme.border} rounded-xl bg-white p-5 shadow-sm space-y-4 transition-all duration-300 relative`}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#EFEAE2] pb-3">
+      <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <span className={`px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider border ${currentTheme.badge}`}>
             {type.replace('_', ' ')}
           </span>
-          <h3 className="text-sm font-semibold text-[#1A1410]">{currentTheme.title}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{currentTheme.title}</h3>
         </div>
         <button 
           onClick={onClose} 
-          className="text-[#6B6258] hover:text-[#1A1410] p-1.5 rounded-lg hover:bg-[#FAFAF7] transition-all"
+          className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-panel-bg transition-all"
           aria-label="Close Details Panel"
         >
           <X className="w-4 h-4" />
@@ -112,52 +112,52 @@ function OnDutyHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider
     <div className="space-y-3">
       {/* Search Row */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search riders on duty..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
         />
       </div>
 
       {/* List */}
-      <div className="max-h-[300px] overflow-y-auto pr-1 border border-[#EFEAE2] rounded-xl bg-white custom-scrollbar">
+      <div className="max-h-[300px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258]">
+          <div className="py-12 text-center text-xs text-muted-foreground">
             No riders clocked in on duty.
           </div>
         ) : (
           <table className="w-full text-xs text-left">
             <thead>
-              <tr className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase tracking-wider font-semibold text-[#6B6258]">
+              <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>
                 <th className="px-4 py-2.5">Zone</th>
                 <th className="px-4 py-2.5">Time In</th>
                 <th className="px-4 py-2.5 text-right">Method</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFEAE2]">
+            <tbody className="divide-y divide-border">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-[#FFF1E0]/20 transition-all">
+                <tr key={log.id} className="hover:bg-accent/20 transition-all">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       {log.riderAvatar ? (
-                        <img src={log.riderAvatar} alt="" className="w-8 h-8 rounded-full object-cover border border-[#EFEAE2]" />
+                        <img src={log.riderAvatar} alt="" className="w-8 h-8 rounded-full object-cover border border-border" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-[#FFF1E0] flex items-center justify-center font-bold text-[#db6c00] text-xs">
+                        <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-primary text-xs">
                           {log.riderName.charAt(0)}
                         </div>
                       )}
                       <div>
-                        <div className="font-semibold text-[#1A1410]">{log.riderName}</div>
-                        <div className="text-[9px] text-[#6B6258] font-mono">{getRiderCode(log.riderId)}</div>
+                        <div className="font-semibold text-foreground">{log.riderName}</div>
+                        <div className="text-[9px] text-muted-foreground font-mono">{getRiderCode(log.riderId)}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[#6B6258] font-medium">{log.zoneName}</td>
-                  <td className="px-4 py-3 font-mono font-semibold text-[#1A1410]">{log.timeIn || '—'}</td>
+                  <td className="px-4 py-3 text-muted-foreground font-medium">{log.zoneName}</td>
+                  <td className="px-4 py-3 font-mono font-semibold text-foreground">{log.timeIn || '—'}</td>
                   <td className="px-4 py-3 text-right">
                     {log.source === 'face-scan' ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -194,26 +194,26 @@ function CompleteHRDetail({ logs }: { logs: AttendanceLog[] }) {
     <div className="space-y-3">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search complete records..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
         />
       </div>
 
       {/* List */}
-      <div className="max-h-[300px] overflow-y-auto pr-1 border border-[#EFEAE2] rounded-xl bg-white custom-scrollbar">
+      <div className="max-h-[300px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258]">
+          <div className="py-12 text-center text-xs text-muted-foreground">
             No complete attendance entries found.
           </div>
         ) : (
           <table className="w-full text-xs text-left">
             <thead>
-              <tr className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase tracking-wider font-semibold text-[#6B6258]">
+              <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>
                 <th className="px-4 py-2.5">Zone</th>
                 <th className="px-4 py-2.5">Clock In</th>
@@ -221,11 +221,11 @@ function CompleteHRDetail({ logs }: { logs: AttendanceLog[] }) {
                 <th className="px-4 py-2.5 text-right">Hours</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFEAE2]">
+            <tbody className="divide-y divide-border">
               {filteredLogs.map((log) => (
                 <tr key={log.id} className="hover:bg-emerald-50/10 transition-all">
-                  <td className="px-4 py-3 font-semibold text-[#1A1410]">{log.riderName}</td>
-                  <td className="px-4 py-3 text-[#6B6258]">{log.zoneName}</td>
+                  <td className="px-4 py-3 font-semibold text-foreground">{log.riderName}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{log.zoneName}</td>
                   <td className="px-4 py-3 font-mono">{log.timeIn || '—'}</td>
                   <td className="px-4 py-3 font-mono">{log.timeOut || '—'}</td>
                   <td className="px-4 py-3 text-right">
@@ -271,39 +271,39 @@ function AbsentHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search absent riders..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
         />
       </div>
 
       {/* List */}
-      <div className="max-h-[250px] overflow-y-auto pr-1 border border-[#EFEAE2] rounded-xl bg-white custom-scrollbar">
+      <div className="max-h-[250px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258]">
+          <div className="py-12 text-center text-xs text-muted-foreground">
             No absent riders tracked today.
           </div>
         ) : (
           <table className="w-full text-xs text-left">
             <thead>
-              <tr className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase tracking-wider font-semibold text-[#6B6258]">
+              <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>
                 <th className="px-4 py-2.5">Zone</th>
                 <th className="px-4 py-2.5">Status</th>
                 <th className="px-4 py-2.5 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFEAE2]">
+            <tbody className="divide-y divide-border">
               {filteredLogs.map((log) => {
                 const phone = getRiderPhone(log.riderId);
                 return (
                   <tr key={log.id} className="hover:bg-red-50/10 transition-all">
-                    <td className="px-4 py-3 font-semibold text-[#1A1410]">{log.riderName}</td>
-                    <td className="px-4 py-3 text-[#6B6258]">{log.zoneName}</td>
+                    <td className="px-4 py-3 font-semibold text-foreground">{log.riderName}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{log.zoneName}</td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-150">
                         <UserX className="w-3 h-3" />
@@ -379,39 +379,39 @@ function PendingValidationHRDetail({ logs }: { logs: AttendanceLog[] }) {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search pending validations..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
         />
       </div>
 
       {/* List */}
-      <div className="max-h-[250px] overflow-y-auto pr-1 border border-[#EFEAE2] rounded-xl bg-white custom-scrollbar">
+      <div className="max-h-[250px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258]">
+          <div className="py-12 text-center text-xs text-muted-foreground">
             No pending validations requiring review.
           </div>
         ) : (
           <table className="w-full text-xs text-left">
             <thead>
-              <tr className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase tracking-wider font-semibold text-[#6B6258]">
+              <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>
                 <th className="px-4 py-2.5">Zone</th>
                 <th className="px-4 py-2.5">Flag Reason</th>
                 <th className="px-4 py-2.5 text-right">Time In</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#EFEAE2]">
+            <tbody className="divide-y divide-border">
               {filteredLogs.map((log) => (
                 <tr key={log.id} className="hover:bg-amber-50/10 transition-all">
-                  <td className="px-4 py-3 font-semibold text-[#1A1410]">{log.riderName}</td>
-                  <td className="px-4 py-3 text-[#6B6258]">{log.zoneName}</td>
+                  <td className="px-4 py-3 font-semibold text-foreground">{log.riderName}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{log.zoneName}</td>
                   <td className="px-4 py-3">{getReasonLabel(log)}</td>
-                  <td className="px-4 py-3 text-right font-mono font-medium text-[#1A1410]">
+                  <td className="px-4 py-3 text-right font-mono font-medium text-foreground">
                     {log.timeIn || '—'}
                   </td>
                 </tr>

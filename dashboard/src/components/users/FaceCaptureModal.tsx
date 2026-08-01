@@ -35,17 +35,17 @@ export function FaceCaptureModal({
 
   return (
     <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[#1A1410]/60 backdrop-blur-sm" onClick={onCancel} />
+      <div className="absolute inset-0 bg-foreground/60 backdrop-blur-sm" onClick={onCancel} />
       
-      <div className="relative bg-white rounded-2xl border border-[#EFEAE2] shadow-2xl w-full max-w-sm p-5 z-[1310]">
+      <div className="relative bg-white rounded-2xl border border-border shadow-2xl w-full max-w-sm p-5 z-[1310]">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="text-sm font-semibold text-[#1A1410]">Face Enrollment</div>
-            <div className="text-[11px] text-[#6B6258]">Capture a clear photo of the rider's face</div>
+            <div className="text-sm font-semibold text-foreground">Face Enrollment</div>
+            <div className="text-[11px] text-muted-foreground">Capture a clear photo of the rider's face</div>
           </div>
           <button
             onClick={onCancel}
-            className="p-1.5 rounded-md text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] cursor-pointer"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg cursor-pointer"
             aria-label="Close"
           >
             <X className="w-4 h-4" />

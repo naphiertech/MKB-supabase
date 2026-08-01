@@ -518,7 +518,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             <select
               value={zoneFilter}
               onChange={(e) => setZoneFilter(e.target.value)}
-              className="h-9 px-3 rounded-md bg-[#FAFAF7] border border-[#EFEAE2] text-xs text-[#1A1410] font-semibold outline-none focus:border-[#db6c00] focus:ring-2 focus:ring-[#db6c00]/15 cursor-pointer shadow-sm"
+              className="h-9 px-3 rounded-md bg-panel-bg border border-border text-xs text-foreground font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer shadow-sm"
             >
               <option value="all">All Zones ({zonesList.length})</option>
               {zonesList.map((z) => (

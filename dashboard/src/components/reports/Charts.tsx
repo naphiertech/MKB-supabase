@@ -71,10 +71,10 @@ export function AttendanceRateChart({ logs = [] }: { logs?: AttendanceLog[] }) {
     <ChartCard title="Attendance Rate Trend" subtitle="Daily shift arrival & compliance rate (%)" tone="primary">
       <div className="h-[240px] w-full">
         {chartData.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2]">
-            <CalendarX className="w-8 h-8 text-[#6B6258] mb-2 opacity-60" />
-            <div className="text-xs font-semibold text-[#1A1410]">No Attendance Logs Available</div>
-            <div className="text-[11px] text-[#6B6258]">No attendance records found in Supabase for the selected date range.</div>
+          <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-panel-bg rounded-lg border border-border">
+            <CalendarX className="w-8 h-8 text-muted-foreground mb-2 opacity-60" />
+            <div className="text-xs font-semibold text-foreground">No Attendance Logs Available</div>
+            <div className="text-[11px] text-muted-foreground">No attendance records found in Supabase for the selected date range.</div>
           </div>
         ) : shouldRender ? (
           <ResponsiveContainer width="100%" height={240}>
@@ -150,10 +150,10 @@ export function ViolationsByZoneChart({
     <ChartCard title="Violations & Boundary Breaches by Zone" subtitle="Sorted from highest to lowest" tone="red">
       <div className="h-[240px] w-full">
         {totalViolations === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2]">
+          <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-panel-bg rounded-lg border border-border">
             <ShieldCheck className="w-8 h-8 text-emerald-500 mb-2" />
-            <div className="text-xs font-semibold text-[#1A1410]">Zero Geofence Violations</div>
-            <div className="text-[11px] text-[#6B6258]">All active riders operated strictly within assigned boundaries.</div>
+            <div className="text-xs font-semibold text-foreground">Zero Geofence Violations</div>
+            <div className="text-[11px] text-muted-foreground">All active riders operated strictly within assigned boundaries.</div>
           </div>
         ) : shouldRender ? (
           <ResponsiveContainer width="100%" height={240}>
@@ -254,21 +254,21 @@ export function AttendanceDistributionChart({ logs = [] }: { logs?: AttendanceLo
             </ResponsiveContainer>
           ) : null}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-xl font-bold font-mono text-[#1A1410]">{total}</span>
-            <span className="text-[10px] text-[#6B6258] uppercase font-mono tracking-wider">Records</span>
+            <span className="text-xl font-bold font-mono text-foreground">{total}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider">Records</span>
           </div>
         </div>
 
         <div className="w-full sm:w-[45%] space-y-2">
           {distribution.map((item) => (
-            <div key={item.name} className="flex items-center justify-between text-xs p-1.5 rounded-lg hover:bg-[#FAFAF7]">
+            <div key={item.name} className="flex items-center justify-between text-xs p-1.5 rounded-lg hover:bg-panel-bg">
               <span className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                <span className="text-[#1A1410] font-medium">{item.name}</span>
+                <span className="text-foreground font-medium">{item.name}</span>
               </span>
               <div className="flex items-center gap-2 font-mono">
-                <span className="text-[#6B6258] font-bold">{item.value}</span>
-                <span className="text-[11px] text-[#6B6258] bg-[#FAFAF7] px-1.5 py-0.5 rounded border border-[#EFEAE2]">
+                <span className="text-muted-foreground font-bold">{item.value}</span>
+                <span className="text-[11px] text-muted-foreground bg-panel-bg px-1.5 py-0.5 rounded border border-border">
                   {item.pct}%
                 </span>
               </div>
@@ -307,10 +307,10 @@ export function ZoneCoverageChart({ logs = [] }: { logs?: AttendanceLog[] }) {
     <ChartCard title="Zone Coverage (Total Shift Hours)" subtitle="Accumulated rider-hours by zone" tone="primary">
       <div className="h-[240px] w-full">
         {chartData.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2]">
-            <Clock className="w-8 h-8 text-[#6B6258] mb-2 opacity-60" />
-            <div className="text-xs font-semibold text-[#1A1410]">No Shift Hours Logged</div>
-            <div className="text-[11px] text-[#6B6258]">No active shift hours recorded in Supabase for this range.</div>
+          <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-panel-bg rounded-lg border border-border">
+            <Clock className="w-8 h-8 text-muted-foreground mb-2 opacity-60" />
+            <div className="text-xs font-semibold text-foreground">No Shift Hours Logged</div>
+            <div className="text-[11px] text-muted-foreground">No active shift hours recorded in Supabase for this range.</div>
           </div>
         ) : shouldRender ? (
           <ResponsiveContainer width="100%" height={240}>
@@ -363,10 +363,10 @@ export function RiderPerformanceChart({ logs = [] }: { logs?: AttendanceLog[] })
     <ChartCard title="Top Rider Performance (Total Hours)" subtitle="Highest logged hours for period" tone="green">
       <div className="h-[240px] w-full">
         {chartData.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-[#FAFAF7] rounded-lg border border-[#EFEAE2]">
-            <Award className="w-8 h-8 text-[#6B6258] mb-2 opacity-60" />
-            <div className="text-xs font-semibold text-[#1A1410]">No Rider Data Available</div>
-            <div className="text-[11px] text-[#6B6258]">No rider performance logs available in Supabase for this range.</div>
+          <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-panel-bg rounded-lg border border-border">
+            <Award className="w-8 h-8 text-muted-foreground mb-2 opacity-60" />
+            <div className="text-xs font-semibold text-foreground">No Rider Data Available</div>
+            <div className="text-[11px] text-muted-foreground">No rider performance logs available in Supabase for this range.</div>
           </div>
         ) : shouldRender ? (
           <ResponsiveContainer width="100%" height={240}>
@@ -399,16 +399,16 @@ function ChartCard({
   tone: 'primary' | 'red' | 'green';
   children: React.ReactNode;
 }) {
-  const dot = tone === 'primary' ? 'bg-[#db6c00]' : tone === 'red' ? 'bg-red-500' : 'bg-emerald-500';
+  const dot = tone === 'primary' ? 'bg-primary' : tone === 'red' ? 'bg-red-500' : 'bg-emerald-500';
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl p-4 shadow-sm h-full flex flex-col justify-between">
+    <div className="bg-white border border-border rounded-xl p-4 shadow-sm h-full flex flex-col justify-between">
       <div className="flex items-start justify-between mb-2">
         <div>
-          <div className="text-sm font-semibold text-[#1A1410] flex items-center gap-2">
+          <div className="text-sm font-semibold text-foreground flex items-center gap-2">
             <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
             {title}
           </div>
-          <div className="text-[11px] text-[#6B6258] font-mono">{subtitle}</div>
+          <div className="text-[11px] text-muted-foreground font-mono">{subtitle}</div>
         </div>
       </div>
       <div className="flex-1 flex flex-col justify-center">{children}</div>

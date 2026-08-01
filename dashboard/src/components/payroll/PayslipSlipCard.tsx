@@ -58,15 +58,15 @@ export function PayslipSlipCard({
   handleSaveAdjustments,
 }: PayslipSlipCardProps) {
   return (
-    <div className="border border-[#EFEAE2] bg-white rounded-xl p-5 shadow-sm space-y-4">
-      <div className="text-center space-y-1 pb-4 border-b border-[#EFEAE2] border-dashed">
-        <div className="inline-flex p-1.5 rounded-lg bg-[#FFF1E0] ring-1 ring-[#db6c00]/20 mb-1">
-          <Shield className="w-5 h-5 text-[#db6c00]" />
+    <div className="border border-border bg-white rounded-xl p-5 shadow-sm space-y-4">
+      <div className="text-center space-y-1 pb-4 border-b border-border border-dashed">
+        <div className="inline-flex p-1.5 rounded-lg bg-accent ring-1 ring-primary/20 mb-1">
+          <Shield className="w-5 h-5 text-primary" />
         </div>
-        <h4 className="text-xs uppercase tracking-[0.2em] font-extrabold text-[#1A1410]">
+        <h4 className="text-xs uppercase tracking-[0.2em] font-extrabold text-foreground">
           MKB Corporation
         </h4>
-        <p className="text-[10px] text-[#6B6258] font-mono">
+        <p className="text-[10px] text-muted-foreground font-mono">
           Cutoff:{" "}
           {new Date(record.cutoff_start).toLocaleDateString("en-PH", {
             month: "short",
@@ -83,18 +83,18 @@ export function PayslipSlipCard({
 
       {/* Earnings Section */}
       <div className="space-y-2">
-        <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
           Earnings
         </div>
         <div className="text-xs space-y-1.5">
           <div className="flex justify-between">
-            <span className="text-[#6B6258]">Base Delivery Pay</span>
-            <span className="font-mono tabular-nums text-[#1A1410]">
+            <span className="text-muted-foreground">Base Delivery Pay</span>
+            <span className="font-mono tabular-nums text-foreground">
               {phpFmt(grossPay)}
             </span>
           </div>
           {rateBreakdown.length === 0 ? (
-            <div className="pl-3 text-[11px] text-[#6B6258]/80 flex justify-between font-mono">
+            <div className="pl-3 text-[11px] text-muted-foreground/80 flex justify-between font-mono">
               <span>
                 ({record.total_parcels} parcels @ {phpFmt(ratePerParcel)}/pc)
               </span>
@@ -103,7 +103,7 @@ export function PayslipSlipCard({
             rateBreakdown.map((b) => (
               <div
                 key={b.rate}
-                className="pl-3 text-[11px] text-[#6B6258]/80 flex justify-between font-mono"
+                className="pl-3 text-[11px] text-muted-foreground/80 flex justify-between font-mono"
               >
                 <span>
                   ({b.parcels} parcels @ {phpFmt(b.rate)}/pc)
@@ -114,21 +114,21 @@ export function PayslipSlipCard({
           )}
 
           {/* Option B: Other Earnings Input */}
-          <div className="flex justify-between items-center pt-1 border-t border-[#EFEAE2]/40">
-            <span className="text-[#6B6258]">Other Earnings</span>
+          <div className="flex justify-between items-center pt-1 border-t border-border/40">
+            <span className="text-muted-foreground">Other Earnings</span>
             {role === "payroll" && isEditableStatus(record.status) ? (
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[#A39988]">₱</span>
+                <span className="text-[10px] text-subtle-text">₱</span>
                 <input
                   type="number"
                   value={otherEarnings === 0 ? "" : otherEarnings}
                   placeholder="0.00"
                   onChange={(e) => setOtherEarnings(Number(e.target.value))}
-                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-[#EFEAE2] bg-white rounded focus:border-[#db6c00] focus:ring-1 focus:ring-[#db6c00] outline-none transition"
+                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-border bg-white rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
                 />
               </div>
             ) : (
-              <span className="font-mono tabular-nums text-[#1A1410]">
+              <span className="font-mono tabular-nums text-foreground">
                 {phpFmt(otherEarnings)}
               </span>
             )}
@@ -136,32 +136,32 @@ export function PayslipSlipCard({
 
           {/* Option B: FM Pick Up Count Input */}
           <div className="flex justify-between items-center">
-            <span className="text-[#6B6258]">FM Pick Up</span>
+            <span className="text-muted-foreground">FM Pick Up</span>
             {role === "payroll" && isEditableStatus(record.status) ? (
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[#A39988]">Qty</span>
+                <span className="text-[10px] text-subtle-text">Qty</span>
                 <input
                   type="number"
                   value={fmPickupCount === 0 ? "" : fmPickupCount}
                   placeholder="0"
                   onChange={(e) => setFmPickupCount(Number(e.target.value))}
-                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-[#EFEAE2] bg-white rounded focus:border-[#db6c00] focus:ring-1 focus:ring-[#db6c00] outline-none transition"
+                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-border bg-white rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
                 />
               </div>
             ) : (
-              <span className="font-mono tabular-nums text-[#1A1410]">
+              <span className="font-mono tabular-nums text-foreground">
                 {phpFmt(fmPickupCount * 3)}
               </span>
             )}
           </div>
           {fmPickupCount > 0 && (
-            <div className="pl-3 text-[10px] text-[#A39988] flex justify-between font-mono">
+            <div className="pl-3 text-[10px] text-subtle-text flex justify-between font-mono">
               <span>({fmPickupCount} pickups @ ₱3.00/pc)</span>
               <span>{phpFmt(fmPickupCount * 3)}</span>
             </div>
           )}
 
-          <div className="flex justify-between pt-1 border-t border-[#EFEAE2] font-semibold text-xs text-[#1A1410]">
+          <div className="flex justify-between pt-1 border-t border-border font-semibold text-xs text-foreground">
             <span>Total Earnings</span>
             <span className="font-mono tabular-nums">{phpFmt(totalEarnings)}</span>
           </div>
@@ -170,73 +170,73 @@ export function PayslipSlipCard({
 
       {/* Deductions Section */}
       <div className="space-y-2 pt-2">
-        <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
           Deductions
         </div>
         <div className="text-xs space-y-1.5">
           <div className="flex justify-between items-center">
-            <span className="text-[#6B6258]">General Deductions</span>
+            <span className="text-muted-foreground">General Deductions</span>
             {role === "payroll" && isEditableStatus(record.status) ? (
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[#A39988]">₱</span>
+                <span className="text-[10px] text-subtle-text">₱</span>
                 <input
                   type="number"
                   value={deductions === 0 ? "" : deductions}
                   placeholder="0.00"
                   onChange={(e) => setDeductions(Number(e.target.value))}
-                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-[#EFEAE2] bg-white rounded focus:border-[#db6c00] focus:ring-1 focus:ring-[#db6c00] outline-none transition"
+                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-border bg-white rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
                 />
               </div>
             ) : (
-              <span className="font-mono tabular-nums text-[#6B6258]">
+              <span className="font-mono tabular-nums text-muted-foreground">
                 {phpFmt(deductions)}
               </span>
             )}
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-[#6B6258]">Late Onhold / FM</span>
+            <span className="text-muted-foreground">Late Onhold / FM</span>
             {role === "payroll" && isEditableStatus(record.status) ? (
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[#A39988]">₱</span>
+                <span className="text-[10px] text-subtle-text">₱</span>
                 <input
                   type="number"
                   value={lateOnhold === 0 ? "" : lateOnhold}
                   placeholder="0.00"
                   onChange={(e) => setLateOnhold(Number(e.target.value))}
-                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-[#EFEAE2] bg-white rounded focus:border-[#db6c00] focus:ring-1 focus:ring-[#db6c00] outline-none transition"
+                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-border bg-white rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
                 />
               </div>
             ) : (
-              <span className="font-mono tabular-nums text-[#6B6258]">
+              <span className="font-mono tabular-nums text-muted-foreground">
                 {phpFmt(lateOnhold)}
               </span>
             )}
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-[#6B6258]">Late Remittance</span>
+            <span className="text-muted-foreground">Late Remittance</span>
             {role === "payroll" && isEditableStatus(record.status) ? (
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-[#A39988]">₱</span>
+                <span className="text-[10px] text-subtle-text">₱</span>
                 <input
                   type="number"
                   value={lateRemittance === 0 ? "" : lateRemittance}
                   placeholder="0.00"
                   onChange={(e) => setLateRemittance(Number(e.target.value))}
-                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-[#EFEAE2] bg-white rounded focus:border-[#db6c00] focus:ring-1 focus:ring-[#db6c00] outline-none transition"
+                  className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-border bg-white rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
                 />
               </div>
             ) : (
-              <span className="font-mono tabular-nums text-[#6B6258]">
+              <span className="font-mono tabular-nums text-muted-foreground">
                 {phpFmt(lateRemittance)}
               </span>
             )}
           </div>
 
-          <div className="flex justify-between pt-1 border-t border-[#EFEAE2] font-semibold text-xs text-[#1A1410]">
+          <div className="flex justify-between pt-1 border-t border-border font-semibold text-xs text-foreground">
             <span>Total Deductions</span>
-            <span className="font-mono tabular-nums text-[#6B6258]">
+            <span className="font-mono tabular-nums text-muted-foreground">
               {phpFmt(totalDeductions)}
             </span>
           </div>
@@ -261,23 +261,23 @@ export function PayslipSlipCard({
 
 
       {/* Total Take-Home */}
-      <div className="pt-4 border-t border-dashed border-[#EFEAE2] flex items-center justify-between">
+      <div className="pt-4 border-t border-dashed border-border flex items-center justify-between">
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-[#6B6258] font-bold">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
             Net Take-Home
           </div>
-          <div className="text-[10.5px] text-[#A39988] font-mono leading-none mt-0.5">
+          <div className="text-[10.5px] text-subtle-text font-mono leading-none mt-0.5">
             Gross Pay less deductions
           </div>
         </div>
         <div className="text-right">
-          <span className="text-xl font-bold text-[#db6c00] font-mono tabular-nums">
+          <span className="text-xl font-bold text-primary font-mono tabular-nums">
             {phpFmt(netSalary)}
           </span>
         </div>
       </div>
 
-      <div className="text-center text-[10px] text-[#A39988] italic pt-1">
+      <div className="text-center text-[10px] text-subtle-text italic pt-1">
         Generated dynamically via {BRANDING.appName} System.
       </div>
     </div>

@@ -240,11 +240,11 @@ export function Topbar({
   });
   const badge = ROLE_BADGE[role];
   return (
-    <header className="sticky top-0 z-[1010] bg-white/90 backdrop-blur-md border-b border-[#EFEAE2]">
+    <header className="sticky top-0 z-[1010] bg-white/90 backdrop-blur-md border-b border-border">
       <div className="flex items-center gap-3 md:gap-6 px-4 md:px-7 h-16">
         <button
           onClick={onMenuClick}
-          className="md:hidden text-[#6B6258] hover:text-[#1A1410] p-1.5"
+          className="md:hidden text-muted-foreground hover:text-foreground p-1.5"
           aria-label="Open menu">
           
           <Menu className="w-5 h-5" />
@@ -252,10 +252,10 @@ export function Topbar({
 
         <div className="min-w-0 flex items-center gap-3">
           <div className="min-w-0">
-            <h1 className="text-[#1A1410] font-semibold text-lg md:text-xl tracking-tight truncate">
+            <h1 className="text-foreground font-semibold text-lg md:text-xl tracking-tight truncate">
               {title}
             </h1>
-            <p className="hidden md:block text-xs text-[#6B6258] truncate">
+            <p className="hidden md:block text-xs text-muted-foreground truncate">
               {subtitle}
             </p>
           </div>
@@ -274,13 +274,13 @@ export function Topbar({
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="hidden lg:flex items-center gap-2 px-3 h-9 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] w-72 hover:border-[#db6c00]/30 transition text-left cursor-pointer outline-none focus-within:border-[#db6c00]/40 focus-within:ring-2 focus-within:ring-[#db6c00]/15"
+            className="hidden lg:flex items-center gap-2 px-3 h-9 rounded-lg bg-panel-bg border border-border w-72 hover:border-primary/30 transition text-left cursor-pointer outline-none focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15"
           >
-            <Search className="w-4 h-4 text-[#6B6258]" />
-            <span className="text-sm text-[#6B6258]/70 flex-1">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground/70 flex-1">
               Search riders, zones, screens…
             </span>
-            <kbd className="hidden xl:inline text-[10px] font-mono text-[#6B6258] px-1.5 py-0.5 rounded border border-[#EFEAE2] bg-white">
+            <kbd className="hidden xl:inline text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded border border-border bg-white">
               ⌘K
             </kbd>
           </button>
@@ -295,10 +295,10 @@ export function Topbar({
               />
               
               {/* Dropdown Container */}
-              <div className="absolute left-0 top-full mt-1.5 w-[340px] bg-white/95 backdrop-blur-md rounded-xl border border-[#EFEAE2]/60 shadow-[0_12px_30px_-4px_rgba(26,20,16,0.12)] flex flex-col max-h-[380px] overflow-hidden z-[2000] animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute left-0 top-full mt-1.5 w-[340px] bg-white/95 backdrop-blur-md rounded-xl border border-border/60 shadow-[0_12px_30px_-4px_rgba(26,20,16,0.12)] flex flex-col max-h-[380px] overflow-hidden z-[2000] animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* Input Header */}
-                <div className="flex items-center gap-3 px-3 border-b border-[#EFEAE2]/40 h-11 shrink-0">
-                  <Search className="w-3.5 h-3.5 text-[#6B6258]/60" />
+                <div className="flex items-center gap-3 px-3 border-b border-border/40 h-11 shrink-0">
+                  <Search className="w-3.5 h-3.5 text-muted-foreground/60" />
                   <input
                     type="text"
                     autoFocus
@@ -465,7 +465,7 @@ export function Topbar({
         </div>
 
         {/* Time + status */}
-        <div className="hidden sm:flex items-center gap-3 px-3 h-9 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2]">
+        <div className="hidden sm:flex items-center gap-3 px-3 h-9 rounded-lg bg-panel-bg border border-border">
           <span className="text-emerald-600 text-[11px] flex items-center gap-1.5">
             <span className="relative flex w-2 h-2">
               <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-ping" />
@@ -475,11 +475,11 @@ export function Topbar({
               System
             </span>
           </span>
-          <div className="h-4 w-px bg-[#EFEAE2]" />
-          <div className="font-mono text-sm text-[#1A1410] tabular-nums">
+          <div className="h-4 w-px bg-border" />
+          <div className="font-mono text-sm text-foreground tabular-nums">
             {timeStr}
           </div>
-          <div className="hidden md:block text-[11px] text-[#6B6258] font-mono">
+          <div className="hidden md:block text-[11px] text-muted-foreground font-mono">
             {dateStr}
           </div>
         </div>
@@ -490,7 +490,7 @@ export function Topbar({
             whileTap={{ scale: 0.94 }}
             type="button"
             onClick={() => setIsOpen((v) => !v)}
-            className={`relative p-2 rounded-lg bg-white border transition cursor-pointer ${isOpen ? 'border-[#db6c00]/40 text-[#db6c00]' : 'border-[#EFEAE2] text-[#6B6258] hover:text-[#db6c00] hover:border-[#db6c00]/30'}`}
+            className={`relative p-2 rounded-lg bg-white border transition cursor-pointer ${isOpen ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground hover:text-primary hover:border-primary/30'}`}
             aria-label="Notifications"
             aria-expanded={isOpen}
             aria-haspopup="dialog">
@@ -507,7 +507,7 @@ export function Topbar({
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 450, damping: 25 }}
-                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-[#db6c00] text-white text-[10px] font-semibold flex items-center justify-center px-1 ring-2 ring-white shadow-sm"
+                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-primary text-white text-[10px] font-semibold flex items-center justify-center px-1 ring-2 ring-white shadow-sm"
               >
                 {unreadCount}
               </motion.span>

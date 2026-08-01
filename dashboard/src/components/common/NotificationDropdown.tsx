@@ -170,7 +170,7 @@ export function NotificationDropdown({
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         onClick={onClose}
-        className="sm:hidden fixed inset-0 bg-[#1A1410]/45 z-40"
+        className="sm:hidden fixed inset-0 bg-foreground/45 z-40"
         aria-hidden="true"
       />
 
@@ -186,17 +186,17 @@ export function NotificationDropdown({
           fixed left-2 right-2 top-[68px] z-50
           sm:absolute sm:left-auto sm:right-0 sm:top-[calc(100%+8px)]
           sm:w-[380px]
-          bg-white border border-[#EFEAE2] rounded-xl shadow-2xl overflow-hidden
+          bg-white border border-border rounded-xl shadow-2xl overflow-hidden
         "
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 h-12 border-b border-[#EFEAE2] bg-[#FAF9F6]">
+        <div className="flex items-center justify-between px-4 h-12 border-b border-border bg-[#FAF9F6]">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-[#1A1410]">
+            <h2 className="text-sm font-bold text-foreground">
               Notifications
             </h2>
             {hasUnread && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#db6c00]/10 text-[#db6c00] border border-[#db6c00]/20">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                 NEW
               </span>
             )}
@@ -206,7 +206,7 @@ export function NotificationDropdown({
               <button
                 type="button"
                 onClick={onMarkAllAsRead}
-                className="text-xs font-semibold text-[#db6c00] hover:text-[#b85a00] transition px-2 py-1 rounded hover:bg-[#FFF4E5]"
+                className="text-xs font-semibold text-primary hover:text-accent-foreground transition px-2 py-1 rounded hover:bg-[#FFF4E5]"
               >
                 Mark all as read
               </button>
@@ -215,7 +215,7 @@ export function NotificationDropdown({
               type="button"
               onClick={onClose}
               aria-label="Close notifications"
-              className="sm:hidden p-1.5 rounded-md text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7] transition"
+              className="sm:hidden p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg transition"
             >
               <X className="w-4 h-4" />
             </button>
@@ -228,13 +228,13 @@ export function NotificationDropdown({
             <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-3">
               <CheckCircle2 className="w-6 h-6 text-emerald-600" />
             </div>
-            <h3 className="text-sm font-semibold text-[#1A1410]">You're all caught up!</h3>
-            <p className="text-xs text-[#6B6258] mt-1 max-w-[220px]">
+            <h3 className="text-sm font-semibold text-foreground">You're all caught up!</h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-[220px]">
               No new alerts or system notifications at this time.
             </p>
           </div>
         ) : (
-          <ul className="max-h-[60vh] sm:max-h-[420px] overflow-y-auto divide-y divide-[#EFEAE2]">
+          <ul className="max-h-[60vh] sm:max-h-[420px] overflow-y-auto divide-y divide-border">
             {notifications.map((n, index) => {
               const categoryConfig = n.category && CATEGORY_STYLES[n.category]
                 ? CATEGORY_STYLES[n.category]
@@ -259,7 +259,7 @@ export function NotificationDropdown({
                     type="button"
                     onClick={() => handleCardClick(n)}
                     className={`w-full text-left flex items-start gap-3 px-4 py-3.5 transition group ${
-                      n.read ? 'bg-white hover:bg-[#FAFAF7]' : 'bg-[#FFF9F2] hover:bg-[#FFF3E2]'
+                      n.read ? 'bg-white hover:bg-panel-bg' : 'bg-[#FFF9F2] hover:bg-[#FFF3E2]'
                     }`}
                   >
                     <span
@@ -280,7 +280,7 @@ export function NotificationDropdown({
                       </div>
 
                       <p
-                        className={`text-xs text-[#1A1410] leading-snug break-words ${
+                        className={`text-xs text-foreground leading-snug break-words ${
                           n.read ? 'font-normal' : 'font-semibold'
                         }`}
                       >
@@ -288,7 +288,7 @@ export function NotificationDropdown({
                       </p>
 
                       {n.actionLink && (
-                        <div className="mt-1.5 flex items-center gap-0.5 text-[11px] font-semibold text-[#db6c00] group-hover:underline">
+                        <div className="mt-1.5 flex items-center gap-0.5 text-[11px] font-semibold text-primary group-hover:underline">
                           <span>View Details</span>
                           <ChevronRight className="w-3 h-3" />
                         </div>
@@ -297,7 +297,7 @@ export function NotificationDropdown({
 
                     {!n.read && (
                       <span
-                        className="shrink-0 mt-1 w-2 h-2 rounded-full bg-[#db6c00]"
+                        className="shrink-0 mt-1 w-2 h-2 rounded-full bg-primary"
                         aria-label="Unread"
                       />
                     )}

@@ -23,10 +23,10 @@ export function AttendanceLogsTable({
   violations,
 }: AttendanceLogsTableProps) {
   return (
-    <div className="overflow-x-auto border border-[#EFEAE2] rounded-xl bg-white shadow-sm">
+    <div className="overflow-x-auto border border-border rounded-xl bg-white shadow-sm">
       <table className="w-full text-xs text-left border-collapse">
         <thead>
-          <tr className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10px] uppercase tracking-wider text-[#6B6258] font-mono">
+          <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
             <th className="px-4 py-2.5 font-semibold">Date</th>
             <th className="px-4 py-2.5 font-semibold text-center">Status</th>
             <th className="px-4 py-2.5 font-semibold text-center">Parcels</th>
@@ -54,9 +54,9 @@ export function AttendanceLogsTable({
               <tr
                 key={day.id || day.date}
                 onClick={() => setSelectedDate(day.date)}
-                className={`cursor-pointer transition ${isSelected ? "bg-[#FFF1E0]/50 font-semibold" : "hover:bg-[#FAFAF7]/60"}`}
+                className={`cursor-pointer transition ${isSelected ? "bg-accent/50 font-semibold" : "hover:bg-panel-bg/60"}`}
               >
-                <td className="px-4 py-2 font-mono text-[#1A1410]">
+                <td className="px-4 py-2 font-mono text-foreground">
                   {new Date(day.date).toLocaleDateString("en-PH", {
                     month: "long",
                     day: "2-digit",
@@ -84,13 +84,13 @@ export function AttendanceLogsTable({
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-2 text-center font-mono tabular-nums text-[#1A1410]">
+                <td className="px-4 py-2 text-center font-mono tabular-nums text-foreground">
                   {day.parcels}
                 </td>
-                <td className="px-4 py-2 text-center font-mono tabular-nums text-[#1A1410]">
+                <td className="px-4 py-2 text-center font-mono tabular-nums text-foreground">
                   ₱{day.rate.toFixed(2)}
                 </td>
-                <td className="px-4 py-2 text-right font-mono tabular-nums text-[#1A1410]">
+                <td className="px-4 py-2 text-right font-mono tabular-nums text-foreground">
                   {day.parcels === 0 ? "—" : phpFmt(day.dailyGross)}
                 </td>
               </tr>

@@ -16,10 +16,10 @@ const TONE: Record<
 {
   default: {
     icon: Flag,
-    iconCls: 'text-[#db6c00]',
-    ring: 'ring-[#db6c00]/25',
-    bg: 'bg-[#FFF1E0]',
-    leftBar: 'bg-[#db6c00]'
+    iconCls: 'text-primary',
+    ring: 'ring-primary/25',
+    bg: 'bg-accent',
+    leftBar: 'bg-primary'
   },
   success: {
     icon: CheckCircle2,
@@ -30,10 +30,10 @@ const TONE: Record<
   },
   info: {
     icon: Info,
-    iconCls: 'text-[#db6c00]',
-    ring: 'ring-[#db6c00]/25',
-    bg: 'bg-[#FFF1E0]',
-    leftBar: 'bg-[#db6c00]'
+    iconCls: 'text-primary',
+    ring: 'ring-primary/25',
+    bg: 'bg-accent',
+    leftBar: 'bg-primary'
   },
   warning: {
     icon: AlertTriangle,
@@ -67,7 +67,7 @@ export function ToastViewport() {
             exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
             transition={{ type: "spring", bounce: 0.4, duration: 0.5 }}
             role="status"
-            className="pointer-events-auto relative w-full bg-white backdrop-blur border border-[#EFEAE2] rounded-xl shadow-[0_12px_32px_-12px_rgba(26,20,16,0.18)] pl-4 pr-3.5 py-3 flex items-start gap-3 overflow-hidden">
+            className="pointer-events-auto relative w-full bg-white backdrop-blur border border-border rounded-xl shadow-[0_12px_32px_-12px_rgba(26,20,16,0.18)] pl-4 pr-3.5 py-3 flex items-start gap-3 overflow-hidden">
             
             <span
               className={`absolute left-0 top-0 bottom-0 w-1 ${cfg.leftBar}`} />
@@ -78,11 +78,11 @@ export function ToastViewport() {
               <Icon className={`w-4 h-4 ${cfg.iconCls}`} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-[#1A1410] truncate">
+              <div className="text-sm font-semibold text-foreground truncate">
                 {t.title}
               </div>
               {t.description &&
-              <div className="text-[11px] text-[#6B6258] mt-0.5 truncate">
+              <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
                   {t.description}
                 </div>
               }
@@ -90,7 +90,7 @@ export function ToastViewport() {
             <button
               onClick={() => dismiss(t.id)}
               aria-label="Dismiss"
-              className="text-[#6B6258] hover:text-[#1A1410] p-1 -m-1 rounded">
+              className="text-muted-foreground hover:text-foreground p-1 -m-1 rounded">
               
               <X className="w-3.5 h-3.5" />
             </button>

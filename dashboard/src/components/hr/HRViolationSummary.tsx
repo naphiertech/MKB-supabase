@@ -83,16 +83,16 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
   }
 
   return (
-    <div className="bg-white border border-[#EFEAE2] rounded-xl flex flex-col h-full shadow-sm">
+    <div className="bg-white border border-border rounded-xl flex flex-col h-full shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-[#EFEAE2]">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-red-50 ring-1 ring-red-500/25 flex items-center justify-center">
             <AlertTriangle className="w-4 h-4 text-red-600" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-[#1A1410]">Recent Violation Summary</div>
-            <div className="text-[11px] text-[#6B6258] font-mono">
+            <div className="text-sm font-semibold text-foreground">Recent Violation Summary</div>
+            <div className="text-[11px] text-muted-foreground font-mono">
               Top 5 recent incidents · {recent.length} logged
             </div>
           </div>
@@ -101,7 +101,7 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
         {onViewAll && (
           <button
             onClick={onViewAll}
-            className="text-xs text-[#db6c00] hover:text-[#b85a00] font-bold transition cursor-pointer flex items-center gap-1 hover:underline"
+            className="text-xs text-primary hover:text-accent-foreground font-bold transition cursor-pointer flex items-center gap-1 hover:underline"
           >
             <span>View All Violations</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -110,7 +110,7 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
       </div>
 
       {/* Mode Filter Bar */}
-      <div className="flex gap-1.5 px-4 py-2 bg-[#FAFAF7]/50 border-b border-[#EFEAE2] shrink-0">
+      <div className="flex gap-1.5 px-4 py-2 bg-panel-bg/50 border-b border-border shrink-0">
         {(['all', 'flagged', 'unflagged'] as const).map((mode) => {
           const active = filter === mode;
           const count =
@@ -126,7 +126,7 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
               type="button"
               onClick={() => setFilter(mode)}
               className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
-                active ? 'bg-[#db6c00] text-white' : 'bg-white text-[#6B6258] border border-[#EFEAE2] hover:bg-[#FAFAF7]'
+                active ? 'bg-primary text-white' : 'bg-white text-muted-foreground border border-border hover:bg-panel-bg'
               }`}
             >
               {label} ({count})
@@ -138,7 +138,7 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
       {/* Incident List */}
       <div className="p-3 space-y-2 overflow-y-auto ar-scroll flex-1">
         {recent.length === 0 && (
-          <div className="text-center text-xs text-[#6B6258] py-8 font-mono">No active violations today. All clear.</div>
+          <div className="text-center text-xs text-muted-foreground py-8 font-mono">No active violations today. All clear.</div>
         )}
         {recent
           .filter((v) => {
@@ -175,43 +175,43 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
             return (
               <div
                 key={v.id}
-                className={`flex items-start gap-3 p-2.5 rounded-lg border border-[#EFEAE2] transition shadow-2xs ${
+                className={`flex items-start gap-3 p-2.5 rounded-lg border border-border transition shadow-2xs ${
                   v.resolved
                     ? 'border-l-2 border-l-emerald-500 bg-emerald-50/10 opacity-80'
                     : isFlagged
-                    ? 'border-l-2 border-l-[#db6c00] bg-[#FAFAF7]'
+                    ? 'border-l-2 border-l-primary bg-panel-bg'
                     : 'border-l-2 border-l-red-500 bg-red-50/5'
                 }`}
               >
-                <img src={rider?.avatar ?? ''} alt="" className="w-8 h-8 rounded-full bg-white border border-[#EFEAE2] shrink-0" />
+                <img src={rider?.avatar ?? ''} alt="" className="w-8 h-8 rounded-full bg-white border border-border shrink-0" />
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-[#1A1410] truncate">{v.riderName}</span>
+                    <span className="text-xs font-bold text-foreground truncate">{v.riderName}</span>
                     {severityBadge}
                     {isFlagged && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold bg-[#FFF1E0] text-[#b85a00] border border-[#db6c00]/30">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold bg-accent text-accent-foreground border border-primary/30">
                         <Check className="w-2.5 h-2.5" /> Flagged
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-[#6B6258] mt-0.5 flex flex-wrap items-center">
-                    <span className="text-[#1A1410] font-semibold">{TYPE_LABEL[v.type]}</span>
-                    <span className="text-[#6B6258]/60 mx-1">·</span>
+                  <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center">
+                    <span className="text-foreground font-semibold">{TYPE_LABEL[v.type]}</span>
+                    <span className="text-muted-foreground/60 mx-1">·</span>
                     <span>{v.zoneName}</span>
                     {v.type === 'boundary_exit' && (
                       <>
-                        <span className="text-[#6B6258]/60 mx-1">·</span>
+                        <span className="text-muted-foreground/60 mx-1">·</span>
                         <span className={v.resolved ? 'text-emerald-600 font-semibold' : 'text-red-500 font-bold'}>
                           {durationText}
                         </span>
                       </>
                     )}
                   </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[10px] text-[#6B6258] font-mono">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[10px] text-muted-foreground font-mono">
                     <span>{relativeTime(v.ts, now)}</span>
                     {rider && (
-                      <span className="text-[#6B6258]/70">
+                      <span className="text-muted-foreground/70">
                         {rider.lat.toFixed(4)}, {rider.lng.toFixed(4)}
                       </span>
                     )}
@@ -224,7 +224,7 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
                   className={`inline-flex items-center gap-1 self-center px-2.5 h-7 rounded-md text-[11px] font-bold border transition shrink-0 cursor-pointer ${
                     isFlagged || v.resolved
                       ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-                      : 'bg-[#db6c00] hover:bg-[#b85a00] text-white border-[#db6c00]'
+                      : 'bg-primary hover:bg-primary-hover text-white border-primary'
                   }`}
                 >
                   <Flag className="w-3 h-3" />

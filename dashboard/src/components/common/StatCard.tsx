@@ -43,11 +43,11 @@ const ACCENT: Record<
   }
 > = {
   blue: {
-    ring: "ring-[#db6c00]/25",
-    icon: "text-[#db6c00]",
-    bg: "bg-[#FFF1E0]",
-    topBar: "bg-[#db6c00]",
-    sparkBar: "bg-[#db6c00]/70",
+    ring: "ring-primary/25",
+    icon: "text-primary",
+    bg: "bg-accent",
+    topBar: "bg-primary",
+    sparkBar: "bg-primary/70",
   },
   green: {
     ring: "ring-emerald-500/25",
@@ -72,7 +72,7 @@ const ACCENT: Record<
   },
 };
 const HOVER_BORDER: Record<NonNullable<StatCardProps["accent"]>, string> = {
-  blue: "hover:border-[#db6c00]/30 focus-visible:border-[#db6c00]/50",
+  blue: "hover:border-primary/30 focus-visible:border-primary/50",
   green: "hover:border-emerald-500/30 focus-visible:border-emerald-500/50",
   red: "hover:border-red-500/30 focus-visible:border-red-500/50",
   amber: "hover:border-amber-500/30 focus-visible:border-amber-500/50",
@@ -109,8 +109,8 @@ export function StatCard({
       }}
       role={isClickable ? "button" : undefined}
       tabIndex={isClickable ? 0 : undefined}
-      className={`relative bg-white border border-[#EFEAE2] rounded-xl p-4 overflow-hidden shadow-2xs hover:shadow-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-full flex flex-col justify-between ${
-        isClickable ? `cursor-pointer ${HOVER_BORDER[accent]} focus-visible:ring-[#db6c00]/40` : ""
+      className={`relative bg-white border border-border rounded-xl p-4 overflow-hidden shadow-2xs hover:shadow-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-full flex flex-col justify-between ${
+        isClickable ? `cursor-pointer ${HOVER_BORDER[accent]} focus-visible:ring-primary/40` : ""
       }`}
     >
       {/* top accent edge */}
@@ -118,7 +118,7 @@ export function StatCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+            <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
               {label}
             </span>
             {pulse && (
@@ -128,10 +128,10 @@ export function StatCard({
               </span>
             )}
           </div>
-          <div className="mt-2 text-2xl sm:text-[28px] font-semibold text-[#1A1410] leading-none tracking-tight tabular-nums">
+          <div className="mt-2 text-2xl sm:text-[28px] font-semibold text-foreground leading-none tracking-tight tabular-nums">
             {typeof value === "number" ? <CountUp value={value} /> : value}
           </div>
-          {sub && <div className="mt-2 text-xs text-[#6B6258]">{sub}</div>}
+          {sub && <div className="mt-2 text-xs text-muted-foreground">{sub}</div>}
         </div>
         <div
           className={`w-9 h-9 rounded-lg ${a.bg} ring-1 ${a.ring} flex items-center justify-center`}
@@ -143,7 +143,7 @@ export function StatCard({
       <div className="mt-4 flex items-end justify-between gap-3">
         {trend ? (
           <div
-            className={`inline-flex items-center gap-1 text-xs font-semibold ${trend.positive === false ? "text-red-600" : trend.direction === "flat" ? "text-[#6B6258]" : "text-emerald-600"}`}
+            className={`inline-flex items-center gap-1 text-xs font-semibold ${trend.positive === false ? "text-red-600" : trend.direction === "flat" ? "text-muted-foreground" : "text-emerald-600"}`}
           >
             {trend.direction === "up" && <ArrowUp className="w-3 h-3" />}
             {trend.direction === "down" && <ArrowDown className="w-3 h-3" />}

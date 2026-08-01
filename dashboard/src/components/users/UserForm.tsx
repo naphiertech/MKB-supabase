@@ -382,26 +382,26 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#FAFAF7] text-[#1A1410] font-[Geist,sans-serif]">
+    <div className="flex flex-col min-h-screen bg-panel-bg text-foreground font-[Geist,sans-serif]">
       {/* Top sticky action header */}
-      <div className="sticky top-0 bg-[#FAFAF7]/90 backdrop-blur-md border-b border-[#EFEAE2] z-50 px-4 py-3 md:px-6 flex items-center justify-between gap-4">
+      <div className="sticky top-0 bg-panel-bg/90 backdrop-blur-md border-b border-border z-50 px-4 py-3 md:px-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="p-2 -ml-2 rounded-lg text-[#6B6258] hover:text-[#1A1410] hover:bg-[#EFEAE2]/50 transition shrink-0 cursor-pointer"
+            className="p-2 -ml-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-border/50 transition shrink-0 cursor-pointer"
             aria-label="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-[#1A1410]">
+            <h1 className="text-lg font-bold tracking-tight text-foreground">
               {mode === "edit"
                 ? `Edit User: ${form.firstName} ${form.lastName}`
                 : "Add New User"}
             </h1>
-            <p className="text-xs text-[#6B6258] hidden sm:block">
+            <p className="text-xs text-muted-foreground hidden sm:block">
               {mode === "edit"
                 ? "Modify user profile, system access roles, and assignments."
                 : "Register a new account and configure settings."}
@@ -414,7 +414,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="px-4 h-9 rounded-md bg-white border border-[#EFEAE2] text-sm text-[#1A1410] hover:border-[#db6c00]/30 transition disabled:opacity-50 cursor-pointer font-medium"
+            className="px-4 h-9 rounded-md bg-white border border-border text-sm text-foreground hover:border-primary/30 transition disabled:opacity-50 cursor-pointer font-medium"
           >
             Cancel
           </button>
@@ -422,7 +422,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="px-5 h-9 rounded-md bg-[#db6c00] hover:bg-[#b85a00] active:bg-[#a04e00] text-white text-sm font-semibold focus:ring-2 focus:ring-[#db6c00]/25 transition disabled:opacity-70 cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+            className="px-5 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover text-white text-sm font-semibold focus:ring-2 focus:ring-primary/25 transition disabled:opacity-70 cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {submitting
@@ -437,14 +437,14 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
       {/* Main Spacious Content */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-6 space-y-6">
         {showSummary && errorList.length > 0 && (
-          <div className="rounded-xl border border-[#db6c00]/30 bg-[#FFF1E0] p-4 flex items-start gap-3 shadow-sm">
-            <AlertTriangle className="w-5 h-5 text-[#b85a00] shrink-0" />
+          <div className="rounded-xl border border-primary/30 bg-accent p-4 flex items-start gap-3 shadow-sm">
+            <AlertTriangle className="w-5 h-5 text-accent-foreground shrink-0" />
             <div>
-              <div className="text-sm font-semibold text-[#b85a00] mb-1">
+              <div className="text-sm font-semibold text-accent-foreground mb-1">
                 Please fix {errorList.length} issue
                 {errorList.length === 1 ? "" : "s"} before saving:
               </div>
-              <ul className="list-disc list-inside text-xs text-[#6B6258] space-y-1">
+              <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                 {errorList.map(([k, v]) => (
                   <li key={k}>{v}</li>
                 ))}
@@ -459,8 +459,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
           {/* LEFT AREA: Spacious details (2/3 width for Rider, full for non-Rider) */}
           <div className={`space-y-6 ${isRider ? "lg:col-span-2" : ""}`}>
             {/* CARD 1: Account Info */}
-            <div id="personal" className="bg-white rounded-xl border border-[#EFEAE2] p-5 md:p-6 shadow-sm space-y-5">
-              <div className="text-sm font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2] pb-2">
+            <div id="personal" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-5">
+              <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
                 Personal Information
               </div>
 
@@ -572,7 +572,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                     type="date"
                     value={form.dateOfHire}
                     onChange={(e) => setField("dateOfHire", e.target.value)}
-                    className="ar-input text-[#1A1410] uppercase text-xs"
+                    className="ar-input text-foreground uppercase text-xs"
                     disabled={submitting}
                   />
                 </Field>
@@ -582,8 +582,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
             {/* CARD 2: Home Address (Only for Rider) */}
             {isRider && (
               <>
-                <div id="address" className="bg-white rounded-xl border border-[#EFEAE2] p-5 md:p-6 shadow-sm space-y-5">
-                  <div className="text-sm font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2] pb-2">
+                <div id="address" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-5">
+                  <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
                     Address Details (Locked to Philippines)
                   </div>
 
@@ -684,8 +684,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 </div>
 
                 {/* Emergency Contact */}
-                <div id="emergency" className="bg-white rounded-xl border border-[#EFEAE2] p-5 md:p-6 shadow-sm space-y-5">
-                  <div className="text-sm font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2] pb-2">
+                <div id="emergency" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-5">
+                  <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
                     Emergency Contact Details (Required)
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -728,8 +728,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
             {/* Non-Rider security/status setup in left panel to look balanced */}
             {!isRider && (
-              <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 md:p-6 shadow-sm space-y-5">
-                <div className="text-sm font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2] pb-2">
+              <div className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-5">
+                <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
                   Account Configuration &amp; Credentials
                 </div>
 
@@ -747,7 +747,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                               ? s === "active"
                                 ? "bg-emerald-50 border-emerald-500/40 text-emerald-700 font-bold"
                                 : "bg-red-50 border-red-500/40 text-red-700 font-bold"
-                              : "bg-white border-[#EFEAE2] text-[#1A1410] hover:border-[#db6c00]/30 cursor-pointer"
+                              : "bg-white border-border text-foreground hover:border-primary/30 cursor-pointer"
                           }`}
                         >
                           {s}
@@ -810,7 +810,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                       <button
                         type="button"
                         onClick={() => setShowPassword((s) => !s)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[#6B6258] hover:text-[#1A1410] cursor-pointer"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         {showPassword ? (
                           <EyeOff className="w-4 h-4" />
@@ -834,7 +834,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         setField("tempPassword", pass);
                         setShowPassword(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition shrink-0 cursor-pointer font-semibold"
+                      className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-border text-xs text-foreground hover:border-primary/30 hover:text-primary transition shrink-0 cursor-pointer font-semibold"
                     >
                       <Sparkles className="w-3.5 h-3.5" /> Generate
                     </button>
@@ -844,8 +844,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
             )}
 
             {/* CARD: Remarks & Notes */}
-            <div id="notes" className="bg-white rounded-xl border border-[#EFEAE2] p-5 md:p-6 shadow-sm space-y-4">
-              <div className="text-sm font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2] pb-2">
+            <div id="notes" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-4">
+              <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
                 HR Onboarding Notes / Remarks (Optional)
               </div>
               <Field
@@ -869,12 +869,12 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
           {isRider && (
             <div className="space-y-6">
               {/* CARD 3: Face photo scanning */}
-              <div id="face" className="bg-white rounded-xl border border-[#EFEAE2] p-5 md:p-6 shadow-sm space-y-4">
-                <div className="text-sm font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2] pb-2">
+              <div id="face" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-4">
+                <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
                   Face Registration
                 </div>
 
-                <div className="flex flex-col items-center justify-center p-4 bg-[#FAFAF7] rounded-xl border border-[#EFEAE2] relative">
+                <div className="flex flex-col items-center justify-center p-4 bg-panel-bg rounded-xl border border-border relative">
                   <img
                     src={
                       form.faceImage ??
@@ -884,7 +884,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                       )}&backgroundColor=fff1e0`
                     }
                     alt="Rider Portrait"
-                    className="w-28 h-28 rounded-full border-2 border-white ring-4 ring-[#db6c00]/15 object-cover shadow-md mb-4 bg-white"
+                    className="w-28 h-28 rounded-full border-2 border-white ring-4 ring-primary/15 object-cover shadow-md mb-4 bg-white"
                   />
 
                   <div className="flex items-center gap-2 w-full">
@@ -968,7 +968,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                       type="button"
                       disabled={submitting}
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition cursor-pointer font-semibold shadow-sm"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-white border border-border text-xs text-foreground hover:border-primary/30 hover:text-primary transition cursor-pointer font-semibold shadow-sm"
                     >
                       <Upload className="w-3.5 h-3.5" /> Upload
                     </button>
@@ -976,7 +976,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                       type="button"
                       disabled={submitting}
                       onClick={() => setCameraOpen(true)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-[#db6c00] text-white text-xs hover:bg-[#b85a00] transition cursor-pointer font-semibold shadow-sm"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-primary text-white text-xs hover:bg-primary-hover transition cursor-pointer font-semibold shadow-sm"
                     >
                       <Camera className="w-3.5 h-3.5" /> Scan Face
                     </button>
@@ -990,7 +990,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         setField("faceImage", null);
                         setField("faceDescriptor", null);
                       }}
-                      className="mt-3 inline-flex items-center gap-1 text-[10px] text-[#6B6258] hover:text-red-600 transition cursor-pointer font-medium"
+                      className="mt-3 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-red-600 transition cursor-pointer font-medium"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Remove Face
                       Registration
@@ -1006,7 +1006,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         ? "border-red-200 bg-red-50/40"
                         : form.faceImage
                           ? "border-emerald-200 bg-emerald-50/40"
-                          : "border-[#EFEAE2] bg-[#FAFAF7]"
+                          : "border-border bg-panel-bg"
                     }`}
                   >
                     <div className="flex items-center gap-2 text-xs">
@@ -1019,8 +1019,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         </>
                       ) : (
                         <>
-                          <AlertTriangle className="w-4 h-4 text-[#db6c00] shrink-0" />
-                          <span className="text-[#6B6258]">
+                          <AlertTriangle className="w-4 h-4 text-primary shrink-0" />
+                          <span className="text-muted-foreground">
                             Scan face to enroll rider.
                           </span>
                         </>
@@ -1036,8 +1036,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
               </div>
 
               {/* CARD 4: Operational Configs */}
-              <div id="operations" className="bg-white rounded-xl border border-[#EFEAE2] p-5 md:p-6 shadow-sm space-y-4">
-                <div className="text-sm font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2] pb-2">
+              <div id="operations" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-4">
+                <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
                   Operational Settings
                 </div>
 
@@ -1060,7 +1060,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                       type="button"
                       disabled={submitting}
                       onClick={() => setField("mkbRiderId", generateMkbId())}
-                      className="inline-flex items-center gap-1 px-2 h-9 rounded-md bg-white border border-[#EFEAE2] text-[10px] text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition shrink-0 cursor-pointer font-semibold"
+                      className="inline-flex items-center gap-1 px-2 h-9 rounded-md bg-white border border-border text-[10px] text-foreground hover:border-primary/30 hover:text-primary transition shrink-0 cursor-pointer font-semibold"
                     >
                       <Sparkles className="w-3.5 h-3.5" /> Generate
                     </button>
@@ -1128,8 +1128,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
               </div>
 
               {/* CARD 5: System Access Roles */}
-              <div className="bg-white rounded-xl border border-[#EFEAE2] p-5 md:p-6 shadow-sm space-y-4">
-                <div className="text-sm font-bold text-[#b85a00] uppercase tracking-wider border-b border-[#EFEAE2] pb-2">
+              <div className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-4">
+                <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
                   Access &amp; Security
                 </div>
 
@@ -1147,7 +1147,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                               ? s === "active"
                                 ? "bg-emerald-50 border-emerald-500/40 text-emerald-700 font-bold"
                                 : "bg-red-50 border-red-500/40 text-red-700 font-bold"
-                              : "bg-white border-[#EFEAE2] text-[#1A1410] hover:border-[#db6c00]/30 cursor-pointer"
+                              : "bg-white border-border text-foreground hover:border-primary/30 cursor-pointer"
                           }`}
                         >
                           {s}
@@ -1209,7 +1209,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         <button
                           type="button"
                           onClick={() => setShowPassword((s) => !s)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-[#6B6258] hover:text-[#1A1410] cursor-pointer"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
                         >
                           {showPassword ? (
                             <EyeOff className="w-4 h-4" />
@@ -1233,7 +1233,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                           setField("tempPassword", pass);
                           setShowPassword(true);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-[#EFEAE2] text-xs text-[#1A1410] hover:border-[#db6c00]/30 hover:text-[#db6c00] transition shrink-0 cursor-pointer font-semibold"
+                        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-border text-xs text-foreground hover:border-primary/30 hover:text-primary transition shrink-0 cursor-pointer font-semibold"
                       >
                         <Sparkles className="w-3.5 h-3.5" /> Generate
                       </button>
@@ -1252,16 +1252,16 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
         height: 36px;
         padding: 0 12px;
         background: #FFFFFF;
-        border: 1px solid #EFEAE2;
+        border: 1px solid var(--border);
         border-radius: 6px;
-        color: #1A1410;
+        color: var(--foreground);
         font-size: 13px;
         outline: none;
         transition: border-color 150ms ease, box-shadow 150ms ease;
       }
-      .ar-input:focus { border-color: #db6c00; box-shadow: 0 0 0 3px rgba(219, 108, 0, 0.15); }
+      .ar-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
       .ar-input::placeholder { color: #A39B8E; }
-      .ar-input:disabled { background: #FAFAF7; color: #6B6258; cursor: not-allowed; }
+      .ar-input:disabled { background: var(--panel-bg); color: var(--muted-foreground); cursor: not-allowed; }
       select.ar-input {
         appearance: none;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6258' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -1273,17 +1273,17 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
         width: 100%;
         padding: 10px 12px;
         background: #FFFFFF;
-        border: 1px solid #EFEAE2;
+        border: 1px solid var(--border);
         border-radius: 6px;
-        color: #1A1410;
+        color: var(--foreground);
         font-size: 13px;
         outline: none;
         resize: vertical;
         transition: border-color 150ms ease, box-shadow 150ms ease;
       }
-      .ar-textarea:focus { border-color: #db6c00; box-shadow: 0 0 0 3px rgba(219, 108, 0, 0.15); }
+      .ar-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
       .ar-textarea::placeholder { color: #A39B8E; }
-      .ar-textarea:disabled { background: #FAFAF7; color: #6B6258; cursor: not-allowed; }
+      .ar-textarea:disabled { background: var(--panel-bg); color: var(--muted-foreground); cursor: not-allowed; }
     `}</style>
 
       {cameraOpen && (
@@ -1343,14 +1343,14 @@ function Field({
 }) {
   return (
     <div ref={innerRef} className="space-y-1 w-full">
-      <label className="block text-[11px] uppercase tracking-[0.14em] text-[#6B6258] font-semibold">
+      <label className="block text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
         {label}
       </label>
       {children}
       {error ? (
         <div className="text-[10px] text-red-600 font-medium">{error}</div>
       ) : helper ? (
-        <div className="text-[10px] text-[#6B6258] font-medium">{helper}</div>
+        <div className="text-[10px] text-muted-foreground font-medium">{helper}</div>
       ) : null}
     </div>
   );

@@ -58,16 +58,16 @@ export function AttendanceDetailsPanel({
   return (
     <div className={`border-2 ${currentTheme.border} rounded-xl bg-white p-5 shadow-sm space-y-4 transition-all duration-300 relative`}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#EFEAE2] pb-3">
+      <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2">
           <span className={`px-2 py-0.5 rounded-md text-[10px] uppercase font-bold tracking-wider border ${currentTheme.badge}`}>
             {type.replace('_', ' ')}
           </span>
-          <h3 className="text-sm font-semibold text-[#1A1410]">{currentTheme.title}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{currentTheme.title}</h3>
         </div>
         <button 
           onClick={onClose} 
-          className="text-[#6B6258] hover:text-[#1A1410] p-1.5 rounded-lg hover:bg-[#FAFAF7] transition-all"
+          className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-panel-bg transition-all"
           aria-label="Close Details Panel"
         >
           <X className="w-4 h-4" />
@@ -92,16 +92,16 @@ export function AttendanceDetailsPanel({
       {selectedPhoto && (
         <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/60 p-4">
           <div className="relative max-w-sm w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center pb-3 border-b border-[#EFEAE2]">
-              <span className="text-xs font-semibold text-[#1A1410]">Clock-in Face Verification</span>
+            <div className="flex justify-between items-center pb-3 border-b border-border">
+              <span className="text-xs font-semibold text-foreground">Clock-in Face Verification</span>
               <button 
                 onClick={() => setSelectedPhoto(null)} 
-                className="text-[#6B6258] hover:text-[#1A1410] p-1 rounded-md hover:bg-[#FAFAF7]"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-panel-bg"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="mt-4 flex justify-center bg-[#FAFAF7] rounded-xl overflow-hidden border border-[#EFEAE2]">
+            <div className="mt-4 flex justify-center bg-panel-bg rounded-xl overflow-hidden border border-border">
               <img src={selectedPhoto} alt="Face Scan Preview" className="max-h-[300px] w-auto object-contain" />
             </div>
           </div>
@@ -131,37 +131,37 @@ function PresentRidersDetail({ logs, onSelectPhoto }: DetailProps) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search present riders by name or zone..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
         />
       </div>
 
       <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258] border border-dashed border-[#EFEAE2] rounded-xl bg-[#FAFAF7]">
+          <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl bg-panel-bg">
             No present records found.
           </div>
         ) : (
           filteredLogs.map((log) => (
-            <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-[#EFEAE2] rounded-xl hover:border-emerald-500/25 transition-all">
+            <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-border rounded-xl hover:border-emerald-500/25 transition-all">
               <div className="flex items-center gap-3">
                 {log.riderAvatar ? (
-                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-[#EFEAE2]" />
+                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-[#FFF1E0] flex items-center justify-center font-bold text-[#db6c00] text-sm">
+                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center font-bold text-primary text-sm">
                     {log.riderName.charAt(0)}
                   </div>
                 )}
                 <div>
-                  <h4 className="text-xs font-semibold text-[#1A1410]">{log.riderName}</h4>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-[#6B6258]">
+                  <h4 className="text-xs font-semibold text-foreground">{log.riderName}</h4>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#db6c00]/70" />
+                      <MapPin className="w-3 h-3 text-primary/70" />
                       {log.zoneName}
                     </span>
                     <span>•</span>
@@ -170,9 +170,9 @@ function PresentRidersDetail({ logs, onSelectPhoto }: DetailProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#EFEAE2]/60">
+              <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
                 <div className="text-left sm:text-right">
-                  <span className="text-[9px] text-[#6B6258] uppercase">Arrival Time</span>
+                  <span className="text-[9px] text-muted-foreground uppercase">Arrival Time</span>
                   <div className="text-xs font-mono font-semibold text-emerald-600 flex items-center gap-1">
                     <UserCheck className="w-3.5 h-3.5" />
                     {log.timeIn || '—'}
@@ -181,7 +181,7 @@ function PresentRidersDetail({ logs, onSelectPhoto }: DetailProps) {
                 {log.faceScanUrl ? (
                   <button
                     onClick={() => onSelectPhoto(log.faceScanUrl || '')}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-[#db6c00] hover:text-[#b85a00] bg-[#FFF1E0] border border-[#db6c00]/20 rounded-md font-semibold transition-all"
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-primary hover:text-accent-foreground bg-accent border border-primary/20 rounded-md font-semibold transition-all"
                   >
                     <Eye className="w-3 h-3" />
                     Photo Scan
@@ -213,19 +213,19 @@ function LateRidersDetail({ logs, onSelectPhoto }: DetailProps) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search late riders by name or zone..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
         />
       </div>
 
       <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258] border border-dashed border-[#EFEAE2] rounded-xl bg-[#FAFAF7]">
+          <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl bg-panel-bg">
             No late records logged today.
           </div>
         ) : (
@@ -233,17 +233,17 @@ function LateRidersDetail({ logs, onSelectPhoto }: DetailProps) {
             <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-amber-200 rounded-xl hover:border-amber-500/25 transition-all">
               <div className="flex items-center gap-3">
                 {log.riderAvatar ? (
-                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-[#EFEAE2]" />
+                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-[#FFF1E0] flex items-center justify-center font-bold text-[#db6c00] text-sm">
+                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center font-bold text-primary text-sm">
                     {log.riderName.charAt(0)}
                   </div>
                 )}
                 <div>
-                  <h4 className="text-xs font-semibold text-[#1A1410]">{log.riderName}</h4>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-[#6B6258]">
+                  <h4 className="text-xs font-semibold text-foreground">{log.riderName}</h4>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#db6c00]/70" />
+                      <MapPin className="w-3 h-3 text-primary/70" />
                       {log.zoneName}
                     </span>
                     <span>•</span>
@@ -252,7 +252,7 @@ function LateRidersDetail({ logs, onSelectPhoto }: DetailProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#EFEAE2]/60">
+              <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
                 <div className="text-left sm:text-right">
                   <span className="text-[9px] text-amber-700 uppercase">Arrival Time (Late)</span>
                   <div className="text-xs font-mono font-semibold text-amber-600 flex items-center gap-1">
@@ -263,7 +263,7 @@ function LateRidersDetail({ logs, onSelectPhoto }: DetailProps) {
                 {log.faceScanUrl ? (
                   <button
                     onClick={() => onSelectPhoto(log.faceScanUrl || '')}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-[#db6c00] hover:text-[#b85a00] bg-[#FFF1E0] border border-[#db6c00]/20 rounded-md font-semibold transition-all"
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-primary hover:text-accent-foreground bg-accent border border-primary/20 rounded-md font-semibold transition-all"
                   >
                     <Eye className="w-3 h-3" />
                     Photo Scan
@@ -303,19 +303,19 @@ function AbsentRidersDetail({ logs }: { logs: AttendanceLog[] }) {
       </div>
 
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search absent riders by name or zone..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
         />
       </div>
 
       <div className="max-h-[250px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258] border border-dashed border-[#EFEAE2] rounded-xl bg-[#FAFAF7]">
+          <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl bg-panel-bg">
             No absent records logged for today.
           </div>
         ) : (
@@ -323,17 +323,17 @@ function AbsentRidersDetail({ logs }: { logs: AttendanceLog[] }) {
             <div key={log.id} className="flex items-center justify-between gap-3 p-3 bg-white border border-red-100 hover:border-red-200 rounded-xl transition-all">
               <div className="flex items-center gap-3 min-w-0">
                 {log.riderAvatar ? (
-                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-[#EFEAE2]" />
+                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center font-bold text-red-600 text-sm">
                     {log.riderName.charAt(0)}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h4 className="text-xs font-semibold text-[#1A1410] truncate">{log.riderName}</h4>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-[#6B6258]">
+                  <h4 className="text-xs font-semibold text-foreground truncate">{log.riderName}</h4>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#db6c00]/70" />
+                      <MapPin className="w-3 h-3 text-primary/70" />
                       {log.zoneName}
                     </span>
                   </div>
@@ -367,37 +367,37 @@ function OnLeaveRidersDetail({ logs }: { logs: AttendanceLog[] }) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#6B6258]" />
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search riders on leave by name or zone..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#FAFAF7] border border-[#EFEAE2] rounded-lg outline-none focus:border-[#db6c00]/50 focus:bg-white text-[#1A1410] transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-xs bg-panel-bg border border-border rounded-lg outline-none focus:border-primary/50 focus:bg-white text-foreground transition-colors"
         />
       </div>
 
       <div className="max-h-[300px] overflow-y-auto pr-1 space-y-2 custom-scrollbar">
         {filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-[#6B6258] border border-dashed border-[#EFEAE2] rounded-xl bg-[#FAFAF7]">
+          <div className="py-12 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl bg-panel-bg">
             No riders scheduled on leave today.
           </div>
         ) : (
           filteredLogs.map((log) => (
-            <div key={log.id} className="flex items-center justify-between gap-3 p-3 bg-white border border-[#EFEAE2] rounded-xl hover:border-blue-500/25 transition-all">
+            <div key={log.id} className="flex items-center justify-between gap-3 p-3 bg-white border border-border rounded-xl hover:border-blue-500/25 transition-all">
               <div className="flex items-center gap-3">
                 {log.riderAvatar ? (
-                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-[#EFEAE2]" />
+                  <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-[#FFF1E0] flex items-center justify-center font-bold text-[#db6c00] text-sm">
+                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center font-bold text-primary text-sm">
                     {log.riderName.charAt(0)}
                   </div>
                 )}
                 <div>
-                  <h4 className="text-xs font-semibold text-[#1A1410]">{log.riderName}</h4>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-[#6B6258]">
+                  <h4 className="text-xs font-semibold text-foreground">{log.riderName}</h4>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-[#db6c00]/70" />
+                      <MapPin className="w-3 h-3 text-primary/70" />
                       {log.zoneName}
                     </span>
                   </div>
