@@ -420,10 +420,10 @@ export function PayrollReports() {
             const existing = logs.find(l => l.date === date);
             const att = attList.find(a => a.date === date);
 
-            const rawTimeIn = att?.rawTimeIn || att?.timeIn || null;
+            const canonicalTimeIn = att?.rawTimeIn || (att?.timeIn ? `${date}T${att.timeIn}:00` : null);
             let calculatedRate = 10;
-            if (rawTimeIn) {
-              const d = new Date(rawTimeIn.replace(' ', 'T'));
+            if (canonicalTimeIn) {
+              const d = new Date(canonicalTimeIn);
               if (!isNaN(d.getTime())) {
                 const hours = d.getHours();
                 const mins = d.getMinutes();

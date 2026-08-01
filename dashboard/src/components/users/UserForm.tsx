@@ -31,6 +31,7 @@ import {
   compressBase64Image,
   validate,
 } from "./userFormUtils";
+import { checkEmployeeDuplicates } from "../../services/userService";
 
 type UserWithExtensions = AppUser &
   Partial<{
@@ -285,6 +286,34 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
     setShowSummary(false);
     setSubmitting(true);
     try {
+      // Perform pre-submission database duplicate check (Rider ID, email, plate number, contact, face biometric)
+      const existingRiderId = mode === "edit" ? (user as unknown as { rider_id?: string; riderId?: string })?.rider_id || (user as unknown as { riderId?: string })?.riderId : undefined;
+      const dupCheck = await checkEmployeeDuplicates({
+        mkbRiderId: form.role === "rider" ? form.mkbRiderId : undefined,
+        email: form.email,
+        vehiclePlateNumber: form.role === "rider" ? form.vehiclePlateNumber : undefined,
+        contact: form.contact,
+        faceDescriptor: form.role === "rider" ? form.faceDescriptor : undefined,
+        excludeUserId: mode === "edit" ? user?.id : undefined,
+        excludeRiderId: existingRiderId,
+      });
+
+      if (dupCheck.hasDuplicate) {
+        if (dupCheck.duplicateField === "mkb_id") setErrors(prev => ({ ...prev, mkbRiderId: dupCheck.message }));
+        else if (dupCheck.duplicateField === "email") setErrors(prev => ({ ...prev, email: dupCheck.message }));
+        else if (dupCheck.duplicateField === "vehicle_plate_number") setErrors(prev => ({ ...prev, vehiclePlateNumber: dupCheck.message }));
+        else if (dupCheck.duplicateField === "contact") setErrors(prev => ({ ...prev, contact: dupCheck.message }));
+        else if (dupCheck.duplicateField === "face_descriptor") setErrors(prev => ({ ...prev, faceImage: dupCheck.message }));
+
+        pushToast({
+          title: "Duplicate Registration Blocked",
+          description: dupCheck.message || "An employee record with matching details or face already exists.",
+          tone: "error",
+        });
+        setSubmitting(false);
+        return;
+      }
+
       const fullName =
         `${form.firstName.trim()} ${form.middleName.trim() ? form.middleName.trim() + " " : ""}${form.lastName.trim()}`.trim();
       const saved = {
@@ -873,7 +902,6 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                           if (typeof result === "string") {
                             const compressed =
                               await compressBase64Image(result);
-                            setField("faceImage", compressed);
 
                             try {
                               const active = await ensureScriptsLoaded();
@@ -883,29 +911,52 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                                 img.onload = async () => {
                                   const desc = await getFaceDescriptor(img);
                                   if (desc) {
+                                    const descriptorArray = Array.from(desc);
+                                    // Check duplicate face biometric immediately on 2x2 image upload
+                                    const existingRiderId = mode === "edit" ? (user as unknown as { rider_id?: string; riderId?: string })?.rider_id || (user as unknown as { riderId?: string })?.riderId : undefined;
+                                    const dupCheck = await checkEmployeeDuplicates({
+                                      faceDescriptor: descriptorArray,
+                                      excludeRiderId: existingRiderId,
+                                    });
+
+                                    if (dupCheck.hasDuplicate && dupCheck.duplicateField === "face_descriptor") {
+                                      pushToast({
+                                        title: "Duplicate Face Biometric Blocked",
+                                        description: dupCheck.message || "This face is already registered to another employee.",
+                                        tone: "error",
+                                      });
+                                      setErrors(prev => ({ ...prev, faceImage: dupCheck.message }));
+                                      setField("faceImage", null);
+                                      setField("faceDescriptor", null);
+                                      return;
+                                    }
+
                                     console.log(
-                                      "[Admin UserForm] Face descriptor extracted from upload.",
+                                      "[Admin UserForm] Face descriptor extracted & verified from upload.",
                                     );
-                                    setField(
-                                      "faceDescriptor",
-                                      Array.from(desc),
-                                    );
+                                    setField("faceImage", compressed);
+                                    setField("faceDescriptor", descriptorArray);
+                                    setErrors(prev => ({ ...prev, faceImage: undefined }));
                                   } else {
                                     pushToast({
                                       title: "Invalid Face Photo",
                                       description:
-                                        "No face detected. Please use a clear photo.",
+                                        "No face detected. Please upload a clear 2x2 front-facing photo.",
                                       tone: "warning",
                                     });
+                                    setField("faceImage", compressed);
                                   }
                                 };
                                 img.src = compressed;
+                              } else {
+                                setField("faceImage", compressed);
                               }
                             } catch (err) {
                               console.error(
                                 "[Admin UserForm] Extraction failed:",
                                 err,
                               );
+                              setField("faceImage", compressed);
                             }
                           }
                         };
@@ -1246,9 +1297,29 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
           }
           onCancel={() => setCameraOpen(false)}
           onCapture={async (dataUrl, descriptor) => {
+            if (descriptor && Array.isArray(descriptor) && descriptor.length === 128) {
+              const existingRiderId = mode === "edit" ? (user as unknown as { rider_id?: string; riderId?: string })?.rider_id || (user as unknown as { riderId?: string })?.riderId : undefined;
+              const dupCheck = await checkEmployeeDuplicates({
+                faceDescriptor: descriptor,
+                excludeRiderId: existingRiderId,
+              });
+
+              if (dupCheck.hasDuplicate && dupCheck.duplicateField === "face_descriptor") {
+                pushToast({
+                  title: "Duplicate Face Biometric Blocked",
+                  description: dupCheck.message || "This face is already registered to another employee.",
+                  tone: "error",
+                });
+                setErrors(prev => ({ ...prev, faceImage: dupCheck.message }));
+                setCameraOpen(false);
+                return;
+              }
+            }
+
             const compressed = await compressBase64Image(dataUrl);
             setField("faceImage", compressed);
             setField("faceDescriptor", descriptor);
+            setErrors(prev => ({ ...prev, faceImage: undefined }));
             setCameraOpen(false);
           }}
         />

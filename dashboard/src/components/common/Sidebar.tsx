@@ -17,8 +17,10 @@ import {
   X,
   BookOpen,
   HelpCircle,
-  Headphones } from
-'lucide-react';
+  Headphones,
+  PackageCheck,
+  History
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 export type PageKey =
   | 'dashboard'
@@ -31,7 +33,9 @@ export type PageKey =
   | 'reviews'
   | 'payroll'
   | 'settings'
-  | 'audit_logs';
+  | 'audit_logs'
+  | 'daily_parcels'
+  | 'parcel_history';
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 interface SidebarUser {
   name: string;
@@ -98,6 +102,15 @@ const ADMIN_ITEMS: SidebarItem[] = [
   },
   {
     type: 'section',
+    title: 'Parcel Operations',
+    icon: PackageCheck,
+    items: [
+      { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
+      { key: 'parcel_history', label: 'Parcel History', icon: History }
+    ]
+  },
+  {
+    type: 'section',
     title: 'Finance & Reports',
     icon: Wallet,
     items: [
@@ -131,6 +144,15 @@ const HR_ITEMS: SidebarItem[] = [
       { key: 'users', label: 'Employee Management', icon: UsersIcon },
       { key: 'reviews', label: 'Courier Reviews', icon: Star },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
+    ]
+  },
+  {
+    type: 'section',
+    title: 'Parcel Operations',
+    icon: PackageCheck,
+    items: [
+      { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
+      { key: 'parcel_history', label: 'Parcel History', icon: History }
     ]
   },
   {
@@ -236,6 +258,7 @@ export function Sidebar({
 
   // Accordion open/close states
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    'Parcel Operations': true,
     'Tracking & Zones': true,
     'HR & Employees': true,
     'Finance & Reports': true,

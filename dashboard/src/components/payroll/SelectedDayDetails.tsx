@@ -47,12 +47,24 @@ export function SelectedDayDetails({
           <div className="font-semibold font-mono text-[#1A1410] flex items-center gap-1">
             <Clock className="w-3.5 h-3.5 text-[#db6c00]" />
             {selectedDayAtt?.time_in ? (
-              new Date(
-                selectedDayAtt.time_in.replace(" ", "T"),
-              ).toLocaleTimeString("en-PH", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+              (() => {
+                const val = selectedDayAtt.time_in;
+                const d = new Date(val);
+                if (!isNaN(d.getTime())) {
+                  return d.toLocaleTimeString("en-PH", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                }
+                if (/^\d{1,2}:\d{2}$/.test(val)) {
+                  const [hStr, mStr] = val.split(':');
+                  let h = parseInt(hStr, 10);
+                  const ampm = h >= 12 ? 'PM' : 'AM';
+                  h = h % 12 || 12;
+                  return `${h}:${mStr} ${ampm}`;
+                }
+                return val;
+              })()
             ) : (
               <span className="text-[#A39988] font-sans font-normal">
                 —

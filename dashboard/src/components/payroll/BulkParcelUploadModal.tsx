@@ -283,7 +283,6 @@ export function BulkParcelUploadModal({
         date: r.date,
         parcels: r.parcels,
         rate: r.rate,
-        daily_gross: r.parcels * r.rate,
         created_by: currentUserId || ''
       }));
 

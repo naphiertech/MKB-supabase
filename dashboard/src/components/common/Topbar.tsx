@@ -56,11 +56,19 @@ const TITLES: Record<
   audit_logs: {
     title: 'Audit Logs',
     subtitle: 'Security history and administrative activity trail'
+  },
+  daily_parcels: {
+    title: 'Daily Parcel Entry',
+    subtitle: 'Operational manifest recording & delivery counts'
+  },
+  parcel_history: {
+    title: 'Parcel History',
+    subtitle: 'Historical audit log of daily parcel manifests'
   }
 };
 const ALLOWED_PAGES_BY_ROLE: Record<TopbarRole, PageKey[]> = {
-  admin: ['dashboard', 'monitoring', 'geofence', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs'],
-  hr: ['dashboard', 'monitoring', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs'],
+  admin: ['dashboard', 'monitoring', 'geofence', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
+  hr: ['dashboard', 'monitoring', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
   payroll: ['dashboard', 'computation', 'reports', 'settings']
 };
 

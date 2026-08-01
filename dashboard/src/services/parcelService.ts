@@ -715,13 +715,14 @@ export const bulkUpsertParcelLogs = async (
     date: string;
     parcels: number;
     rate: number;
-    daily_gross: number;
+    daily_gross?: number;
     created_by: string;
   }[]
 ): Promise<void> => {
+  const sanitizedLogs = logs.map(({ daily_gross: _daily_gross, ...rest }) => rest);
   const { error } = await supabase
     .from('parcel_logs')
-    .upsert(logs, { onConflict: 'rider_id,date' });
+    .upsert(sanitizedLogs, { onConflict: 'rider_id,date' });
 
   if (error) throw error;
 };
