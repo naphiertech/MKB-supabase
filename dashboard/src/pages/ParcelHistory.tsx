@@ -6,18 +6,30 @@ import {
   Search,
   Loader2,
   MapPin,
-  Clock,
   ChevronLeft,
   ChevronRight,
   Info,
   PackageCheck,
   X,
   FileSpreadsheet,
-  UserCheck
+  UserCheck,
+  CheckCircle2,
+  XCircle,
+  History,
+  ShieldCheck,
+  Edit3
 } from 'lucide-react';
 import {
   getParcelHistory,
-  type ParcelHistoryItem
+  getParcelLogAuditHistory,
+  getParcelCorrectionRequests,
+  reviewParcelCorrectionRequest,
+  saveDailyParcelEntries,
+  createParcelCorrectionRequest,
+  isCutoffLockedForDate,
+  type ParcelHistoryItem,
+  type ParcelLogAuditEntry,
+  type ParcelCorrectionRequest
 } from '../services/operationsService';
 import { getRidersLookup } from '../services/riderService';
 import { getZones } from '../services/geofenceService';
@@ -26,6 +38,7 @@ import { pushToast } from '../hooks/useToast';
 import { getLocalDateString } from '../services/attendanceService';
 import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
 import { RiderAvatar } from '../components/common/RiderAvatar';
+import { useAuth } from '../hooks/useAuth';
 
 function StatusBadge({ status }: { status?: ParcelHistoryItem['attendanceStatus'] }) {
   switch (status) {
@@ -84,6 +97,100 @@ export function ParcelHistory() {
 
   // Selected row for detail drawer
   const [selectedDetailRow, setSelectedDetailRow] = useState<ParcelHistoryItem | null>(null);
+
+  // Auth & Audit state
+  const { user } = useAuth();
+  const [auditLogs, setAuditLogs] = useState<ParcelLogAuditEntry[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState<boolean>(false);
+
+  // Drawer Inline Edit state
+  const [isEditingDrawer, setIsEditingDrawer] = useState<boolean>(false);
+  const [editDelivered, setEditDelivered] = useState<number>(0);
+  const [editFailed, setEditFailed] = useState<number>(0);
+  const [editReturned, setEditReturned] = useState<number>(0);
+  const [editReason, setEditReason] = useState<string>('');
+  const [submittingDrawerEdit, setSubmittingDrawerEdit] = useState<boolean>(false);
+  const [drawerCutoffLocked, setDrawerCutoffLocked] = useState<boolean>(false);
+
+  // Correction Review Modal state
+  const [showCorrectionsModal, setShowCorrectionsModal] = useState<boolean>(false);
+  const [correctionRequests, setCorrectionRequests] = useState<ParcelCorrectionRequest[]>([]);
+  const [loadingCorrections, setLoadingCorrections] = useState<boolean>(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+
+  // Fetch pending correction requests for admin review
+  const loadCorrectionRequests = useCallback(async () => {
+    setLoadingCorrections(true);
+    try {
+      const data = await getParcelCorrectionRequests('pending');
+      setCorrectionRequests(data);
+    } catch (err) {
+      console.error('Failed to fetch correction requests:', err);
+    } finally {
+      setLoadingCorrections(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCorrectionRequests();
+  }, [loadCorrectionRequests]);
+
+  // Fetch audit history & cutoff lock state whenever a row is selected for the detail drawer
+  useEffect(() => {
+    if (selectedDetailRow?.id) {
+      setLoadingAudit(true);
+      getParcelLogAuditHistory(selectedDetailRow.id)
+        .then(setAuditLogs)
+        .catch(err => console.error('Failed to fetch parcel audit history:', err))
+        .finally(() => setLoadingAudit(false));
+
+      setEditDelivered(selectedDetailRow.deliveredParcels);
+      setEditFailed(selectedDetailRow.failedDeliveries || 0);
+      setEditReturned(selectedDetailRow.returnedParcels || 0);
+      setEditReason('');
+      setIsEditingDrawer(false);
+
+      isCutoffLockedForDate(selectedDetailRow.date)
+        .then(setDrawerCutoffLocked)
+        .catch(() => setDrawerCutoffLocked(false));
+    } else {
+      setAuditLogs([]);
+      setIsEditingDrawer(false);
+    }
+  }, [selectedDetailRow]);
+
+  const handleReviewDecision = async (requestId: string, decision: 'approved' | 'rejected') => {
+    setProcessingId(requestId);
+    try {
+      await reviewParcelCorrectionRequest(
+        requestId,
+        decision,
+        user?.id || user?.email || 'Admin',
+        reviewNotes[requestId]
+      );
+      pushToast({
+        title: `Correction Request ${decision === 'approved' ? 'Approved' : 'Rejected'}`,
+        description: `Successfully ${decision} correction request.`,
+        tone: decision === 'approved' ? 'success' : 'info'
+      });
+      await loadCorrectionRequests();
+      await fetchHistory();
+      if (selectedDetailRow) {
+        const logs = await getParcelLogAuditHistory(selectedDetailRow.id);
+        setAuditLogs(logs);
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Action failed.';
+      pushToast({
+        title: 'Review Action Failed',
+        description: errMsg,
+        tone: 'error'
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   // Load dropdown options
   useEffect(() => {
@@ -170,8 +277,23 @@ export function ParcelHistory() {
           </div>
         </div>
 
-        <div className="text-xs font-mono text-[#6B6258] bg-[#FAFAF7] border border-[#EFEAE2] px-3.5 py-2 rounded-lg shadow-xs shrink-0 self-end md:self-auto">
-          Total Manifest Logs: <strong className="text-[#1A1410] font-bold tabular-nums">{totalCount.toLocaleString()}</strong>
+        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+          <button
+            type="button"
+            onClick={() => setShowCorrectionsModal(true)}
+            className="px-3.5 py-2 rounded-lg bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] text-xs font-semibold text-[#1A1410] flex items-center gap-2 cursor-pointer shadow-xs transition"
+          >
+            <ShieldCheck className="w-4 h-4 text-[#db6c00]" />
+            <span>Correction Approvals</span>
+            {correctionRequests.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold tabular-nums">
+                {correctionRequests.length}
+              </span>
+            )}
+          </button>
+          <div className="text-xs font-mono text-[#6B6258] bg-[#FAFAF7] border border-[#EFEAE2] px-3.5 py-2 rounded-lg shadow-xs">
+            Total Manifest Logs: <strong className="text-[#1A1410] font-bold tabular-nums">{totalCount.toLocaleString()}</strong>
+          </div>
         </div>
       </div>
 
@@ -216,53 +338,57 @@ export function ParcelHistory() {
             </div>
           </div>
 
-          {/* Zone Filter (Parent) */}
+          {/* Zone Selector */}
           <div>
             <label className="block text-[11px] font-semibold text-[#6B6258] uppercase tracking-wider mb-1">
-              Filter Zone
+              Zone Filter
             </label>
-            <select
-              value={selectedZone}
-              onChange={e => handleZoneChange(e.target.value)}
-              className="w-full h-9 px-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-xs font-medium text-[#1A1410] outline-none focus:border-[#db6c00] transition"
-            >
-              <option value="all">All Zones</option>
-              {zones.map(z => (
-                <option key={z.id} value={z.id}>
-                  {z.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedZone}
+                onChange={e => handleZoneChange(e.target.value)}
+                className="w-full h-9 pl-9 pr-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-xs font-medium text-[#1A1410] outline-none focus:border-[#db6c00] transition cursor-pointer appearance-none"
+              >
+                <option value="all">All Delivery Zones</option>
+                {zones.map(z => (
+                  <option key={z.id} value={z.id}>
+                    {z.name}
+                  </option>
+                ))}
+              </select>
+              <MapPin className="w-4 h-4 text-[#6B6258] absolute left-2.5 top-2.5 pointer-events-none" />
+            </div>
           </div>
 
-          {/* Rider Filter (Child Cascading) */}
+          {/* Rider Selector */}
           <div>
             <label className="block text-[11px] font-semibold text-[#6B6258] uppercase tracking-wider mb-1">
-              Filter Rider
+              Courier / Rider
             </label>
-            <select
-              value={selectedRider}
-              onChange={e => {
-                setSelectedRider(e.target.value);
-                setPage(1);
-              }}
-              className="w-full h-9 px-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-xs font-medium text-[#1A1410] outline-none focus:border-[#db6c00] transition"
-            >
-              <option value="all">
-                {selectedZone !== 'all' ? `All Couriers in Zone (${filteredRiders.length})` : 'All Couriers'}
-              </option>
-              {filteredRiders.map(r => (
-                <option key={r.id} value={r.id}>
-                  {r.name} {r.mkb_id ? `(${r.mkb_id})` : ''}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedRider}
+                onChange={e => {
+                  setSelectedRider(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full h-9 pl-9 pr-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-xs font-medium text-[#1A1410] outline-none focus:border-[#db6c00] transition cursor-pointer appearance-none"
+              >
+                <option value="all">All Couriers ({filteredRiders.length})</option>
+                {filteredRiders.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} {r.mkb_id ? `(${r.mkb_id})` : ''}
+                  </option>
+                ))}
+              </select>
+              <UserCheck className="w-4 h-4 text-[#6B6258] absolute left-2.5 top-2.5 pointer-events-none" />
+            </div>
           </div>
 
-          {/* Search Bar */}
+          {/* Search Input */}
           <div>
             <label className="block text-[11px] font-semibold text-[#6B6258] uppercase tracking-wider mb-1">
-              Search Query
+              Search Courier
             </label>
             <div className="relative">
               <input
@@ -272,8 +398,8 @@ export function ParcelHistory() {
                   setSearchQuery(e.target.value);
                   setPage(1);
                 }}
-                placeholder="Rider Name or ID..."
-                className="w-full h-9 pl-9 pr-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-xs font-medium text-[#1A1410] placeholder:text-[#A39988] outline-none focus:border-[#db6c00] transition"
+                placeholder="Search name or MKB ID..."
+                className="w-full h-9 pl-9 pr-3 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-xs font-medium text-[#1A1410] outline-none focus:border-[#db6c00] transition"
               />
               <Search className="w-4 h-4 text-[#6B6258] absolute left-2.5 top-2.5 pointer-events-none" />
             </div>
@@ -281,126 +407,81 @@ export function ParcelHistory() {
         </div>
       </div>
 
-      {/* History Table */}
+      {/* Main Data Table */}
       <div className="bg-white border border-[#EFEAE2] rounded-xl overflow-hidden shadow-xs">
         {loading ? (
-          <div className="p-12 text-center space-y-3">
-            <Loader2 className="w-6 h-6 text-[#db6c00] animate-spin mx-auto" />
-            <p className="text-xs text-[#6B6258] font-medium">Fetching manifest audit logs...</p>
+          <div className="p-12 text-center text-xs text-[#6B6258] flex items-center justify-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin text-[#db6c00]" />
+            Fetching historical parcel manifest logs...
           </div>
         ) : historyItems.length === 0 ? (
-          <div className="p-12 text-center space-y-2">
-            <PackageCheck className="w-8 h-8 text-[#A39988] mx-auto opacity-50" />
-            <p className="text-xs font-semibold text-[#1A1410]">No Parcel History Logs Found</p>
-            <p className="text-[11px] text-[#6B6258]">
-              No recorded daily parcel logs match the active filter criteria.
-            </p>
+          <div className="p-12 text-center text-xs text-[#6B6258] space-y-2">
+            <PackageCheck className="w-8 h-8 text-[#6B6258]/40 mx-auto" />
+            <p className="font-semibold text-[#1A1410]">No Parcel History Logs Found</p>
+            <p className="text-[11px]">Adjust your filter date range or search parameters.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[10.5px] uppercase tracking-wider text-[#6B6258] font-bold">
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap">Date Logged</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap">Rider Courier</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap">Zone</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap">Attendance</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap">Time In</th>
-                  <th className="px-4 py-3 text-right align-middle whitespace-nowrap">
-                    Delivered Parcels <span className="text-[#db6c00] font-normal text-[10px] lowercase">(primary)</span>
-                  </th>
-                  <th className="px-4 py-3 text-right align-middle whitespace-nowrap">
-                    Gross Wage Preview <span className="text-gray-400 font-normal text-[10px] lowercase">(est)</span>
-                  </th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap">Payroll Cutoff</th>
-                  <th className="px-4 py-3 text-left align-middle whitespace-nowrap">Recorded By</th>
-                  <th className="px-4 py-3 text-right align-middle whitespace-nowrap">Details</th>
+                <tr className="bg-[#FAFAF7] border-b border-[#EFEAE2] text-[#6B6258] font-semibold text-[11px] uppercase tracking-wider">
+                  <th className="py-3 px-4">Shift Date</th>
+                  <th className="py-3 px-4">Courier / Rider</th>
+                  <th className="py-3 px-4">Zone</th>
+                  <th className="py-3 px-4">Attendance</th>
+                  <th className="py-3 px-4 text-right">Delivered</th>
+                  <th className="py-3 px-4 text-right">Gross Wage Preview</th>
+                  <th className="py-3 px-4">Payroll Cutoff</th>
+                  <th className="py-3 px-4">Recorded By</th>
+                  <th className="py-3 px-4 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#EFEAE2]">
-                {historyItems.map(item => (
-                  <tr key={item.id} className="hover:bg-[#FAFAF7]/80 transition">
-                    {/* Date Logged */}
-                    <td className="px-4 py-3 align-middle whitespace-nowrap font-mono font-bold text-[#1A1410] tabular-nums">
-                      {item.date}
+              <tbody className="divide-y divide-[#EFEAE2]/60 text-[#1A1410]">
+                {historyItems.map(row => (
+                  <tr
+                    key={row.id}
+                    onClick={() => setSelectedDetailRow(row)}
+                    className="hover:bg-[#FAFAF7]/80 transition cursor-pointer group"
+                  >
+                    <td className="py-3 px-4 font-mono font-semibold text-[#1A1410] whitespace-nowrap">
+                      {row.date}
                     </td>
-
-                    {/* Rider Courier */}
-                    <td className="px-4 py-3 align-middle whitespace-nowrap">
-                      <div>
-                        <div className="font-bold text-[#1A1410] text-xs leading-none">{item.riderName}</div>
-                        <div className="text-[10px] font-mono text-[#6B6258] mt-0.5 leading-none">{item.riderMkbId}</div>
-                      </div>
-                    </td>
-
-                    {/* Zone */}
-                    <td className="px-4 py-3 align-middle whitespace-nowrap font-medium text-[#1A1410]">
-                      <span className="inline-flex items-center gap-1 text-xs">
-                        <MapPin className="w-3 h-3 text-[#6B6258]" />
-                        {item.zoneName}
-                      </span>
-                    </td>
-
-                    {/* Attendance Status */}
-                    <td className="px-4 py-3 align-middle whitespace-nowrap">
-                      <StatusBadge status={item.attendanceStatus} />
-                    </td>
-
-                    {/* Time In */}
-                    <td className="px-4 py-3 align-middle whitespace-nowrap font-mono text-xs">
-                      {item.timeIn ? (
-                        <span className="inline-flex items-center gap-1 text-[#1A1410] font-medium tabular-nums">
-                          <Clock className="w-3 h-3 text-[#db6c00]" />
-                          {item.timeIn}
-                        </span>
-                      ) : (
-                        <span className="text-[#A39988] italic text-[11px]">No Clock-in</span>
-                      )}
-                    </td>
-
-                    {/* Delivered Parcels (Primary Operational Focus - Bold Orange) */}
-                    <td className="px-4 py-3 text-right align-middle whitespace-nowrap font-mono font-bold text-sm text-[#db6c00] tabular-nums">
-                      {item.deliveredParcels.toLocaleString()}
-                    </td>
-
-                    {/* Gross Wage Preview (Secondary De-Emphasized - Smaller Green Text) */}
-                    <td className="px-4 py-3 text-right align-middle whitespace-nowrap font-mono font-medium text-[11px] text-emerald-700/80 tabular-nums">
-                      ₱{item.grossWagePreview.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-
-                    {/* Payroll Cutoff (Supporting Information - Muted Gray Badge) */}
-                    <td className="px-4 py-3 text-left align-middle whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded bg-[#FAFAF7] border border-[#EFEAE2] font-mono text-[10.5px] text-[#6B6258]">
-                        {item.payrollCutoff}
-                      </span>
-                    </td>
-
-                    {/* Recorded By (Operator Identity - Zero UUIDs) */}
-                    <td className="px-4 py-3 align-middle whitespace-nowrap text-left">
-                      <div className="flex items-center gap-1.5">
-                        <UserCheck className="w-3.5 h-3.5 text-[#6B6258] shrink-0" />
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
+                        <RiderAvatar src={row.riderAvatar} name={row.riderName} className="w-7 h-7" />
                         <div>
-                          <div className="font-semibold text-[#1A1410] text-xs leading-none">
-                            {item.createdByName || 'Operations Staff'}
-                          </div>
-                          {item.createdByDetail && (
-                            <div className="text-[10px] font-mono text-[#6B6258] mt-0.5 leading-none">
-                              {item.createdByDetail}
-                            </div>
-                          )}
+                          <div className="font-semibold text-[#1A1410]">{row.riderName}</div>
+                          <div className="text-[10px] text-[#6B6258] font-mono">{row.riderMkbId}</div>
                         </div>
                       </div>
                     </td>
-
-                    {/* Details Action */}
-                    <td className="px-4 py-3 text-right align-middle whitespace-nowrap">
+                    <td className="py-3 px-4 text-[#6B6258] whitespace-nowrap">{row.zoneName}</td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <StatusBadge status={row.attendanceStatus} />
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold font-mono text-[#db6c00] tabular-nums whitespace-nowrap">
+                      {row.deliveredParcels.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold font-mono text-emerald-700 tabular-nums whitespace-nowrap">
+                      ₱{row.grossWagePreview.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-4 text-[11px] text-[#6B6258] font-mono whitespace-nowrap">
+                      {row.payrollCutoff}
+                    </td>
+                    <td className="py-3 px-4 text-[11px] text-[#6B6258] whitespace-nowrap">
+                      <div className="font-medium text-[#1A1410]">{row.createdByName}</div>
+                      {row.createdByDetail && <div className="text-[10px] text-[#6B6258]">{row.createdByDetail}</div>}
+                    </td>
+                    <td className="py-3 px-4 text-center whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={() => setSelectedDetailRow(item)}
-                        className="h-7 px-2.5 rounded bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] text-[#db6c00] text-[11px] font-semibold transition cursor-pointer inline-flex items-center gap-1 shadow-xs"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setSelectedDetailRow(row);
+                        }}
+                        className="p-1.5 rounded-lg text-[#6B6258] hover:text-[#1A1410] hover:bg-white border border-transparent hover:border-[#EFEAE2] transition cursor-pointer"
                       >
-                        <Info className="w-3 h-3" />
-                        View
+                        <Info className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
@@ -411,10 +492,10 @@ export function ParcelHistory() {
         )}
 
         {/* Pagination Footer */}
-        <div className="px-4 py-3 bg-[#FAFAF7] border-t border-[#EFEAE2] flex items-center justify-between text-xs text-[#6B6258]">
+        <div className="p-4 bg-[#FAFAF7] border-t border-[#EFEAE2] flex items-center justify-between text-xs text-[#6B6258]">
           <div>
-            Showing <strong className="text-[#1A1410] tabular-nums">{historyItems.length}</strong> of{' '}
-            <strong className="text-[#1A1410] tabular-nums">{totalCount}</strong> recorded logs
+            Showing <strong className="text-[#1A1410]">{historyItems.length}</strong> of{' '}
+            <strong className="text-[#1A1410]">{totalCount}</strong> logs
           </div>
 
           <div className="flex items-center gap-2">
@@ -422,46 +503,44 @@ export function ParcelHistory() {
               type="button"
               disabled={page <= 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
-              className="h-8 px-2.5 rounded-lg border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer inline-flex items-center gap-1 shadow-xs"
+              className="p-1.5 rounded-lg bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              Prev
+              <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="font-mono text-xs font-semibold px-2 text-[#1A1410] tabular-nums">
+            <span className="font-mono text-xs font-semibold px-2 text-[#1A1410]">
               Page {page} of {totalPages}
             </span>
             <button
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              className="h-8 px-2.5 rounded-lg border border-[#EFEAE2] bg-white hover:bg-[#FAFAF7] text-[#1A1410] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer inline-flex items-center gap-1 shadow-xs"
+              className="p-1.5 rounded-lg bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
             >
-              Next
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Row Detail Drawer (Portaled to document.body to bypass parent CSS transforms) */}
-      {typeof document !== 'undefined' &&
+      {/* Slide-over Detail Drawer */}
+      {selectedDetailRow &&
         createPortal(
           <AnimatePresence>
             {selectedDetailRow && (
-              <div className="fixed inset-0 z-[99999] overflow-hidden">
+              <div className="fixed inset-0 z-[100000] flex justify-end">
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onClick={() => setSelectedDetailRow(null)}
-                  className="absolute inset-0 bg-black/30 backdrop-blur-xs"
+                  className="fixed inset-0 bg-black/30 backdrop-blur-xs"
                 />
                 <motion.div
                   initial={{ x: '100%' }}
                   animate={{ x: 0 }}
                   exit={{ x: '100%' }}
                   transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                  className="absolute inset-y-0 right-0 w-full max-w-md bg-white border-l border-[#EFEAE2] shadow-2xl flex flex-col font-sans z-[100000]"
+                  className="w-full max-w-md bg-white border-l border-[#EFEAE2] shadow-2xl flex flex-col font-sans z-[100000]"
                 >
                   <div className="p-5 border-b border-[#EFEAE2] flex items-center justify-between bg-[#FAFAF7]">
                     <div className="flex items-center gap-3">
@@ -515,28 +594,187 @@ export function ParcelHistory() {
                     <div className="p-4 rounded-xl bg-[#FAFAF7] border border-[#EFEAE2] space-y-3">
                       <div className="text-[11px] font-bold text-[#6B6258] uppercase tracking-wider flex items-center justify-between">
                         <span>Delivery Outcome Breakdown</span>
-                        <span className="text-[10px] font-mono text-[#6B6258] font-normal">Manifest Audit</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDrawer(!isEditingDrawer)}
+                          className="px-2.5 py-1 rounded-lg bg-white border border-[#EFEAE2] hover:bg-[#FAFAF7] text-[10.5px] font-semibold text-[#db6c00] flex items-center gap-1 cursor-pointer shadow-2xs"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          {isEditingDrawer ? 'Cancel Edit' : drawerCutoffLocked ? 'Request Correction' : 'Edit Manifest'}
+                        </button>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="p-2.5 rounded-lg bg-emerald-50/80 border border-emerald-500/20">
-                          <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">Delivered</div>
-                          <div className="text-base font-bold font-mono text-emerald-700 tabular-nums mt-0.5">
-                            {selectedDetailRow.deliveredParcels.toLocaleString()}
+
+                      {isEditingDrawer ? (
+                        <div className="p-3.5 rounded-xl bg-white border border-[#EFEAE2] space-y-3 font-sans text-xs">
+                          <div className="text-[11px] font-bold text-[#1A1410] uppercase tracking-wider flex items-center gap-1.5 border-b border-[#EFEAE2] pb-2">
+                            <PackageCheck className="w-3.5 h-3.5 text-[#db6c00]" />
+                            {drawerCutoffLocked ? 'Submit Correction Request' : 'Direct Operational Edit (Draft Status)'}
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[10.5px] font-semibold text-[#6B6258] mb-1">Delivered</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={editDelivered}
+                                onChange={e => setEditDelivered(parseInt(e.target.value) || 0)}
+                                className="w-full h-8 px-2 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] font-mono text-xs text-[#1A1410] font-bold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10.5px] font-semibold text-[#6B6258] mb-1">Failed</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={editFailed}
+                                onChange={e => setEditFailed(parseInt(e.target.value) || 0)}
+                                className="w-full h-8 px-2 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] font-mono text-xs text-[#1A1410]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10.5px] font-semibold text-[#6B6258] mb-1">Returned</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={editReturned}
+                                onChange={e => setEditReturned(parseInt(e.target.value) || 0)}
+                                className="w-full h-8 px-2 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] font-mono text-xs text-[#1A1410]"
+                              />
+                            </div>
+                          </div>
+
+                          {drawerCutoffLocked ? (
+                            <div className="p-3 rounded-lg bg-amber-50/90 border border-amber-200 space-y-1.5 text-xs">
+                              <div className="flex items-center gap-1.5 font-bold text-amber-900 uppercase text-[10px]">
+                                <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                Locked Payroll Period
+                              </div>
+                              <p className="text-[10.5px] text-amber-800 leading-snug">
+                                This shift's payroll cutoff is locked. All edits require an official Correction Request and Admin approval.
+                              </p>
+                              <label className="block text-[10.5px] font-semibold text-amber-900 pt-1">
+                                Reason for Correction *
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={editReason}
+                                onChange={e => setEditReason(e.target.value)}
+                                placeholder="State manifest discrepancy reason..."
+                                className="w-full p-2 rounded-lg bg-white border border-amber-300 text-xs text-amber-950 outline-none focus:border-amber-600 font-sans"
+                              />
+                            </div>
+                          ) : (
+                            <div className="text-[10.5px] text-slate-600 italic">
+                              Payroll cutoff is currently in draft. Edits will be applied directly to the operational log.
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingDrawer(false)}
+                              className="px-3 py-1.5 rounded-lg bg-white border border-[#EFEAE2] text-xs font-semibold text-[#6B6258] hover:bg-[#FAFAF7]"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={submittingDrawerEdit || (drawerCutoffLocked && !editReason.trim())}
+                              onClick={async () => {
+                                setSubmittingDrawerEdit(true);
+                                try {
+                                  if (drawerCutoffLocked) {
+                                    await createParcelCorrectionRequest({
+                                      parcelLogId: selectedDetailRow.id,
+                                      riderId: selectedDetailRow.riderId,
+                                      date: selectedDetailRow.date,
+                                      previousDelivered: selectedDetailRow.deliveredParcels,
+                                      previousFailed: selectedDetailRow.failedDeliveries || 0,
+                                      previousReturned: selectedDetailRow.returnedParcels || 0,
+                                      requestedDelivered: editDelivered,
+                                      requestedFailed: editFailed,
+                                      requestedReturned: editReturned,
+                                      reason: editReason,
+                                      requestedBy: user?.id || user?.email || 'Operations Staff',
+                                    });
+                                    pushToast({
+                                      title: 'Correction Request Submitted',
+                                      description: 'Submitted correction request for Admin review. Manifest remains unchanged until approved.',
+                                      tone: 'success'
+                                    });
+                                    loadCorrectionRequests();
+                                  } else {
+                                    await saveDailyParcelEntries(
+                                      [
+                                        {
+                                          riderId: selectedDetailRow.riderId,
+                                          date: selectedDetailRow.date,
+                                          parcels: editDelivered,
+                                          assignedParcels: selectedDetailRow.assignedParcels,
+                                          failedDeliveries: editFailed,
+                                          returnedParcels: editReturned,
+                                          notes: selectedDetailRow.notes,
+                                        }
+                                      ],
+                                      user?.id || user?.email || 'Operations Staff'
+                                    );
+                                    pushToast({
+                                      title: 'Parcel Entry Updated',
+                                      description: 'Operational manifest updated directly.',
+                                      tone: 'success'
+                                    });
+                                    fetchHistory();
+                                  }
+
+                                  // Refresh audit logs
+                                  getParcelLogAuditHistory(selectedDetailRow.id).then(setAuditLogs);
+                                  setIsEditingDrawer(false);
+                                } catch (err: unknown) {
+                                  const msg = err instanceof Error ? err.message : 'Operation failed.';
+                                  pushToast({ title: 'Error', description: msg, tone: 'error' });
+                                } finally {
+                                  setSubmittingDrawerEdit(false);
+                                }
+                              }}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5 ${
+                                drawerCutoffLocked ? 'bg-amber-600 hover:bg-amber-700' : 'bg-[#db6c00] hover:bg-[#c56000]'
+                              }`}
+                            >
+                              {submittingDrawerEdit ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : drawerCutoffLocked ? (
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              {drawerCutoffLocked ? 'Submit Correction Request' : 'Save Direct Edits'}
+                            </button>
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-500/20">
-                          <div className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">Failed</div>
-                          <div className="text-base font-bold font-mono text-amber-700 tabular-nums mt-0.5">
-                            {(selectedDetailRow.failedDeliveries || 0).toLocaleString()}
+                      ) : (
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="p-2.5 rounded-lg bg-emerald-50/80 border border-emerald-500/20">
+                            <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">Delivered</div>
+                            <div className="text-base font-bold font-mono text-emerald-700 tabular-nums mt-0.5">
+                              {selectedDetailRow.deliveredParcels.toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-500/20">
+                            <div className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">Failed</div>
+                            <div className="text-base font-bold font-mono text-amber-700 tabular-nums mt-0.5">
+                              {(selectedDetailRow.failedDeliveries || 0).toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-red-50/80 border border-red-500/20">
+                            <div className="text-[10px] uppercase font-bold text-red-800 tracking-wider">Returned</div>
+                            <div className="text-base font-bold font-mono text-red-700 tabular-nums mt-0.5">
+                              {(selectedDetailRow.returnedParcels || 0).toLocaleString()}
+                            </div>
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-red-50/80 border border-red-500/20">
-                          <div className="text-[10px] uppercase font-bold text-red-800 tracking-wider">Returned</div>
-                          <div className="text-base font-bold font-mono text-red-700 tabular-nums mt-0.5">
-                            {(selectedDetailRow.returnedParcels || 0).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
+                      )}
+
                       {selectedDetailRow.assignedParcels ? (
                         <div className="text-[11px] text-[#6B6258] flex justify-between items-center border-t border-[#EFEAE2]/60 pt-2 font-mono">
                           <span>Assigned Manifest:</span>
@@ -548,6 +786,100 @@ export function ParcelHistory() {
                           "{selectedDetailRow.notes}"
                         </div>
                       ) : null}
+                    </div>
+
+                    {/* Audit Log History Timeline Card */}
+                    <div className="p-4 rounded-xl bg-[#FAFAF7] border border-[#EFEAE2] space-y-3">
+                      <div className="text-[11px] font-bold text-[#6B6258] uppercase tracking-wider flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <History className="w-3.5 h-3.5 text-[#db6c00]" />
+                          Operational Audit Trail &amp; History
+                        </span>
+                        {auditLogs.length > 0 && (
+                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {auditLogs.length} event(s)
+                          </span>
+                        )}
+                      </div>
+                      {loadingAudit ? (
+                        <div className="py-4 text-center text-xs text-[#6B6258] flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-[#db6c00]" />
+                          Loading audit timeline...
+                        </div>
+                      ) : auditLogs.length === 0 ? (
+                        <div className="text-xs text-[#6B6258] italic p-3 rounded-lg bg-white border border-[#EFEAE2] text-center">
+                          No historical modifications recorded. Manifest values represent original encoding.
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                          {auditLogs.map(log => {
+                            const badgeStyle =
+                              log.actionType === 'created'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : log.actionType === 'updated'
+                                ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                : log.actionType === 'correction_requested'
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : log.actionType === 'correction_approved'
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : 'bg-rose-50 text-rose-800 border-rose-200';
+
+                            const label =
+                              log.actionType === 'created'
+                                ? 'Manifest Record Created'
+                                : log.actionType === 'updated'
+                                ? 'Direct Operational Edit'
+                                : log.actionType === 'correction_requested'
+                                ? 'Correction Requested'
+                                : log.actionType === 'correction_approved'
+                                ? 'Correction Approved'
+                                : 'Correction Rejected';
+
+                            return (
+                              <div key={log.id} className="p-3 rounded-xl bg-white border border-[#EFEAE2] text-xs space-y-2 font-sans shadow-2xs">
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${badgeStyle}`}>
+                                    {label}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-[#6B6258]">
+                                    {new Date(log.timestamp).toLocaleString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
+                                  </span>
+                                </div>
+
+                                <div className="text-[11px] text-[#6B6258] grid grid-cols-2 gap-2 p-2 rounded-lg bg-[#FAFAF7] font-mono text-[10.5px]">
+                                  <div>
+                                    <span className="text-gray-500">Old (D/F/R):</span>{' '}
+                                    <span className="font-semibold text-gray-700">{log.oldDelivered}/{log.oldFailed}/{log.oldReturned}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">New (D/F/R):</span>{' '}
+                                    <span className="font-semibold text-emerald-700">{log.newDelivered}/{log.newFailed}/{log.newReturned}</span>
+                                  </div>
+                                </div>
+
+                                {log.reason && (
+                                  <div className="text-[11px] text-[#1A1410] bg-amber-50/50 p-2 rounded-lg border border-amber-200/60">
+                                    <span className="font-semibold text-amber-900">Reason / Notes:</span> "{log.reason}"
+                                  </div>
+                                )}
+
+                                <div className="text-[10px] text-[#6B6258] flex items-center justify-between pt-1 border-t border-[#EFEAE2]/80 font-mono">
+                                  <span>Requested By: <strong className="text-[#1A1410]">{log.changedByName || 'HR Staff'}</strong></span>
+                                  {log.approvedBy && (
+                                    <span>Reviewed By: <strong className="text-[#1A1410]">{log.approvedByName || 'Admin'}</strong></span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     <div className="p-4 rounded-xl bg-[#FAFAF7] border border-[#EFEAE2] space-y-2">
@@ -606,6 +938,134 @@ export function ParcelHistory() {
               </div>
             )}
           </AnimatePresence>,
+          document.body
+        )}
+
+      {/* Correction Requests Review Modal */}
+      {showCorrectionsModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCorrectionsModal(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-white rounded-2xl border border-[#EFEAE2] shadow-2xl max-w-2xl w-full p-6 space-y-4 max-h-[85vh] flex flex-col font-sans z-[100001]"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#EFEAE2]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-[#FFF1E0] text-[#db6c00] border border-[#db6c00]/20">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[#1A1410]">Parcel Correction Requests Queue</h3>
+                    <p className="text-xs text-[#6B6258]">Review and approve or reject requested outcome changes for parcel manifests.</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCorrectionsModal(false)}
+                  className="p-1.5 rounded-lg text-[#6B6258] hover:text-[#1A1410] hover:bg-[#FAFAF7]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3">
+                {loadingCorrections ? (
+                  <div className="py-12 text-center text-xs text-[#6B6258] flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#db6c00]" />
+                    Loading correction requests...
+                  </div>
+                ) : correctionRequests.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-[#6B6258] space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                    <p className="font-medium text-[#1A1410]">No pending correction requests!</p>
+                    <p className="text-[11px] text-[#6B6258]">All manifest entries match approved operational logs.</p>
+                  </div>
+                ) : (
+                  correctionRequests.map(req => (
+                    <div key={req.id} className="p-4 rounded-xl bg-[#FAFAF7] border border-[#EFEAE2] space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <RiderAvatar src={req.riderAvatar} name={req.riderName || ''} className="w-9 h-9" />
+                          <div>
+                            <h4 className="font-bold text-xs text-[#1A1410]">{req.riderName}</h4>
+                            <p className="text-[11px] font-mono text-[#6B6258]">
+                              MKB ID: {req.riderMkbId} &bull; Shift Date: <strong className="text-[#1A1410]">{req.date}</strong>
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300 uppercase">
+                          {req.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-xs bg-white p-3 rounded-lg border border-[#EFEAE2] font-mono">
+                        <div>
+                          <div className="text-[10px] text-[#6B6258] uppercase font-bold mb-1">Previous Values</div>
+                          <div>Delivered: <strong>{req.previousDelivered}</strong></div>
+                          <div>Failed: <strong>{req.previousFailed}</strong></div>
+                          <div>Returned: <strong>{req.previousReturned}</strong></div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-[#db6c00] uppercase font-bold mb-1">Requested Target</div>
+                          <div>Delivered: <strong className="text-emerald-700">{req.requestedDelivered}</strong></div>
+                          <div>Failed: <strong className="text-amber-700">{req.requestedFailed}</strong></div>
+                          <div>Returned: <strong className="text-red-700">{req.requestedReturned}</strong></div>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-[#6B6258] bg-white p-2.5 rounded-lg border border-[#EFEAE2] space-y-1">
+                        <div className="text-[10px] uppercase font-bold text-[#6B6258]">Justification Reason:</div>
+                        <div className="italic text-[#1A1410]">"{req.reason}"</div>
+                        <div className="text-[10px] text-[#6B6258] pt-1 border-t border-[#EFEAE2]/60 flex justify-between">
+                          <span>Requested By: <strong>{req.requestedByName}</strong></span>
+                          <span>{new Date(req.requestedAt).toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-1">
+                        <input
+                          type="text"
+                          placeholder="Admin review notes (optional)..."
+                          value={reviewNotes[req.id] || ''}
+                          onChange={e => setReviewNotes({ ...reviewNotes, [req.id]: e.target.value })}
+                          className="w-full h-8 px-2.5 rounded-lg bg-white border border-[#EFEAE2] text-xs text-[#1A1410] outline-none focus:border-[#db6c00]"
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={processingId === req.id}
+                            onClick={() => handleReviewDecision(req.id, 'rejected')}
+                            className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                          >
+                            {processingId === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            disabled={processingId === req.id}
+                            onClick={() => handleReviewDecision(req.id, 'approved')}
+                            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-xs"
+                          >
+                            {processingId === req.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                            Approve Correction
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </div>,
           document.body
         )}
     </motion.div>

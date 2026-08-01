@@ -255,6 +255,129 @@ export type Database = {
           },
         ]
       }
+      parcel_correction_requests: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          parcel_log_id: string
+          previous_delivered: number
+          previous_failed: number
+          previous_returned: number
+          reason: string
+          requested_at: string
+          requested_by: string | null
+          requested_delivered: number
+          requested_failed: number
+          requested_returned: number
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rider_id: string
+          status: 'pending' | 'approved' | 'rejected'
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          parcel_log_id: string
+          previous_delivered?: number
+          previous_failed?: number
+          previous_returned?: number
+          reason: string
+          requested_at?: string
+          requested_by?: string | null
+          requested_delivered?: number
+          requested_failed?: number
+          requested_returned?: number
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rider_id: string
+          status?: 'pending' | 'approved' | 'rejected'
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          parcel_log_id?: string
+          previous_delivered?: number
+          previous_failed?: number
+          previous_returned?: number
+          reason?: string
+          requested_at?: string
+          requested_by?: string | null
+          requested_delivered?: number
+          requested_failed?: number
+          requested_returned?: number
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rider_id?: string
+          status?: 'pending' | 'approved' | 'rejected'
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      parcel_log_audit: {
+        Row: {
+          action_type: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected'
+          approved_by: string | null
+          changed_by: string | null
+          correction_request_id: string | null
+          date: string
+          id: string
+          new_delivered: number
+          new_failed: number
+          new_returned: number
+          old_delivered: number
+          old_failed: number
+          old_returned: number
+          parcel_log_id: string
+          reason: string | null
+          rider_id: string
+          timestamp: string
+        }
+        Insert: {
+          action_type: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected'
+          approved_by?: string | null
+          changed_by?: string | null
+          correction_request_id?: string | null
+          date: string
+          id?: string
+          new_delivered?: number
+          new_failed?: number
+          new_returned?: number
+          old_delivered?: number
+          old_failed?: number
+          old_returned?: number
+          parcel_log_id: string
+          reason?: string | null
+          rider_id: string
+          timestamp?: string
+        }
+        Update: {
+          action_type?: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected'
+          approved_by?: string | null
+          changed_by?: string | null
+          correction_request_id?: string | null
+          date?: string
+          id?: string
+          new_delivered?: number
+          new_failed?: number
+          new_returned?: number
+          old_delivered?: number
+          old_failed?: number
+          old_returned?: number
+          parcel_log_id?: string
+          reason?: string | null
+          rider_id?: string
+          timestamp?: string
+        }
+        Relationships: []
+      }
       payroll_records: {
         Row: {
           created_at: string

@@ -18,11 +18,14 @@ import {
   ChevronRight,
   X,
   Package,
-  FileText
+  FileText,
+  ShieldCheck
 } from 'lucide-react';
 import {
   getDailyParcelEntries,
   saveDailyParcelEntries,
+  createParcelCorrectionRequest,
+  isCutoffLockedForDate,
   type DailyParcelRow
 } from '../services/operationsService';
 import { getZones } from '../services/geofenceService';
@@ -93,10 +96,29 @@ export function DailyParcelEntry() {
 
   // Right-side Drawer state for selected rider
   const [selectedRiderDrawer, setSelectedRiderDrawer] = useState<DailyParcelRow | null>(null);
+  const [drawerDelivered, setDrawerDelivered] = useState<number>(0);
   const [drawerAssigned, setDrawerAssigned] = useState<number>(0);
   const [drawerFailed, setDrawerFailed] = useState<number>(0);
   const [drawerReturned, setDrawerReturned] = useState<number>(0);
   const [drawerNotes, setDrawerNotes] = useState<string>('');
+  const [correctionReason, setCorrectionReason] = useState<string>('');
+  const [submittingCorrection, setSubmittingCorrection] = useState<boolean>(false);
+  const [isCutoffLocked, setIsCutoffLocked] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (selectedRiderDrawer) {
+      setDrawerDelivered(selectedRiderDrawer.deliveredParcels);
+      setDrawerAssigned(selectedRiderDrawer.assignedParcels || 0);
+      setDrawerFailed(selectedRiderDrawer.failedDeliveries || 0);
+      setDrawerReturned(selectedRiderDrawer.returnedParcels || 0);
+      setDrawerNotes(selectedRiderDrawer.notes || '');
+      setCorrectionReason('');
+
+      isCutoffLockedForDate(selectedDate)
+        .then(setIsCutoffLocked)
+        .catch(() => setIsCutoffLocked(false));
+    }
+  }, [selectedRiderDrawer, selectedDate]);
 
   // Load dropdown options on mount
   useEffect(() => {
@@ -934,8 +956,21 @@ export function DailyParcelEntry() {
                     <div className="border-t border-[#EFEAE2] pt-4 space-y-4">
                       <h4 className="text-xs font-bold text-[#1A1410] uppercase tracking-wider flex items-center gap-1.5">
                         <Package className="w-3.5 h-3.5 text-[#db6c00]" />
-                        Extended Operational Metrics (Future Readiness)
+                        Extended Operational Outcomes
                       </h4>
+
+                      <div>
+                        <label className="block text-[11px] font-medium text-[#6B6258] mb-1">
+                          Delivered Parcels
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={drawerDelivered}
+                          onChange={e => setDrawerDelivered(parseInt(e.target.value) || 0)}
+                          className="w-full h-8 px-2.5 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] font-mono text-xs text-[#1A1410] font-bold text-[#db6c00]"
+                        />
+                      </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -990,6 +1025,30 @@ export function DailyParcelEntry() {
                           className="w-full p-2.5 rounded-lg bg-[#FAFAF7] border border-[#EFEAE2] text-xs text-[#1A1410] outline-none focus:border-[#db6c00]"
                         />
                       </div>
+
+                      {selectedRiderDrawer.parcelLogId && isCutoffLocked ? (
+                        <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 space-y-2 text-xs">
+                          <div className="flex items-center gap-1.5 font-bold text-amber-900 uppercase text-[10.5px]">
+                            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                            Locked Payroll Period — Correction Request Required
+                          </div>
+                          <p className="text-[11px] text-amber-800 leading-snug">
+                            The payroll cutoff for this shift has been submitted for review. Direct edits are disabled. All modifications must go through an official Correction Request and Admin approval.
+                          </p>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-amber-900 mb-1">
+                              Reason for Correction *
+                            </label>
+                            <textarea
+                              rows={2}
+                              value={correctionReason}
+                              onChange={e => setCorrectionReason(e.target.value)}
+                              placeholder="Describe the discrepancy or reason for modifying this log..."
+                              className="w-full p-2 rounded-lg bg-white border border-amber-300 text-xs text-amber-950 outline-none focus:border-amber-600 font-sans"
+                            />
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1002,34 +1061,80 @@ export function DailyParcelEntry() {
                     >
                       Close Drawer
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRows(prev =>
-                          prev.map(r =>
-                            r.riderId === selectedRiderDrawer.riderId
-                              ? {
-                                  ...r,
-                                  notes: drawerNotes,
-                                  assignedParcels: drawerAssigned,
-                                  failedDeliveries: drawerFailed,
-                                  returnedParcels: drawerReturned,
-                                  isModified: true
-                                }
-                              : r
-                          )
-                        );
-                        setSelectedRiderDrawer(null);
-                        pushToast({
-                          title: 'Operational Notes Staged',
-                          description: 'Click "Save" or "Save All" to commit details to database.',
-                          tone: 'info'
-                        });
-                      }}
-                      className="px-4 py-2 rounded-lg bg-[#db6c00] hover:bg-[#c56000] text-xs font-semibold text-white cursor-pointer shadow-xs"
-                    >
-                      Apply &amp; Stage Edits
-                    </button>
+                    {selectedRiderDrawer.parcelLogId && isCutoffLocked ? (
+                      <button
+                        type="button"
+                        disabled={submittingCorrection || !correctionReason.trim()}
+                        onClick={async () => {
+                          setSubmittingCorrection(true);
+                          try {
+                            await createParcelCorrectionRequest({
+                              parcelLogId: selectedRiderDrawer.parcelLogId!,
+                              riderId: selectedRiderDrawer.riderId,
+                              date: selectedDate,
+                              previousDelivered: selectedRiderDrawer.deliveredParcels,
+                              previousFailed: selectedRiderDrawer.failedDeliveries || 0,
+                              previousReturned: selectedRiderDrawer.returnedParcels || 0,
+                              requestedDelivered: drawerDelivered,
+                              requestedFailed: drawerFailed,
+                              requestedReturned: drawerReturned,
+                              reason: correctionReason,
+                              requestedBy: 'Operations Staff',
+                            });
+                            pushToast({
+                              title: 'Correction Request Submitted',
+                              description: 'Submitted correction request for Admin review. Original log remains unchanged until approved.',
+                              tone: 'success'
+                            });
+                            setSelectedRiderDrawer(null);
+                            setCorrectionReason('');
+                          } catch (err: unknown) {
+                            const msg = err instanceof Error ? err.message : 'Failed to submit request.';
+                            pushToast({
+                              title: 'Submission Failed',
+                              description: msg,
+                              tone: 'error'
+                            });
+                          } finally {
+                            setSubmittingCorrection(false);
+                          }
+                        }}
+                        className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-xs font-semibold text-white cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {submittingCorrection ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                        Submit Correction Request
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRows(prev =>
+                            prev.map(r =>
+                              r.riderId === selectedRiderDrawer.riderId
+                                ? {
+                                    ...r,
+                                    deliveredParcels: drawerDelivered,
+                                    notes: drawerNotes,
+                                    assignedParcels: drawerAssigned,
+                                    failedDeliveries: drawerFailed,
+                                    returnedParcels: drawerReturned,
+                                    isModified: true
+                                  }
+                                : r
+                            )
+                          );
+                          setSelectedRiderDrawer(null);
+                          pushToast({
+                            title: 'Operational Notes Staged',
+                            description: 'Click "Save" or "Save All" to commit details to database.',
+                            tone: 'info'
+                          });
+                        }}
+                        className="px-4 py-2 rounded-lg bg-[#db6c00] hover:bg-[#c56000] text-xs font-semibold text-white cursor-pointer shadow-xs"
+                      >
+                        Apply &amp; Stage Edits
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               </div>
