@@ -22,6 +22,7 @@ import { PayrollComputation } from './pages/PayrollComputation';
 import { PayrollReports } from './pages/PayrollReports';
 import { DailyParcelEntry } from './pages/DailyParcelEntry';
 import { ParcelHistory } from './pages/ParcelHistory';
+import { PayrollHistory } from './pages/PayrollHistory';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabaseClient';
 import { useRiderZone } from './context/RiderZoneContext';
@@ -302,6 +303,7 @@ export function App() {
         'users',
         'reviews',
         'payroll',
+        'payroll_history',
         'audit_logs',
         'daily_parcels',
         'parcel_history'
@@ -317,6 +319,7 @@ export function App() {
         'reviews',
         'users',
         'payroll',
+        'payroll_history',
         'audit_logs',
         'daily_parcels',
         'parcel_history'
@@ -325,7 +328,7 @@ export function App() {
       return allowed.includes(normalized) ? normalized : 'dashboard';
     }
     // payroll
-    const allowed: PageKey[] = ['dashboard', 'computation', 'reports'];
+    const allowed: PageKey[] = ['dashboard', 'computation', 'payroll_history', 'reports'];
     return allowed.includes(normalized) ? normalized : 'dashboard';
   }
   const safePage = safePageFor(dashRole, currentPage);
@@ -401,6 +404,7 @@ export function App() {
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
                     {safePage === 'reviews' && <ReviewsModeration />}
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
+                    {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
                     {safePage === 'audit_logs' && <AuditLogs />}
                     {safePage === 'daily_parcels' && <DailyParcelEntry />}
                     {safePage === 'parcel_history' && <ParcelHistory />}
@@ -417,6 +421,7 @@ export function App() {
                     {safePage === 'reviews' && <ReviewsModeration />}
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
+                    {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
                     {safePage === 'audit_logs' && <AuditLogs />}
                     {safePage === 'daily_parcels' && <DailyParcelEntry />}
                     {safePage === 'parcel_history' && <ParcelHistory />}
@@ -426,6 +431,7 @@ export function App() {
                   <>
                     {safePage === 'dashboard' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'computation' && <PayrollComputation />}
+                    {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
                     {safePage === 'reports' && <PayrollReports />}
                   </>
                 }
