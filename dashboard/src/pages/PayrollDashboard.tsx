@@ -3,23 +3,27 @@ import {
   Users,
   CheckCircle2,
   AlertTriangle,
-  Lock,
   Calendar,
   Layers,
   Loader2,
   Clock,
   ArrowRight,
   Calculator,
-  XCircle,
-  CheckCircle
+  CheckCircle,
+  FileText,
+  AlertCircle,
+  Play,
+  TrendingUp,
+  Sparkles,
+  CheckSquare
 } from 'lucide-react';
-import { StatCard } from '../components/common/StatCard';
-import { getPayrollRecords } from '../services/parcelService';
+import { getPayrollRecords, initializeCutoffPayrollForFleet } from '../services/parcelService';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
 import { AnimatePresence } from 'framer-motion';
 import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/RiderPayrollList';
 import { getActivityLogs, type ActivityLog } from '../lib/apiService';
 import { PayrollStatus } from '../types/payroll';
+import { supabase } from '../lib/supabaseClient';
 
 const MONTHS = [
   'January',
@@ -77,10 +81,13 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
 
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [allCutoffRecords, setAllCutoffRecords] = useState<PayrollRecordRow[]>([]);
+  const [activeRidersCount, setActiveRidersCount] = useState(0);
+  const [ridersWithLogsCount, setRidersWithLogsCount] = useState(0);
 
   // Recent activity logs states
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   // Details Modal States (for Admin/HR Checklist review)
   const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<PayrollRecordRow | null>(null);
@@ -98,29 +105,75 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
     return `${currentYear}-${pad(month + 1)}-${pad(endDay)}`;
   }, [month, half, currentYear]);
 
-  // Fetch all records for cutoff (for cards & stats)
+  // Derive Cutoff Progress & Days Remaining
+  const cutoffProgress = useMemo(() => {
+    const today = new Date();
+    const startDay = half === 'first' ? 1 : 16;
+    const endDay = half === 'first' ? 15 : new Date(currentYear, month + 1, 0).getDate();
+    const totalDays = endDay - startDay + 1;
+
+    const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === month;
+
+    if (!isCurrentMonth) {
+      if (today > new Date(currentYear, month, endDay)) {
+        return { dayNumber: totalDays, totalDays, daysRemaining: 0, percentage: 100, isClosed: true };
+      } else {
+        return { dayNumber: 0, totalDays, daysRemaining: totalDays, percentage: 0, isClosed: false };
+      }
+    }
+
+    const currentDay = today.getDate();
+    if (currentDay < startDay) {
+      return { dayNumber: 0, totalDays, daysRemaining: totalDays, percentage: 0, isClosed: false };
+    } else if (currentDay > endDay) {
+      return { dayNumber: totalDays, totalDays, daysRemaining: 0, percentage: 100, isClosed: true };
+    } else {
+      const elapsed = currentDay - startDay + 1;
+      const remaining = endDay - currentDay;
+      const pct = Math.round((elapsed / totalDays) * 100);
+      return { dayNumber: elapsed, totalDays, daysRemaining: remaining, percentage: pct, isClosed: false };
+    }
+  }, [month, half, currentYear]);
+
+  // Fetch all records & rider totals for cutoff
   useEffect(() => {
-    const loadAllRecords = async () => {
+    const loadDashboardData = async () => {
       try {
         const records = await getPayrollRecords(cutoffFrom, cutoffTo);
         setAllCutoffRecords(records as unknown as PayrollRecordRow[]);
+
+        // Fetch active riders count
+        const { count } = await supabase
+          .from('riders')
+          .select('id', { count: 'exact', head: true });
+        setActiveRidersCount(count || 0);
+
+        // Fetch distinct riders with parcel logs for cutoff
+        const { data: logs } = await supabase
+          .from('parcel_logs')
+          .select('rider_id')
+          .gte('date', cutoffFrom)
+          .lte('date', cutoffTo);
+
+        const distinctRiders = new Set((logs || []).map(l => l.rider_id));
+        setRidersWithLogsCount(distinctRiders.size);
       } catch (err) {
-        console.error('Failed to load all cutoff records:', err);
+        console.error('Failed to load dashboard data:', err);
       }
     };
-    loadAllRecords();
+    loadDashboardData();
   }, [cutoffFrom, cutoffTo, reloadTrigger]);
 
-  // Fetch recent payroll activities for Dashboard role
+  // Fetch recent payroll activities
   useEffect(() => {
     if (role !== 'payroll') return;
     const fetchActivities = async () => {
       setLoadingActivities(true);
       try {
         const logs = await getActivityLogs();
-        const filtered = logs.filter(l => 
-          l.event_type?.includes('payroll') || 
-          l.event_type?.includes('parcel') || 
+        const filtered = logs.filter(l =>
+          l.event_type?.includes('payroll') ||
+          l.event_type?.includes('parcel') ||
           l.description?.toLowerCase().includes('payroll') ||
           l.description?.toLowerCase().includes('payslip')
         );
@@ -134,7 +187,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
     fetchActivities();
   }, [role, reloadTrigger]);
 
-  // Compute fleet totals and approval-based statistics
+  // Compute fleet totals and Work Queue statistics
   const totals = useMemo(() => {
     const totalGross = allCutoffRecords.reduce((s, r) => s + (r.gross_pay ?? 0), 0);
     const totalNet = allCutoffRecords.reduce((s, r) => {
@@ -144,25 +197,34 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
       return s + ((r.gross_pay ?? 0) + other + fm - deduct);
     }, 0);
     const totalParcels = allCutoffRecords.reduce((s, r) => s + (r.total_parcels || 0), 0);
-    
-    // Approval Center metrics
+
+    // Work Queue Pipeline metrics
+    const draft = allCutoffRecords.filter(r => r.status === PayrollStatus.DRAFT || !r.status).length;
     const pending = allCutoffRecords.filter(r => r.status === PayrollStatus.PENDING).length;
     const approved = allCutoffRecords.filter(r => r.status === PayrollStatus.APPROVED).length;
     const rejected = allCutoffRecords.filter(r => r.status === PayrollStatus.REJECTED).length;
     const paid = allCutoffRecords.filter(r => r.status === PayrollStatus.PAID).length;
     const flagged = allCutoffRecords.filter(r => r.status === PayrollStatus.FLAGGED).length;
 
+    // Attention Metrics
+    const missingLogs = Math.max(0, activeRidersCount - ridersWithLogsCount);
+    const attentionNeeded = flagged + rejected;
+
     return {
       totalGross,
       totalNet,
       totalParcels,
+      draft,
       pending,
       approved,
       rejected,
       paid,
-      flagged
+      flagged,
+      missingLogs,
+      attentionNeeded,
+      readyForComputation: ridersWithLogsCount
     };
-  }, [allCutoffRecords]);
+  }, [allCutoffRecords, activeRidersCount, ridersWithLogsCount]);
 
   const cutoffLabel =
     half === 'first'
@@ -192,150 +254,50 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
     setIsModalOpen(true);
   };
 
+  const handleInitializeFleet = async () => {
+    setIsInitializing(true);
+    try {
+      await initializeCutoffPayrollForFleet(cutoffFrom, cutoffTo);
+      setReloadTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error('Failed to initialize fleet cutoff:', err);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
-      
-      {/* Banner */}
-      <div className="flex items-start gap-2.5 px-4 py-2.5 rounded-lg bg-accent border border-primary/30">
-        <Lock className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-        <div className="text-[12.5px] text-primary leading-relaxed">
-          <span className="font-semibold">
-            {role === 'payroll' 
-              ? 'Payroll Dashboard.' 
-              : 'Payroll Approval Workspace.'
-            }
-          </span>{' '}
-          {role === 'payroll' 
-            ? 'Monitor cutoff overview statistics, recent activities, and use Quick Actions to compute wages.'
-            : 'Review submitted payroll records, approve or reject payroll, and release approved payouts.'
-          }
-        </div>
-      </div>
+    <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
 
-      {/* Stats Cards */}
-      {role === 'payroll' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatCard
-            label="Riders This Cutoff"
-            value={allCutoffRecords.length}
-            sub={`Active payroll · ${cutoffLabel}`}
-            icon={Users}
-            accent="amber"
-            spark={[12, 14, 16, 18, 19, 20, allCutoffRecords.length]}
-          />
-          
-          <StatCard
-            label="Total Parcels Delivered"
-            value={
-              <>
-                <span className="text-foreground">{totals.totalParcels.toLocaleString()}</span>
-                <span className="text-subtle-text text-xl"> pcs</span>
-              </>
-            }
-            sub="Fleet total logs"
-            icon={Layers}
-            accent="amber"
-            spark={[1400, 1600, 1900, 2100, 2300, 2500, totals.totalParcels]}
-          />
-          
-          <StatCard
-            label="Total Net Payroll"
-            value={phpFmt(totals.totalNet)}
-            sub={`Gross Total: ${phpFmt(totals.totalGross)}`}
-            icon={CheckCircle2}
-            accent="green"
-            trend={{
-              direction: 'up',
-              value: `${allCutoffRecords.length} processed riders`
-            }}
-            spark={[60000, 70000, 85000, 95000, 105000, totals.totalNet]}
-          />
-          
-          <StatCard
-            label="Flagged Riders"
-            value={totals.flagged}
-            sub={totals.flagged > 0 ? 'Needs review' : 'All clear'}
-            icon={AlertTriangle}
-            accent="red"
-            trend={{
-              direction: totals.flagged > 0 ? 'up' : 'flat',
-              value: 'awaiting validation',
-              positive: false
-            }}
-            spark={[0, 1, 0, 2, totals.flagged]}
-          />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          <StatCard
-            label="Pending Approval"
-            value={totals.pending}
-            sub="Awaiting review"
-            icon={Clock}
-            accent="amber"
-            spark={[0, 1, 2, totals.pending]}
-          />
-          
-          <StatCard
-            label="Approved Payrolls"
-            value={totals.approved}
-            sub="Ready for payout"
-            icon={CheckCircle}
-            accent="green"
-            spark={[0, 2, 4, totals.approved]}
-          />
-          
-          <StatCard
-            label="Rejected Payrolls"
-            value={totals.rejected}
-            sub="Returned for revision"
-            icon={XCircle}
-            accent="red"
-            spark={[0, 0, 1, totals.rejected]}
-          />
-          
-          <StatCard
-            label="Paid Payrolls"
-            value={totals.paid}
-            sub="Disbursed payouts"
-            icon={CheckCircle2}
-            accent="green"
-            spark={[0, 5, 10, totals.paid]}
-          />
-          
-          <StatCard
-            label="Flagged Payrolls"
-            value={totals.flagged}
-            sub="Discrepancies"
-            icon={AlertTriangle}
-            accent="red"
-            spark={[0, 1, 0, totals.flagged]}
-          />
-        </div>
-      )}
-
-      {/* Date Pickers */}
-      <div className="bg-white border border-border rounded-xl p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
-              <Calendar className="w-4 h-4 text-primary" />
+      {/* 1. SHARED CUTOFF OVERVIEW & INTEGRATED ACTION BAR (CONSISTENT FOR ALL ROLES) */}
+      <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 border-b border-border pb-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-accent text-primary text-[10.5px] font-bold tracking-wide uppercase">
+                <Sparkles className="w-3 h-3" />
+                {role === 'payroll'
+                  ? 'Payroll Command Center'
+                  : role === 'hr'
+                    ? 'HR Payroll Approval Workspace'
+                    : 'Admin Payroll Approval Workspace'}
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[10.5px] font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Open Cutoff
+              </span>
             </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
-                Cutoff Period
-              </div>
-              <div className="text-sm font-semibold text-foreground">
-                {cutoffLabel}, {currentYear}
-              </div>
-            </div>
+            <h1 className="text-lg md:text-xl font-extrabold text-foreground tracking-tight">
+              Active Cutoff: {cutoffLabel}, {currentYear}
+            </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Cutoff Selector & Controls */}
+          <div className="flex flex-wrap items-center gap-3">
             <select
               value={month}
               onChange={e => setMonth(Number(e.target.value))}
-              className="h-9 px-3 pr-8 rounded-md bg-panel-bg border border-border text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono cursor-pointer"
+              className="h-8 px-2.5 rounded-md bg-panel-bg border border-border text-xs font-semibold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono cursor-pointer"
             >
               {MONTHS.map((m, idx) => (
                 <option key={m} value={idx}>
@@ -347,50 +309,248 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
             <div className="inline-flex rounded-md border border-border bg-panel-bg p-0.5">
               <button
                 onClick={() => setHalf('first')}
-                className={`h-8 px-3 rounded text-xs font-semibold transition ${half === 'first' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`h-7 px-2.5 rounded text-xs font-bold transition cursor-pointer ${half === 'first' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {MONTHS[month].slice(0, 3)} 1–15
               </button>
               <button
                 onClick={() => setHalf('second')}
-                className={`h-8 px-3 rounded text-xs font-semibold transition ${half === 'second' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`h-7 px-2.5 rounded text-xs font-bold transition cursor-pointer ${half === 'second' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {MONTHS[month].slice(0, 3)} 16–{new Date(currentYear, month + 1, 0).getDate()}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Compact Progress Line & Action Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+          {/* Progress Indicator */}
+          <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-foreground font-bold">
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              Day {cutoffProgress.dayNumber} of {cutoffProgress.totalDays}
+            </span>
+            <span>&bull;</span>
+            <span className="text-primary font-bold">{cutoffProgress.percentage}% Complete</span>
+            <span>&bull;</span>
+            <span>{cutoffProgress.daysRemaining} Days Left</span>
+          </div>
+
+          {/* Compact Inline Action Bar */}
+          <div className="flex items-center gap-2 shrink-0">
+            {role === 'payroll' ? (
+              <>
+                <button
+                  onClick={() => onNavigate?.('computation')}
+                  className="h-8 px-3 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Calculator className="w-3.5 h-3.5" />
+                  Continue Computation
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={handleInitializeFleet}
+                  disabled={isInitializing}
+                  className="h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent hover:border-primary/30 transition text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isInitializing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 text-primary" />}
+                  Initialize Fleet
+                </button>
+                <button
+                  onClick={() => onNavigate?.('reports')}
+                  className="h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent transition text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                  Reports
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => onNavigate?.('computation')}
+                  className="h-8 px-3 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  Review Approvals ({totals.pending})
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => onNavigate?.('reports')}
+                  className="h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent transition text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                  Reports
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* 2-Column Dashboard Overview for Payroll Officers */}
+      {/* 2. SHARED FINANCIAL KPI SUMMARY ROW */}
+      <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 divide-y md:divide-y-0 md:divide-x divide-border">
+          {/* Total Parcels */}
+          <div className="space-y-0.5">
+            <span className="text-[10.5px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+              <Layers className="w-3 h-3 text-primary" />
+              Total Parcels Delivered
+            </span>
+            <div className="text-lg font-black text-foreground">
+              {totals.totalParcels.toLocaleString()} <span className="text-xs text-subtle-text font-normal">pcs</span>
+            </div>
+          </div>
+
+          {/* Gross Payroll */}
+          <div className="pt-2 md:pt-0 md:pl-4 space-y-0.5">
+            <span className="text-[10.5px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+              <TrendingUp className="w-3 h-3 text-amber-600" />
+              Gross Payroll Accrued
+            </span>
+            <div className="text-lg font-black text-foreground">
+              {phpFmt(totals.totalGross)}
+            </div>
+          </div>
+
+          {/* Net Payroll */}
+          <div className="pt-2 md:pt-0 md:pl-4 space-y-0.5">
+            <span className="text-[10.5px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              Total Net Payroll
+            </span>
+            <div className="text-lg font-black text-emerald-700">
+              {phpFmt(totals.totalNet)}
+            </div>
+          </div>
+
+          {/* Flagged Discrepancies */}
+          <div className="pt-2 md:pt-0 md:pl-4 space-y-0.5">
+            <span className="text-[10.5px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
+              <AlertTriangle className="w-3 h-3 text-red-600" />
+              Flagged Discrepancies
+            </span>
+            <div className="text-lg font-black text-foreground">
+              {totals.flagged} <span className="text-xs text-subtle-text font-normal">{totals.flagged > 0 ? 'needs review' : 'all clear'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. ROLE-DIVERGENT CONTENT ZONE */}
       {role === 'payroll' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Recent Activity */}
-          <div className="lg:col-span-2 bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
+        /* PAYROLL OFFICER VIEW: Computation Workflow Pipeline & Recent Activity Audit */
+        <>
+          {/* Workflow Pipeline */}
+          <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary" />
+                Cutoff Computation Pipeline
+              </h2>
+              <span className="text-[11px] font-semibold text-muted-foreground">
+                {allCutoffRecords.length} Fleet Worksheets
+              </span>
+            </div>
+
+            {/* Connected Stepper Pipeline */}
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center">
+              <div className="p-3 rounded-lg bg-panel-bg border border-border space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+                  <span>1. Ready</span>
+                  <Users className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <div className="text-xl font-black text-foreground">
+                  {totals.readyForComputation}
+                </div>
+                <p className="text-[10px] text-subtle-text truncate">Logs encoded</p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-panel-bg border border-border space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+                  <span>2. Draft</span>
+                  <FileText className="w-3.5 h-3.5 text-slate-500" />
+                </div>
+                <div className="text-xl font-black text-foreground">
+                  {totals.draft}
+                </div>
+                <p className="text-[10px] text-subtle-text truncate">Worksheet open</p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-amber-50/70 border border-amber-200 space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-bold text-amber-800">
+                  <span>3. Pending</span>
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                </div>
+                <div className="text-xl font-black text-amber-950">
+                  {totals.pending}
+                </div>
+                <p className="text-[10px] text-amber-700/80 truncate">Needs review</p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-200 space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800">
+                  <span>4. Approved</span>
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                </div>
+                <div className="text-xl font-black text-emerald-950">
+                  {totals.approved}
+                </div>
+                <p className="text-[10px] text-emerald-700/80 truncate">Ready for payout</p>
+              </div>
+
+              <div className="p-3 rounded-lg bg-sky-50/50 border border-sky-200 space-y-1">
+                <div className="flex items-center justify-between text-[11px] font-bold text-sky-800">
+                  <span>5. Paid</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-sky-600" />
+                </div>
+                <div className="text-xl font-black text-sky-950">
+                  {totals.paid}
+                </div>
+                <p className="text-[10px] text-sky-700/80 truncate">Disbursed</p>
+              </div>
+            </div>
+
+            {/* Inline Attention Alerts */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-1 text-xs">
+              <div className="flex-1 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span><strong className="font-bold">{totals.missingLogs} Active Riders</strong> missing parcel logs for this cutoff.</span>
+              </div>
+
+              <div className="flex-1 w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-900">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                <span><strong className="font-bold">{totals.attentionNeeded} Riders</strong> requiring attention (Flagged/Rejected).</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity Timeline */}
+          <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <h3 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
                 <Clock className="w-4 h-4 text-primary" />
-                Recent Payroll Activity
+                Recent Payroll Activity & Audit Feed
               </h3>
-              <button 
+              <button
                 onClick={() => setReloadTrigger(prev => prev + 1)}
                 className="text-[11px] font-semibold text-primary hover:text-accent-foreground transition cursor-pointer"
               >
-                Refresh
+                Refresh Feed
               </button>
             </div>
 
             {loadingActivities ? (
-              <div className="py-12 flex flex-col items-center justify-center gap-2">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <div className="py-8 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
                 <span className="text-xs text-muted-foreground">Loading activity trail...</span>
               </div>
             ) : activities.length === 0 ? (
-              <div className="py-12 text-center text-xs text-muted-foreground italic">
-                No recent payroll activity recorded.
+              <div className="py-8 text-center text-xs text-muted-foreground italic">
+                No recent payroll activity recorded for this period.
               </div>
             ) : (
-              <div className="relative border-l border-border ml-3 pl-5 space-y-5 py-1">
+              <div className="relative border-l border-border ml-3 pl-5 space-y-3.5 py-1">
                 {activities.map((act) => {
                   let IconComponent = Clock;
                   let iconBg = 'bg-panel-bg border-border text-muted-foreground';
@@ -413,7 +573,6 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
 
                   return (
                     <div key={act.id} className="relative group">
-                      {/* Timeline dot/icon */}
                       <span className={`absolute -left-[31px] top-0 flex items-center justify-center w-5 h-5 rounded-full border ${iconBg} shadow-sm z-10 transition-colors`}>
                         <IconComponent className="w-2.5 h-2.5" />
                       </span>
@@ -421,7 +580,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
                         <p className="text-xs font-semibold text-foreground leading-snug">
                           {act.description}
                         </p>
-                        <div className="flex items-center gap-2 mt-1 text-[10px] text-subtle-text">
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-subtle-text">
                           <span>{formatActivityTime(act.created_at)}</span>
                           {act.users && (
                             <>
@@ -437,63 +596,25 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
               </div>
             )}
           </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4 h-fit">
-            <h3 className="text-sm font-bold text-foreground border-b border-border pb-3">
-              Quick Actions
-            </h3>
-            <div className="space-y-3">
-              {/* Action 1 */}
-              <button
-                onClick={() => onNavigate?.('computation')}
-                className="w-full text-left p-3.5 rounded-xl border border-border hover:border-primary/30 hover:bg-panel-bg transition group flex items-start gap-3 cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Calculator className="w-4 h-4 text-primary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
-                    Continue Computation
-                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
-                  </div>
-                  <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-relaxed">
-                    Compute daily parcel counts, adjust allowances/deductions, and submit payroll.
-                  </p>
-                </div>
-              </button>
-
-              {/* Action 2 */}
-              <button
-                onClick={() => onNavigate?.('reports')}
-                className="w-full text-left p-3.5 rounded-xl border border-border hover:border-primary/30 hover:bg-panel-bg transition group flex items-start gap-3 cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-border/40 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <Layers className="w-4 h-4 text-muted-foreground" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
-                    View Payroll Reports
-                    <ArrowRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
-                  </div>
-                  <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-relaxed">
-                    Access generated payslips, previous cutoff archives, and export payout documents.
-                  </p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
+        </>
       ) : (
-        /* Admin/HR Role: Render the checklist table directly */
-        <RiderPayrollList
-          cutoffFrom={cutoffFrom}
-          cutoffTo={cutoffTo}
-          role={currentUserRole}
-          reloadTrigger={reloadTrigger}
-          onStatusUpdated={() => setReloadTrigger(prev => prev + 1)}
-          onOpenDetails={handleOpenDetails}
-        />
+        /* HR / ADMIN VIEW: Primary Hero Approval Workspace */
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-amber-600" />
+              Rider Payroll Approval Checklist Workspace
+            </h2>
+          </div>
+          <RiderPayrollList
+            cutoffFrom={cutoffFrom}
+            cutoffTo={cutoffTo}
+            role={currentUserRole}
+            reloadTrigger={reloadTrigger}
+            onStatusUpdated={() => setReloadTrigger(prev => prev + 1)}
+            onOpenDetails={handleOpenDetails}
+          />
+        </div>
       )}
 
       {/* Details drawer for Admin/HR review */}
