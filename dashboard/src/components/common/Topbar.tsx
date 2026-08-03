@@ -63,7 +63,11 @@ const TITLES: Record<
   },
   parcel_history: {
     title: 'Parcel History',
-    subtitle: 'Historical audit log of daily parcel manifests'
+    subtitle: 'Searchable historical daily delivery logs & audit trail'
+  },
+  payroll_history: {
+    title: 'Payroll History',
+    subtitle: 'Read-only archive of historical payroll cutoffs & payslips'
   }
 };
 const ALLOWED_PAGES_BY_ROLE: Record<TopbarRole, PageKey[]> = {
