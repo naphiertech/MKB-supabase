@@ -35,7 +35,8 @@ export type PageKey =
   | 'settings'
   | 'audit_logs'
   | 'daily_parcels'
-  | 'parcel_history';
+  | 'parcel_history'
+  | 'payroll_history';
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 interface SidebarUser {
   name: string;
@@ -115,6 +116,7 @@ const ADMIN_ITEMS: SidebarItem[] = [
     icon: Wallet,
     items: [
       { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
+      { key: 'payroll_history', label: 'Payroll History', icon: History },
       { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
     ]
   }
@@ -161,6 +163,7 @@ const HR_ITEMS: SidebarItem[] = [
     icon: Wallet,
     items: [
       { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
+      { key: 'payroll_history', label: 'Payroll History', icon: History },
       { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
     ]
   }
@@ -179,7 +182,8 @@ const PAYROLL_ITEMS: SidebarItem[] = [
     icon: Calculator,
     items: [
       { key: 'computation', label: 'Salary Computation', icon: Calculator },
-      { key: 'reports', label: 'Payroll Reports', icon: Wallet }
+      { key: 'reports', label: 'Payroll Reports', icon: Wallet },
+      { key: 'payroll_history', label: 'Payroll History', icon: History }
     ]
   }
 ];
