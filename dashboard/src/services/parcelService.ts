@@ -69,6 +69,13 @@ export const upsertParcelLog = async (
     );
 
   if (error) throw error;
+
+  try {
+    const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(date);
+    await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
+  } catch (syncErr) {
+    console.warn('Post-upsert log payroll sync warning:', syncErr);
+  }
 };
 
 // Compute summary from logs
@@ -257,11 +264,134 @@ export const deleteBulkPayrollRecords = async (ids: string[]): Promise<number> =
 };
 
 
+/**
+ * Helper to compute standard MKB cutoff bounds (1-15 or 16-lastDay) for a given date string.
+ */
+export function getCutoffRangeForDate(dateStr: string): { cutoffFrom: string; cutoffTo: string } {
+  const d = new Date(dateStr.replace(' ', 'T'));
+  if (isNaN(d.getTime())) {
+    const today = new Date();
+    const day = today.getDate();
+    const padStr = (n: number) => String(n).padStart(2, '0');
+    if (day <= 15) {
+      return {
+        cutoffFrom: `${today.getFullYear()}-${padStr(today.getMonth() + 1)}-01`,
+        cutoffTo: `${today.getFullYear()}-${padStr(today.getMonth() + 1)}-15`
+      };
+    } else {
+      const last = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      return {
+        cutoffFrom: `${today.getFullYear()}-${padStr(today.getMonth() + 1)}-16`,
+        cutoffTo: `${today.getFullYear()}-${padStr(today.getMonth() + 1)}-${padStr(last)}`
+      };
+    }
+  }
+
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  const day = d.getDate();
+  const padStr = (n: number) => String(n).padStart(2, '0');
+
+  if (day <= 15) {
+    return {
+      cutoffFrom: `${year}-${padStr(month + 1)}-01`,
+      cutoffTo: `${year}-${padStr(month + 1)}-15`
+    };
+  } else {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    return {
+      cutoffFrom: `${year}-${padStr(month + 1)}-16`,
+      cutoffTo: `${year}-${padStr(month + 1)}-${padStr(lastDay)}`
+    };
+  }
+}
+
+/**
+ * Automatically synchronizes payroll_records from parcel_logs for a specific cutoff period.
+ * Aggregates daily parcel_logs (total parcels & gross pay) per rider and upserts payroll_records.
+ */
+export const syncPayrollRecordsFromParcelLogs = async (
+  cutoffFrom: string,
+  cutoffTo: string
+): Promise<void> => {
+  try {
+    // 1. Fetch all parcel_logs for the cutoff period
+    const { data: logs, error: logsErr } = await supabase
+      .from('parcel_logs')
+      .select('rider_id, parcels, rate, daily_gross')
+      .gte('date', cutoffFrom)
+      .lte('date', cutoffTo);
+
+    if (logsErr) {
+      console.error('Failed to fetch parcel logs for payroll sync:', logsErr);
+      return;
+    }
+
+    if (!logs || logs.length === 0) return;
+
+    // 2. Aggregate parcels and gross pay by rider_id
+    const riderAggregates = new Map<string, { parcels: number; gross: number; rate: number }>();
+    for (const log of logs) {
+      const riderId = log.rider_id;
+      if (!riderId) continue;
+
+      const parcels = Number(log.parcels || 0);
+      const rate = Number(log.rate || 10);
+      const gross = log.daily_gross != null ? Number(log.daily_gross) : parcels * rate;
+
+      const curr = riderAggregates.get(riderId) || { parcels: 0, gross: 0, rate: 10 };
+      curr.parcels += parcels;
+      curr.gross += gross;
+      curr.rate = rate;
+      riderAggregates.set(riderId, curr);
+    }
+
+    // 3. Fetch existing payroll_records for this cutoff to preserve status & additional fields
+    const { data: existingRecords } = await supabase
+      .from('payroll_records')
+      .select('id, rider_id, status')
+      .eq('cutoff_start', cutoffFrom);
+
+    const existingMap = new Map((existingRecords || []).map(r => [r.rider_id, r]));
+
+    // 4. Build upsert payload
+    const upsertPayloads = Array.from(riderAggregates.entries()).map(([riderId, agg]) => {
+      const existing = existingMap.get(riderId);
+      return {
+        ...(existing?.id ? { id: existing.id } : {}),
+        rider_id: riderId,
+        cutoff_start: cutoffFrom,
+        cutoff_end: cutoffTo,
+        total_parcels: agg.parcels,
+        rate_per_parcel: agg.rate,
+        gross_pay: agg.gross,
+        status: existing?.status || PayrollStatus.DRAFT,
+        updated_at: new Date().toISOString()
+      };
+    });
+
+    if (upsertPayloads.length === 0) return;
+
+    const { error: upsertErr } = await supabase
+      .from('payroll_records')
+      .upsert(upsertPayloads, { onConflict: 'rider_id,cutoff_start' });
+
+    if (upsertErr) {
+      console.error('Failed to upsert synchronized payroll records:', upsertErr);
+    }
+  } catch (err) {
+    console.error('Error in syncPayrollRecordsFromParcelLogs:', err);
+  }
+};
+
 // Get all payroll records for dashboard
 export const getPayrollRecords = async (
   cutoffFrom: string,
   cutoffTo: string
 ) => {
+  // Sync payroll_records from parcel_logs before querying
+  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
+
   const { data, error } = await supabase
     .from('payroll_records')
     .select('*, riders(id, name, mkb_id, avatar_url, zone_id, notes, zones(name))')
@@ -303,6 +433,9 @@ export const getPaginatedPayrollRecords = async (params: PaginatedPayrollParams)
     sortBy = 'riderName',
     sortOrder = 'asc'
   } = params;
+
+  // Sync payroll_records from parcel_logs before querying
+  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
 
   // 1. Build base query with exact count
   // We use riders!inner to allow filtering on relation attributes (name, mkb_id, zone_id)
@@ -725,6 +858,22 @@ export const bulkUpsertParcelLogs = async (
     .upsert(sanitizedLogs, { onConflict: 'rider_id,date' });
 
   if (error) throw error;
+
+  try {
+    const cutoffKeys = new Set<string>();
+    for (const log of logs) {
+      if (log.date) {
+        const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(log.date);
+        cutoffKeys.add(`${cutoffFrom}|${cutoffTo}`);
+      }
+    }
+    for (const key of cutoffKeys) {
+      const [cFrom, cTo] = key.split('|');
+      await syncPayrollRecordsFromParcelLogs(cFrom, cTo);
+    }
+  } catch (syncErr) {
+    console.warn('Post-bulk upsert log payroll sync warning:', syncErr);
+  }
 };
 
 

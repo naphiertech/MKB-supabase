@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { logActivity } from '../lib/apiService';
 import { getLocalDateString } from './attendanceService';
+import { syncPayrollRecordsFromParcelLogs, getCutoffRangeForDate } from './parcelService';
 
 export interface DailyParcelRow {
   riderId: string;
@@ -451,6 +452,21 @@ export async function saveDailyParcelEntries(
     if (auditErr) {
       console.warn('Audit insert warning:', auditErr);
     }
+  }
+
+  // Sync affected cutoff payroll_records for all distinct dates saved
+  try {
+    const cutoffKeys = new Set<string>();
+    for (const d of dates) {
+      const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(d);
+      cutoffKeys.add(`${cutoffFrom}|${cutoffTo}`);
+    }
+    for (const key of cutoffKeys) {
+      const [cFrom, cTo] = key.split('|');
+      await syncPayrollRecordsFromParcelLogs(cFrom, cTo);
+    }
+  } catch (syncErr) {
+    console.warn('Post-save payroll sync warning:', syncErr);
   }
 
   // Audit activity log
@@ -933,6 +949,13 @@ export async function reviewParcelCorrectionRequest(
 
     if (auditErr) {
       console.warn('Audit record insert warning:', auditErr);
+    }
+
+    try {
+      const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(request.date);
+      await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
+    } catch (syncErr) {
+      console.warn('Post-correction payroll sync warning:', syncErr);
     }
   } else {
     const { error: rejectAuditErr } = await supabase.from('parcel_log_audit').insert({
