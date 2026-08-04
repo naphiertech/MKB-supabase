@@ -135,17 +135,19 @@ export async function fetchRiderDashboardWithSWR(
 
   // 1. Try reading from local storage
   const cached = await getCachedRiderDashboard(userId);
-  if (cached) {
+  if (cached?.resolvedRiderId === fallbackRiderId) {
     console.log('[OfflineCache] Loading cached dashboard');
     callbacks.onCacheLoaded?.(cached);
     hasServedCache = true;
+  } else if (cached) {
+    console.warn('[OfflineCache] Ignoring dashboard cache owned by a different rider.');
   }
 
   // 2. Perform background revalidation
   console.log('[OfflineCache] Background revalidation started');
   try {
     const dbUser = await getRiderUserMapping(userId);
-    const resolvedRiderId = dbUser?.rider_id || fallbackRiderId;
+    const resolvedRiderId = fallbackRiderId;
     const dbRider = await getRiderFullProfile(resolvedRiderId);
 
     const {
@@ -190,15 +192,51 @@ export async function fetchRiderDashboardWithSWR(
 /**
  * Mutates cached todayAttendance in IndexedDB when offline write occurs.
  */
-export async function updateCachedAttendanceState(userId: string, attLog: DBAttendanceRow | null): Promise<void> {
+export async function updateCachedAttendanceState(
+  userId: string,
+  riderId: string,
+  attLog: DBAttendanceRow | null
+): Promise<void> {
   try {
     const cached = await getCachedRiderDashboard(userId);
-    if (cached) {
+    if (cached?.resolvedRiderId === riderId && (!attLog || attLog.rider_id === riderId)) {
       cached.todayAttendance = attLog;
       await setCachedRiderDashboard(userId, cached);
     }
   } catch (err) {
     console.warn('[OfflineCache] Failed to update cached attendance state:', err);
+  }
+}
+
+/**
+ * Applies a partial attendance update to the auth-user-keyed rider dashboard cache.
+ * The rider guard prevents one authenticated rider from mutating another rider's cache.
+ */
+export async function patchCachedAttendanceState(
+  userId: string,
+  riderId: string,
+  patch: Partial<DBAttendanceRow> & Pick<DBAttendanceRow, 'id' | 'date'>
+): Promise<void> {
+  try {
+    const cached = await getCachedRiderDashboard(userId);
+    if (!cached || cached.resolvedRiderId !== riderId) return;
+
+    const current = cached.todayAttendance;
+    if (current && current.id !== patch.id) return;
+
+    cached.todayAttendance = {
+      id: patch.id,
+      rider_id: riderId,
+      date: patch.date,
+      time_in: patch.time_in !== undefined ? patch.time_in : current?.time_in || null,
+      time_out: patch.time_out !== undefined ? patch.time_out : current?.time_out || null,
+      hours: patch.hours !== undefined ? patch.hours : current?.hours || 0,
+      status: patch.status || current?.status || 'present',
+      source: patch.source !== undefined ? patch.source : current?.source
+    };
+    await setCachedRiderDashboard(userId, cached);
+  } catch (err) {
+    console.warn('[OfflineCache] Failed to patch cached attendance state:', err);
   }
 }
 
@@ -216,6 +254,7 @@ export interface CachedMonitoringPayload {
 }
 
 export interface CachedProfilePayload {
+  resolvedRiderId: string;
   dbUser: DBUserProfileRow | null;
   dbRider: DBRiderRow | null;
   timestamp: number;
@@ -236,10 +275,12 @@ export async function fetchRiderMonitoringWithSWR(
 
   try {
     const cached = await storage.getItem<CachedMonitoringPayload>(cacheKey);
-    if (cached) {
+    if (cached?.resolvedRiderId === fallbackRiderId) {
       console.log('[OfflineCache] Loading cached monitoring view');
       callbacks.onCacheLoaded?.(cached);
       hasServedCache = true;
+    } else if (cached) {
+      console.warn('[OfflineCache] Ignoring monitoring cache owned by a different rider.');
     }
   } catch (err) {
     console.warn('[OfflineCache] Read monitoring cache error:', err);
@@ -248,7 +289,7 @@ export async function fetchRiderMonitoringWithSWR(
   console.log('[OfflineCache] Background revalidation started (Monitoring)');
   try {
     const dbUser = await getRiderUserMapping(userId);
-    const resolvedRiderId = dbUser?.rider_id || fallbackRiderId;
+    const resolvedRiderId = fallbackRiderId;
     const dbRider = await getRiderFullProfile(resolvedRiderId);
 
     let zone: Zone | null = null;
@@ -321,10 +362,12 @@ export async function fetchRiderProfileWithSWR(
 
   try {
     const cached = await storage.getItem<CachedProfilePayload>(cacheKey);
-    if (cached) {
+    if (cached?.resolvedRiderId === fallbackRiderId) {
       console.log('[OfflineCache] Loading cached profile view');
       callbacks.onCacheLoaded?.(cached);
       hasServedCache = true;
+    } else if (cached) {
+      console.warn('[OfflineCache] Ignoring profile cache owned by a different rider.');
     }
   } catch (err) {
     console.warn('[OfflineCache] Read profile cache error:', err);
@@ -333,10 +376,11 @@ export async function fetchRiderProfileWithSWR(
   console.log('[OfflineCache] Background revalidation started (Profile)');
   try {
     const dbUser = await getUserProfileById(userId);
-    const resolvedRiderId = dbUser?.rider_id || fallbackRiderId;
+    const resolvedRiderId = fallbackRiderId;
     const dbRider = await getRiderFullProfile(resolvedRiderId);
 
     const freshPayload: CachedProfilePayload = {
+      resolvedRiderId,
       dbUser,
       dbRider,
       timestamp: Date.now()

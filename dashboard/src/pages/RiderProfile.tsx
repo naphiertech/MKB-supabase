@@ -16,6 +16,7 @@ import { pushToast } from '../hooks/useToast';
 
 interface RiderProfileProps {
   userId: string;
+  riderId: string;
   onBack: () => void;
 }
 
@@ -24,8 +25,7 @@ const MAP_TILE = {
   attribution: '&copy; OpenStreetMap &copy; CARTO'
 };
 
-export function RiderProfile({ userId, onBack }: RiderProfileProps) {
-  const riderId = userId.replace(/^u-rider-/, '');
+export function RiderProfile({ userId, riderId, onBack }: RiderProfileProps) {
   const [rider, setRider] = useState<Rider | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);

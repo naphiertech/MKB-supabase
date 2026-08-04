@@ -9,11 +9,14 @@ import {
   LogOut,
   Menu,
   X,
-  Bell } from
+  Bell,
+  RefreshCw,
+  TriangleAlert } from
 'lucide-react';
 import { BRANDING } from "../../config/branding";
 import { NotificationDropdown } from '../common/NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
+import { useSyncQueueStatus } from '../../hooks/useSyncQueueStatus';
 export type RiderPageKey = 'dashboard' | 'attendance' | 'monitoring' | 'profile';
 interface RiderTopNavProps {
   current: RiderPageKey;
@@ -72,6 +75,8 @@ export function RiderTopNav({
 }: RiderTopNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const syncStatus = useSyncQueueStatus();
+  const queuedCount = syncStatus.pending + syncStatus.processing;
   return (
     <header className="sticky top-0 z-[1010] bg-white/90 backdrop-blur-md border-b border-border">
       <div className="flex items-center gap-3 md:gap-6 px-4 md:px-7 h-16">
@@ -122,6 +127,26 @@ export function RiderTopNav({
         </nav>
 
         <div className="flex-1 md:hidden" />
+
+        {(queuedCount > 0 || syncStatus.failed > 0) &&
+        <div
+          className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+            syncStatus.failed > 0
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-amber-200 bg-amber-50 text-amber-700'
+          }`}
+          role="status"
+          aria-live="polite"
+          title={syncStatus.failed > 0
+            ? `${syncStatus.failed} offline operation${syncStatus.failed === 1 ? '' : 's'} failed permanently and remain stored for diagnostics.`
+            : `${queuedCount} offline operation${queuedCount === 1 ? '' : 's'} waiting to synchronize.`}
+        >
+          {syncStatus.failed > 0
+            ? <TriangleAlert className="h-3.5 w-3.5" />
+            : <RefreshCw className={`h-3.5 w-3.5 ${syncStatus.syncing ? 'animate-spin' : ''}`} />}
+          <span>{syncStatus.failed > 0 ? `${syncStatus.failed} failed` : `${queuedCount} pending`}</span>
+        </div>
+        }
 
         {/* Notifications */}
         <div className="relative">

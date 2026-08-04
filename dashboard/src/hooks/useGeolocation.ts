@@ -1,127 +1,69 @@
-// Lightweight geolocation hook for AttenRider rider view.
-// TODO: Replace mock simulation with `navigator.geolocation.watchPosition` and Supabase Realtime upsert.
-import { useEffect, useRef, useState } from "react";
-
-export interface GeoPosition {
-  lat: number;
-  lng: number;
-  accuracy: number; // meters
-  ts: number;
-}
+// Browser implementation of the rider location adapter. Capacitor can replace
+// the source later without changing attendance or synchronization behavior.
+import { useCallback, useEffect, useState } from 'react';
+import {
+  startRiderGeolocationWatch,
+  type GeoPosition
+} from '../lib/riderGeolocation';
 
 interface UseGeolocationOptions {
-  /** Initial / anchor position the simulated jitter is centered on */
+  /** Map anchor used only before a verified device position is available. */
   initial: { lat: number; lng: number };
-  /** Jitter radius in degrees (~111km per degree). Default ~10–15m. */
-  jitter?: number;
-  /** Update interval in ms. */
-  intervalMs?: number;
   /** Pause updates when false. */
   enabled?: boolean;
 }
 
-/**
- * Simulates a rider's live GPS coordinates by jittering around an anchor.
- * The first reading is the exact anchor so callers can use it immediately.
- */
 export function useGeolocation({
   initial,
-  jitter = 0.00012,
-  intervalMs = 2500,
-  enabled = true,
+  enabled = true
 }: UseGeolocationOptions) {
   const [position, setPosition] = useState<GeoPosition>({
     lat: initial.lat,
     lng: initial.lng,
-    accuracy: 8,
-    ts: Date.now(),
+    accuracy: 0,
+    ts: 0
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const anchorRef = useRef(initial);
+  const [hasVerifiedPosition, setHasVerifiedPosition] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
-    anchorRef.current = initial;
     if (!enabled) {
-      setPosition({
-        lat: initial.lat,
-        lng: initial.lng,
-        accuracy: 8,
-        ts: Date.now()
-      });
+      setPosition({ lat: initial.lat, lng: initial.lng, accuracy: 0, ts: 0 });
+      setHasVerifiedPosition(false);
       setIsLoading(false);
     }
-  }, [initial, enabled]);
+  }, [initial.lat, initial.lng, enabled]);
 
   useEffect(() => {
     if (!enabled) return;
+    setIsLoading(true);
+    setError(null);
 
-    let watchId: number | null = null;
-    let fallbackIntervalId: number | null = null;
-
-    const startSimulation = () => {
-      if (fallbackIntervalId) return;
-      fallbackIntervalId = window.setInterval(() => {
-        const { lat, lng } = anchorRef.current;
-        const dLat = (Math.random() - 0.5) * 2 * jitter;
-        const dLng = (Math.random() - 0.5) * 2 * jitter;
-        setPosition({
-          lat: lat + dLat,
-          lng: lng + dLng,
-          accuracy: 10 + Math.random() * 10,
-          ts: Date.now(),
-        });
+    return startRiderGeolocationWatch(navigator.geolocation || null, {
+      onPosition: (nextPosition) => {
+        setPosition(nextPosition);
+        setHasVerifiedPosition(true);
         setIsLoading(false);
-      }, intervalMs);
-    };
-
-    if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          setPosition({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            ts: pos.timestamp,
-          });
-          setIsLoading(false);
-          setError(null);
-          if (fallbackIntervalId) {
-            clearInterval(fallbackIntervalId);
-            fallbackIntervalId = null;
-          }
-        },
-        (err) => {
-          console.warn(
-            "[Geolocation] Real GPS tracking failed or denied. Falling back to simulator:",
-            err.message,
-          );
-          setError(err.message);
-          startSimulation();
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        },
-      );
-    } else {
-      console.warn(
-        "[Geolocation] Geolocation API not supported by browser. Falling back to simulator.",
-      );
-      setError("Geolocation not supported");
-      startSimulation();
-    }
-
-    return () => {
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
+        setError(null);
+      },
+      onError: (message) => {
+        console.warn('[Geolocation] Real GPS tracking failed:', message);
+        setError(message);
+        setIsLoading(false);
       }
-      if (fallbackIntervalId !== null) {
-        clearInterval(fallbackIntervalId);
-      }
-    };
-  }, [enabled, jitter, intervalMs]);
+    });
+  }, [enabled, retryToken]);
 
-  return { position, error, setError, isLoading };
+  const retry = useCallback(() => setRetryToken((value) => value + 1), []);
+
+  return {
+    position,
+    error,
+    setError,
+    isLoading,
+    hasVerifiedPosition,
+    retry
+  };
 }

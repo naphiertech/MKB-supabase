@@ -32,7 +32,7 @@ import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Settings } from './pages/Settings';
 import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
-import { initSyncEngine } from './lib/sync/SyncEngine';
+import { initSyncEngine, startSyncEngine, stopSyncEngine } from './lib/sync/SyncEngine';
 import { PAGE_TRANSITION_VARIANTS } from './lib/motion';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
@@ -80,7 +80,7 @@ export function App() {
     window.location.pathname !== '' && 
     window.location.pathname !== '/index.html';
 
-  const { session, user, signOut } = useAuth();
+  const { session, isReady: isAuthReady, user, signOut } = useAuth();
   const getInitialPage = (): PageKey => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -111,10 +111,23 @@ export function App() {
   const { riders: allRiders, zones: allZones } = useRiderZone();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
-  // Initialize SyncEngine for background offline synchronization
+  // Attach passive listeners, then activate replay only after rider identity is verified.
   useEffect(() => {
     initSyncEngine();
-  }, []);
+    if (!isAuthReady || session?.role !== 'rider' || !session.riderId) {
+      stopSyncEngine();
+      return;
+    }
+
+    void startSyncEngine({
+      authUserId: session.id,
+      riderId: session.riderId
+    }).catch((err) => {
+      console.error('[SyncEngine] Failed to start authenticated synchronization:', err);
+    });
+
+    return () => stopSyncEngine();
+  }, [isAuthReady, session?.id, session?.riderId, session?.role]);
 
   // Sync state changes to URL hash
   useEffect(() => {
@@ -230,7 +243,26 @@ export function App() {
   }
   // Rider role — dedicated top-nav layout (no sidebar)
   if (role === 'rider') {
-    const riderId = user.id.replace(/^u-rider-/, '');
+    const riderId = session.riderId;
+    if (!riderId) {
+      return (
+        <div className="min-h-screen grid place-items-center bg-panel-bg p-6">
+          <div className="max-w-md rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm">
+            <h1 className="text-lg font-semibold text-red-800">Rider profile not linked</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This account has no canonical rider ID. Contact HR or an administrator before recording attendance.
+            </p>
+            <button
+              type="button"
+              onClick={signOut}
+              className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      );
+    }
     const rider = allRiders.find((r) => r.id === riderId) || { name: user.name, avatar: user.avatar, zoneId: null };
     const zone = allZones.find((z) => z.id === rider.zoneId);
     const zoneName = zone?.name || 'Zamboanga City';
@@ -265,18 +297,20 @@ export function App() {
                 exit="exit"
                 className="h-full"
               >
-                {riderPage === 'dashboard' && <RiderDashboard userId={user.id} />}
+                {riderPage === 'dashboard' && <RiderDashboard userId={user.id} riderId={riderId} />}
                 {riderPage === 'attendance' &&
-                  <RiderAttendance userId={user.id} onBack={() => setRiderPage('dashboard')} />
+                  <RiderAttendance userId={user.id} riderId={riderId} onBack={() => setRiderPage('dashboard')} />
                 }
                 {riderPage === 'monitoring' &&
                   <RiderMonitoring
                     userId={user.id}
+                    riderId={riderId}
                     onBack={() => setRiderPage('dashboard')} />
                 }
                 {riderPage === 'profile' &&
                   <RiderProfile
                     userId={user.id}
+                    riderId={riderId}
                     onBack={() => setRiderPage('dashboard')} />
                 }
               </motion.div>

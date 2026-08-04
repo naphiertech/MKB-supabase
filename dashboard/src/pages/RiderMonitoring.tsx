@@ -19,11 +19,11 @@ import { fetchRiderMonitoringWithSWR, type CachedMonitoringPayload } from '../se
 
 interface RiderMonitoringProps {
   userId: string;
+  riderId: string;
   onBack: () => void;
 }
 
-export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
-  const riderId = userId.replace(/^u-rider-/, '');
+export function RiderMonitoring({ userId, riderId, onBack }: RiderMonitoringProps) {
   const [rider, setRider] = useState<Rider | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,9 +106,14 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
     [zoneCenterLat, zoneCenterLng]
   );
 
-  const { position, isLoading: locationLoading } = useGeolocation({
+  const {
+    position,
+    error: locationError,
+    isLoading: locationLoading,
+    hasVerifiedPosition,
+    retry: retryLocation
+  } = useGeolocation({
     initial: anchor,
-    jitter: 0.00018,
     enabled: true
   });
 
@@ -146,10 +151,25 @@ export function RiderMonitoring({ userId, onBack }: RiderMonitoringProps) {
         <h1 className="text-foreground font-semibold text-lg">My Location</h1>
       </div>
 
-      {locationLoading ? (
+      {locationLoading && !hasVerifiedPosition ? (
         <div className="h-[500px] bg-panel-bg rounded-xl border border-border animate-pulse flex flex-col items-center justify-center gap-3">
           <MapPin className="w-6 h-6 text-primary animate-bounce" />
           <span className="text-muted-foreground text-sm font-medium">Acquiring live GPS signal...</span>
+        </div>
+      ) : locationError && !hasVerifiedPosition ? (
+        <div className="h-[500px] rounded-xl border border-red-200 bg-red-50 flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <MapPin className="w-6 h-6 text-red-600" />
+          <span className="text-sm font-semibold text-red-700">Live location unavailable</span>
+          <span className="max-w-md text-xs text-red-600">
+            No generated coordinates are shown or recorded. Enable precise location access, then retry.
+          </span>
+          <button
+            type="button"
+            onClick={retryLocation}
+            className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+          >
+            Retry GPS
+          </button>
         </div>
       ) : (
         <>

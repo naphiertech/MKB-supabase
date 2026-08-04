@@ -1,5 +1,40 @@
 import Dexie, { type Table } from 'dexie';
-import { type StorageAdapter, type QueueItem, type CacheEntry } from './StorageAdapter';
+import {
+  SYNC_QUEUE_CHANGED_EVENT,
+  createSyncOperationId,
+  type StorageAdapter,
+  type QueueItem,
+  type QueueEnqueueInput,
+  type CacheEntry
+} from './StorageAdapter';
+
+function notifyQueueChanged(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SYNC_QUEUE_CHANGED_EVENT));
+  }
+}
+
+function legacyEventTimestamp(item: Partial<QueueItem>): string {
+  const payload = item.payload || {};
+  const timestamp = payload.recorded_at || payload.time_in || payload.time_out;
+  return typeof timestamp === 'string' ? timestamp : item.createdAt || new Date().toISOString();
+}
+
+function legacyRiderId(item: Partial<QueueItem>): string {
+  const riderId = item.payload?.rider_id;
+  return typeof riderId === 'string' ? riderId : '';
+}
+
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function legacyIdempotencyKey(item: Partial<QueueItem>): string {
+  const payloadId = item.payload?.id;
+  if (item.action === 'TIME_IN' && isUuid(payloadId)) return payloadId;
+  if (item.action === 'LOCATION_PING' && isUuid(item.id)) return item.id;
+  return createSyncOperationId();
+}
 
 class RiderOfflineDatabase extends Dexie {
   kvStore!: Table<CacheEntry, string>;
@@ -10,6 +45,18 @@ class RiderOfflineDatabase extends Dexie {
     this.version(1).stores({
       kvStore: 'key, expiresAt',
       syncQueue: 'id, action, priority, createdAt, status'
+    });
+    this.version(2).stores({
+      kvStore: 'key, expiresAt',
+      syncQueue: 'id, &idempotencyKey, action, riderId, priority, createdAt, status, processingStartedAt'
+    }).upgrade(async (transaction) => {
+      await transaction.table<QueueItem, string>('syncQueue').toCollection().modify((item) => {
+        item.idempotencyKey ||= legacyIdempotencyKey(item);
+        item.eventTimestamp ||= legacyEventTimestamp(item);
+        item.riderId ||= legacyRiderId(item);
+        item.processingStartedAt ??= null;
+        item.failedAt ??= null;
+      });
     });
   }
 }
@@ -82,51 +129,57 @@ export class DexieAdapter implements StorageAdapter {
 
   // --- Outbox Queue API ---
 
-  async enqueue(item: Omit<QueueItem, 'id' | 'createdAt' | 'retryCount' | 'status'>): Promise<QueueItem> {
+  async enqueue(item: QueueEnqueueInput): Promise<QueueItem> {
+    const existing = await this.db.syncQueue
+      .where('idempotencyKey')
+      .equals(item.idempotencyKey)
+      .first();
+    if (existing) return existing;
+
     const queueItem: QueueItem = {
       ...item,
-      id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: createSyncOperationId(),
       createdAt: new Date().toISOString(),
       retryCount: 0,
-      status: 'pending'
+      status: 'pending',
+      processingStartedAt: null,
+      failedAt: null
     };
 
-    await this.db.syncQueue.put(queueItem);
+    try {
+      await this.db.syncQueue.put(queueItem);
+    } catch (error) {
+      // Concurrent producers can pass the initial lookup together. The unique
+      // index remains authoritative and both callers receive the same row.
+      const duplicate = await this.db.syncQueue
+        .where('idempotencyKey')
+        .equals(item.idempotencyKey)
+        .first();
+      if (duplicate) return duplicate;
+      throw error;
+    }
+    notifyQueueChanged();
     return queueItem;
   }
 
   async getQueue(): Promise<QueueItem[]> {
-    try {
-      return await this.db.syncQueue
-        .orderBy('priority')
-        .toArray();
-    } catch (err) {
-      console.warn('[DexieAdapter] getQueue failed:', err);
-      return [];
-    }
+    return this.db.syncQueue
+      .orderBy('priority')
+      .toArray();
   }
 
   async dequeue(id: string): Promise<void> {
-    try {
-      await this.db.syncQueue.delete(id);
-    } catch (err) {
-      console.warn(`[DexieAdapter] dequeue failed for ID "${id}":`, err);
-    }
+    await this.db.syncQueue.delete(id);
+    notifyQueueChanged();
   }
 
   async updateQueueItem(id: string, updates: Partial<QueueItem>): Promise<void> {
-    try {
-      await this.db.syncQueue.update(id, updates);
-    } catch (err) {
-      console.warn(`[DexieAdapter] updateQueueItem failed for ID "${id}":`, err);
-    }
+    await this.db.syncQueue.update(id, updates);
+    notifyQueueChanged();
   }
 
   async clearQueue(): Promise<void> {
-    try {
-      await this.db.syncQueue.clear();
-    } catch (err) {
-      console.warn('[DexieAdapter] clearQueue failed:', err);
-    }
+    await this.db.syncQueue.clear();
+    notifyQueueChanged();
   }
 }

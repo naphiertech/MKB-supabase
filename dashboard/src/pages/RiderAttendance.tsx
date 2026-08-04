@@ -6,6 +6,7 @@ import type { Rider, AttendancePresence, PunctualityStatus } from '../services/t
 
 interface RiderAttendanceProps {
   userId: string;
+  riderId: string;
   onBack: () => void;
 }
 
@@ -69,8 +70,7 @@ interface DBAttendanceLog {
   punctuality?: PunctualityStatus;
 }
 
-export function RiderAttendance({ userId, onBack }: RiderAttendanceProps) {
-  const riderId = userId.replace(/^u-rider-/, '');
+export function RiderAttendance({ userId, riderId, onBack }: RiderAttendanceProps) {
   const [rider, setRider] = useState<Rider | null>(null);
   const [loading, setLoading] = useState(true);
   const [monthLogs, setMonthLogs] = useState<DBAttendanceLog[]>([]);

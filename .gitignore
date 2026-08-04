@@ -27,4 +27,5 @@ dist-ssr
 agents.md
 attenrider_schema.sql
 *.md
+!docs/maintenance-baseline.md
 .gstack/

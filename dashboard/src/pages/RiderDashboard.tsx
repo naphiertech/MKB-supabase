@@ -13,6 +13,7 @@ import { fetchRiderDashboardWithSWR, updateCachedAttendanceState, type CachedDas
 import { recordTimeIn, recordTimeOut, isAttendanceFinalized } from '../services/attendanceService';
 import { useRiderZone } from '../context/RiderZoneContext';
 import { isPointInPolygon } from '../lib/geofenceUtils';
+import { canStartRiderAttendance, isRecentRiderPosition } from '../lib/riderGeolocation';
 import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { setCachedDescriptor } from '../lib/descriptorCache';
@@ -37,6 +38,7 @@ import { AnimatePresence } from 'framer-motion';
 
 interface RiderDashboardProps {
   userId: string;
+  riderId: string;
 }
 
 function nowHHMM(d: Date = new Date()) {
@@ -103,9 +105,8 @@ interface PayrollRecord {
   } | null;
 }
 
-export function RiderDashboard({ userId }: RiderDashboardProps) {
+export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
   const { zones: allZones } = useRiderZone();
-  const riderId = userId.replace(/^u-rider-/, '');
   const [actualRiderId, setActualRiderId] = useState<string>(riderId);
   const [rider, setRider] = useState<(Rider & { faceDescriptor?: number[] | null }) | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
@@ -417,11 +418,18 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     [zoneCenterLat, zoneCenterLng]
   );
 
-  const { position, isLoading: locationLoading } = useGeolocation({
+  const {
+    position,
+    error: locationError,
+    isLoading: locationLoading,
+    hasVerifiedPosition,
+    retry: retryLocation
+  } = useGeolocation({
     initial: anchor,
-    jitter: 0.00018,
     enabled: true
   });
+  const verifiedPosition = hasVerifiedPosition ? position : null;
+  const canTimeIn = canStartRiderAttendance('time-in', verifiedPosition);
 
   const isOnline = !!timeIn && !timeOut;
 
@@ -486,7 +494,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   }, [rider, zone, zoneName]);
 
   useEffect(() => {
-    if (!timeIn || timeOut || !zone) return;
+    if (!timeIn || timeOut || !zone || !hasVerifiedPosition) return;
     const id = window.setInterval(() => {
       setEvents((prev) => [
         {
@@ -502,10 +510,11 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
       ]);
     }, 90000);
     return () => window.clearInterval(id);
-  }, [timeIn, timeOut, inZone, zoneName, zoneRadius, distance, zone]);
+  }, [timeIn, timeOut, inZone, zoneName, zoneRadius, distance, zone, hasVerifiedPosition]);
 
   // Keep refs up-to-date to prevent GPS jitter re-triggering the sync useEffect and stale closures
   const positionRef = useRef(position);
+  const hasVerifiedPositionRef = useRef(hasVerifiedPosition);
   const inZoneRef = useRef(inZone);
   const actualRiderIdRef = useRef(actualRiderId);
   const pendingActionRef = useRef(pendingAction);
@@ -515,6 +524,10 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
   useEffect(() => {
     positionRef.current = position;
   }, [position]);
+
+  useEffect(() => {
+    hasVerifiedPositionRef.current = hasVerifiedPosition;
+  }, [hasVerifiedPosition]);
 
   useEffect(() => {
     inZoneRef.current = inZone;
@@ -542,15 +555,13 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
   // Background Geolocation Synchronization Loop
   useEffect(() => {
-    // loading check acts as a gate to prevent race conditions during initial database load
-    // locationLoading check prevents logging mock initial anchor coordinates to database
-    if (loading || locationLoading || !timeIn || timeOut || !actualRiderId) return;
+    if (loading || locationLoading || !hasVerifiedPosition || !timeIn || timeOut || !actualRiderId) return;
 
     const syncLocation = async () => {
       const currentRiderId = actualRiderIdRef.current;
       const currentPosition = positionRef.current;
       const currentInZone = inZoneRef.current;
-      if (!currentRiderId) return;
+      if (!currentRiderId || !hasVerifiedPositionRef.current || !isRecentRiderPosition(currentPosition)) return;
 
       const status: 'active' | 'violation' = currentInZone ? 'active' : 'violation';
       try {
@@ -569,12 +580,22 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     // Setup stable 30s interval
     const id = setInterval(syncLocation, 30000);
     return () => clearInterval(id);
-  }, [timeIn, timeOut, loading, locationLoading, actualRiderId]);
+  }, [timeIn, timeOut, loading, locationLoading, hasVerifiedPosition, actualRiderId]);
 
   const onlineStatus =
     timeIn && !timeOut ? 'online' : 'offline';
 
   function openScan(next: 'time-in' | 'time-out') {
+    const currentPosition = hasVerifiedPositionRef.current ? positionRef.current : null;
+    if (!canStartRiderAttendance(next, currentPosition)) {
+      pushToast({
+        title: 'Real GPS required',
+        description: 'Enable precise location and wait for a current GPS reading before recording Time In.',
+        tone: 'error'
+      });
+      retryLocation();
+      return;
+    }
     setPendingAction(next);
     reset();
     setScanOpen(true);
@@ -588,11 +609,24 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     const currentPendingAction = pendingActionRef.current;
     const currentTimeIn = timeInRef.current;
     const currentPosition = positionRef.current;
+    const currentVerifiedPosition = hasVerifiedPositionRef.current && isRecentRiderPosition(currentPosition)
+      ? currentPosition
+      : null;
 
     if (!currentRider || !currentRiderId) return;
 
     const stamp = nowHHMM(new Date(result.capturedAt));
     if (currentPendingAction === 'time-in') {
+      if (!currentVerifiedPosition) {
+        pushToast({
+          title: 'Time-In paused',
+          description: 'The GPS reading expired during verification. Acquire a new location and try again.',
+          tone: 'error'
+        });
+        setScanOpen(false);
+        retryLocation();
+        return;
+      }
       recordTimeIn(currentRiderId).then(async (newLog) => {
         if (!newLog) {
           pushToast({
@@ -605,14 +639,14 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
         // Immediately sync initial active status & location to DB
         try {
-          await updateRiderStatus(currentRiderId, 'active', currentPosition.lat, currentPosition.lng);
-          await logRiderLocation(currentRiderId, currentPosition.lat, currentPosition.lng, 'active');
+          await updateRiderStatus(currentRiderId, 'active', currentVerifiedPosition.lat, currentVerifiedPosition.lng);
+          await logRiderLocation(currentRiderId, currentVerifiedPosition.lat, currentVerifiedPosition.lng, 'active');
         } catch (err) {
           console.error('[RiderDashboard] Failed to push initial time-in coordinates:', err);
         }
 
         if (!navigator.onLine) {
-          await updateCachedAttendanceState(userId, {
+          await updateCachedAttendanceState(userId, currentRiderId, {
             id: newLog.id,
             rider_id: currentRiderId,
             date: newLog.date,
@@ -661,7 +695,13 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
         return;
       }
 
-      recordTimeOut(activeLogId).then(async (success) => {
+      recordTimeOut(activeLogId, {
+        riderId: currentRiderId,
+        date: getLocalDateString(),
+        ...(currentVerifiedPosition
+          ? { lat: currentVerifiedPosition.lat, lng: currentVerifiedPosition.lng }
+          : {})
+      }).then(async (success) => {
         if (!success) {
           pushToast({
             title: 'Time-Out failed',
@@ -673,13 +713,18 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
         // Transition status to offline in DB while preserving last valid position
         try {
-          await updateRiderStatus(currentRiderId, 'offline', currentPosition.lat, currentPosition.lng);
+          await updateRiderStatus(
+            currentRiderId,
+            'offline',
+            currentVerifiedPosition?.lat,
+            currentVerifiedPosition?.lng
+          );
         } catch (err) {
           console.error('[RiderDashboard] Failed to update offline status:', err);
         }
 
         if (!navigator.onLine) {
-          await updateCachedAttendanceState(userId, {
+          await updateCachedAttendanceState(userId, currentRiderId, {
             id: activeLogId,
             rider_id: currentRiderId,
             date: getLocalDateString(),
@@ -719,7 +764,7 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
     }
     const t = window.setTimeout(() => setScanOpen(false), 1200);
     return () => window.clearTimeout(t);
-  }, [phase, result, loadRiderAndZone, userId]);
+  }, [phase, result, loadRiderAndZone, retryLocation, userId]);
 
   const duration =
     timeIn && !timeOut ?
@@ -773,15 +818,30 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
 
         <AttendanceButton
           action={action}
-          disabled={locationLoading}
+          disabled={action === 'time-in' && !canTimeIn}
           onClick={() =>
             openScan(action === 'time-out' ? 'time-out' : 'time-in')
           } />
 
-        {locationLoading && (
+        {action === 'time-in' && locationLoading && !hasVerifiedPosition && (
           <p className="text-center text-xs text-primary animate-pulse mt-3 font-mono">
             Waiting for GPS coordinates lock...
           </p>
+        )}
+
+        {action === 'time-in' && locationError && !canTimeIn && (
+          <div className="mx-auto mt-3 max-w-md rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+            <p className="text-xs font-medium text-red-700">
+              Real GPS is unavailable. Enable precise location access before recording Time In.
+            </p>
+            <button
+              type="button"
+              onClick={retryLocation}
+              className="mt-2 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+            >
+              Retry GPS
+            </button>
+          </div>
         )}
 
         <div className="mt-6">
@@ -804,14 +864,28 @@ export function RiderDashboard({ userId }: RiderDashboardProps) {
             </p>
           </div>
           <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono">
-            Accuracy ±{Math.round(position.accuracy)}m
+            {hasVerifiedPosition ? `Accuracy ±${Math.round(position.accuracy)}m` : 'GPS unavailable'}
           </span>
         </header>
 
-        {locationLoading ? (
+        {locationLoading && !hasVerifiedPosition ? (
           <div className="h-[320px] bg-accent/40 rounded-xl border border-border animate-pulse flex flex-col items-center justify-center gap-3">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-primary animate-bounce"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
             <span className="text-muted-foreground text-sm font-medium">Acquiring live GPS signal...</span>
+          </div>
+        ) : locationError && !hasVerifiedPosition ? (
+          <div className="h-[320px] rounded-xl border border-red-200 bg-red-50 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <span className="text-sm font-semibold text-red-700">Live location unavailable</span>
+            <span className="max-w-md text-xs text-red-600">
+              No coordinates are being recorded. Enable location permission and precise GPS, then retry.
+            </span>
+            <button
+              type="button"
+              onClick={retryLocation}
+              className="rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+            >
+              Retry GPS
+            </button>
           </div>
         ) : (
           <>

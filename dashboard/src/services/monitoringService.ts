@@ -7,7 +7,7 @@ import {
   type ZoneStatus
 } from './types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
-import { getStorageAdapter } from '../lib/storage';
+import { createSyncOperationId, getStorageAdapter } from '../lib/storage';
 import { dispatchNotificationSafe } from './notificationService';
 
 // In-memory spam prevention cooldown map: riderId_status -> lastNotifiedTimestamp
@@ -308,8 +308,8 @@ export async function getLastKnownLocation(
 export async function updateRiderStatus(
   riderId: string,
   status: 'active' | 'idle' | 'violation' | 'offline',
-  lat: number,
-  lng: number
+  lat?: number,
+  lng?: number
 ): Promise<void> {
   const updateData: {
     status: 'active' | 'idle' | 'violation' | 'offline';
@@ -322,7 +322,7 @@ export async function updateRiderStatus(
   };
 
   // ponytail: preserve last known valid coordinates when lat & lng are 0
-  if (lat !== 0 || lng !== 0) {
+  if (lat != null && lng != null && (lat !== 0 || lng !== 0)) {
     updateData.lat = lat;
     updateData.lng = lng;
   }
@@ -365,23 +365,31 @@ export async function logRiderLocation(
   lng: number,
   status: 'active' | 'idle' | 'violation' | 'offline'
 ): Promise<void> {
+  const locationId = createSyncOperationId();
+  const eventTimestamp = new Date().toISOString();
+  const queuedOperation = {
+    action: 'LOCATION_PING' as const,
+    riderId,
+    idempotencyKey: locationId,
+    eventTimestamp,
+    payload: {
+      rider_id: riderId,
+      lat,
+      lng,
+      status,
+      recorded_at: eventTimestamp
+    },
+    priority: 3
+  };
+
   if (!navigator.onLine) {
     console.log('[OfflineSync] Offline detected. Queuing LOCATION_PING...');
     try {
       const storage = getStorageAdapter();
-      await storage.enqueue({
-        action: 'LOCATION_PING',
-        payload: {
-          rider_id: riderId,
-          lat,
-          lng,
-          status,
-          recorded_at: new Date().toISOString()
-        },
-        priority: 3
-      });
+      await storage.enqueue(queuedOperation);
     } catch (err) {
-      console.warn('[OfflineSync] Failed to enqueue LOCATION_PING event:', err);
+      console.error('[OfflineSync] Failed to enqueue LOCATION_PING event:', err);
+      throw new Error('Unable to save location for later synchronization.');
     }
     return;
   }
@@ -389,29 +397,23 @@ export async function logRiderLocation(
   const { error } = await supabase
     .from('rider_locations')
     .insert({
+      id: locationId,
       rider_id: riderId,
       lat,
       lng,
-      status
+      status,
+      recorded_at: eventTimestamp
     });
 
   if (error) {
+    if (error.code === '23505') return;
     console.error('Error logging rider location on Supabase, falling back to local queue:', error);
     try {
       const storage = getStorageAdapter();
-      await storage.enqueue({
-        action: 'LOCATION_PING',
-        payload: {
-          rider_id: riderId,
-          lat,
-          lng,
-          status,
-          recorded_at: new Date().toISOString()
-        },
-        priority: 3
-      });
+      await storage.enqueue(queuedOperation);
     } catch (err) {
-      console.warn('[OfflineSync] Failed to enqueue LOCATION_PING fallback event:', err);
+      console.error('[OfflineSync] Failed to enqueue LOCATION_PING fallback event:', err);
+      throw new Error('Unable to save location for later synchronization.');
     }
   }
 }

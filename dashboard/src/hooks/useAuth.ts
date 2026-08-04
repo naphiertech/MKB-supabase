@@ -4,11 +4,17 @@ import { type AppUser, type UserRole } from "../services/types";
 import { pushToast } from "./useToast";
 import { fetchIpLocation, logActivity } from "../lib/apiService";
 import { getDeviceIdentifier } from "../lib/deviceFingerprint";
-import { getStorageAdapter } from "../lib/storage";
 import { dispatchNotificationSafe } from "../services/notificationService";
+import {
+  clearOfflineRiderTrust,
+  createOfflineRiderTrustRecord,
+  getOfflineRiderTrust,
+  saveOfflineRiderTrust,
+  validateOfflineRiderTrust,
+  type OfflineRiderTrustFailure
+} from '../lib/offlineRiderTrust';
 
 const STORAGE_KEY = "attenrider.session.v1";
-const TRUSTED_HASH_KEY = "attenrider_trusted_device_hash";
 
 export type Role = Extract<UserRole, "admin" | "hr" | "rider" | "payroll">;
 
@@ -39,72 +45,27 @@ function writeSession(s: Session | null) {
   else window.localStorage.removeItem(STORAGE_KEY);
 }
 
-/**
- * Dual storage helper to save the trusted device fingerprint hash.
- */
-async function saveTrustedDeviceHashLocally(hash: string): Promise<void> {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(TRUSTED_HASH_KEY, hash);
-    const storage = getStorageAdapter();
-    await storage.setItem(TRUSTED_HASH_KEY, hash);
-  } catch (err) {
-    console.debug("[Auth] Failed to mirror trusted device hash:", err);
-  }
-}
-
-/**
- * Dual storage helper to read the stored trusted device fingerprint hash.
- */
-async function getStoredTrustedDeviceHashLocally(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-  const localHash = window.localStorage.getItem(TRUSTED_HASH_KEY);
-  let dexieHash: string | null = null;
-  try {
-    const storage = getStorageAdapter();
-    const val = await storage.getItem(TRUSTED_HASH_KEY);
-    if (typeof val === "string") dexieHash = val;
-  } catch {
-    // Dexie read fallback
-  }
-
-  if (localHash && !dexieHash) {
-    try {
-      await getStorageAdapter().setItem(TRUSTED_HASH_KEY, localHash);
-    } catch (err) {
-      console.debug('[Auth] Failed to sync localHash to Dexie:', err);
-    }
-    return localHash;
-  }
-
-  if (!localHash && dexieHash) {
-    window.localStorage.setItem(TRUSTED_HASH_KEY, dexieHash);
-    return dexieHash;
-  }
-
-  return localHash || dexieHash;
-}
-
-/**
- * Dual storage helper to clear local trusted device hash.
- */
-async function clearTrustedDeviceHashLocally(): Promise<void> {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(TRUSTED_HASH_KEY);
-    await getStorageAdapter().removeItem(TRUSTED_HASH_KEY);
-  } catch (err) {
-    console.debug('[Auth] Failed to clear IndexedDB trusted hash:', err);
-  }
+function offlineAccessDescription(reason: OfflineRiderTrustFailure): string {
+  if (reason === 'expired') return 'Offline authorization has expired. Connect to the internet to revalidate this device.';
+  if (reason === 'device_mismatch') return 'This device does not match the rider account’s trusted device.';
+  if (reason === 'identity_mismatch') return 'The cached rider account does not match this device’s offline authorization.';
+  return 'Connect to the internet once to authorize this device for offline rider access.';
 }
 
 // Module-level listeners so all hook consumers stay in sync.
 const listeners = new Set<(s: Session | null) => void>();
+const readinessListeners = new Set<(ready: boolean) => void>();
 let currentSession: Session | null = readSession();
 let hasInitialized = false;
+let authReady = false;
 
 function emit() {
   listeners.forEach((l) => l(currentSession));
+}
+
+function markAuthReady() {
+  authReady = true;
+  readinessListeners.forEach((listener) => listener(true));
 }
 
 // Listen for profile updates to keep session synchronized with database in real-time
@@ -144,6 +105,7 @@ export interface SignInResult {
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(currentSession);
+  const [isReady, setIsReady] = useState(authReady);
   const [customAvatar, setCustomAvatar] = useState<string | null>(null);
 
   useEffect(() => {
@@ -173,6 +135,14 @@ export function useAuth() {
     };
   }, []);
 
+  useEffect(() => {
+    const listener = (ready: boolean) => setIsReady(ready);
+    readinessListeners.add(listener);
+    return () => {
+      readinessListeners.delete(listener);
+    };
+  }, []);
+
   // Background revalidation on startup/refresh with Offline Device Gatekeeping
   useEffect(() => {
     let active = true;
@@ -184,24 +154,41 @@ export function useAuth() {
 
         // If app is started OFFLINE, perform local device trust validation
         if (!isOnline && currentSession?.role === "rider") {
-          const storedHash = await getStoredTrustedDeviceHashLocally();
-          if (storedHash) {
-            const currentDeviceId = await getDeviceIdentifier();
-            if (currentDeviceId.fingerprintHash !== storedHash) {
-              console.warn("[Auth] Offline device fingerprint mismatch. Access denied.");
-              currentSession = null;
-              writeSession(null);
-              await clearTrustedDeviceHashLocally();
-              emit();
-              pushToast({
-                title: "Offline Access Denied",
-                description: "This device is not authorized for offline access on this account.",
-                tone: "error",
-              });
-              return;
+          const offlineSession = currentSession;
+          let deniedReason: OfflineRiderTrustFailure | null = null;
+          try {
+            if (!offlineSession.riderId) {
+              deniedReason = 'identity_mismatch';
+            } else {
+              const trust = await getOfflineRiderTrust();
+              const currentDeviceId = await getDeviceIdentifier();
+              const validation = validateOfflineRiderTrust(
+                { authUserId: offlineSession.id, riderId: offlineSession.riderId },
+                trust,
+                currentDeviceId.fingerprintHash
+              );
+              if (!validation.allowed) deniedReason = validation.reason;
             }
+          } catch (error) {
+            console.warn('[Auth] Offline rider trust validation failed:', error);
+            deniedReason = 'missing';
           }
-          // Trusted offline match: proceed with cached session
+
+          if (deniedReason) {
+            console.warn(`[Auth] Offline rider access denied: ${deniedReason}.`);
+            currentSession = null;
+            writeSession(null);
+            await clearOfflineRiderTrust();
+            emit();
+            pushToast({
+              title: 'Offline Access Denied',
+              description: offlineAccessDescription(deniedReason),
+              tone: 'error'
+            });
+            return;
+          }
+
+          // Valid, unexpired rider/device trust: proceed with the cached session.
           return;
         }
 
@@ -245,7 +232,7 @@ export function useAuth() {
         if (profile.role === "rider") {
           try {
             const deviceId = await getDeviceIdentifier();
-            const { data: devCheck } = await supabase.rpc("validate_and_register_device", {
+            const { data: devCheck, error: deviceValidationError } = await supabase.rpc("validate_and_register_device", {
               p_device_uuid: deviceId.deviceUuid,
               p_fingerprint_hash: deviceId.fingerprintHash,
               p_device_name: deviceId.deviceName,
@@ -254,12 +241,14 @@ export function useAuth() {
               p_ip: null,
             });
 
+            if (deviceValidationError) throw deviceValidationError;
+
             const result = devCheck as { allowed: boolean; registered_device_name?: string } | null;
             if (result && !result.allowed) {
               await supabase.auth.signOut();
               currentSession = null;
               writeSession(null);
-              await clearTrustedDeviceHashLocally();
+              await clearOfflineRiderTrust();
               emit();
               pushToast({
                 title: "Device Access Revoked",
@@ -269,8 +258,14 @@ export function useAuth() {
               return;
             }
 
-            // Mirror validated device hash to dual local storage
-            await saveTrustedDeviceHashLocally(deviceId.fingerprintHash);
+            if (profile.rider_id) {
+              await saveOfflineRiderTrust(createOfflineRiderTrustRecord(
+                { authUserId: supabaseSession.user.id, riderId: profile.rider_id },
+                deviceId.fingerprintHash
+              ));
+            } else {
+              await clearOfflineRiderTrust();
+            }
           } catch (err) {
             console.warn("[Auth] Startup device revalidation warning:", err);
           }
@@ -297,6 +292,8 @@ export function useAuth() {
         }
       } catch (err) {
         console.error("Auth initialization error:", err);
+      } finally {
+        if (active) markAuthReady();
       }
     }
 
@@ -310,7 +307,7 @@ export function useAuth() {
         if (currentSession !== null) {
           currentSession = null;
           writeSession(null);
-          clearTrustedDeviceHashLocally();
+          void clearOfflineRiderTrust();
           emit();
         }
       }
@@ -449,7 +446,7 @@ export function useAuth() {
 
               // Sign out after activity log and notification are successfully recorded
               await supabase.auth.signOut();
-              await clearTrustedDeviceHashLocally();
+              await clearOfflineRiderTrust();
 
               return {
                 ok: false,
@@ -457,8 +454,14 @@ export function useAuth() {
               };
             }
 
-            // Mirror validated device hash to dual local storage
-            await saveTrustedDeviceHashLocally(deviceId.fingerprintHash);
+            if (profile.rider_id) {
+              await saveOfflineRiderTrust(createOfflineRiderTrustRecord(
+                { authUserId: authData.user.id, riderId: profile.rider_id },
+                deviceId.fingerprintHash
+              ));
+            } else {
+              await clearOfflineRiderTrust();
+            }
           } catch (devCheckError) {
             console.error("[Auth] Unexpected device check error:", devCheckError);
             await supabase.auth.signOut();
@@ -480,6 +483,7 @@ export function useAuth() {
         currentSession = next;
         writeSession(next);
         emit();
+        markAuthReady();
 
         // Record user login timestamp in database
         const { error: loginStampErr } = await supabase.rpc("update_my_last_login");
@@ -520,7 +524,7 @@ export function useAuth() {
     }
     currentSession = null;
     writeSession(null);
-    clearTrustedDeviceHashLocally();
+    void clearOfflineRiderTrust();
     emit();
     pushToast({
       title: "Signed out",
@@ -531,6 +535,7 @@ export function useAuth() {
 
   const state = {
     session,
+    isReady,
     user,
     signIn,
     signOut,

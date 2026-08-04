@@ -1,66 +1,106 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getStorageAdapter } from '../index';
 
-/**
- * Diagnostic Verification Runner for DexieAdapter
- * Validates KV Caching, TTL Expiration, and Outbox Queue CRUD operations.
- */
-export async function runDexieAdapterTests(): Promise<{ success: boolean; logs: string[] }> {
-  const logs: string[] = [];
-  const log = (msg: string) => {
-    console.log(`[StorageAdapter Test] ${msg}`);
-    logs.push(msg);
-  };
+const adapter = getStorageAdapter();
 
-  try {
-    log('Initializing StorageAdapter instance...');
-    const adapter = getStorageAdapter();
+describe('DexieAdapter', () => {
+  beforeEach(async () => {
+    await adapter.clearCache();
+    await adapter.clearQueue();
+  });
 
-    // 1. Cache setItem and getItem test
-    log('Testing setItem and getItem...');
-    await adapter.setItem('test_profile', { name: 'Test Rider', mkbId: 'MKB-9999' });
-    const profile = await adapter.getItem<{ name: string; mkbId: string }>('test_profile');
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    if (!profile || profile.name !== 'Test Rider') {
-      throw new Error('KV Store setItem/getItem verification failed!');
-    }
-    log('KV Store setItem/getItem PASSED.');
+  it('stores, reads, lists, and removes cached values', async () => {
+    await adapter.setItem('test_profile', {
+      name: 'Test Rider',
+      mkbId: 'MKB-9999'
+    });
 
-    // 2. Cache TTL test
-    log('Testing TTL expiration...');
-    await adapter.setItem('temp_key', 'temp_value', 50); // 50ms TTL
-    await new Promise((resolve) => setTimeout(resolve, 100)); // wait 100ms
-    const expiredVal = await adapter.getItem<string>('temp_key');
-    if (expiredVal !== null) {
-      throw new Error('TTL Expiration verification failed!');
-    }
-    log('TTL Expiration PASSED.');
+    await expect(adapter.getItem('test_profile')).resolves.toEqual({
+      name: 'Test Rider',
+      mkbId: 'MKB-9999'
+    });
+    await expect(adapter.getAllKeys()).resolves.toContain('test_profile');
 
-    // 3. Queue enqueue and getQueue test
-    log('Testing Outbox Queue enqueue...');
-    const queuedItem = await adapter.enqueue({
+    await adapter.removeItem('test_profile');
+    await expect(adapter.getItem('test_profile')).resolves.toBeNull();
+  });
+
+  it('removes cached values after their TTL expires', async () => {
+    const now = 1_700_000_000_000;
+    const dateNow = vi.spyOn(Date, 'now').mockReturnValue(now);
+
+    await adapter.setItem('temporary', 'value', 1_000);
+    dateNow.mockReturnValue(now + 1_001);
+
+    await expect(adapter.getItem('temporary')).resolves.toBeNull();
+    await expect(adapter.getAllKeys()).resolves.not.toContain('temporary');
+  });
+
+  it('orders queued work by priority and supports updates and removal', async () => {
+    const location = await adapter.enqueue({
+      action: 'LOCATION_PING',
+      riderId: 'rider-1',
+      idempotencyKey: '10000000-0000-4000-8000-000000000001',
+      eventTimestamp: '2026-08-04T08:00:00.000Z',
+      payload: { riderId: 'rider-1' },
+      priority: 3
+    });
+    const attendance = await adapter.enqueue({
       action: 'TIME_IN',
-      payload: { riderId: 'test-uuid-123' },
+      riderId: 'rider-1',
+      idempotencyKey: '10000000-0000-4000-8000-000000000002',
+      eventTimestamp: '2026-08-04T08:01:00.000Z',
+      payload: { riderId: 'rider-1' },
       priority: 1
     });
 
-    const queue = await adapter.getQueue();
-    if (queue.length === 0 || queue[0].id !== queuedItem.id) {
-      throw new Error('Outbox Queue enqueue verification failed!');
-    }
-    log('Outbox Queue enqueue PASSED.');
+    const initialQueue = await adapter.getQueue();
+    expect(initialQueue.map((item) => item.id)).toEqual([
+      attendance.id,
+      location.id
+    ]);
 
-    // 4. Queue dequeue cleanup
-    log('Cleaning up test queue item...');
-    await adapter.dequeue(queuedItem.id);
-    await adapter.removeItem('test_profile');
-    log('Clean up PASSED.');
+    await adapter.updateQueueItem(attendance.id, {
+      status: 'processing',
+      retryCount: 1
+    });
+    const updatedQueue = await adapter.getQueue();
+    expect(updatedQueue.find((item) => item.id === attendance.id)).toMatchObject({
+      status: 'processing',
+      retryCount: 1
+    });
 
-    log('ALL STORAGE ADAPTER TESTS PASSED SUCCESSFULLY! ✅');
-    return { success: true, logs };
-  } catch (err) {
-    const errorMsg = `STORAGE ADAPTER TEST FAILED: ${err instanceof Error ? err.message : String(err)}`;
-    console.error(errorMsg);
-    logs.push(errorMsg);
-    return { success: false, logs };
-  }
-}
+    await adapter.dequeue(attendance.id);
+    await expect(adapter.getQueue()).resolves.toEqual([location]);
+  });
+
+  it('deduplicates operations by their stable idempotency key', async () => {
+    const operation = {
+      action: 'LOCATION_PING' as const,
+      riderId: 'rider-1',
+      idempotencyKey: '10000000-0000-4000-8000-000000000003',
+      eventTimestamp: '2026-08-04T08:02:00.000Z',
+      payload: {
+        rider_id: 'rider-1',
+        lat: 14.5995,
+        lng: 120.9842,
+        status: 'active'
+      },
+      priority: 3
+    };
+
+    const [first, duplicate] = await Promise.all([
+      adapter.enqueue(operation),
+      adapter.enqueue(operation)
+    ]);
+
+    expect(duplicate.id).toBe(first.id);
+    expect(duplicate.idempotencyKey).toBe(operation.idempotencyKey);
+    expect(duplicate.eventTimestamp).toBe(operation.eventTimestamp);
+    await expect(adapter.getQueue()).resolves.toHaveLength(1);
+  });
+});

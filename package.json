@@ -7,7 +7,12 @@
     "postinstall": "npm run install:all",
     "dev": "concurrently \"npm run dev:dashboard\" \"npm run dev:landing\"",
     "dev:dashboard": "cd dashboard && npm run dev",
-    "dev:landing": "cd landing && npx pnpm run dev"
+    "dev:landing": "cd landing && npx pnpm run dev",
+    "typecheck": "npm --prefix dashboard run typecheck && npm --prefix landing run typecheck",
+    "lint:dashboard": "npm --prefix dashboard run lint",
+    "test": "npm --prefix dashboard test",
+    "build": "npm --prefix dashboard run build && npm --prefix landing run build",
+    "check": "npm run typecheck && npm run lint:dashboard && npm test"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

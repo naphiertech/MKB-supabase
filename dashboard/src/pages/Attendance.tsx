@@ -11,7 +11,7 @@ import {
   Search,
   RotateCcw
 } from 'lucide-react';
-import { getAttendanceLogs, getLocalDateString, exportLogsCsv } from '../services/attendanceService';
+import { getAttendanceLogs, getLocalDateString, exportLogsCsv, isAttendanceFinalized } from '../services/attendanceService';
 import { getZones } from '../services/geofenceService';
 import type { AttendanceLog, Zone } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
@@ -22,6 +22,7 @@ import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/dtrPars
 import { toast } from 'react-hot-toast';
 import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 import { exportPDF } from '../lib/exports/reportExport';
+import { getCachedAvatar } from '../lib/avatarCache';
 
 type QuickRange = 'today' | 'this_week' | 'this_cutoff' | 'this_month' | 'custom';
 
@@ -84,7 +85,7 @@ export function Attendance() {
   const [dtrModalOpen, setDtrModalOpen] = useState(false);
   const [dtrRiderId, setDtrRiderId] = useState('');
   const [dtrDateFrom, setDtrDateFrom] = useState<string>(sevenDaysAgo);
-  const [ridersList, setRidersList] = useState<{ id: string; name: string; mkb_id?: string; zoneName?: string }[]>([]);
+  const [ridersList, setRidersList] = useState<{ id: string; name: string; mkb_id?: string; zone_id?: string; zoneName?: string }[]>([]);
 
   // DTR Import states
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -115,6 +116,7 @@ export function Attendance() {
                 id: r.id,
                 name: r.name,
                 mkb_id: r.mkb_id,
+                zone_id: r.zone_id || '',
                 zoneName: zName || 'Zamboanga City'
               };
             }
@@ -127,21 +129,83 @@ export function Attendance() {
       });
   }, []);
 
-  const todayLogs = useMemo(() => {
-    return attendanceList.filter((l) => l.date === today);
-  }, [attendanceList, today]);
+  const fullAttendanceList = useMemo(() => {
+    if (ridersList.length === 0) return attendanceList;
+
+    // Existing log map: key = `${riderId}_${date}`
+    const existingLogMap = new Set<string>();
+    attendanceList.forEach((log) => {
+      existingLogMap.add(`${log.riderId}_${log.date}`);
+    });
+
+    const effectiveTo = dateTo > today ? today : dateTo;
+    const synthesizedAbsentLogs: AttendanceLog[] = [];
+
+    if (dateFrom <= effectiveTo) {
+      const curDate = new Date(dateFrom);
+      const endDate = new Date(effectiveTo);
+
+      while (curDate <= endDate) {
+        const dateStr = getLocalDateString(curDate);
+        // Only classify riders without Time In as Absent if the date/time is finalized (5:00 PM cutoff for today, or any past date)
+        if (isAttendanceFinalized(dateStr, 17)) {
+          ridersList.forEach((rider) => {
+            const key = `${rider.id}_${dateStr}`;
+            if (!existingLogMap.has(key)) {
+              synthesizedAbsentLogs.push({
+                id: `absent_${rider.id}_${dateStr}`,
+                riderId: rider.id,
+                riderName: rider.name,
+                riderAvatar:
+                  getCachedAvatar(rider.id) ||
+                  `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider.name)}`,
+                date: dateStr,
+                timeIn: null,
+                timeOut: null,
+                rawTimeIn: null,
+                rawTimeOut: null,
+                hours: 0,
+                zoneId: rider.zone_id || '',
+                zoneName: rider.zoneName || 'Zamboanga City',
+                status: 'absent',
+                presence: 'absent',
+                punctuality: 'none',
+                source: 'system',
+                notes: 'Auto-generated absent record by system cutoff (5:00 PM)',
+                lat: 0,
+                lng: 0,
+                events: []
+              });
+            }
+          });
+        }
+        curDate.setDate(curDate.getDate() + 1);
+      }
+    }
+
+    return [...attendanceList, ...synthesizedAbsentLogs];
+  }, [attendanceList, ridersList, dateFrom, dateTo, today]);
+
+  const kpiLogs = useMemo(() => {
+    const targetDate = dateFrom === dateTo ? dateFrom : today;
+    return fullAttendanceList.filter((l) => {
+      const isDateMatch = l.date === targetDate;
+      const isZoneMatch = zoneFilter === 'all' || l.zoneId === zoneFilter;
+      return isDateMatch && isZoneMatch;
+    });
+  }, [fullAttendanceList, today, dateFrom, dateTo, zoneFilter]);
 
   const kpis = useMemo(() => {
     return {
-      present: todayLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'present').length,
-      late: todayLogs.filter((l) => (l.punctuality || (l.status === 'late' ? 'late' : 'none')) === 'late').length,
-      absent: todayLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'absent').length,
-      onLeave: todayLogs.filter((l) => l.status === 'on_leave').length
+      present: kpiLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'present').length,
+      late: kpiLogs.filter((l) => (l.punctuality || (l.status === 'late' ? 'late' : 'none')) === 'late').length,
+      absent: kpiLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'absent').length,
+      onLeave: kpiLogs.filter((l) => l.status === 'on_leave').length
     };
-  }, [todayLogs]);
+  }, [kpiLogs]);
 
   const filtered = useMemo(() => {
-    return attendanceList.filter((l) => {
+    return fullAttendanceList.filter((l) => {
       const presenceVal = l.presence || (l.status === 'on_leave' ? 'on_leave' : l.timeIn ? 'present' : 'absent');
       const punctualityVal = l.punctuality || (l.status === 'late' ? 'late' : l.timeIn ? 'on_time' : 'none');
 
@@ -156,7 +220,7 @@ export function Attendance() {
           l.riderId.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     });
-  }, [attendanceList, dateFrom, dateTo, zoneFilter, statusFilter, punctualityFilter, searchQuery]);
+  }, [fullAttendanceList, dateFrom, dateTo, zoneFilter, statusFilter, punctualityFilter, searchQuery]);
 
   const isFilterModified = useMemo(() => {
     return (
@@ -324,7 +388,7 @@ export function Attendance() {
           <AttendanceDetailsPanel
             type={activeSummaryModal}
             onClose={() => setActiveSummaryModal(null)}
-            logs={todayLogs}
+            logs={kpiLogs}
           />
         </div>
       )}
