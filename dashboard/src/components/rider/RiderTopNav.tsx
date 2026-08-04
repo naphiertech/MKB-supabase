@@ -17,6 +17,7 @@ import { BRANDING } from "../../config/branding";
 import { NotificationDropdown } from '../common/NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
 import { useSyncQueueStatus } from '../../hooks/useSyncQueueStatus';
+import { SyncQueueDiagnosticsModal } from './SyncQueueDiagnosticsModal';
 export type RiderPageKey = 'dashboard' | 'attendance' | 'monitoring' | 'profile';
 interface RiderTopNavProps {
   current: RiderPageKey;
@@ -75,6 +76,7 @@ export function RiderTopNav({
 }: RiderTopNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [syncDiagnosticsOpen, setSyncDiagnosticsOpen] = useState(false);
   const syncStatus = useSyncQueueStatus();
   const queuedCount = syncStatus.pending + syncStatus.processing;
   return (
@@ -129,13 +131,17 @@ export function RiderTopNav({
         <div className="flex-1 md:hidden" />
 
         {(queuedCount > 0 || syncStatus.failed > 0) &&
-        <div
-          className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+        <button
+          type="button"
+          onClick={() => {
+            if (syncStatus.failed > 0) setSyncDiagnosticsOpen(true);
+          }}
+          disabled={syncStatus.failed === 0}
+          className={`flex min-h-11 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
             syncStatus.failed > 0
-              ? 'border-red-200 bg-red-50 text-red-700'
-              : 'border-amber-200 bg-amber-50 text-amber-700'
+              ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+              : 'cursor-default border-amber-200 bg-amber-50 text-amber-700'
           }`}
-          role="status"
           aria-live="polite"
           title={syncStatus.failed > 0
             ? `${syncStatus.failed} offline operation${syncStatus.failed === 1 ? '' : 's'} failed permanently and remain stored for diagnostics.`
@@ -145,7 +151,7 @@ export function RiderTopNav({
             ? <TriangleAlert className="h-3.5 w-3.5" />
             : <RefreshCw className={`h-3.5 w-3.5 ${syncStatus.syncing ? 'animate-spin' : ''}`} />}
           <span>{syncStatus.failed > 0 ? `${syncStatus.failed} failed` : `${queuedCount} pending`}</span>
-        </div>
+        </button>
         }
 
         {/* Notifications */}
@@ -245,6 +251,11 @@ export function RiderTopNav({
         })}
         </div>
       }
+      <SyncQueueDiagnosticsModal
+        open={syncDiagnosticsOpen}
+        failedCount={syncStatus.failed}
+        onClose={() => setSyncDiagnosticsOpen(false)}
+      />
     </header>);
 
 }

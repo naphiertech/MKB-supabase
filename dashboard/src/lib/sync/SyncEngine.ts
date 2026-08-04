@@ -232,6 +232,31 @@ export class SyncEngine {
     );
   }
 
+  public async retryFailedOperation(id: string): Promise<boolean> {
+    const identity = this.identity;
+    if (!identity) return false;
+
+    const queue = await this.storage.getQueue();
+    const item = queue.find((candidate) => candidate.id === id);
+    if (
+      !item ||
+      item.riderId !== identity.riderId ||
+      item.status !== 'failed' ||
+      item.retryCount < MAX_SYNC_RETRIES
+    ) {
+      return false;
+    }
+
+    await this.storage.updateQueueItem(item.id, {
+      status: 'pending',
+      retryCount: 0,
+      processingStartedAt: null,
+      failedAt: null
+    });
+    await this.triggerSync();
+    return true;
+  }
+
   public async triggerSync(): Promise<void> {
     const runIdentity = this.identity;
     if (!runIdentity || this.syncing) return;

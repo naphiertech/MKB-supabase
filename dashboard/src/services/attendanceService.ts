@@ -468,7 +468,7 @@ export async function recordTimeIn(riderId: string, zoneId?: string, cutoffHour 
     }
 
     return {
-      id: logId,
+      id: targetLogId,
       riderId,
       riderName: '',
       riderAvatar: '',

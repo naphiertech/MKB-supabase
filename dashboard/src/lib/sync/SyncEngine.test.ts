@@ -263,6 +263,44 @@ describe('SyncEngine recovery and replay guarantees', () => {
     });
   });
 
+  it('allows the authenticated rider to safely retry a permanent failure', async () => {
+    const item = queueItem('TIME_IN', {
+      status: 'failed',
+      retryCount: MAX_SYNC_RETRIES,
+      failedAt: '2026-08-04T10:00:00.000Z',
+      lastError: 'database unavailable'
+    });
+    const storage = new MemoryStorageAdapter([item]);
+    const engine = new RecordingSyncEngine(engineOptions(storage));
+
+    await engine.start(identity);
+    await expect(engine.retryFailedOperation(item.id)).resolves.toBe(true);
+
+    expect(engine.replayAttempts).toEqual([
+      expect.objectContaining({
+        id: item.id,
+        idempotencyKey: item.idempotencyKey,
+        retryCount: 0,
+        status: 'pending'
+      })
+    ]);
+    await expect(storage.getQueue()).resolves.toEqual([]);
+  });
+
+  it('does not retry a failed operation owned by another rider', async () => {
+    const item = queueItem('TIME_IN', {
+      riderId: 'rider-2',
+      status: 'failed',
+      retryCount: MAX_SYNC_RETRIES
+    });
+    const storage = new MemoryStorageAdapter([item]);
+    const engine = new RecordingSyncEngine(engineOptions(storage));
+
+    await engine.start(identity);
+    await expect(engine.retryFailedOperation(item.id)).resolves.toBe(false);
+    await expect(storage.getQueue()).resolves.toEqual([item]);
+  });
+
   it('processes only the authenticated rider and uses the auth user ID for cache updates', async () => {
     const riderOne = queueItem('TIME_IN', {
       payload: { rider_id: 'rider-1', date: '2026-08-04' }

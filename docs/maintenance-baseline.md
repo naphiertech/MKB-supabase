@@ -38,9 +38,17 @@ Do not execute the ignored root schema file against an existing environment.
 
 ## Current baseline limitations
 
-- Live Supabase schema reconciliation still requires access to the authoritative project.
 - Dashboard lint passes with existing warnings; CI fails only on lint errors.
-- Automated tests cover offline storage, synchronization recovery/identity/timestamps/restart behavior, and pure geofence utilities. Live Supabase, RLS, payroll, and end-to-end authentication tests remain follow-up work.
+- Automated tests cover offline storage, synchronization recovery/identity/timestamps/restart behavior, pure geofence utilities, and attendance/location database integrity and RLS. Payroll and end-to-end authentication tests remain follow-up work.
+- Supabase database tests run in CI only when `SUPABASE_DB_URL` is configured with a dedicated test or staging database connection string.
+
+## Supabase integrity baseline
+
+- The authoritative Supabase project was audited on 2026-08-05 before applying `20260804162107_offline_sync_server_integrity.sql`.
+- Attendance enforces one row per rider/day, chronological Time In/Time Out, and agreement between the attendance date and the original event time in `Asia/Manila`.
+- Rider locations reject latitude or longitude outside valid geographic ranges.
+- Rider attendance/location policies resolve ownership through the canonical rider ID linked to the authenticated user and are explicitly limited to the `authenticated` role.
+- The pgTAP integration suite is stored under `dashboard/supabase/tests/database/` and rolls back all fixture data.
 
 ## Offline synchronization contract
 
