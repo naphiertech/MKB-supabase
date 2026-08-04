@@ -6,6 +6,7 @@ import { NotificationDropdown } from './NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
 import { toast } from 'react-hot-toast';
 import { getSearchIndexData } from '../../services/userService';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 const TITLES: Record<
   PageKey,
   {
@@ -19,7 +20,7 @@ const TITLES: Record<
   },
   monitoring: {
     title: 'Live Monitoring',
-    subtitle: 'Realtime rider geolocation'
+    subtitle: 'Real-time rider geolocation'
   },
   geofence: {
     title: 'Geofence Zones',
@@ -35,7 +36,7 @@ const TITLES: Record<
   },
   users: {
     title: 'Users',
-    subtitle: 'Manage admins, dispatchers, riders'
+    subtitle: 'Manage administrators, HR, payroll, and riders'
   },
   computation: {
     title: 'Salary Computation',
@@ -137,6 +138,7 @@ export function Topbar({
   role = 'admin',
   onNavigate
 }: TopbarProps) {
+  const isOnline = useNetworkStatus();
   const [now, setNow] = useState(() => new Date());
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -288,6 +290,14 @@ export function Topbar({
               ⌘K
             </kbd>
           </button>
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="lg:hidden min-h-10 min-w-10 inline-flex items-center justify-center rounded-lg border border-border bg-white text-muted-foreground hover:text-primary"
+            aria-label="Open search"
+          >
+            <Search className="h-4 w-4" />
+          </button>
 
           {/* Search Dropdown overlay */}
           {searchOpen && (
@@ -299,7 +309,7 @@ export function Topbar({
               />
               
               {/* Dropdown Container */}
-              <div className="absolute left-0 top-full mt-1.5 w-[340px] bg-white/95 backdrop-blur-md rounded-xl border border-border/60 shadow-[0_12px_30px_-4px_rgba(26,20,16,0.12)] flex flex-col max-h-[380px] overflow-hidden z-[2000] animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="fixed left-3 right-3 top-[68px] w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-[340px] bg-white/95 backdrop-blur-md rounded-xl border border-border/60 shadow-[0_12px_30px_-4px_rgba(26,20,16,0.12)] flex flex-col max-h-[380px] overflow-hidden z-[2000] animate-in fade-in slide-in-from-top-2 duration-150">
                 {/* Input Header */}
                 <div className="flex items-center gap-3 px-3 border-b border-border/40 h-11 shrink-0">
                   <Search className="w-3.5 h-3.5 text-muted-foreground/60" />
@@ -470,13 +480,13 @@ export function Topbar({
 
         {/* Time + status */}
         <div className="hidden sm:flex items-center gap-3 px-3 h-9 rounded-lg bg-panel-bg border border-border">
-          <span className="text-emerald-600 text-[11px] flex items-center gap-1.5">
+          <span className={`${isOnline ? 'text-emerald-700' : 'text-red-700'} text-[11px] flex items-center gap-1.5`}>
             <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              {isOnline && <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-ping" />}
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`} />
             </span>
             <span className="uppercase tracking-wider font-semibold">
-              System
+              {isOnline ? 'Online' : 'Offline'}
             </span>
           </span>
           <div className="h-4 w-px bg-border" />

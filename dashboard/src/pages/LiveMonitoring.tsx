@@ -23,7 +23,9 @@ import {
 
 export function LiveMonitoring() {
   const { riders, violations } = useRealtimeLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [focusRiderId, setFocusRiderId] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export function LiveMonitoring() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left rail */}
         <aside
-          className={`${collapsed ? 'w-12' : 'w-80'} shrink-0 bg-white border-r border-border transition-all flex flex-col`}>
+          className={`${collapsed ? 'relative w-12' : 'absolute inset-y-0 left-0 z-[1150] w-80 max-w-[85vw] shadow-2xl md:relative md:z-auto md:shadow-none'} shrink-0 bg-white border-r border-border transition-all flex flex-col`}>
           
           <div className="flex items-center justify-between p-3 border-b border-border">
             {!collapsed &&
@@ -189,7 +191,7 @@ export function LiveMonitoring() {
                 />
 
                 {focused && (
-                  <div className="absolute top-6 right-6 w-72 z-[1100] max-h-[calc(100%-3rem)] overflow-y-auto bg-white/95 backdrop-blur-md border border-border rounded-xl p-4 shadow-2xl ar-slide-in custom-scrollbar">
+                  <div className="absolute top-3 left-3 right-3 z-[1100] max-h-[calc(100%-1.5rem)] overflow-y-auto bg-white/95 backdrop-blur-md border border-border rounded-xl p-4 shadow-2xl ar-slide-in custom-scrollbar md:top-6 md:left-auto md:right-6 md:w-72 md:max-h-[calc(100%-3rem)]">
                     <div className="flex items-center gap-3 mb-3">
                       <img
                         src={focused.avatar}
@@ -319,6 +321,7 @@ function FilterRow({
         <button
           key={o.v}
           onClick={() => onChange(o.v)}
+          aria-pressed={value === o.v}
           className={`px-2 py-1 rounded text-[11px] border font-semibold transition cursor-pointer ${value === o.v ? 'bg-accent border-primary/40 text-accent-foreground' : 'bg-white border-border text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>
           
             {o.l}
@@ -353,10 +356,12 @@ function ActionBtn({
 }: {icon: ComponentType<{className?: string;}>;label: string;tone?: 'red';}) {
   return (
     <button
-      className={`flex flex-col items-center gap-1 py-2 rounded-md border text-[10px] font-semibold transition cursor-pointer ${tone === 'red' ? 'bg-red-50 border-red-500/30 text-red-700 hover:bg-red-100' : 'bg-white border-border text-foreground hover:border-primary/30 hover:text-primary'}`}>
+      disabled
+      title={`${label} is not yet available`}
+      className={`flex flex-col items-center gap-1 py-2 rounded-md border text-[10px] font-semibold cursor-not-allowed opacity-60 ${tone === 'red' ? 'bg-red-50 border-red-500/30 text-red-700' : 'bg-white border-border text-muted-foreground'}`}>
       
       <Icon className="w-3.5 h-3.5" />
-      {label}
+      {label} · Soon
     </button>);
 
 }

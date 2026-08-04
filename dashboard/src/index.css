@@ -27,7 +27,7 @@
   --card-foreground: #1a1410;
   --popover: #ffffff;
   --popover-foreground: #1a1410;
-  --primary: #db6c00;
+  --primary: #b85a00;
   --primary-foreground: #ffffff;
   --secondary: #fafaf7;
   --secondary-foreground: #1a1410;
@@ -39,8 +39,8 @@
   --destructive-foreground: #ffffff;
   --border: #efeae2;
   --input: #efeae2;
-  --ring: #db6c00;
-  --chart-1: #db6c00;
+  --ring: #b85a00;
+  --chart-1: #b85a00;
   --chart-2: #f59e0b;
   --chart-3: #475569;
   --chart-4: #16a34a;
@@ -48,15 +48,15 @@
   --radius: 0.625rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #1a1410;
-  --sidebar-primary: #db6c00;
+  --sidebar-primary: #b85a00;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #fff1e0;
   --sidebar-accent-foreground: #b85a00;
   --sidebar-border: #efeae2;
-  --sidebar-ring: #db6c00;
-  --primary-hover: #c56000;
+  --sidebar-ring: #b85a00;
+  --primary-hover: #a04e00;
   --panel-bg: #fafaf7;
-  --subtle-text: #a39988;
+  --subtle-text: #6b6258;
 }
 /* Dark mode intentionally mirrors light tokens — AttenRider is a light-only brand now */
 :root.dark {
@@ -66,10 +66,10 @@
   --card-foreground: #1a1410;
   --popover: #ffffff;
   --popover-foreground: #1a1410;
-  --primary: #db6c00;
-  --primary-hover: #c56000;
+  --primary: #b85a00;
+  --primary-hover: #a04e00;
   --panel-bg: #fafaf7;
-  --subtle-text: #a39988;
+  --subtle-text: #6b6258;
   --primary-foreground: #ffffff;
   --secondary: #fafaf7;
   --secondary-foreground: #1a1410;
@@ -81,20 +81,20 @@
   --destructive-foreground: #ffffff;
   --border: #efeae2;
   --input: #efeae2;
-  --ring: #db6c00;
-  --chart-1: #db6c00;
+  --ring: #b85a00;
+  --chart-1: #b85a00;
   --chart-2: #f59e0b;
   --chart-3: #475569;
   --chart-4: #16a34a;
   --chart-5: #dc2626;
   --sidebar: #ffffff;
   --sidebar-foreground: #1a1410;
-  --sidebar-primary: #db6c00;
+  --sidebar-primary: #b85a00;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #fff1e0;
   --sidebar-accent-foreground: #b85a00;
   --sidebar-border: #efeae2;
-  --sidebar-ring: #db6c00;
+  --sidebar-ring: #b85a00;
 }
 @layer base {
   * {
@@ -375,10 +375,37 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   .btn-press,
   .card-press,
   .btn-hover {
     transition: none !important;
     transform: none !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .rider-shell button,
+  .rider-shell a,
+  .rider-shell input,
+  .rider-shell select {
+    min-height: 44px;
+  }
+
+  .rider-shell button[aria-label],
+  .rider-shell a[aria-label] {
+    min-width: 44px;
   }
 }

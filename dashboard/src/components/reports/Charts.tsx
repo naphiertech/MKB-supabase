@@ -70,6 +70,7 @@ export function AttendanceRateChart({ logs = [] }: { logs?: AttendanceLog[] }) {
   return (
     <ChartCard title="Attendance Rate Trend" subtitle="Daily shift arrival & compliance rate (%)" tone="primary">
       <div className="h-[240px] w-full">
+        <p className="sr-only">{chartData.map((item) => `${item.date}: ${item.rate}% attendance, ${item.present} of ${item.total} present`).join('; ')}</p>
         {chartData.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-panel-bg rounded-lg border border-border">
             <CalendarX className="w-8 h-8 text-muted-foreground mb-2 opacity-60" />
@@ -149,6 +150,7 @@ export function ViolationsByZoneChart({
   return (
     <ChartCard title="Violations & Boundary Breaches by Zone" subtitle="Sorted from highest to lowest" tone="red">
       <div className="h-[240px] w-full">
+        <p className="sr-only">{chartData.map((item) => `${item.zone}: ${item.violations} violations`).join('; ')}</p>
         {totalViolations === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-panel-bg rounded-lg border border-border">
             <ShieldCheck className="w-8 h-8 text-emerald-500 mb-2" />
@@ -224,6 +226,7 @@ export function AttendanceDistributionChart({ logs = [] }: { logs?: AttendanceLo
   return (
     <ChartCard title="Attendance Status Breakdown" subtitle="Distribution across selected records" tone="green">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 h-[240px]">
+        <p className="sr-only">{distribution.map((item) => `${item.name}: ${item.value} records, ${item.pct}%`).join('; ')}</p>
         <div className="w-full sm:w-[55%] h-[200px] flex items-center justify-center relative">
           {shouldRender ? (
             <ResponsiveContainer width="100%" height={200}>
@@ -306,6 +309,7 @@ export function ZoneCoverageChart({ logs = [] }: { logs?: AttendanceLog[] }) {
   return (
     <ChartCard title="Zone Coverage (Total Shift Hours)" subtitle="Accumulated rider-hours by zone" tone="primary">
       <div className="h-[240px] w-full">
+        <p className="sr-only">{chartData.map((item) => `${item.zone}: ${item.hours} total hours`).join('; ')}</p>
         {chartData.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-panel-bg rounded-lg border border-border">
             <Clock className="w-8 h-8 text-muted-foreground mb-2 opacity-60" />
@@ -362,6 +366,7 @@ export function RiderPerformanceChart({ logs = [] }: { logs?: AttendanceLog[] })
   return (
     <ChartCard title="Top Rider Performance (Total Hours)" subtitle="Highest logged hours for period" tone="green">
       <div className="h-[240px] w-full">
+        <p className="sr-only">{chartData.map((item) => `${item.rider}: ${item.hours} logged hours`).join('; ')}</p>
         {chartData.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 bg-panel-bg rounded-lg border border-border">
             <Award className="w-8 h-8 text-muted-foreground mb-2 opacity-60" />

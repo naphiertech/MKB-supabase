@@ -70,6 +70,9 @@ export function DeviceResetModal({
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
       >
         <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="device-reset-title"
           variants={MODAL_CONTENT_VARIANTS}
           initial="initial"
           animate="animate"
@@ -80,6 +83,7 @@ export function DeviceResetModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close device reset"
             className="absolute top-4 right-4 text-muted-foreground hover:text-foreground p-1 rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -91,7 +95,7 @@ export function DeviceResetModal({
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-foreground">Reset Trusted Device</h3>
+              <h3 id="device-reset-title" className="text-base font-bold text-foreground">Reset Trusted Device</h3>
               <p className="text-xs text-muted-foreground">Revoke active hardware binding for rider</p>
             </div>
           </div>

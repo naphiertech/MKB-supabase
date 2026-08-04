@@ -217,7 +217,7 @@ function CompleteHRDetail({ logs }: { logs: AttendanceLog[] }) {
                 <th className="px-4 py-2.5">Rider</th>
                 <th className="px-4 py-2.5">Zone</th>
                 <th className="px-4 py-2.5">Clock In</th>
-                <th className="px-4 py-2.5">Clock Out</th>
+                <th className="px-4 py-2.5">Time Out</th>
                 <th className="px-4 py-2.5 text-right">Hours</th>
               </tr>
             </thead>

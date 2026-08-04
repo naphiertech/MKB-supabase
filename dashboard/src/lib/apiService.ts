@@ -108,7 +108,9 @@ export interface ActivityLog {
   } | null;
 }
 
-export async function getActivityLogs(): Promise<ActivityLog[]> {
+export async function getActivityLogs(options: { limit?: number; offset?: number } = {}): Promise<ActivityLog[]> {
+  const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+  const offset = Math.max(options.offset ?? 0, 0);
   const { data, error } = await supabase
     .from('activity_logs')
     .select(`
@@ -129,7 +131,8 @@ export async function getActivityLogs(): Promise<ActivityLog[]> {
         mkb_id
       )
     `)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error('Error fetching activity logs:', error);
@@ -137,4 +140,3 @@ export async function getActivityLogs(): Promise<ActivityLog[]> {
   }
   return (data || []) as unknown as ActivityLog[];
 }
-

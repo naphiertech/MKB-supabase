@@ -311,7 +311,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       riderName: r.riders?.name || 'Rider',
       zone: r.riders?.zones?.name || 'Unassigned',
       totalParcels: r.total_parcels || 0,
-      ratePerParcel: r.rate_per_parcel || 10,
+      ratePerParcel: r.rate_per_parcel,
       grossPay: r.gross_pay || 0
     }));
 
@@ -335,7 +335,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
             firstRider.riders?.zones?.name || 'Unassigned',
             group.cutoffStart,
             group.cutoffEnd,
-            firstRider.rate_per_parcel || 10,
+            firstRider.rate_per_parcel,
             []
           );
         }
@@ -928,7 +928,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                 </div>
                 <div className="flex justify-between border-b border-border pb-1">
                   <span className="text-muted-foreground">Base Rate per Parcel:</span>
-                  <span className="font-bold text-foreground">₱{selectedRiderRecord.rate_per_parcel || 10}/pc</span>
+                  <span className="font-bold text-foreground">₱{selectedRiderRecord.rate_per_parcel}/pc</span>
                 </div>
                 <div className="flex justify-between border-b border-border pb-1">
                   <span className="text-muted-foreground">Gross Base Pay:</span>

@@ -356,7 +356,7 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
                     <div className="text-xs font-mono font-semibold text-foreground">{log.timeIn || '--:--'}</div>
                   </div>
                   <div>
-                    <span className="text-[9px] text-muted-foreground uppercase">Clock Out</span>
+                    <span className="text-[9px] text-muted-foreground uppercase">Time Out</span>
                     <div className="text-xs font-mono font-semibold text-foreground">{log.timeOut || '--:--'}</div>
                   </div>
                 </div>

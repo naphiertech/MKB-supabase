@@ -73,6 +73,9 @@ export function SearchableRiderComboboxModal({
       {isOpen && (
         <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 md:pt-24 p-4">
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Select a rider"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -92,6 +95,7 @@ export function SearchableRiderComboboxModal({
               <Search className="w-5 h-5 text-primary shrink-0" />
               <input
                 type="text"
+                aria-label="Search riders"
                 autoFocus
                 placeholder="Search rider name, MKB ID, or zone..."
                 value={query}

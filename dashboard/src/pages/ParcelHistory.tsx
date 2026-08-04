@@ -884,8 +884,8 @@ export function ParcelHistory() {
 
                     <div className="p-4 rounded-xl bg-panel-bg border border-border space-y-2">
                       <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                        <span>Gross Wage Preview (Secondary)</span>
-                        <span className="text-[10px] font-mono font-normal">Baseline ₱10/parcel</span>
+                        <span>Operational Wage Estimate</span>
+                        <span className="text-[10px] font-mono font-normal">Final rate set in Payroll</span>
                       </div>
                       <div className="text-lg font-bold font-mono text-emerald-800 tabular-nums">
                         ₱{selectedDetailRow.grossWagePreview.toLocaleString('en-US', { minimumFractionDigits: 2 })}

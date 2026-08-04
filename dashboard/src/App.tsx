@@ -1,28 +1,15 @@
-import React, { useEffect, useMemo, useState, Component } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState, Component } from 'react';
 import { Sidebar, type PageKey } from './components/common/Sidebar';
 import { Topbar } from './components/common/Topbar';
 import { DashboardSkeleton } from './components/common/DashboardSkeleton';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { HRDashboard } from './pages/HRDashboard';
-import { LiveMonitoring } from './pages/LiveMonitoring';
-import { Geofence } from './pages/Geofence';
-import { Attendance } from './pages/Attendance';
-import { Reports } from './pages/Reports';
-import { Users } from './pages/Users';
-import { ReviewsModeration } from './pages/ReviewsModeration';
-import { AuditLogs } from './pages/AuditLogs';
 import { Login } from './pages/Login';
 import { RiderDashboard } from './pages/RiderDashboard';
 import { RiderAttendance } from './pages/RiderAttendance';
 import { RiderMonitoring } from './pages/RiderMonitoring';
 import { RiderProfile } from './pages/RiderProfile';
 import { RiderTopNav, type RiderPageKey } from './components/rider/RiderTopNav';
-import { PayrollDashboard } from './pages/PayrollDashboard';
-import { PayrollComputation } from './pages/PayrollComputation';
-import { PayrollReports } from './pages/PayrollReports';
-import { DailyParcelEntry } from './pages/DailyParcelEntry';
-import { ParcelHistory } from './pages/ParcelHistory';
-import { PayrollHistory } from './pages/PayrollHistory';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabaseClient';
 import { useRiderZone } from './context/RiderZoneContext';
@@ -30,12 +17,25 @@ import { useRiderZone } from './context/RiderZoneContext';
 import { useNotifications } from './hooks/useNotifications';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Settings } from './pages/Settings';
 import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
 import { initSyncEngine, startSyncEngine, stopSyncEngine } from './lib/sync/SyncEngine';
 import { PAGE_TRANSITION_VARIANTS } from './lib/motion';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
+const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring').then((module) => ({ default: module.LiveMonitoring })));
+const Geofence = lazy(() => import('./pages/Geofence').then((module) => ({ default: module.Geofence })));
+const Attendance = lazy(() => import('./pages/Attendance').then((module) => ({ default: module.Attendance })));
+const Reports = lazy(() => import('./pages/Reports').then((module) => ({ default: module.Reports })));
+const Users = lazy(() => import('./pages/Users').then((module) => ({ default: module.Users })));
+const ReviewsModeration = lazy(() => import('./pages/ReviewsModeration').then((module) => ({ default: module.ReviewsModeration })));
+const AuditLogs = lazy(() => import('./pages/AuditLogs').then((module) => ({ default: module.AuditLogs })));
+const PayrollDashboard = lazy(() => import('./pages/PayrollDashboard').then((module) => ({ default: module.PayrollDashboard })));
+const PayrollComputation = lazy(() => import('./pages/PayrollComputation').then((module) => ({ default: module.PayrollComputation })));
+const PayrollReports = lazy(() => import('./pages/PayrollReports').then((module) => ({ default: module.PayrollReports })));
+const DailyParcelEntry = lazy(() => import('./pages/DailyParcelEntry').then((module) => ({ default: module.DailyParcelEntry })));
+const ParcelHistory = lazy(() => import('./pages/ParcelHistory').then((module) => ({ default: module.ParcelHistory })));
+const PayrollHistory = lazy(() => import('./pages/PayrollHistory').then((module) => ({ default: module.PayrollHistory })));
+const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })));
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
   state: { hasError: boolean; error: unknown } = { hasError: false, error: null };
   static getDerivedStateFromError(error: unknown) {
@@ -49,15 +49,12 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
       return (
         <div className="p-6 max-w-2xl mx-auto my-10 bg-red-50 border border-red-200 rounded-xl shadow-lg text-red-950 font-sans">
           <h2 className="text-lg font-bold flex items-center gap-2 mb-2 text-red-800">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse" />
-            Component Rendering Error Detected
+            <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+            This section could not be displayed
           </h2>
           <p className="text-sm text-red-700 mb-4 font-medium">
-            The reports dashboard encountered a runtime error and was caught by the emergency error boundary:
+            Your data was not changed. Reload the dashboard and try again. If the problem continues, contact an administrator.
           </p>
-          <div className="bg-red-950 text-red-100 p-4 rounded-lg text-xs font-mono overflow-auto max-h-[300px] border border-red-900 leading-relaxed whitespace-pre-wrap">
-            {(this.state.error instanceof Error ? this.state.error.stack : String(this.state.error)) || 'Unknown Error'}
-          </div>
           <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition shadow-sm"
@@ -104,7 +101,6 @@ export function App() {
   const [currentPage, setCurrentPage] = useState<PageKey>(getInitialPage());
   const [riderPage, setRiderPage] = useState<RiderPageKey>(getInitialRiderPage());
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [isPageLoading, setIsPageLoading] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>('guide');
 
@@ -196,15 +192,6 @@ export function App() {
   }, [session?.id]);
 
 
-  // Trigger organic simulated skeleton loading on page/tab changes
-  useEffect(() => {
-    setIsPageLoading(true);
-    const timer = setTimeout(() => {
-      setIsPageLoading(false);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [currentPage, riderPage]);
-
   const role = session?.role;
   // Riders only see attendance + system notifications.
   // Payroll only sees system notifications.
@@ -267,7 +254,7 @@ export function App() {
     const zone = allZones.find((z) => z.id === rider.zoneId);
     const zoneName = zone?.name || 'Zamboanga City';
     return (
-      <div className="min-h-screen w-full bg-panel-bg text-foreground font-[Geist,sans-serif] flex flex-col">
+      <div className="rider-shell min-h-screen w-full bg-panel-bg text-foreground font-[Geist,sans-serif] flex flex-col">
         <RiderTopNav
           current={riderPage}
           onNavigate={setRiderPage}
@@ -284,12 +271,7 @@ export function App() {
 
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
-            {isPageLoading ? (
-              <div key="loading" className="h-full">
-                <DashboardSkeleton page={riderPage} role="rider" />
-              </div>
-            ) : (
-              <motion.div
+            <motion.div
                 key={riderPage}
                 variants={pageVariants}
                 initial="initial"
@@ -313,8 +295,7 @@ export function App() {
                     riderId={riderId}
                     onBack={() => setRiderPage('dashboard')} />
                 }
-              </motion.div>
-            )}
+            </motion.div>
           </AnimatePresence>
         </main>
         <Toaster position="top-right" reverseOrder={false} />
@@ -411,11 +392,7 @@ export function App() {
 
         <main className="flex-1 min-w-0">
           <AnimatePresence mode="wait">
-            {isPageLoading ? (
-              <div key="loading" className="h-full">
-                <DashboardSkeleton page={safePage} role={dashRole} />
-              </div>
-            ) : (
+            <Suspense fallback={<DashboardSkeleton page={safePage} role={dashRole} />}>
               <motion.div
                 key={safePage}
                 variants={pageVariants}
@@ -470,7 +447,7 @@ export function App() {
                   </>
                 }
               </motion.div>
-            )}
+            </Suspense>
           </AnimatePresence>
         </main>
       </div>

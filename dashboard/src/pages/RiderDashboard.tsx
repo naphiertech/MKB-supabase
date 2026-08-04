@@ -970,7 +970,13 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
                   </div>
                   <div className="text-right">
                     <div className="text-[10.5px] text-muted-foreground font-mono">Estimated Wage</div>
-                    <div className="text-xl font-bold text-primary font-mono">₱{(myPayrollRecords[0].gross_pay || (myPayrollRecords[0].total_parcels * (myPayrollRecords[0].rate_per_parcel || 50))).toLocaleString()}</div>
+                    <div className="text-xl font-bold text-primary font-mono">
+                      {myPayrollRecords[0].gross_pay != null
+                        ? `₱${myPayrollRecords[0].gross_pay.toLocaleString()}`
+                        : myPayrollRecords[0].rate_per_parcel != null
+                          ? `₱${(myPayrollRecords[0].total_parcels * myPayrollRecords[0].rate_per_parcel).toLocaleString()}`
+                          : <span className="text-sm text-red-700">Rate requires review</span>}
+                    </div>
                   </div>
                 </div>
 
@@ -1016,7 +1022,11 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold font-mono text-foreground">
-                          ₱{(rec.gross_pay || (rec.total_parcels * (rec.rate_per_parcel || 50))).toLocaleString()}
+                          {rec.gross_pay != null
+                            ? `₱${rec.gross_pay.toLocaleString()}`
+                            : rec.rate_per_parcel != null
+                              ? `₱${(rec.total_parcels * rec.rate_per_parcel).toLocaleString()}`
+                              : 'Rate requires review'}
                         </span>
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
                           rec.status === 'paid' ? 'bg-emerald-50 text-emerald-700' :

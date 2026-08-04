@@ -827,7 +827,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                             <span className="font-mono font-bold text-foreground">{formatTimeString(selectedDayLog.timeIn)}</span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground block text-[9px] uppercase font-bold tracking-wider">Clock Out</span>
+                            <span className="text-muted-foreground block text-[9px] uppercase font-bold tracking-wider">Time Out</span>
                             <span className="font-mono font-bold text-foreground">{formatTimeString(selectedDayLog.timeOut)}</span>
                           </div>
                           <div>

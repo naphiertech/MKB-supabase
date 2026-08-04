@@ -240,7 +240,8 @@ export function PayrollDetailsModal({
     const groups: Record<number, { parcels: number; gross: number }> = {};
     dayEntries.forEach((e) => {
       if (e.parcels > 0) {
-        const r = e.rate || (record.rate_per_parcel ?? 10);
+        const r = e.rate || record.rate_per_parcel;
+        if (r == null) return;
         if (!groups[r]) {
           groups[r] = { parcels: 0, gross: 0 };
         }
@@ -261,7 +262,8 @@ export function PayrollDetailsModal({
   const riderMkbId = record.riders?.mkb_id || "MKB-RIDER";
   const zoneName = record.riders?.zones?.name || "Zamboanga City";
   const shiftText = record.riders?.shift || "Morning";
-  const ratePerParcel = record.rate_per_parcel ?? 10;
+  const hasStoredRate = record.rate_per_parcel != null;
+  const ratePerParcel = record.rate_per_parcel ?? 0;
   const computedGrossPay = dayEntries.reduce((sum, e) => sum + e.dailyGross, 0);
   const grossPay = record.gross_pay ?? computedGrossPay;
 
@@ -421,6 +423,14 @@ export function PayrollDetailsModal({
   };
 
   const handleExportPDF = () => {
+    if (!hasStoredRate) {
+      pushToast({
+        title: "Rate requires review",
+        description: "A payroll rate must be stored before this payslip can be exported.",
+        tone: "error",
+      });
+      return;
+    }
     try {
       const mappedEntries = dayEntries.map((e) => ({
         date: e.date,
@@ -460,6 +470,14 @@ export function PayrollDetailsModal({
   };
 
   const handleExportExcel = async () => {
+    if (!hasStoredRate) {
+      pushToast({
+        title: "Rate requires review",
+        description: "A payroll rate must be stored before this payslip can be exported.",
+        tone: "error",
+      });
+      return;
+    }
     try {
       const mappedEntries = dayEntries.map((e) => ({
         date: e.date,
@@ -575,6 +593,12 @@ export function PayrollDetailsModal({
             </button>
           </div>
         </div>
+
+        {!hasStoredRate && (
+          <div className="mx-5 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900" role="status">
+            Payroll rate is missing. Review and save the rate before exporting this payslip.
+          </div>
+        )}
 
         {/* Modal Content - Scrollable grid */}
         <div className="flex-1 overflow-y-auto lg:overflow-hidden grid grid-cols-1 lg:grid-cols-12">
@@ -939,6 +963,7 @@ export function PayrollDetailsModal({
                   <div className="flex gap-2 pt-2 border-t border-border/50">
                     <button
                       onClick={handleExportPDF}
+                      disabled={!hasStoredRate}
                       className="flex-1 h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
                       <Printer className="w-3.5 h-3.5 text-primary" />
@@ -947,6 +972,7 @@ export function PayrollDetailsModal({
 
                     <button
                       onClick={handleExportExcel}
+                      disabled={!hasStoredRate}
                       className="flex-1 h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -954,6 +980,7 @@ export function PayrollDetailsModal({
                     </button>
 
                     <button
+                      disabled={!hasStoredRate}
                       onClick={() => {
                         try {
                           const mappedEntries = dayEntries.map((e) => ({
@@ -1000,6 +1027,7 @@ export function PayrollDetailsModal({
                 <div className="space-y-2">
                   <button
                     onClick={handleExportPDF}
+                    disabled={!hasStoredRate}
                     className="w-full h-9 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -1008,6 +1036,7 @@ export function PayrollDetailsModal({
 
                   <button
                     onClick={handleExportExcel}
+                    disabled={!hasStoredRate}
                     className="w-full h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />

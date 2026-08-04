@@ -377,6 +377,7 @@ export function Sidebar({
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleNavigate(item.key)}
+                  aria-current={active ? 'page' : undefined}
                   className={`group relative z-0 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition cursor-pointer ${active ? a.text : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}>
                   {active && (
                     <motion.span
@@ -417,6 +418,7 @@ export function Sidebar({
               >
                 <button
                   onClick={() => toggleSection(item.title)}
+                  aria-expanded={expanded}
                   className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition cursor-pointer text-muted-foreground hover:text-foreground hover:bg-panel-bg ${hasActiveChild ? 'font-semibold text-foreground' : ''}`}>
                   <Icon className={`w-[18px] h-[18px] ${hasActiveChild ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
                   <span className="flex-1 text-left font-medium">{item.title}</span>
@@ -443,6 +445,7 @@ export function Sidebar({
                           <button
                             key={subItem.key}
                             onClick={() => handleNavigate(subItem.key)}
+                            aria-current={subActive ? 'page' : undefined}
                             className={`group relative z-0 w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${subActive ? a.text : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}>
                             {subActive && (
                               <motion.span

@@ -110,6 +110,7 @@ export function RiderTopNav({
                 type="button"
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onNavigate(key)}
+                aria-current={active ? 'page' : undefined}
                 className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition cursor-pointer ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}>
                 
                 <Icon
@@ -242,6 +243,7 @@ export function RiderTopNav({
                 onNavigate(key);
                 setMobileOpen(false);
               }}
+              aria-current={active ? 'page' : undefined}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${active ? 'bg-accent text-accent-foreground font-semibold' : 'text-foreground hover:bg-panel-bg'}`}>
               
                 <Icon className={`w-4 h-4 ${active ? 'text-primary' : ''}`} />

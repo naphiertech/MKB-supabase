@@ -279,9 +279,6 @@ export function Settings() {
       localStorage.setItem(`city_${userId}`, city);
       localStorage.setItem(`zip_${userId}`, zipCode);
 
-      localStorage.setItem(`2fa_${userId}`, String(twoStepVerification));
-      localStorage.setItem(`support_access_${userId}`, String(supportAccess));
-
       localStorage.setItem(`notif_boundary_${userId}`, String(notifBoundaryExit));
       localStorage.setItem(`notif_attendance_${userId}`, String(notifAttendance));
       localStorage.setItem(`notif_reports_${userId}`, String(notifReports));
@@ -370,7 +367,7 @@ export function Settings() {
         <form onSubmit={handleSubmit} className="flex flex-col bg-white">
           {/* Top Tab Bar & Actions Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border mb-5 bg-white z-10 shrink-0">
-            <div className="flex gap-1 p-1 bg-panel-bg border border-border rounded-xl">
+            <div className="flex gap-1 p-1 bg-panel-bg border border-border rounded-xl" role="tablist" aria-label="Settings sections">
               {(['Personal Detail', 'Security', 'Notification'] as const).map((tab) => {
                 const active = activeTab === tab;
                 return (
@@ -378,6 +375,10 @@ export function Settings() {
                     key={tab}
                     type="button"
                     onClick={() => setActiveTab(tab)}
+                    role="tab"
+                    id={`settings-tab-${tab.replace(/\s+/g, '-').toLowerCase()}`}
+                    aria-selected={active}
+                    aria-controls={`settings-panel-${tab.replace(/\s+/g, '-').toLowerCase()}`}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
                       active
                         ? 'bg-white text-foreground border border-border shadow-xs'
@@ -417,7 +418,7 @@ export function Settings() {
           {/* Contents Area */}
           <div className="bg-panel-bg/30 space-y-6">
             {activeTab === 'Personal Detail' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+              <div id="settings-panel-personal-detail" role="tabpanel" aria-labelledby="settings-tab-personal-detail" className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 {/* Left Column Forms */}
                 <div className="lg:col-span-2 space-y-6">
                   
@@ -428,10 +429,11 @@ export function Settings() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-first-name" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           First Name
                         </label>
                         <input
+                          id="settings-first-name"
                           type="text"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
@@ -442,10 +444,11 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-last-name" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Last Name
                         </label>
                         <input
+                          id="settings-last-name"
                           type="text"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
@@ -456,10 +459,11 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-email" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Email Address
                         </label>
                         <input
+                          id="settings-email"
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -470,10 +474,11 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-phone" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Phone Number
                         </label>
                         <input
+                          id="settings-phone"
                           type="text"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
@@ -483,11 +488,12 @@ export function Settings() {
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-language" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Preferred Language
                         </label>
                         <div className="relative">
                           <select
+                            id="settings-language"
                             value={preferredLanguage}
                             onChange={(e) => setPreferredLanguage(e.target.value)}
                             className="prof-input appearance-none bg-white pr-10 cursor-pointer"
@@ -504,11 +510,12 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-country" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Country
                         </label>
                         <div className="relative">
                           <select
+                            id="settings-country"
                             value={country}
                             onChange={handleCountryChange}
                             className="prof-input appearance-none bg-white pr-10 cursor-pointer text-ellipsis overflow-hidden"
@@ -525,13 +532,14 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-province" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Province
                         </label>
                         <div className="relative">
                           {provincesList.length > 0 ? (
                             <>
                               <select
+                                id="settings-province"
                                 value={province}
                                 onChange={handleProvinceChange}
                                 className="prof-input appearance-none bg-white pr-10 cursor-pointer text-ellipsis overflow-hidden"
@@ -547,6 +555,7 @@ export function Settings() {
                             </>
                           ) : (
                             <input
+                              id="settings-province"
                               type="text"
                               value={province}
                               onChange={(e) => setProvince(e.target.value)}
@@ -559,13 +568,14 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-city" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           City
                         </label>
                         <div className="relative">
                           {citiesList.length > 0 ? (
                             <>
                               <select
+                                id="settings-city"
                                 value={city}
                                 onChange={handleCityChange}
                                 className="prof-input appearance-none bg-white pr-10 cursor-pointer text-ellipsis overflow-hidden"
@@ -581,6 +591,7 @@ export function Settings() {
                             </>
                           ) : (
                             <input
+                              id="settings-city"
                               type="text"
                               value={city}
                               onChange={(e) => setCity(e.target.value)}
@@ -593,10 +604,11 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-zip-code" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Zip Code
                         </label>
                         <input
+                          id="settings-zip-code"
                           type="text"
                           value={zipCode}
                           onChange={(e) => setZipCode(e.target.value)}
@@ -674,7 +686,7 @@ export function Settings() {
             )}
 
             {activeTab === 'Security' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start animate-fade-in">
+              <div id="settings-panel-security" role="tabpanel" aria-labelledby="settings-tab-security" className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start animate-fade-in">
                 {/* Credentials Section */}
                 <div className="lg:col-span-2 space-y-6">
                   
@@ -687,10 +699,11 @@ export function Settings() {
                     <p className="text-xs text-muted-foreground mb-4">Modify your primary log in email address.</p>
                     
                     <div>
-                      <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                      <label htmlFor="settings-security-email" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                         Email Address
                       </label>
                       <input
+                        id="settings-security-email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -720,11 +733,12 @@ export function Settings() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-password" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           New Password
                         </label>
                         <div className="relative">
                           <input
+                            id="settings-password"
                             type={showPassword ? 'text' : 'password'}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
@@ -744,10 +758,11 @@ export function Settings() {
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        <label htmlFor="settings-confirm-password" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           Confirm Password
                         </label>
                         <input
+                          id="settings-confirm-password"
                           type={showPassword ? 'text' : 'password'}
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
@@ -765,28 +780,26 @@ export function Settings() {
                   
                   {/* Advanced Security Card */}
                   <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
-                    <h3 className="text-sm font-bold text-foreground mb-0.5">Account Security</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-bold text-foreground">Account Security</h3>
+                      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                        Not yet available
+                      </span>
+                    </div>
                     
                     {/* Toggle 1 */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-0.5">
                         <h4 className="text-xs font-semibold text-foreground">2-Step Verification</h4>
                         <p className="text-[10px] text-muted-foreground leading-relaxed">
-                          Add an extra layer of protection to secure authentication.
+                          Planned protection for account authentication. This control is not connected yet.
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          const next = !twoStepVerification;
-                          setTwoStepVerification(next);
-                          pushToast({
-                            title: next ? '2FA Scheduled' : '2FA Off',
-                            description: `Two-factor authentication will be ${next ? 'enabled' : 'disabled'} upon save.`,
-                            tone: 'info'
-                          });
-                        }}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                        disabled
+                        aria-label="2-Step Verification — not yet available"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent opacity-60 ${
                           twoStepVerification ? 'bg-primary' : 'bg-border'
                         }`}
                       >
@@ -805,21 +818,14 @@ export function Settings() {
                       <div className="space-y-0.5">
                         <h4 className="text-xs font-semibold text-foreground">Support Access</h4>
                         <p className="text-[10px] text-muted-foreground leading-relaxed">
-                          Allow administrators or tech representatives to audit your current dashboard.
+                          Planned controlled access for authorized support. This control is not connected yet.
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          const next = !supportAccess;
-                          setSupportAccess(next);
-                          pushToast({
-                            title: next ? 'Support Access Scheduled' : 'Support Access Off',
-                            description: `Support access will be ${next ? 'allowed' : 'denied'} upon save.`,
-                            tone: 'info'
-                          });
-                        }}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
+                        disabled
+                        aria-label="Support Access — not yet available"
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent opacity-60 ${
                           supportAccess ? 'bg-primary' : 'bg-border'
                         }`}
                       >
@@ -836,19 +842,14 @@ export function Settings() {
                   <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-3">
                     <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Active Sessions</h3>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Log out of all other active browser sessions on other devices or locations.
+                      Cross-device session management is planned but is not connected yet.
                     </p>
                     <button
                       type="button"
-                      onClick={async () => {
-                        pushToast({ title: 'Logging out sessions', description: 'Processing active credentials...', tone: 'info' });
-                        setTimeout(() => {
-                          pushToast({ title: 'Success', description: 'Terminated all other active sessions.', tone: 'success' });
-                        }, 1000);
-                      }}
-                      className="w-full py-2 bg-white hover:bg-panel-bg border border-border text-muted-foreground hover:text-foreground rounded-xl text-xs font-bold transition duration-200 cursor-pointer"
+                      disabled
+                      className="w-full py-2 bg-panel-bg border border-border text-muted-foreground rounded-xl text-xs font-bold cursor-not-allowed opacity-70"
                     >
-                      Log out of all other devices
+                      Log out of all other devices — Not yet available
                     </button>
                   </div>
 
@@ -859,19 +860,14 @@ export function Settings() {
                       <span>Danger Zone</span>
                     </h3>
                     <p className="text-[11px] text-red-700/80 leading-relaxed">
-                      Once deleted, account databases are permanently scrubbed. Operational reports will be wiped.
+                      Account deletion is not self-service. Contact an administrator if account access must be removed.
                     </p>
                     <button
                       type="button"
-                      onClick={() => {
-                        const confirm = window.confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.");
-                        if (confirm) {
-                          pushToast({ title: 'Unauthorized', description: 'Please contact system administrator to process deletion requests.', tone: 'error' });
-                        }
-                      }}
-                      className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition duration-200 cursor-pointer shadow-xs"
+                      disabled
+                      className="w-full py-2 bg-red-100 text-red-700 rounded-xl text-xs font-bold cursor-not-allowed opacity-80"
                     >
-                      Delete Account
+                      Delete Account — Contact administrator
                     </button>
                   </div>
                 </div>
@@ -879,7 +875,7 @@ export function Settings() {
             )}
 
             {activeTab === 'Notification' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start animate-fade-in">
+              <div id="settings-panel-notification" role="tabpanel" aria-labelledby="settings-tab-notification" className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start animate-fade-in">
                 <div className="lg:col-span-2 space-y-6">
                   
                   {/* Email Notifications */}

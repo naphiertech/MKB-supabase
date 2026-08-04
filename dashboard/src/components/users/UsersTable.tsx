@@ -209,15 +209,19 @@ export function UsersTable({
                           </button>
                           <button
                             type="button"
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent cursor-pointer"
+                            disabled
+                            title="Password reset is not yet available"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground cursor-not-allowed opacity-70"
                           >
-                            <KeyRound className="w-3.5 h-3.5" /> Reset Password
+                            <KeyRound className="w-3.5 h-3.5" /> Reset Password — Not yet available
                           </button>
                           <button
                             type="button"
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 cursor-pointer"
+                            disabled
+                            title="Account suspension is not yet available"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground cursor-not-allowed opacity-70"
                           >
-                            <Ban className="w-3.5 h-3.5" /> Suspend
+                            <Ban className="w-3.5 h-3.5" /> Suspend — Not yet available
                           </button>
                         </div>
                       )}

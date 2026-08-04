@@ -412,9 +412,9 @@ export function RiderPayrollList({
             <button
               disabled
               className="h-8 px-3 rounded-lg border border-border bg-white/50 text-subtle-text text-xs font-semibold cursor-not-allowed"
-              title="Bulk Export coming soon"
+              title="Bulk export is not yet available"
             >
-              Bulk Export
+              Bulk Export — Not yet available
             </button>
             {role === 'payroll' ? (
               <>
@@ -447,16 +447,16 @@ export function RiderPayrollList({
                 <button
                   disabled
                   className="h-8 px-3 rounded-lg border border-border bg-white/50 text-subtle-text text-xs font-semibold cursor-not-allowed"
-                  title="Bulk Approval coming soon"
+                  title="Bulk approval is not yet available"
                 >
-                  Bulk Approve
+                  Bulk Approve — Not yet available
                 </button>
                 <button
                   disabled
                   className="h-8 px-3 rounded-lg bg-primary/40 text-white text-xs font-semibold cursor-not-allowed"
-                  title="Bulk Pay coming soon"
+                  title="Bulk payment is not yet available"
                 >
-                  Bulk Pay
+                  Bulk Pay — Not yet available
                 </button>
               </>
             )}
@@ -633,7 +633,7 @@ export function RiderPayrollList({
                   const riderName = r.riders?.name || 'Unknown Rider';
                   const riderId = r.riders?.mkb_id || 'MKB-RIDER';
                   const zone = r.riders?.zones?.name || '—';
-                  const ratePerParcel = r.rate_per_parcel ?? 50;
+                  const ratePerParcel = r.rate_per_parcel;
 
                   const grossPay = r.gross_pay ?? 0;
                   const otherEarnings = Number(r.other_earnings ?? 0);
@@ -714,7 +714,9 @@ export function RiderPayrollList({
                         )}
                         {!isAdminOrHr && (
                           <td className="px-3 py-3 text-right font-mono tabular-nums text-muted-foreground whitespace-nowrap">
-                            ₱{ratePerParcel.toFixed(2)}
+                            {ratePerParcel == null ? (
+                              <span className="font-sans text-[11px] font-semibold text-red-700">Rate missing</span>
+                            ) : `₱${ratePerParcel.toFixed(2)}`}
                           </td>
                         )}
                         <td className="px-3 py-3 text-right font-mono tabular-nums text-muted-foreground whitespace-nowrap">

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -18,9 +18,14 @@ import {
 import { getActivityLogs, type ActivityLog } from '../lib/apiService';
 import { pushToast } from '../hooks/useToast';
 
+const PAGE_SIZE = 100;
+
 export function AuditLogs() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'hr' | 'payroll' | 'rider'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -28,11 +33,13 @@ export function AuditLogs() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   // Load logs on mount & support manual refresh
-  const loadLogs = async () => {
-    setLoading(true);
+  const loadLogs = useCallback(async (append = false, offset = 0) => {
+    append ? setLoadingMore(true) : setLoading(true);
+    setLoadError(false);
     try {
-      const data = await getActivityLogs();
-      setLogs(data);
+      const data = await getActivityLogs({ limit: PAGE_SIZE, offset });
+      setLogs(current => append ? [...current, ...data] : data);
+      setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
       console.error('[AuditLogs] Load failed:', err);
       pushToast({
@@ -40,14 +47,16 @@ export function AuditLogs() {
         description: 'Please check database permissions or connection.',
         tone: 'error'
       });
+      setLoadError(true);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadLogs();
-  }, []);
+    void loadLogs();
+  }, [loadLogs]);
 
   // Compute distinct event types from the current log database for dynamic filter lists
   const distinctEventTypes = useMemo(() => {
@@ -230,7 +239,7 @@ export function AuditLogs() {
               {loading ? '...' : stats.total}
             </div>
             <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-              since initialization
+              currently loaded
             </div>
           </div>
           <div className="w-10 h-10 rounded-lg bg-panel-bg border border-border flex items-center justify-center">
@@ -313,7 +322,7 @@ export function AuditLogs() {
           {/* Refresh & Exporter */}
           <div className="flex items-center gap-2 self-end lg:self-auto">
             <button
-              onClick={loadLogs}
+              onClick={() => void loadLogs()}
               disabled={loading}
               className="h-10 px-3 border border-border hover:border-primary/40 rounded-lg text-sm text-muted-foreground hover:text-foreground bg-white transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               title="Reload logs from DB"
@@ -399,8 +408,15 @@ export function AuditLogs() {
         {!loading && filteredLogs.length === 0 && (
           <div className="p-16 text-center space-y-2">
             <Database className="w-10 h-10 text-subtle-text mx-auto" />
-            <div className="text-sm font-semibold text-foreground">No logs matching filters found</div>
-            <div className="text-xs text-muted-foreground">Try adjusting your search criteria or filters.</div>
+            <div className="text-sm font-semibold text-foreground">{loadError ? 'Audit logs could not be loaded' : 'No logs matching filters found'}</div>
+            <div className="text-xs text-muted-foreground">{loadError ? 'Check your connection and try again.' : 'Try adjusting your search criteria or filters.'}</div>
+            <button
+              type="button"
+              onClick={() => loadError ? void loadLogs() : (setSearch(''), setRoleFilter('all'), setTypeFilter('all'), setDateFilter('all'))}
+              className="mt-3 h-9 rounded-lg border border-border bg-white px-3 text-xs font-semibold text-foreground hover:border-primary/40"
+            >
+              {loadError ? 'Retry' : 'Clear filters'}
+            </button>
           </div>
         )}
 
@@ -437,6 +453,15 @@ export function AuditLogs() {
                           {/* Row Summary */}
                           <div 
                             onClick={() => toggleRow(log.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                toggleRow(log.id);
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={isExpanded}
                             className={`w-full grid grid-cols-1 md:grid-cols-6 items-center hover:bg-panel-bg/60 transition-colors cursor-pointer px-5 py-3.5 ${isExpanded ? 'bg-accent/20 font-semibold' : ''}`}
                           >
                             {/* Timestamp */}
@@ -493,6 +518,12 @@ export function AuditLogs() {
                               <motion.button
                                 whileTap={{ scale: 0.92 }}
                                 type="button"
+                                aria-label={isExpanded ? 'Collapse audit details' : 'Expand audit details'}
+                                aria-expanded={isExpanded}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleRow(log.id);
+                                }}
                                 className="p-1 rounded bg-panel-bg border border-border text-muted-foreground hover:text-foreground transition cursor-pointer"
                               >
                                 <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ease-out ${isExpanded ? 'rotate-180' : ''}`} />
@@ -568,6 +599,18 @@ export function AuditLogs() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && hasMore && (
+          <div className="border-t border-border p-3 text-center">
+            <button
+              type="button"
+              onClick={() => void loadLogs(true, logs.length)}
+              disabled={loadingMore}
+              className="h-9 rounded-lg border border-border bg-white px-4 text-xs font-semibold text-foreground hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadingMore ? 'Loading older entries…' : 'Load older entries'}
+            </button>
           </div>
         )}
       </div>

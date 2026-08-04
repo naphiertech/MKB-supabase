@@ -614,7 +614,9 @@ function Segmented({
       {options.map((o) =>
       <button
         key={o.v}
+        type="button"
         onClick={() => onChange(o.v)}
+        aria-pressed={value === o.v}
         className={`px-2.5 h-8 rounded text-xs transition-colors ${value === o.v ? 'bg-white text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
         
           {o.l}

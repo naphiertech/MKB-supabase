@@ -34,6 +34,7 @@ const DEMO_ACCOUNTS = [
   label: 'Payroll',
   name: 'Sofia Reyes'
 }];
+const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV;
 
 export function Login() {
   const { signIn } = useAuth();
@@ -208,10 +209,11 @@ export function Login() {
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.1 }}
                   >
-                    <label className="block text-[11px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
+                    <label htmlFor="login-email" className="block text-[11px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
                       Email
                     </label>
                     <input
+                      id="login-email"
                       type="email"
                       value={email}
                       onChange={(e) => {
@@ -241,17 +243,20 @@ export function Login() {
                     transition={{ delay: 0.15 }}
                   >
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
+                      <label htmlFor="login-password" className="block text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
                         Password
                       </label>
                       <button
                         type="button"
-                        className="text-[11px] text-primary hover:text-primary-hover font-semibold cursor-pointer">
-                        Forgot?
+                        disabled
+                        title="Password recovery is not yet available"
+                        className="text-[11px] text-muted-foreground font-semibold cursor-not-allowed">
+                        Forgot? — Not yet available
                       </button>
                     </div>
                     <div className="relative">
                       <input
+                        id="login-password"
                         type={showPw ? 'text' : 'password'}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -320,7 +325,7 @@ export function Login() {
                 </form>
 
                 {/* Demo accounts */}
-                <motion.div 
+                {SHOW_DEMO_ACCOUNTS && <motion.div
                   className="mt-7 pt-6 border-t border-border"
                   initial={{ y: 16, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -365,7 +370,7 @@ export function Login() {
                     Demo build — any non-empty password works. In production, sign-in
                     is handled by Supabase Auth.
                   </p>
-                </motion.div>
+                </motion.div>}
 
                 <div className="text-center mt-8 text-[11px] text-muted-foreground font-mono">
                   {BRANDING.copyright}

@@ -134,7 +134,7 @@ function buildDynamicTimelineNodes(l: AttendanceLog): TimelineNode[] {
   if (l.timeOut) {
     nodes.push({
       ts: l.timeOut,
-      title: 'Clock Out',
+      title: 'Time Out',
       subtitle: `Shift completed · Duration: ${l.hours.toFixed(1)} hrs`,
       type: 'clock_out',
       nodeColor: 'bg-slate-500 border-slate-500',

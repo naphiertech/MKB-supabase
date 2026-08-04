@@ -74,7 +74,7 @@ export function SelectedDayDetails({
         </div>
 
         <div>
-          <div className="text-muted-foreground mb-0.5">Clock Out</div>
+          <div className="text-muted-foreground mb-0.5">Time Out</div>
           <div className="font-semibold font-mono text-foreground flex items-center gap-1">
             <Clock className="w-3.5 h-3.5 text-primary" />
             {selectedDayAtt?.time_out ? (

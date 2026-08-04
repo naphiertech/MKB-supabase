@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { cloneElement, isValidElement, useEffect, useId, useMemo, useState, useRef } from "react";
 import {
   Upload,
   Eye,
@@ -1341,16 +1341,34 @@ function Field({
   helper?: string;
   innerRef?: (el: HTMLDivElement | null) => void;
 }) {
+  const fieldId = useId();
+  const messageId = `${fieldId}-message`;
+  const isDirectControl =
+    isValidElement(children) &&
+    typeof children.type === "string" &&
+    ["input", "select", "textarea"].includes(children.type);
+  const control = isDirectControl
+    ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+        id: fieldId,
+        "aria-invalid": Boolean(error),
+        "aria-describedby": error || helper ? messageId : undefined,
+      })
+    : children;
+
   return (
     <div ref={innerRef} className="space-y-1 w-full">
-      <label className="block text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
+      <label
+        id={`${fieldId}-label`}
+        htmlFor={isDirectControl ? fieldId : undefined}
+        className="block text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold"
+      >
         {label}
       </label>
-      {children}
+      {isDirectControl ? control : <div role="group" aria-labelledby={`${fieldId}-label`}>{control}</div>}
       {error ? (
-        <div className="text-[10px] text-red-600 font-medium">{error}</div>
+        <div id={messageId} className="text-[10px] text-red-600 font-medium" role="alert">{error}</div>
       ) : helper ? (
-        <div className="text-[10px] text-muted-foreground font-medium">{helper}</div>
+        <div id={messageId} className="text-[10px] text-muted-foreground font-medium">{helper}</div>
       ) : null}
     </div>
   );

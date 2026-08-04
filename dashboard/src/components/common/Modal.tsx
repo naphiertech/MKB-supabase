@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 interface ModalProps {
@@ -31,16 +31,58 @@ export function Modal({
   dismissible = true,
   children
 }: ModalProps) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
+    openerRef.current = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && dismissible) onClose();
+      if (e.key === 'Escape' && dismissible) {
+        onClose();
+        return;
+      }
+
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute('hidden'));
+
+      if (focusable.length === 0) {
+        e.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
+
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
+    window.requestAnimationFrame(() => {
+      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      (firstFocusable ?? dialogRef.current)?.focus();
+    });
+
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      document.body.style.overflow = previousOverflow;
+      openerRef.current?.focus();
     };
   }, [open, onClose, dismissible]);
   return (
@@ -48,9 +90,7 @@ export function Modal({
       {open && (
         <div
           className="fixed inset-0 z-[1200] flex items-center justify-center px-4 py-8"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={title ? 'modal-title' : undefined}>
+        >
           
           <motion.button
             type="button"
@@ -64,6 +104,12 @@ export function Modal({
             className="fixed inset-0 bg-foreground/40 backdrop-blur-sm cursor-default border-none outline-none appearance-none w-screen h-screen" />
           
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-label={title ? undefined : 'Dialog'}
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -75,7 +121,7 @@ export function Modal({
             <div className="min-w-0">
               {title &&
             <h2
-              id="modal-title"
+              id={titleId}
               className="text-foreground font-semibold text-base tracking-tight">
               
                   {title}
@@ -90,7 +136,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="text-muted-foreground hover:text-foreground p-1.5 -mr-1.5 -mt-1.5 rounded-md hover:bg-panel-bg">
+            className="text-muted-foreground hover:text-foreground min-h-11 min-w-11 p-1.5 -mr-1.5 -mt-1.5 rounded-md hover:bg-panel-bg inline-flex items-center justify-center">
             
                 <X className="w-4 h-4" />
               </button>

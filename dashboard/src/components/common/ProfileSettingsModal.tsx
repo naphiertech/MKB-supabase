@@ -291,9 +291,6 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
       localStorage.setItem(`zip_${userId}`, zipCode);
 
 
-      localStorage.setItem(`2fa_${userId}`, String(twoStepVerification));
-      localStorage.setItem(`support_access_${userId}`, String(supportAccess));
-
       localStorage.setItem(`notif_boundary_${userId}`, String(notifBoundaryExit));
       localStorage.setItem(`notif_attendance_${userId}`, String(notifAttendance));
       localStorage.setItem(`notif_reports_${userId}`, String(notifReports));
@@ -794,21 +791,15 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
                     <div className="space-y-0.5">
                       <h4 className="text-xs font-semibold text-foreground">2-Step Verification</h4>
                       <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Add an extra layer of protection to secure authentication.
+                        Planned security control — not yet available.
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        const next = !twoStepVerification;
-                        setTwoStepVerification(next);
-                        pushToast({
-                          title: next ? '2FA Scheduled' : '2FA Off',
-                          description: `Two-factor authentication will be ${next ? 'enabled' : 'disabled'} upon save.`,
-                          tone: 'info'
-                        });
-                      }}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
+                      disabled
+                      aria-label="2-step verification is not yet available"
+                      title="Not yet available"
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent opacity-60 ${
                         twoStepVerification ? 'bg-[#1b3d32]' : 'bg-border'
                       }`}
                     >
@@ -827,21 +818,15 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
                     <div className="space-y-0.5">
                       <h4 className="text-xs font-semibold text-foreground">Support Access</h4>
                       <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Allow administrators or tech representatives to audit your current dashboard.
+                        Planned administrator support control — not yet available.
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        const next = !supportAccess;
-                        setSupportAccess(next);
-                        pushToast({
-                          title: next ? 'Support Access Scheduled' : 'Support Access Off',
-                          description: `Support access will be ${next ? 'allowed' : 'denied'} upon save.`,
-                          tone: 'info'
-                        });
-                      }}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1b3d32]/35 ${
+                      disabled
+                      aria-label="Support access is not yet available"
+                      title="Not yet available"
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent opacity-60 ${
                         supportAccess ? 'bg-[#1b3d32]' : 'bg-border'
                       }`}
                     >
@@ -858,19 +843,15 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
                 <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-3">
                   <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Active Sessions</h3>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Log out of all other active browser sessions on other devices or locations.
+                    Session management is planned but not connected yet.
                   </p>
                   <button
                     type="button"
-                    onClick={async () => {
-                      pushToast({ title: 'Logging out sessions', description: 'Processing active credentials...', tone: 'info' });
-                      setTimeout(() => {
-                        pushToast({ title: 'Success', description: 'Terminated all other active sessions.', tone: 'success' });
-                      }, 1000);
-                    }}
-                    className="w-full py-2 bg-white hover:bg-panel-bg border border-border text-muted-foreground hover:text-foreground rounded-xl text-xs font-bold transition duration-200 cursor-pointer"
+                    disabled
+                    title="Not yet available"
+                    className="w-full py-2 bg-panel-bg border border-border text-muted-foreground rounded-xl text-xs font-bold cursor-not-allowed opacity-70"
                   >
-                    Log out of all other devices
+                    Log out of other devices — Not yet available
                   </button>
                 </div>
 
@@ -881,19 +862,15 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
                     <span>Danger Zone</span>
                   </h3>
                   <p className="text-[11px] text-red-700/80 leading-relaxed">
-                    Once deleted, account databases are permanently scrubbed. Operational reports will be wiped.
+                    Account deletion is handled by an administrator to protect operational records.
                   </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      const confirm = window.confirm("Are you absolutely sure you want to delete your account? This action cannot be undone.");
-                      if (confirm) {
-                        pushToast({ title: 'Unauthorized', description: 'Please contact system administrator to process deletion requests.', tone: 'error' });
-                      }
-                    }}
-                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition duration-200 cursor-pointer shadow-xs"
+                    disabled
+                    title="Contact an administrator"
+                    className="w-full py-2 bg-red-100 text-red-700 rounded-xl text-xs font-bold cursor-not-allowed opacity-80"
                   >
-                    Delete Account
+                    Delete Account — Contact administrator
                   </button>
                 </div>
 

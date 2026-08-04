@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -8,8 +8,6 @@ import {
   Mail,
   Phone,
   Clock,
-  Send,
-  CheckCircle,
   FileText,
   Target,
   ClipboardCheck,
@@ -19,7 +17,6 @@ import {
   MessageSquare,
   ChevronDown
 } from 'lucide-react';
-import { pushToast } from '../../hooks/useToast';
 import { BRANDING } from '../../config/branding';
 
 export type HelpTab = 'guide' | 'faq' | 'support';
@@ -31,6 +28,7 @@ interface HelpSupportModalProps {
 }
 
 export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSupportModalProps) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [activeTab, setActiveTab] = useState<HelpTab>(defaultTab);
   const [faqSearch, setFaqSearch] = useState('');
   
@@ -41,40 +39,26 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
     category: 'technical',
     message: ''
   });
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-
   // Sync active tab with defaultTab prop when modal opens
   useEffect(() => {
     if (open) {
       setActiveTab(defaultTab);
-      setSuccess(false);
+      window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     }
   }, [open, defaultTab]);
-  const handleSupportSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) {
-      pushToast({
-        title: 'Validation Error',
-        description: 'Please fill in all required fields.',
-        tone: 'error'
-      });
-      return;
-    }
-
-    setSubmitting(true);
-    // Simulate sending request to support email/endpoint
-    setTimeout(() => {
-      setSubmitting(false);
-      setSuccess(true);
-      pushToast({
-        title: 'Message Sent',
-        description: 'Your support request has been delivered. We will respond within 24 hours.',
-        tone: 'success'
-      });
-    }, 1200);
-  };
-
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, onClose]);
   // FAQ Data List
   const faqs = [
     {
@@ -87,7 +71,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
     },
     {
       q: "How does the biometric face check-in work?",
-      a: "When a rider clocks in or out, MediaPipe Tasks Vision runs in the client browser to compute a 512-dimension face descriptor. This descriptor is matched against the rider's cached facial profile using euclidean distance check (requires a match score above 0.6)."
+      a: "When a rider clocks in or out, face verification runs on the rider device and compares a 128-dimensional face descriptor with the enrolled template. The matching threshold is managed by the application and should not be adjusted by riders."
     },
     {
       q: "Can HR edit attendance logs manually?",
@@ -95,7 +79,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
     },
     {
       q: "How are payroll gross amounts calculated?",
-      a: "MKB Payroll calculates payout based on cutoff periods. The system supports custom per-parcel rates (default ₱50.00) multiplied by the total verified parcels delivered during that cutoff period."
+      a: "MKB Payroll calculates payout by cutoff period using the rate stored on each payroll record. If a rate is missing, Payroll must review the record before it is finalized."
     }
   ];
 
@@ -119,6 +103,9 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
 
           {/* Slide-over Drawer */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="help-support-title"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
@@ -132,12 +119,14 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
                 <HelpCircle className="w-4.5 h-4.5 text-primary" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-foreground">Help & Support Center</h2>
+                <h2 id="help-support-title" className="text-base font-bold text-foreground">Help & Support Center</h2>
                 <p className="text-[11px] text-muted-foreground font-mono">User guides, FAQs, and support ticket desk</p>
               </div>
             </div>
             <button
+              ref={closeButtonRef}
               onClick={onClose}
+              aria-label="Close help and support"
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-border/50 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
@@ -147,7 +136,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
           {/* Tabs & Content */}
           <div className="flex flex-col overflow-hidden flex-1">
             {/* Top Navigation Tabs Bar */}
-            <div className="flex px-6 py-2 bg-panel-bg border-b border-border gap-1 shrink-0">
+            <div className="flex px-6 py-2 bg-panel-bg border-b border-border gap-1 shrink-0" role="tablist" aria-label="Help sections">
               {(['guide', 'faq', 'support'] as const).map((tab) => {
                 const active = activeTab === tab;
                 const label = tab === 'guide' ? 'User Guide' : tab === 'faq' ? 'FAQ' : 'Contact Support';
@@ -157,6 +146,10 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
                     key={tab}
                     type="button"
                     onClick={() => setActiveTab(tab)}
+                    role="tab"
+                    id={`help-tab-${tab}`}
+                    aria-selected={active}
+                    aria-controls={`help-panel-${tab}`}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
                       active
                         ? 'bg-white text-accent-foreground border border-border shadow-xs'
@@ -174,7 +167,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
             <div className="flex-1 p-6 overflow-y-auto bg-white">
               {/* Tab 1: User Guide */}
               {activeTab === 'guide' && (
-                <div className="space-y-6">
+                <div id="help-panel-guide" role="tabpanel" aria-labelledby="help-tab-guide" className="space-y-6">
                   <div>
                     <h3 className="text-base font-bold text-foreground mb-1">{BRANDING.appName} Operational Guide</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">
@@ -248,10 +241,11 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
 
               {/* Tab 2: FAQ */}
               {activeTab === 'faq' && (
-                <div className="space-y-4">
+                <div id="help-panel-faq" role="tabpanel" aria-labelledby="help-tab-faq" className="space-y-4">
                   <div className="flex flex-col gap-2">
                     <h3 className="text-base font-bold text-foreground">Frequently Asked Questions</h3>
                     <input
+                      aria-label="Search frequently asked questions"
                       type="text"
                       placeholder="Search questions and answers..."
                       value={faqSearch}
@@ -282,42 +276,31 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
 
               {/* Tab 3: Contact Support */}
               {activeTab === 'support' && (
-                <div className="grid grid-cols-1 gap-6">
+                <div id="help-panel-support" role="tabpanel" aria-labelledby="help-tab-support" className="grid grid-cols-1 gap-6">
                   {/* Left Form Panel */}
                   <div className="space-y-4">
                     <h3 className="text-base font-bold text-foreground">Submit Support Ticket</h3>
                     
-                    {success ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="p-6 border border-emerald-500/25 bg-emerald-50/50 rounded-xl text-center space-y-3 flex flex-col items-center"
-                      >
-                        <CheckCircle className="w-10 h-10 text-emerald-600" />
-                        <h4 className="text-sm font-bold text-emerald-800">Support Ticket Created</h4>
-                        <p className="text-xs text-emerald-700 max-w-xs leading-relaxed">
-                          Your technical request has been compiled. Our operations crew will review details and email you shortly.
+                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div>
+                        <div className="text-xs font-bold">Not yet available</div>
+                        <p id="support-unavailable-note" className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                          Online support tickets are planned but are not connected yet. Please use the direct contact channels below.
                         </p>
-                        <button
-                          onClick={() => {
-                            setSuccess(false);
-                            setFormData({ name: '', email: '', category: 'technical', message: '' });
-                          }}
-                          className="mt-2 text-xs font-bold text-primary hover:text-accent-foreground underline"
-                        >
-                          Send another message
-                        </button>
-                      </motion.div>
-                    ) : (
-                      <form onSubmit={handleSupportSubmit} className="space-y-4">
+                      </div>
+                    </div>
+                    <form onSubmit={(event) => event.preventDefault()} className="space-y-4" aria-describedby="support-unavailable-note">
+                      <fieldset disabled className="space-y-4 opacity-60">
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-1.5">
-                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Your Name</label>
+                            <label htmlFor="support-name" className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Your Name</label>
                             <div className="relative group">
                               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
                                 <User className="w-4 h-4" />
                               </span>
                               <input
+                                id="support-name"
                                 type="text"
                                 required
                                 placeholder="e.g. Ronald"
@@ -328,12 +311,13 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
                             </div>
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Email Address</label>
+                            <label htmlFor="support-email" className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Email Address</label>
                             <div className="relative group">
                               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
                                 <Mail className="w-4 h-4" />
                               </span>
                               <input
+                                id="support-email"
                                 type="email"
                                 required
                                 placeholder="ronald@mkb.ph"
@@ -346,12 +330,13 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Ticket Category</label>
+                          <label htmlFor="support-category" className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Ticket Category</label>
                           <div className="relative group">
                             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
                               <HelpCircle className="w-4 h-4" />
                             </span>
                             <select
+                              id="support-category"
                               value={formData.category}
                               onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                               className="w-full h-10 pl-9 pr-8 rounded-xl border border-border text-xs outline-none bg-panel-bg/30 hover:bg-white hover:border-primary/40 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/8 transition-all duration-200 font-sans appearance-none cursor-pointer"
@@ -369,7 +354,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
 
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Message / Issue Details</label>
+                            <label htmlFor="support-message" className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Message / Issue Details</label>
                             <span className={`text-[10px] font-mono font-semibold transition-colors duration-200 ${
                               formData.message.length >= 450 ? 'text-red-500' :
                               formData.message.length >= 350 ? 'text-amber-500' : 'text-muted-foreground'
@@ -382,6 +367,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
                               <MessageSquare className="w-4 h-4" />
                             </span>
                             <textarea
+                              id="support-message"
                               required
                               rows={4}
                               maxLength={500}
@@ -395,26 +381,13 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
 
                         <button
                           type="submit"
-                          disabled={submitting}
-                          className="w-full h-11 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:shadow-primary/10 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                          disabled
+                          className="w-full h-11 rounded-xl border border-border bg-panel-bg text-muted-foreground text-xs font-bold flex items-center justify-center disabled:cursor-not-allowed"
                         >
-                          {submitting ? (
-                            <div className="flex items-center gap-2">
-                              <svg className="animate-spin h-4.5 w-4.5 text-white" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              <span>Submitting ticket...</span>
-                            </div>
-                          ) : (
-                            <>
-                              <Send className="w-3.5 h-3.5" />
-                              <span>Submit Support Ticket</span>
-                            </>
-                          )}
+                          Submit Support Ticket — Not yet available
                         </button>
+                      </fieldset>
                       </form>
-                    )}
                   </div>
 
                   {/* Right Hotline/Channel Panel */}

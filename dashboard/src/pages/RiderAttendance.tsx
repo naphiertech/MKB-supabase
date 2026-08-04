@@ -286,7 +286,7 @@ export function RiderAttendance({ userId, riderId, onBack }: RiderAttendanceProp
               onClick={onBack}
               className="h-10 px-4 rounded-md bg-primary hover:bg-primary-hover text-white text-xs font-semibold tracking-wider uppercase transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/25"
             >
-              Clock Out
+              Go to Time Out
             </button>
           </div>
         </div>
