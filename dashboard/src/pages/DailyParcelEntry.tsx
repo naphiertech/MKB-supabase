@@ -25,8 +25,10 @@ import {
   getDailyParcelEntries,
   saveDailyParcelEntries,
   createParcelCorrectionRequest,
+  calculateParcelOperationalMetrics,
   isCutoffLockedForDate,
-  type DailyParcelRow
+  type DailyParcelRow,
+  type ParcelRateContext
 } from '../services/operationsService';
 import { getZones } from '../services/geofenceService';
 import { getRidersLookup } from '../services/riderService';
@@ -83,7 +85,13 @@ export function DailyParcelEntry() {
 
   const [rows, setRows] = useState<DailyParcelRow[]>([]);
   const [absentRows, setAbsentRows] = useState<DailyParcelRow[]>([]);
-  const [initialRows, setInitialRows] = useState<Record<string, number>>({});
+  const [initialRows, setInitialRows] = useState<Record<string, {
+    standard: number;
+    heavy: number;
+    failed: number;
+    returned: number;
+  }>>({});
+  const [rateContext, setRateContext] = useState<ParcelRateContext | null>(null);
   const [totalEligibleCount, setTotalEligibleCount] = useState<number>(0);
   const [encodedCount, setEncodedCount] = useState<number>(0);
   const [absentCount, setAbsentCount] = useState<number>(0);
@@ -97,6 +105,7 @@ export function DailyParcelEntry() {
   // Right-side Drawer state for selected rider
   const [selectedRiderDrawer, setSelectedRiderDrawer] = useState<DailyParcelRow | null>(null);
   const [drawerDelivered, setDrawerDelivered] = useState<number>(0);
+  const [drawerHeavy, setDrawerHeavy] = useState<number>(0);
   const [drawerAssigned, setDrawerAssigned] = useState<number>(0);
   const [drawerFailed, setDrawerFailed] = useState<number>(0);
   const [drawerReturned, setDrawerReturned] = useState<number>(0);
@@ -108,6 +117,7 @@ export function DailyParcelEntry() {
   useEffect(() => {
     if (selectedRiderDrawer) {
       setDrawerDelivered(selectedRiderDrawer.deliveredParcels);
+      setDrawerHeavy(selectedRiderDrawer.heavyParcels);
       setDrawerAssigned(selectedRiderDrawer.assignedParcels || 0);
       setDrawerFailed(selectedRiderDrawer.failedDeliveries || 0);
       setDrawerReturned(selectedRiderDrawer.returnedParcels || 0);
@@ -159,10 +169,16 @@ export function DailyParcelEntry() {
       setTotalEligibleCount(res.totalEligibleCount);
       setEncodedCount(res.encodedCount);
       setAbsentCount(res.absentCount);
+      setRateContext(res.rateContext);
 
-      const initMap: Record<string, number> = {};
+      const initMap: Record<string, { standard: number; heavy: number; failed: number; returned: number }> = {};
       res.rows.forEach(r => {
-        initMap[r.riderId] = r.deliveredParcels;
+        initMap[r.riderId] = {
+          standard: r.deliveredParcels,
+          heavy: r.heavyParcels,
+          failed: r.failedDeliveries,
+          returned: r.returnedParcels
+        };
       });
       setInitialRows(initMap);
     } catch (err) {
@@ -194,21 +210,33 @@ export function DailyParcelEntry() {
   }, [absentRows, selectedRider]);
 
   // Handle local inline edits
-  const handleParcelChange = (riderId: string, val: number) => {
-    const parcels = Math.max(0, val || 0);
+  type ParcelCountField = 'deliveredParcels' | 'heavyParcels' | 'failedDeliveries' | 'returnedParcels';
+  const handleParcelChange = (riderId: string, field: ParcelCountField, value: number) => {
     setRows(prev =>
       prev.map(r => {
         if (r.riderId === riderId) {
-          const isModified = parcels !== (initialRows[riderId] ?? 0);
-          return { ...r, deliveredParcels: parcels, isModified };
+          const next = { ...r, [field]: value };
+          const initial = initialRows[riderId];
+          const isModified = !initial
+            || next.deliveredParcels !== initial.standard
+            || next.heavyParcels !== initial.heavy
+            || next.failedDeliveries !== initial.failed
+            || next.returnedParcels !== initial.returned;
+          return { ...next, isModified };
         }
         return r;
       })
     );
     setSelectedRiderDrawer(prev => {
       if (prev && prev.riderId === riderId) {
-        const isModified = parcels !== (initialRows[riderId] ?? 0);
-        return { ...prev, deliveredParcels: parcels, isModified };
+        const next = { ...prev, [field]: value };
+        const initial = initialRows[riderId];
+        const isModified = !initial
+          || next.deliveredParcels !== initial.standard
+          || next.heavyParcels !== initial.heavy
+          || next.failedDeliveries !== initial.failed
+          || next.returnedParcels !== initial.returned;
+        return { ...next, isModified };
       }
       return prev;
     });
@@ -219,12 +247,29 @@ export function DailyParcelEntry() {
     return rows.filter(r => r.isModified);
   }, [rows]);
 
+  const drawerMetrics = useMemo(() => {
+    if (!selectedRiderDrawer) return null;
+    const counts = [drawerDelivered, drawerHeavy, drawerFailed, drawerReturned];
+    if (!counts.every(value => Number.isInteger(value) && value >= 0)) return null;
+    return calculateParcelOperationalMetrics({
+      standardDelivered: drawerDelivered,
+      heavyDelivered: drawerHeavy,
+      failed: drawerFailed,
+      returned: drawerReturned,
+      standardRate: selectedRiderDrawer.standardRate,
+      heavyRate: selectedRiderDrawer.heavyRate
+    });
+  }, [drawerDelivered, drawerHeavy, drawerFailed, drawerReturned, selectedRiderDrawer]);
+
   // Reset local changes
   const handleReset = () => {
     setRows(prev =>
       prev.map(r => ({
         ...r,
-        deliveredParcels: initialRows[r.riderId] ?? 0,
+        deliveredParcels: initialRows[r.riderId]?.standard ?? 0,
+        heavyParcels: initialRows[r.riderId]?.heavy ?? 0,
+        failedDeliveries: initialRows[r.riderId]?.failed ?? 0,
+        returnedParcels: initialRows[r.riderId]?.returned ?? 0,
         isModified: false
       }))
     );
@@ -232,7 +277,10 @@ export function DailyParcelEntry() {
       if (prev) {
         return {
           ...prev,
-          deliveredParcels: initialRows[prev.riderId] ?? 0,
+          deliveredParcels: initialRows[prev.riderId]?.standard ?? 0,
+          heavyParcels: initialRows[prev.riderId]?.heavy ?? 0,
+          failedDeliveries: initialRows[prev.riderId]?.failed ?? 0,
+          returnedParcels: initialRows[prev.riderId]?.returned ?? 0,
           isModified: false
         };
       }
@@ -256,6 +304,7 @@ export function DailyParcelEntry() {
             riderId: row.riderId,
             date: selectedDate,
             parcels: row.deliveredParcels,
+            heavyParcels: isDrawerRow ? drawerHeavy : row.heavyParcels,
             notes: isDrawerRow ? drawerNotes : row.notes,
             assignedParcels: isDrawerRow ? drawerAssigned : row.assignedParcels,
             failedDeliveries: isDrawerRow ? drawerFailed : row.failedDeliveries,
@@ -301,6 +350,7 @@ export function DailyParcelEntry() {
         riderId: r.riderId,
         date: selectedDate,
         parcels: r.deliveredParcels,
+        heavyParcels: r.heavyParcels,
         notes: r.notes,
         assignedParcels: r.assignedParcels,
         failedDeliveries: r.failedDeliveries,
@@ -336,7 +386,33 @@ export function DailyParcelEntry() {
   const renderRiderTableRows = (riderList: DailyParcelRow[]) => {
     return riderList.map(row => {
       const isSavingThis = savingRowId === row.riderId;
-      const isSaved = !row.isModified && row.submissionStatus === 'saved';
+      const countsAreValid = [row.deliveredParcels, row.heavyParcels, row.failedDeliveries, row.returnedParcels]
+        .every(value => Number.isInteger(value) && value >= 0);
+      const metrics = countsAreValid
+        ? calculateParcelOperationalMetrics({
+            standardDelivered: row.deliveredParcels,
+            heavyDelivered: row.heavyParcels,
+            failed: row.failedDeliveries,
+            returned: row.returnedParcels,
+            standardRate: row.standardRate,
+            heavyRate: row.heavyRate
+          })
+        : null;
+      const countInput = (field: ParcelCountField, label: string) => (
+        <input
+          type="number"
+          min={0}
+          step={1}
+          aria-label={`${label} for ${row.riderName}`}
+          value={row[field]}
+          onChange={event => handleParcelChange(row.riderId, field, Number(event.target.value))}
+          className={`w-16 text-right px-2 py-1.5 rounded-lg font-mono text-xs font-bold transition outline-none ${
+            row.isModified
+              ? 'bg-white border-2 border-amber-500 text-foreground shadow-xs'
+              : 'bg-panel-bg border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/15'
+          }`}
+        />
+      );
 
       return (
         <tr
@@ -355,6 +431,7 @@ export function DailyParcelEntry() {
                   onClick={() => {
                     setSelectedRiderDrawer(row);
                     setDrawerNotes(row.notes || '');
+                    setDrawerHeavy(row.heavyParcels);
                     setDrawerAssigned(row.assignedParcels || row.deliveredParcels);
                     setDrawerFailed(row.failedDeliveries || 0);
                     setDrawerReturned(row.returnedParcels || 0);
@@ -393,37 +470,16 @@ export function DailyParcelEntry() {
             )}
           </td>
 
-          {/* Delivered Parcels (Inline Editable Input) */}
-          <td className="px-4 py-3 text-right">
-            <div className="relative inline-flex items-center justify-end gap-1.5">
-              {row.isModified ? (
-                <span
-                  className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"
-                  title="Unsaved local edit"
-                />
-              ) : isSaved ? (
-                <span title="Saved to database">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                </span>
-              ) : null}
-              <input
-                type="number"
-                min={0}
-                value={row.deliveredParcels}
-                onChange={e => handleParcelChange(row.riderId, parseInt(e.target.value) || 0)}
-                className={`w-24 text-right px-2.5 py-1.5 rounded-lg font-mono text-xs font-bold transition outline-none ${
-                  row.isModified
-                    ? 'bg-white border-2 border-amber-500 text-foreground shadow-xs'
-                    : isSaved
-                    ? 'bg-emerald-50/50 border border-emerald-500/30 text-emerald-950 font-semibold'
-                    : 'bg-panel-bg border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/15'
-                }`}
-              />
-            </div>
+          <td className="px-2 py-3 text-right">{countInput('deliveredParcels', 'Standard delivered')}</td>
+          <td className="px-2 py-3 text-right">{countInput('heavyParcels', 'Heavy delivered')}</td>
+          <td className="px-2 py-3 text-right">{countInput('failedDeliveries', 'Failed')}</td>
+          <td className="px-2 py-3 text-right">{countInput('returnedParcels', 'Returned')}</td>
+          <td className="px-4 py-3 text-right font-mono font-bold text-foreground whitespace-nowrap">
+            {metrics ? `₱${metrics.dailyGross.toLocaleString()}` : 'Invalid'}
           </td>
 
           {/* Last Updated */}
-          <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+          <td className="hidden">
             {row.lastUpdated
               ? new Date(row.lastUpdated).toLocaleTimeString('en-US', {
                   hour: 'numeric',
@@ -434,7 +490,7 @@ export function DailyParcelEntry() {
           </td>
 
           {/* Recorded By */}
-          <td className="px-4 py-3 align-middle whitespace-nowrap text-left text-xs">
+          <td className="hidden">
             <div className="font-semibold text-foreground text-[11.5px] leading-none">
               {row.recordedByName || 'Operations Staff'}
             </div>
@@ -470,6 +526,7 @@ export function DailyParcelEntry() {
                 onClick={() => {
                   setSelectedRiderDrawer(row);
                   setDrawerNotes(row.notes || '');
+                  setDrawerHeavy(row.heavyParcels);
                   setDrawerAssigned(row.assignedParcels || row.deliveredParcels);
                   setDrawerFailed(row.failedDeliveries || 0);
                   setDrawerReturned(row.returnedParcels || 0);
@@ -561,6 +618,7 @@ export function DailyParcelEntry() {
               <input
                 type="date"
                 value={selectedDate}
+                max={getLocalDateString()}
                 onChange={e => setSelectedDate(e.target.value)}
                 className="w-full h-9 pl-9 pr-3 rounded-lg bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition"
               />
@@ -642,7 +700,29 @@ export function DailyParcelEntry() {
               <option value="on_leave">On Leave</option>
             </select>
           </div>
-        </div>        {/* Live Counters Snapshot */}
+        </div>
+
+        {rateContext && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 pt-3 border-t border-border" aria-label="Active parcel rates">
+            {[
+              ['Early standard', `₱${rateContext.earlyStandardRate}`],
+              ['Regular standard', `₱${rateContext.regularStandardRate}`],
+              ['Late standard', `₱${rateContext.lateStandardRate}`],
+              ['Heavy parcel', `₱${rateContext.heavyParcelRate}`],
+              ['Heavy threshold', `Above ${rateContext.heavyThresholdKg} kg`]
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-border bg-panel-bg px-3 py-2">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</div>
+                <div className="text-xs font-bold font-mono text-foreground mt-0.5">{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground">
+          Standard: 4 kg or below · Heavy: above 4 kg. Rates are resolved automatically for the selected work date.
+        </p>
+
+        {/* Live Counters Snapshot */}
         <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground flex-wrap gap-2">
           <div className="flex items-center gap-4 flex-wrap">
             <span className="inline-flex items-center gap-1.5 font-medium">
@@ -716,7 +796,8 @@ export function DailyParcelEntry() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="overflow-x-auto hidden lg:block">
             <table className="w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="bg-panel-bg/60 border-b border-border text-[10.5px] uppercase tracking-wider text-muted-foreground font-bold">
@@ -724,9 +805,11 @@ export function DailyParcelEntry() {
                   <th className="px-4 py-3">Zone</th>
                   <th className="px-4 py-3">Attendance</th>
                   <th className="px-4 py-3">Time In</th>
-                  <th className="px-4 py-3 text-right">Delivered Parcels</th>
-                  <th className="px-4 py-3">Last Updated</th>
-                  <th className="px-4 py-3">Recorded By</th>
+                  <th className="px-2 py-3 text-right">Standard</th>
+                  <th className="px-2 py-3 text-right">Heavy</th>
+                  <th className="px-2 py-3 text-right">Failed</th>
+                  <th className="px-2 py-3 text-right">Returned</th>
+                  <th className="px-4 py-3 text-right">Daily Gross</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -735,6 +818,61 @@ export function DailyParcelEntry() {
               </tbody>
             </table>
           </div>
+          <div className="grid gap-3 p-3 lg:hidden">
+            {displayRows.map(row => {
+              const counts = [row.deliveredParcels, row.heavyParcels, row.failedDeliveries, row.returnedParcels];
+              const valid = counts.every(value => Number.isInteger(value) && value >= 0);
+              const metrics = valid ? calculateParcelOperationalMetrics({
+                standardDelivered: row.deliveredParcels,
+                heavyDelivered: row.heavyParcels,
+                failed: row.failedDeliveries,
+                returned: row.returnedParcels,
+                standardRate: row.standardRate,
+                heavyRate: row.heavyRate
+              }) : null;
+              return (
+                <article key={row.riderId} className="rounded-xl border border-border bg-white p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <RiderAvatar src={row.riderAvatar} name={row.riderName} className="w-9 h-9" />
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs text-foreground truncate">{row.riderName}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{row.zoneName} · {row.timeIn || 'No time in'}</div>
+                      </div>
+                    </div>
+                    <StatusBadge status={row.attendanceStatus} />
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    {[
+                      ['Standard', row.deliveredParcels],
+                      ['Heavy', row.heavyParcels],
+                      ['Failed', row.failedDeliveries],
+                      ['Returned', row.returnedParcels]
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-lg bg-panel-bg border border-border p-2">
+                        <div className="text-[9px] uppercase text-muted-foreground font-semibold">{label}</div>
+                        <div className="text-sm font-bold font-mono text-foreground">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase font-semibold">Daily Gross</div>
+                      <div className="text-sm font-bold font-mono text-foreground">{metrics ? `₱${metrics.dailyGross.toLocaleString()}` : 'Invalid counts'}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRiderDrawer(row)}
+                      className="h-8 px-3 rounded-lg border border-border bg-white text-xs font-semibold text-foreground"
+                    >
+                      Edit details
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          </>
         )}
       </div>
 
@@ -889,34 +1027,22 @@ export function DailyParcelEntry() {
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-foreground text-xs flex items-center gap-1.5">
                           <PackageCheck className="w-4 h-4 text-primary" />
-                          Delivered Parcels Encoding
+                          Applied Rate Context
                         </span>
                         <span className="text-[10px] font-mono text-primary font-semibold uppercase">
                           Operational Input
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 pt-1">
-                        <input
-                          type="number"
-                          min={0}
-                          value={selectedRiderDrawer.deliveredParcels}
-                          onChange={e => handleParcelChange(selectedRiderDrawer.riderId, parseInt(e.target.value) || 0)}
-                          className="flex-1 h-10 px-3 rounded-lg bg-white border border-border font-mono text-base font-bold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleSaveRow(selectedRiderDrawer)}
-                          disabled={savingRowId === selectedRiderDrawer.riderId || !selectedRiderDrawer.isModified}
-                          className="h-10 px-4 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
-                        >
-                          {savingRowId === selectedRiderDrawer.riderId ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Save className="w-3.5 h-3.5" />
-                          )}
-                          Save Record
-                        </button>
+                      <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+                        <div>
+                          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Standard rate</div>
+                          <div className="font-mono font-bold text-foreground">₱{selectedRiderDrawer.standardRate}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Heavy rate</div>
+                          <div className="font-mono font-bold text-foreground">₱{selectedRiderDrawer.heavyRate} / parcel</div>
+                        </div>
                       </div>
                     </div>
 
@@ -952,22 +1078,23 @@ export function DailyParcelEntry() {
                       </div>
                     </div>
 
-                    {/* Reserved Operational Sections for Future Fields */}
+                    {/* Operational outcome inputs */}
                     <div className="border-t border-border pt-4 space-y-4">
                       <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
                         <Package className="w-3.5 h-3.5 text-primary" />
-                        Extended Operational Outcomes
+                        Parcel Outcomes
                       </h4>
 
                       <div>
                         <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                          Delivered Parcels
+                          Standard Delivered
                         </label>
                         <input
                           type="number"
                           min={0}
+                          step={1}
                           value={drawerDelivered}
-                          onChange={e => setDrawerDelivered(parseInt(e.target.value) || 0)}
+                          onChange={e => setDrawerDelivered(Number(e.target.value))}
                           className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground font-bold text-primary"
                         />
                       </div>
@@ -975,13 +1102,27 @@ export function DailyParcelEntry() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                            Heavy Delivered
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={drawerHeavy}
+                            onChange={e => setDrawerHeavy(Number(e.target.value))}
+                            className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground font-bold text-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-muted-foreground mb-1">
                             Assigned Parcels
                           </label>
                           <input
                             type="number"
                             min={0}
+                            step={1}
                             value={drawerAssigned}
-                            onChange={e => setDrawerAssigned(parseInt(e.target.value) || 0)}
+                            onChange={e => setDrawerAssigned(Number(e.target.value))}
                             className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground"
                           />
                         </div>
@@ -992,8 +1133,9 @@ export function DailyParcelEntry() {
                           <input
                             type="number"
                             min={0}
+                            step={1}
                             value={drawerFailed}
-                            onChange={e => setDrawerFailed(parseInt(e.target.value) || 0)}
+                            onChange={e => setDrawerFailed(Number(e.target.value))}
                             className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground"
                           />
                         </div>
@@ -1006,10 +1148,26 @@ export function DailyParcelEntry() {
                         <input
                           type="number"
                           min={0}
+                          step={1}
                           value={drawerReturned}
-                          onChange={e => setDrawerReturned(parseInt(e.target.value) || 0)}
+                          onChange={e => setDrawerReturned(Number(e.target.value))}
                           className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground"
                         />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-panel-bg p-3 text-xs">
+                        <div>
+                          <div className="text-[9px] uppercase font-semibold text-muted-foreground">Standard earnings</div>
+                          <div className="font-mono font-bold text-foreground">{drawerMetrics ? `₱${drawerMetrics.standardEarnings.toLocaleString()}` : 'Invalid'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] uppercase font-semibold text-muted-foreground">Heavy earnings</div>
+                          <div className="font-mono font-bold text-foreground">{drawerMetrics ? `₱${drawerMetrics.heavyEarnings.toLocaleString()}` : 'Invalid'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] uppercase font-semibold text-muted-foreground">Daily gross</div>
+                          <div className="font-mono font-bold text-primary">{drawerMetrics ? `₱${drawerMetrics.dailyGross.toLocaleString()}` : 'Invalid'}</div>
+                        </div>
                       </div>
 
                       <div>
@@ -1073,13 +1231,15 @@ export function DailyParcelEntry() {
                               riderId: selectedRiderDrawer.riderId,
                               date: selectedDate,
                               previousDelivered: selectedRiderDrawer.deliveredParcels,
+                              previousHeavy: selectedRiderDrawer.heavyParcels,
                               previousFailed: selectedRiderDrawer.failedDeliveries || 0,
                               previousReturned: selectedRiderDrawer.returnedParcels || 0,
                               requestedDelivered: drawerDelivered,
+                              requestedHeavy: drawerHeavy,
                               requestedFailed: drawerFailed,
                               requestedReturned: drawerReturned,
                               reason: correctionReason,
-                              requestedBy: 'Operations Staff',
+                              requestedBy: user?.id || user?.email || 'Operations',
                             });
                             pushToast({
                               title: 'Correction Request Submitted',
@@ -1114,6 +1274,7 @@ export function DailyParcelEntry() {
                                 ? {
                                     ...r,
                                     deliveredParcels: drawerDelivered,
+                                    heavyParcels: drawerHeavy,
                                     notes: drawerNotes,
                                     assignedParcels: drawerAssigned,
                                     failedDeliveries: drawerFailed,

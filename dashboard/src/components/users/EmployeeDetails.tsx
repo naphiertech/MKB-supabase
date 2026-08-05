@@ -26,6 +26,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
 import { getUserTrustedDevice, resetUserTrustedDevice } from '../../services/riderService';
 import { DeviceResetModal, type TrustedDeviceInfo } from './DeviceResetModal';
+import { RiderDocumentsTab } from './RiderDocumentsTab';
 
 function formatTimeString(dateStr: string | null): string {
   if (!dateStr) return '—';
@@ -43,9 +44,10 @@ interface EmployeeDetailsProps {
 export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetailsProps) {
   const { session } = useAuth();
   const isRider = user.role === 'rider';
+  const canViewDocuments = session?.role === 'admin' || session?.role === 'hr';
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [calendarDate, setCalendarDate] = useState(() => new Date());
-  const [activeTab, setActiveTab] = useState<'profile' | 'attendance'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'attendance' | 'documents'>('profile');
   const [device, setDevice] = useState<TrustedDeviceInfo | null>(null);
   const [deviceLoading, setDeviceLoading] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -491,10 +493,13 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
 
             {/* Tabs Navigation */}
             {isRider && (
-              <div className="flex border-b border-border gap-6 text-sm">
+              <div className="flex overflow-x-auto border-b border-border gap-6 text-sm" role="tablist" aria-label="Rider details sections">
                 <button
                   type="button"
                   onClick={() => setActiveTab('profile')}
+                  role="tab"
+                  aria-selected={activeTab === 'profile'}
+                  aria-controls="rider-profile-panel"
                   className={`pb-3 font-semibold relative cursor-pointer outline-none transition-colors ${
                     activeTab === 'profile' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
@@ -507,6 +512,9 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                 <button
                   type="button"
                   onClick={() => setActiveTab('attendance')}
+                  role="tab"
+                  aria-selected={activeTab === 'attendance'}
+                  aria-controls="rider-attendance-panel"
                   className={`pb-3 font-semibold relative cursor-pointer outline-none transition-colors ${
                     activeTab === 'attendance' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   }`}
@@ -516,11 +524,26 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                     <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary rounded-t-full" />
                   )}
                 </button>
+                {canViewDocuments && <button
+                  type="button"
+                  onClick={() => setActiveTab('documents')}
+                  role="tab"
+                  aria-selected={activeTab === 'documents'}
+                  aria-controls="rider-documents-panel"
+                  className={`pb-3 font-semibold relative cursor-pointer outline-none transition-colors whitespace-nowrap ${
+                    activeTab === 'documents' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Documents
+                  {activeTab === 'documents' && (
+                    <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-primary rounded-t-full" />
+                  )}
+                </button>}
               </div>
             )}
 
             {(!isRider || activeTab === 'profile') && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div id={isRider ? 'rider-profile-panel' : undefined} role={isRider ? 'tabpanel' : undefined} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               
               {/* Card 1: HR & Employment Status */}
               <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4">
@@ -653,7 +676,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
 
             {/* Card 7: Attendance Calendar Grid */}
             {isRider && activeTab === 'attendance' && (
-              <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4">
+              <div id="rider-attendance-panel" role="tabpanel" className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/60 pb-3">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-primary" />
@@ -838,10 +861,23 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                       ) : (
                         <p className="text-[10px] text-muted-foreground italic">No attendance activity or log recorded for this date.</p>
                       )}
-                    </div>
-                  )}
+              </div>
+            )}
+
                 </div>
               )}
+
+            {isRider && canViewDocuments && activeTab === 'documents' && (
+              <div id="rider-documents-panel" role="tabpanel">
+                {user.riderId ? (
+                  <RiderDocumentsTab riderId={user.riderId} role={session?.role} />
+                ) : (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+                    Documents are unavailable because this account is not linked to a canonical rider record.
+                  </div>
+                )}
+              </div>
+            )}
 
             </div>
 

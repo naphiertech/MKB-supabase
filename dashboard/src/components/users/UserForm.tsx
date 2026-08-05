@@ -436,6 +436,9 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
       {/* Main Spacious Content */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-6 space-y-6">
+        <p className="text-xs font-medium text-muted-foreground">
+          Required fields are marked with <span className="font-bold text-red-600">*</span>.
+        </p>
         {showSummary && errorList.length > 0 && (
           <div className="rounded-xl border border-primary/30 bg-accent p-4 flex items-start gap-3 shadow-sm">
             <AlertTriangle className="w-5 h-5 text-accent-foreground shrink-0" />
@@ -468,6 +471,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Field
                   label="First Name"
+                  required
                   error={errors.firstName}
                   innerRef={(el) => (fieldRefs.current.firstName = el)}
                 >
@@ -494,6 +498,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 </Field>
                 <Field
                   label="Last Name"
+                  required
                   error={errors.lastName}
                   innerRef={(el) => (fieldRefs.current.lastName = el)}
                 >
@@ -511,6 +516,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field
                   label="Email Address"
+                  required
                   error={errors.email}
                   innerRef={(el) => (fieldRefs.current.email = el)}
                 >
@@ -525,6 +531,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 </Field>
                 <Field
                   label="Contact Number"
+                  required
                   error={errors.contact}
                   innerRef={(el) => (fieldRefs.current.contact = el)}
                 >
@@ -548,6 +555,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field
                   label="Employment Type"
+                  required
                   error={errors.employmentType}
                   innerRef={(el) => (fieldRefs.current.employmentType = el)}
                 >
@@ -565,6 +573,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 </Field>
                 <Field
                   label="Date of Hire / Start Date"
+                  required
                   error={errors.dateOfHire}
                   innerRef={(el) => (fieldRefs.current.dateOfHire = el)}
                 >
@@ -590,6 +599,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field
                       label="Province"
+                      required
                       error={errors.province}
                       innerRef={(el) => (fieldRefs.current.province = el)}
                     >
@@ -610,6 +620,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
                     <Field
                       label="City / Municipality"
+                      required
                       error={errors.city}
                       innerRef={(el) => (fieldRefs.current.city = el)}
                     >
@@ -633,6 +644,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                     <div className="sm:col-span-2">
                       <Field
                         label="Barangay"
+                        required
                         error={errors.barangay}
                         innerRef={(el) => (fieldRefs.current.barangay = el)}
                       >
@@ -648,6 +660,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                     <div>
                       <Field
                         label="Zip Code"
+                        required
                         error={errors.zipCode}
                         innerRef={(el) => (fieldRefs.current.zipCode = el)}
                       >
@@ -670,6 +683,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
                   <Field
                     label="Street Address"
+                    required
                     error={errors.streetAddress}
                     innerRef={(el) => (fieldRefs.current.streetAddress = el)}
                   >
@@ -691,6 +705,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field
                       label="Emergency Contact Name"
+                      required
                       error={errors.emergencyContactName}
                       innerRef={(el) => (fieldRefs.current.emergencyContactName = el)}
                     >
@@ -704,6 +719,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                     </Field>
                     <Field
                       label="Emergency Contact Number"
+                      required
                       error={errors.emergencyContactPhone}
                       innerRef={(el) => (fieldRefs.current.emergencyContactPhone = el)}
                     >
@@ -734,7 +750,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Account Status">
+                  <Field label="Account Status" required>
                     <div className="flex gap-2">
                       {(["active", "suspended"] as const).map((s) => (
                         <button
@@ -759,6 +775,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   {currentUserRole !== "hr" && (
                     <Field
                       label="System Role"
+                      required
                       error={errors.role}
                       innerRef={(el) => (fieldRefs.current.role = el)}
                     >
@@ -787,6 +804,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                       : "Temporary Password"
                   }
                   error={errors.tempPassword}
+                  required={mode === "create"}
+                  controlId="employee-password"
                   innerRef={(el) => (fieldRefs.current.tempPassword = el)}
                   helper={
                     mode === "edit"
@@ -796,7 +815,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 >
                   <div className="flex items-center gap-1.5">
                     <div className="relative flex-1">
-                      <input
+                        <input
+                          id="employee-password"
                         type={showPassword ? "text" : "password"}
                         value={form.tempPassword}
                         onChange={(e) =>
@@ -870,11 +890,11 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
             <div className="space-y-6">
               {/* CARD 3: Face photo scanning */}
               <div id="face" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-4">
-                <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
-                  Face Registration
-                </div>
+                <label htmlFor="face-registration-file" id="face-registration-label" className="block text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
+                  Face Registration <span className="text-red-600" aria-hidden="true">*</span><span className="sr-only"> required</span>
+                </label>
 
-                <div className="flex flex-col items-center justify-center p-4 bg-panel-bg rounded-xl border border-border relative">
+                <div role="group" aria-labelledby="face-registration-label" aria-describedby={errors.faceImage ? "face-registration-error" : undefined} aria-invalid={Boolean(errors.faceImage)} className="flex flex-col items-center justify-center p-4 bg-panel-bg rounded-xl border border-border relative">
                   <img
                     src={
                       form.faceImage ??
@@ -889,6 +909,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
                   <div className="flex items-center gap-2 w-full">
                     <input
+                      id="face-registration-file"
                       ref={fileInputRef}
                       type="file"
                       accept="image/png,image/jpeg"
@@ -1028,7 +1049,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                     </div>
                   </div>
                   {errors.faceImage && (
-                    <div className="mt-1 text-[10px] text-red-600 font-medium">
+                    <div id="face-registration-error" role="alert" className="mt-1 text-[10px] text-red-600 font-medium">
                       {errors.faceImage}
                     </div>
                   )}
@@ -1043,11 +1064,14 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
                 <Field
                   label="MKB Rider ID"
+                  required
+                  controlId="mkb-rider-id"
                   error={errors.mkbRiderId}
                   innerRef={(el) => (fieldRefs.current.mkbRiderId = el)}
                 >
                   <div className="flex items-center gap-1.5">
                     <input
+                      id="mkb-rider-id"
                       value={form.mkbRiderId}
                       onChange={(e) =>
                         setField("mkbRiderId", e.target.value.toUpperCase())
@@ -1069,6 +1093,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
                 <Field
                   label="Assigned Geofence Zone"
+                  required
                   error={errors.zoneId}
                   innerRef={(el) => (fieldRefs.current.zoneId = el)}
                 >
@@ -1095,6 +1120,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <Field
                     label="Vehicle Type"
+                    required
                     error={errors.vehicleType}
                     innerRef={(el) => (fieldRefs.current.vehicleType = el)}
                   >
@@ -1113,6 +1139,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   </Field>
                   <Field
                     label="Vehicle Plate Number"
+                    required={form.vehicleType === 'motorcycle' || form.vehicleType === 'e-bike'}
                     error={errors.vehiclePlateNumber}
                     innerRef={(el) => (fieldRefs.current.vehiclePlateNumber = el)}
                   >
@@ -1134,7 +1161,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
-                  <Field label="Account Status">
+                  <Field label="Account Status" required>
                     <div className="flex gap-2">
                       {(["active", "suspended"] as const).map((s) => (
                         <button
@@ -1159,6 +1186,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   {currentUserRole !== "hr" && (
                     <Field
                       label="System Role"
+                      required
                       error={errors.role}
                       innerRef={(el) => (fieldRefs.current.role = el)}
                     >
@@ -1186,6 +1214,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         : "Temporary Password"
                     }
                     error={errors.tempPassword}
+                    required={mode === "create"}
+                    controlId="employee-password"
                     innerRef={(el) => (fieldRefs.current.tempPassword = el)}
                     helper={
                       mode === "edit"
@@ -1195,7 +1225,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   >
                     <div className="flex items-center gap-1.5">
                       <div className="relative flex-1">
-                        <input
+                      <input
+                        id="employee-password"
                           type={showPassword ? "text" : "password"}
                           value={form.tempPassword}
                           onChange={(e) =>
@@ -1334,12 +1365,16 @@ function Field({
   error,
   helper,
   innerRef,
+  required = false,
+  controlId,
 }: {
   label: string;
   children: React.ReactNode;
   error?: string;
   helper?: string;
   innerRef?: (el: HTMLDivElement | null) => void;
+  required?: boolean;
+  controlId?: string;
 }) {
   const fieldId = useId();
   const messageId = `${fieldId}-message`;
@@ -1350,6 +1385,7 @@ function Field({
   const control = isDirectControl
     ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
         id: fieldId,
+        "aria-required": required || undefined,
         "aria-invalid": Boolean(error),
         "aria-describedby": error || helper ? messageId : undefined,
       })
@@ -1359,12 +1395,12 @@ function Field({
     <div ref={innerRef} className="space-y-1 w-full">
       <label
         id={`${fieldId}-label`}
-        htmlFor={isDirectControl ? fieldId : undefined}
+        htmlFor={isDirectControl ? fieldId : controlId}
         className="block text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold"
       >
-        {label}
+        {label}{required && <><span className="text-red-600" aria-hidden="true"> *</span><span className="sr-only"> required</span></>}
       </label>
-      {isDirectControl ? control : <div role="group" aria-labelledby={`${fieldId}-label`}>{control}</div>}
+      {isDirectControl ? control : <div role="group" aria-labelledby={`${fieldId}-label`} aria-required={required || undefined} aria-invalid={Boolean(error)} aria-describedby={error || helper ? messageId : undefined}>{control}</div>}
       {error ? (
         <div id={messageId} className="text-[10px] text-red-600 font-medium" role="alert">{error}</div>
       ) : helper ? (

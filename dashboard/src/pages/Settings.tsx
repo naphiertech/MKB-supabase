@@ -14,8 +14,9 @@ import {
   ChevronDown,
   AlertTriangle
 } from 'lucide-react';
+import { PayrollParcelRatesSettings } from '../components/settings/PayrollParcelRatesSettings';
 
-type TabType = 'Personal Detail' | 'Security' | 'Notification';
+type TabType = 'Personal Detail' | 'Security' | 'Notification' | 'Payroll & Parcel Rates';
 
 const CSC_API_KEY = import.meta.env.VITE_CSC_API_KEY || '';
 
@@ -24,6 +25,7 @@ export function Settings() {
 
   // Tab State
   const [activeTab, setActiveTab] = useState<TabType>('Personal Detail');
+  const canViewParcelRates = session?.role === 'admin' || session?.role === 'hr' || session?.role === 'payroll';
 
   // Form states - Personal Details
   const [firstName, setFirstName] = useState('');
@@ -251,6 +253,7 @@ export function Settings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (activeTab === 'Payroll & Parcel Rates') return;
     if (!validate() || !session?.id) return;
 
     setSubmitting(true);
@@ -367,8 +370,8 @@ export function Settings() {
         <form onSubmit={handleSubmit} className="flex flex-col bg-white">
           {/* Top Tab Bar & Actions Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border mb-5 bg-white z-10 shrink-0">
-            <div className="flex gap-1 p-1 bg-panel-bg border border-border rounded-xl" role="tablist" aria-label="Settings sections">
-              {(['Personal Detail', 'Security', 'Notification'] as const).map((tab) => {
+            <div className="flex max-w-full gap-1 overflow-x-auto p-1 bg-panel-bg border border-border rounded-xl" role="tablist" aria-label="Settings sections">
+              {(['Personal Detail', 'Security', 'Notification', ...(canViewParcelRates ? ['Payroll & Parcel Rates' as const] : [])] as TabType[]).map((tab) => {
                 const active = activeTab === tab;
                 return (
                   <button
@@ -392,7 +395,7 @@ export function Settings() {
             </div>
 
             {/* Reset All & Save Action Controls */}
-            <div className="flex items-center gap-2">
+            {activeTab !== 'Payroll & Parcel Rates' && <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleResetAll}
@@ -412,7 +415,7 @@ export function Settings() {
                 )}
                 <span>Save</span>
               </button>
-            </div>
+            </div>}
           </div>
 
           {/* Contents Area */}
@@ -986,6 +989,10 @@ export function Settings() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'Payroll & Parcel Rates' && canViewParcelRates && session && (
+              <PayrollParcelRatesSettings role={session.role} />
             )}
           </div>
         </form>

@@ -16,9 +16,10 @@ export interface DailyParcelRow {
   timeOut?: string | null;
   hours?: number;
   deliveredParcels: number;
+  heavyParcels: number;
   assignedParcels?: number;
-  failedDeliveries?: number;
-  returnedParcels?: number;
+  failedDeliveries: number;
+  returnedParcels: number;
   notes?: string;
   recordedBy?: string;
   recordedByName?: string;
@@ -27,7 +28,34 @@ export interface DailyParcelRow {
   submissionStatus?: 'draft' | 'saved' | 'completed';
   lastUpdated?: string | null;
   parcelLogId?: string | null;
+  standardRate: number;
+  heavyRate: number;
+  standardEarnings: number;
+  heavyEarnings: number;
+  dailyGross: number;
+  rateConfigurationId?: string | null;
+  rateConfigurationEffectiveFrom?: string | null;
   isModified?: boolean;
+}
+
+export interface ParcelRateContext {
+  id: string;
+  earlyStandardRate: number;
+  regularStandardRate: number;
+  lateStandardRate: number;
+  heavyParcelRate: number;
+  heavyThresholdKg: number;
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+}
+
+export interface ParcelOperationalMetrics {
+  totalDelivered: number;
+  totalHandled: number;
+  deliverySuccessRate: number;
+  standardEarnings: number;
+  heavyEarnings: number;
+  dailyGross: number;
 }
 
 export interface ParcelHistoryItem {
@@ -40,11 +68,16 @@ export interface ParcelHistoryItem {
   zoneName: string;
   date: string;
   deliveredParcels: number;
+  heavyParcels: number;
+  totalDelivered: number;
+  totalHandled: number;
+  deliverySuccessRate: number;
   grossWagePreview: number;
+  dailyGross: number;
   payrollCutoff: string;
   assignedParcels?: number;
-  failedDeliveries?: number;
-  returnedParcels?: number;
+  failedDeliveries: number;
+  returnedParcels: number;
   notes?: string;
   createdBy?: string;
   createdByName?: string;
@@ -53,6 +86,12 @@ export interface ParcelHistoryItem {
   updatedAt: string;
   attendanceStatus?: 'present' | 'late' | 'absent' | 'on_leave' | 'none';
   timeIn?: string | null;
+  standardRate: number;
+  heavyRate: number;
+  standardEarnings: number;
+  heavyEarnings: number;
+  rateConfigurationId?: string | null;
+  rateConfigurationEffectiveFrom?: string | null;
 }
 
 export interface ParcelHistoryFilter {
@@ -69,10 +108,97 @@ export interface SaveParcelEntryPayload {
   riderId: string;
   date: string;
   parcels: number;
+  heavyParcels?: number;
   notes?: string;
   assignedParcels?: number;
   failedDeliveries?: number;
   returnedParcels?: number;
+}
+
+export function validateParcelCount(value: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} must be a non-negative whole number.`);
+  }
+}
+
+export function validateParcelWorkDate(date: string, today = getLocalDateString()): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Select a valid work date.');
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime()) || getLocalDateString(parsed) !== date || date > today) {
+    throw new Error('Select a valid work date that is not in the future.');
+  }
+}
+
+export function calculateParcelOperationalMetrics(input: {
+  standardDelivered: number;
+  heavyDelivered: number;
+  failed: number;
+  returned: number;
+  standardRate: number;
+  heavyRate: number;
+}): ParcelOperationalMetrics {
+  validateParcelCount(input.standardDelivered, 'Standard Delivered');
+  validateParcelCount(input.heavyDelivered, 'Heavy Delivered');
+  validateParcelCount(input.failed, 'Failed');
+  validateParcelCount(input.returned, 'Returned');
+  const totalDelivered = input.standardDelivered + input.heavyDelivered;
+  const totalHandled = totalDelivered + input.failed + input.returned;
+  const standardEarnings = input.standardDelivered * input.standardRate;
+  const heavyEarnings = input.heavyDelivered * input.heavyRate;
+  return {
+    totalDelivered,
+    totalHandled,
+    deliverySuccessRate: totalHandled > 0 ? Math.round((totalDelivered / totalHandled) * 1000) / 10 : 0,
+    standardEarnings,
+    heavyEarnings,
+    dailyGross: standardEarnings + heavyEarnings,
+  };
+}
+
+function timeInMinutes(rawTimeIn: string | null | undefined): number | null {
+  if (!rawTimeIn) return null;
+  const timeOnly = rawTimeIn.match(/^(\d{1,2}):(\d{2})/);
+  if (timeOnly) return Number(timeOnly[1]) * 60 + Number(timeOnly[2]);
+  const value = new Date(rawTimeIn);
+  if (Number.isNaN(value.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(value);
+  const hour = Number(parts.find(part => part.type === 'hour')?.value);
+  const minute = Number(parts.find(part => part.type === 'minute')?.value);
+  return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : null;
+}
+
+export function resolveStandardRateForTimeIn(rate: ParcelRateContext, rawTimeIn: string | null | undefined): number {
+  const minutes = timeInMinutes(rawTimeIn);
+  if (minutes !== null && minutes <= 8 * 60) return rate.earlyStandardRate;
+  if (minutes !== null && minutes <= 9 * 60) return rate.regularStandardRate;
+  return rate.lateStandardRate;
+}
+
+export async function getParcelRateContextForDate(date: string): Promise<ParcelRateContext> {
+  validateParcelWorkDate(date);
+  const { data, error } = await supabase
+    .from('parcel_rate_configurations')
+    .select('id, early_standard_rate, regular_standard_rate, late_standard_rate, heavy_parcel_rate, heavy_threshold_kg, effective_from, effective_until')
+    .eq('active', true)
+    .lte('effective_from', date)
+    .or(`effective_until.is.null,effective_until.gte.${date}`)
+    .order('effective_from', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error(`No active parcel rate configuration exists for ${date}.`);
+  return {
+    id: data.id,
+    earlyStandardRate: Number(data.early_standard_rate),
+    regularStandardRate: Number(data.regular_standard_rate),
+    lateStandardRate: Number(data.late_standard_rate),
+    heavyParcelRate: Number(data.heavy_parcel_rate),
+    heavyThresholdKg: Number(data.heavy_threshold_kg),
+    effectiveFrom: data.effective_from,
+    effectiveUntil: data.effective_until,
+  };
 }
 
 function formatTimeString(rawTime: string | null | undefined, fallbackTime: string | null | undefined): string | null {
@@ -163,6 +289,7 @@ export interface DailyParcelEntriesResponse {
   totalEligibleCount: number;
   encodedCount: number;
   absentCount: number;
+  rateContext: ParcelRateContext;
 }
 
 /**
@@ -179,6 +306,8 @@ export async function getDailyParcelEntries(params: {
   includeEncoded?: boolean;
 }): Promise<DailyParcelEntriesResponse> {
   const targetDate = params.date || getLocalDateString();
+  validateParcelWorkDate(targetDate);
+  const rateContext = await getParcelRateContextForDate(targetDate);
 
   // 1. Fetch active riders
   let ridersQuery = supabase
@@ -243,7 +372,7 @@ export async function getDailyParcelEntries(params: {
   // 3. Fetch existing parcel logs for target date
   const { data: parcelLogsData, error: parcelError } = await supabase
     .from('parcel_logs')
-    .select('id, rider_id, date, parcels, assigned_parcels, failed_parcels, returned_parcels, notes, created_by, updated_at, rate, daily_gross')
+    .select('id, rider_id, date, parcels, heavy_parcels, assigned_parcels, failed_parcels, returned_parcels, notes, created_by, updated_at, rate, heavy_rate, standard_earnings, heavy_earnings, daily_gross, rate_configuration_id')
     .eq('date', targetDate);
 
   if (parcelError) {
@@ -275,6 +404,18 @@ export async function getDailyParcelEntries(params: {
     const formattedTimeOut = formatTimeString(att?.raw_time_out, att?.time_out);
     const zoneObj = (Array.isArray(r.zones) ? r.zones[0] : r.zones) as unknown as { name: string } | null;
     const recorderInfo = formatRecorderIdentity(existingLog?.created_by);
+    const standardRate = Number(existingLog?.rate ?? resolveStandardRateForTimeIn(rateContext, att?.raw_time_in || att?.time_in));
+    const heavyRate = Number(existingLog?.heavy_rate ?? rateContext.heavyParcelRate);
+    const standardDelivered = Number(existingLog?.parcels ?? 0);
+    const heavyDelivered = Number(existingLog?.heavy_parcels ?? 0);
+    const metrics = calculateParcelOperationalMetrics({
+      standardDelivered,
+      heavyDelivered,
+      failed: Number(existingLog?.failed_parcels ?? 0),
+      returned: Number(existingLog?.returned_parcels ?? 0),
+      standardRate,
+      heavyRate,
+    });
 
     const resolvedAvatar = r.face_image_url || r.avatar_url || att?.rider_avatar || null;
 
@@ -290,7 +431,8 @@ export async function getDailyParcelEntries(params: {
       rawTimeIn: att?.raw_time_in || null,
       timeOut: formattedTimeOut,
       hours: att?.hours || 0,
-      deliveredParcels: existingLog ? existingLog.parcels : 0,
+      deliveredParcels: standardDelivered,
+      heavyParcels: heavyDelivered,
       assignedParcels: existingLog?.assigned_parcels ?? 0,
       failedDeliveries: existingLog?.failed_parcels ?? 0,
       returnedParcels: existingLog?.returned_parcels ?? 0,
@@ -300,6 +442,13 @@ export async function getDailyParcelEntries(params: {
       recordedByDetail: recorderInfo.detail,
       lastUpdated: existingLog?.updated_at || undefined,
       parcelLogId: existingLog?.id || null,
+      standardRate,
+      heavyRate,
+      standardEarnings: Number(existingLog?.standard_earnings ?? metrics.standardEarnings),
+      heavyEarnings: Number(existingLog?.heavy_earnings ?? metrics.heavyEarnings),
+      dailyGross: Number(existingLog?.daily_gross ?? metrics.dailyGross),
+      rateConfigurationId: existingLog?.rate_configuration_id ?? rateContext.id,
+      rateConfigurationEffectiveFrom: rateContext.effectiveFrom,
       submissionStatus: existingLog ? 'saved' : 'draft',
       isModified: false,
     };
@@ -343,7 +492,8 @@ export async function getDailyParcelEntries(params: {
     absentRows,
     totalEligibleCount,
     encodedCount,
-    absentCount
+    absentCount,
+    rateContext,
   };
 }
 
@@ -377,6 +527,17 @@ export async function saveDailyParcelEntries(
 ): Promise<number> {
   if (entries.length === 0) return 0;
 
+  entries.forEach(entry => {
+    validateParcelWorkDate(entry.date);
+    validateParcelCount(entry.parcels, 'Standard Delivered');
+    validateParcelCount(entry.heavyParcels ?? 0, 'Heavy Delivered');
+    validateParcelCount(entry.failedDeliveries ?? 0, 'Failed');
+    validateParcelCount(entry.returnedParcels ?? 0, 'Returned');
+    if (entry.assignedParcels !== undefined) validateParcelCount(entry.assignedParcels, 'Assigned Parcels');
+  });
+
+  await Promise.all(Array.from(new Set(entries.map(entry => entry.date))).map(getParcelRateContextForDate));
+
   // Validate if recordedBy is a valid UUID matching public.users(id)
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const validCreatedBy = uuidRegex.test(recordedBy) ? recordedBy : null;
@@ -386,7 +547,7 @@ export async function saveDailyParcelEntries(
   const riderIds = Array.from(new Set(entries.map(e => e.riderId)));
   const { data: existingLogs } = await supabase
     .from('parcel_logs')
-    .select('id, rider_id, date, parcels, failed_parcels, returned_parcels')
+    .select('id, rider_id, date, parcels, heavy_parcels, failed_parcels, returned_parcels')
     .in('date', dates)
     .in('rider_id', riderIds);
 
@@ -396,11 +557,11 @@ export async function saveDailyParcelEntries(
     rider_id: e.riderId,
     date: e.date,
     parcels: e.parcels,
+    heavy_parcels: e.heavyParcels ?? 0,
     assigned_parcels: e.assignedParcels || 0,
     failed_parcels: e.failedDeliveries || 0,
     returned_parcels: e.returnedParcels || 0,
     notes: e.notes || null,
-    rate: 10, // Default baseline schema requirement
     created_by: validCreatedBy,
     updated_at: new Date().toISOString(),
   }));
@@ -410,7 +571,7 @@ export async function saveDailyParcelEntries(
   const res = await supabase
     .from('parcel_logs')
     .upsert(payloads, { onConflict: 'rider_id,date' })
-    .select('id, rider_id, date, parcels, assigned_parcels, failed_parcels, returned_parcels, notes, rate, daily_gross');
+    .select('id, rider_id, date, parcels, heavy_parcels, assigned_parcels, failed_parcels, returned_parcels, notes, rate, heavy_rate, standard_earnings, heavy_earnings, daily_gross, rate_configuration_id');
 
   console.log('[ParcelOps] Supabase Response:', {
     data: res.data,
@@ -436,9 +597,11 @@ export async function saveDailyParcelEntries(
         rider_id: savedLog.rider_id,
         date: savedLog.date,
         old_delivered: prev ? prev.parcels : 0,
+        old_heavy: prev ? prev.heavy_parcels : 0,
         old_failed: prev ? prev.failed_parcels || 0 : 0,
         old_returned: prev ? prev.returned_parcels || 0 : 0,
         new_delivered: savedLog.parcels,
+        new_heavy: savedLog.heavy_parcels,
         new_failed: savedLog.failed_parcels || 0,
         new_returned: savedLog.returned_parcels || 0,
         action_type: (isNew ? 'created' : 'updated') as 'created' | 'updated',
@@ -488,6 +651,7 @@ interface DbHistoryRow {
   rider_id: string;
   date: string;
   parcels: number;
+  heavy_parcels: number;
   assigned_parcels?: number | null;
   failed_parcels?: number | null;
   returned_parcels?: number | null;
@@ -495,6 +659,13 @@ interface DbHistoryRow {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  rate: number;
+  heavy_rate: number | null;
+  standard_earnings: number;
+  heavy_earnings: number;
+  daily_gross: number | null;
+  rate_configuration_id: string | null;
+  parcel_rate_configurations: { effective_from: string } | null;
   riders: {
     id: string;
     name: string;
@@ -526,6 +697,7 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
       rider_id,
       date,
       parcels,
+      heavy_parcels,
       assigned_parcels,
       failed_parcels,
       returned_parcels,
@@ -533,6 +705,13 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
       created_by,
       created_at,
       updated_at,
+      rate,
+      heavy_rate,
+      standard_earnings,
+      heavy_earnings,
+      daily_gross,
+      rate_configuration_id,
+      parcel_rate_configurations (effective_from),
       riders!inner (
         id,
         name,
@@ -617,6 +796,17 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
     const formattedTimeIn = formatTimeString(att?.raw_time_in, att?.time_in);
     const recorderInfo = formatRecorderIdentity(row.created_by, userMap);
     const resolvedAvatar = rider?.face_image_url || rider?.avatar_url || null;
+    const metrics = calculateParcelOperationalMetrics({
+      standardDelivered: Number(row.parcels),
+      heavyDelivered: Number(row.heavy_parcels ?? 0),
+      failed: Number(row.failed_parcels ?? 0),
+      returned: Number(row.returned_parcels ?? 0),
+      standardRate: Number(row.rate),
+      heavyRate: Number(row.heavy_rate ?? 0),
+    });
+    const rateConfiguration = Array.isArray(row.parcel_rate_configurations)
+      ? row.parcel_rate_configurations[0]
+      : row.parcel_rate_configurations;
 
     return {
       id: row.id,
@@ -628,11 +818,16 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
       zoneName: zoneObj?.name || 'Unassigned',
       date: row.date,
       deliveredParcels: row.parcels,
+      heavyParcels: row.heavy_parcels ?? 0,
+      totalDelivered: metrics.totalDelivered,
+      totalHandled: metrics.totalHandled,
+      deliverySuccessRate: metrics.deliverySuccessRate,
       assignedParcels: row.assigned_parcels || 0,
       failedDeliveries: row.failed_parcels || 0,
       returnedParcels: row.returned_parcels || 0,
       notes: row.notes || undefined,
-      grossWagePreview: row.parcels * 10,
+      grossWagePreview: Number(row.daily_gross ?? metrics.dailyGross),
+      dailyGross: Number(row.daily_gross ?? metrics.dailyGross),
       payrollCutoff: getCutoffLabel(row.date),
       createdBy: row.created_by || 'System',
       createdByName: recorderInfo.name,
@@ -641,6 +836,12 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
       updatedAt: row.updated_at || row.created_at,
       attendanceStatus: presenceStatus,
       timeIn: formattedTimeIn,
+      standardRate: Number(row.rate),
+      heavyRate: Number(row.heavy_rate ?? 0),
+      standardEarnings: Number(row.standard_earnings ?? metrics.standardEarnings),
+      heavyEarnings: Number(row.heavy_earnings ?? metrics.heavyEarnings),
+      rateConfigurationId: row.rate_configuration_id,
+      rateConfigurationEffectiveFrom: rateConfiguration?.effective_from ?? null,
     };
   });
 
@@ -664,9 +865,11 @@ export interface ParcelCorrectionRequest {
   riderAvatar?: string;
   date: string;
   previousDelivered: number;
+  previousHeavy: number;
   previousFailed: number;
   previousReturned: number;
   requestedDelivered: number;
+  requestedHeavy: number;
   requestedFailed: number;
   requestedReturned: number;
   reason: string;
@@ -686,9 +889,11 @@ export interface ParcelLogAuditEntry {
   riderId: string;
   date: string;
   oldDelivered: number;
+  oldHeavy: number;
   oldFailed: number;
   oldReturned: number;
   newDelivered: number;
+  newHeavy: number;
   newFailed: number;
   newReturned: number;
   actionType: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected';
@@ -709,14 +914,25 @@ export async function createParcelCorrectionRequest(payload: {
   riderId: string;
   date: string;
   previousDelivered: number;
+  previousHeavy: number;
   previousFailed: number;
   previousReturned: number;
   requestedDelivered: number;
+  requestedHeavy: number;
   requestedFailed: number;
   requestedReturned: number;
   reason: string;
   requestedBy: string;
 }): Promise<void> {
+  validateParcelWorkDate(payload.date);
+  validateParcelCount(payload.previousDelivered, 'Previous Standard Delivered');
+  validateParcelCount(payload.previousHeavy, 'Previous Heavy Delivered');
+  validateParcelCount(payload.previousFailed, 'Previous Failed');
+  validateParcelCount(payload.previousReturned, 'Previous Returned');
+  validateParcelCount(payload.requestedDelivered, 'Requested Standard Delivered');
+  validateParcelCount(payload.requestedHeavy, 'Requested Heavy Delivered');
+  validateParcelCount(payload.requestedFailed, 'Requested Failed');
+  validateParcelCount(payload.requestedReturned, 'Requested Returned');
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const validRequestedBy = uuidRegex.test(payload.requestedBy) ? payload.requestedBy : null;
 
@@ -725,9 +941,11 @@ export async function createParcelCorrectionRequest(payload: {
     rider_id: payload.riderId,
     date: payload.date,
     previous_delivered: payload.previousDelivered,
+    previous_heavy: payload.previousHeavy,
     previous_failed: payload.previousFailed,
     previous_returned: payload.previousReturned,
     requested_delivered: payload.requestedDelivered,
+    requested_heavy: payload.requestedHeavy,
     requested_failed: payload.requestedFailed,
     requested_returned: payload.requestedReturned,
     reason: payload.reason,
@@ -746,9 +964,11 @@ export async function createParcelCorrectionRequest(payload: {
     rider_id: payload.riderId,
     date: payload.date,
     old_delivered: payload.previousDelivered,
+    old_heavy: payload.previousHeavy,
     old_failed: payload.previousFailed,
     old_returned: payload.previousReturned,
     new_delivered: payload.requestedDelivered,
+    new_heavy: payload.requestedHeavy,
     new_failed: payload.requestedFailed,
     new_returned: payload.requestedReturned,
     action_type: 'correction_requested',
@@ -765,7 +985,7 @@ export async function createParcelCorrectionRequest(payload: {
   try {
     await logActivity({
       eventType: 'Parcel Correction Requested',
-      description: `Submitted correction request for rider date ${payload.date}: Delivered ${payload.previousDelivered} → ${payload.requestedDelivered}. Reason: ${payload.reason}`,
+      description: `Submitted correction request for rider date ${payload.date}: Standard ${payload.previousDelivered} → ${payload.requestedDelivered}, Heavy ${payload.previousHeavy} → ${payload.requestedHeavy}. Reason: ${payload.reason}`,
       metadata: { parcel_log_id: payload.parcelLogId, rider_id: payload.riderId, date: payload.date }
     });
   } catch (err) {
@@ -785,9 +1005,11 @@ export async function getParcelCorrectionRequests(statusFilter?: 'pending' | 'ap
       rider_id,
       date,
       previous_delivered,
+      previous_heavy,
       previous_failed,
       previous_returned,
       requested_delivered,
+      requested_heavy,
       requested_failed,
       requested_returned,
       reason,
@@ -824,9 +1046,11 @@ export async function getParcelCorrectionRequests(statusFilter?: 'pending' | 'ap
     rider_id: string;
     date: string;
     previous_delivered: number;
+    previous_heavy: number;
     previous_failed: number;
     previous_returned: number;
     requested_delivered: number;
+    requested_heavy: number;
     requested_failed: number;
     requested_returned: number;
     reason: string;
@@ -870,9 +1094,11 @@ export async function getParcelCorrectionRequests(statusFilter?: 'pending' | 'ap
       riderAvatar: resolvedAvatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider?.name || '')}`,
       date: r.date,
       previousDelivered: r.previous_delivered,
+      previousHeavy: r.previous_heavy,
       previousFailed: r.previous_failed,
       previousReturned: r.previous_returned,
       requestedDelivered: r.requested_delivered,
+      requestedHeavy: r.requested_heavy,
       requestedFailed: r.requested_failed,
       requestedReturned: r.requested_returned,
       reason: r.reason,
@@ -917,6 +1143,7 @@ export async function reviewParcelCorrectionRequest(
       .from('parcel_logs')
       .update({
         parcels: request.requested_delivered,
+        heavy_parcels: request.requested_heavy,
         failed_parcels: request.requested_failed,
         returned_parcels: request.requested_returned,
         updated_at: now,
@@ -934,9 +1161,11 @@ export async function reviewParcelCorrectionRequest(
       rider_id: request.rider_id,
       date: request.date,
       old_delivered: request.previous_delivered,
+      old_heavy: request.previous_heavy,
       old_failed: request.previous_failed,
       old_returned: request.previous_returned,
       new_delivered: request.requested_delivered,
+      new_heavy: request.requested_heavy,
       new_failed: request.requested_failed,
       new_returned: request.requested_returned,
       action_type: 'correction_approved',
@@ -963,9 +1192,11 @@ export async function reviewParcelCorrectionRequest(
       rider_id: request.rider_id,
       date: request.date,
       old_delivered: request.previous_delivered,
+      old_heavy: request.previous_heavy,
       old_failed: request.previous_failed,
       old_returned: request.previous_returned,
       new_delivered: request.requested_delivered,
+      new_heavy: request.requested_heavy,
       new_failed: request.requested_failed,
       new_returned: request.requested_returned,
       action_type: 'correction_rejected',
@@ -1029,9 +1260,11 @@ export async function getParcelLogAuditHistory(parcelLogId: string): Promise<Par
     rider_id: string;
     date: string;
     old_delivered: number;
+    old_heavy: number;
     old_failed: number;
     old_returned: number;
     new_delivered: number;
+    new_heavy: number;
     new_failed: number;
     new_returned: number;
     action_type: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected';
@@ -1066,9 +1299,11 @@ export async function getParcelLogAuditHistory(parcelLogId: string): Promise<Par
     riderId: r.rider_id,
     date: r.date,
     oldDelivered: r.old_delivered,
+    oldHeavy: r.old_heavy,
     oldFailed: r.old_failed,
     oldReturned: r.old_returned,
     newDelivered: r.new_delivered,
+    newHeavy: r.new_heavy,
     newFailed: r.new_failed,
     newReturned: r.new_returned,
     actionType: r.action_type,

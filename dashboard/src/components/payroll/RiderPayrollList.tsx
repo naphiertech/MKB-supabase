@@ -70,6 +70,13 @@ export interface PayrollRecordRow {
   total_parcels: number;
   rate_per_parcel: number | null;
   gross_pay: number | null;
+  standard_parcels?: number | null;
+  heavy_parcels?: number | null;
+  standard_earnings?: number | null;
+  heavy_earnings?: number | null;
+  rate_configuration_id?: string | null;
+  calculation_version?: number | null;
+  snapshot_finalized_at?: string | null;
   status: string;
   created_at: string;
   updated_at: string;

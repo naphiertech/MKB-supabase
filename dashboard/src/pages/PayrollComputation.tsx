@@ -1,18 +1,17 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRidersLookup } from '../services/riderService';
 import { getRiderAttendanceInDateRange } from '../services/attendanceService';
 import {
-  getParcelLogs,
-  upsertParcelLog,
+  getPayrollDeliveryData,
   savePayrollRecord,
   initializeCutoffPayrollForFleet,
-  resetDraftPayrollForCutoff
+  resetDraftPayrollForCutoff,
+  type ParcelLog
 } from '../services/parcelService';
-import { BulkParcelUploadModal } from '../components/payroll/BulkParcelUploadModal';
 import { SearchableRiderComboboxModal } from '../components/payroll/SearchableRiderComboboxModal';
 import { useAuth } from '../hooks/useAuth';
-import { exportParcelPayslipPDF, exportParcelCSV } from '../lib/exports/payrollExport';
+import { exportParcelPayslipPDF, exportParcelCSV, parcelLogsToPayslipDays, type PayslipSnapshotContext } from '../lib/exports/payrollExport';
 import { pushToast } from '../hooks/useToast';
 import { isReadOnlyStatus } from '../types/payroll';
 import {
@@ -23,7 +22,6 @@ import {
   Lock,
   Sparkles,
   Loader2,
-  X,
   Calendar,
   Zap,
   Search as SearchIcon,
@@ -32,6 +30,7 @@ import {
 } from 'lucide-react';
 import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/RiderPayrollList';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
+import { useParcelLogsRealtimeVersion } from '../hooks/useParcelLogsRealtimeVersion';
 
 const MONTHS = [
   'January',
@@ -50,11 +49,6 @@ const MONTHS = [
 
 function pad(n: number) {
   return String(n).padStart(2, '0');
-}
-
-function isoToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 export function PayrollComputation() {
@@ -95,6 +89,7 @@ export function PayrollComputation() {
       ? `${MONTHS[month]} 1–15`
       : `${MONTHS[month]} 16–${new Date(currentYear, month + 1, 0).getDate()}`;
   }, [month, half, currentYear]);
+  const parcelLogsVersion = useParcelLogsRealtimeVersion(selectedRiderId, cutoffFrom, cutoffTo);
 
   // Details Modal States
   const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<PayrollRecordRow | null>(null);
@@ -124,26 +119,18 @@ export function PayrollComputation() {
     setIsModalOpen(true);
   };
 
-  const rate = 10;
-  const [dayEntries, setDayEntries] = useState<{
-    date: string;
-    parcels: number;
-    dailyGross: number;
-    rate: number;
-    timeIn: string | null;
-    saving: boolean;
-    saved: boolean;
-    error: boolean;
-  }[]>([]);
+  const [dayEntries, setDayEntries] = useState<Array<ParcelLog & { timeIn: string | null }>>([]);
+  const [snapshotContext, setSnapshotContext] = useState<PayslipSnapshotContext>({
+    source: 'live', calculationVersion: 2, standardParcels: 0, heavyParcels: 0,
+    failedParcels: 0, returnedParcels: 0, standardEarnings: 0, heavyEarnings: 0, grossDeliveryPay: 0,
+  });
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
-  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [initializingFleet, setInitializingFleet] = useState(false);
   const [resettingFleet, setResettingFleet] = useState(false);
   const [confirmInitOpen, setConfirmInitOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleInitializeFleet = async () => {
     setInitializingFleet(true);
@@ -199,15 +186,6 @@ export function PayrollComputation() {
     }
   };
 
-  // Unsaved draft states to prevent automatic saves on keystroke
-  const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [editingVal, setEditingVal] = useState<number>(0);
-
-  // Modal confirmation gates
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmDate, setConfirmDate] = useState<string | null>(null);
-  const [confirmVal, setConfirmVal] = useState<number>(0);
-
   // Load all riders from Supabase on mount
   useEffect(() => {
     const loadRiders = async () => {
@@ -230,56 +208,47 @@ export function PayrollComputation() {
   useEffect(() => {
     if (!selectedRiderId || !cutoffFrom || !cutoffTo) return;
 
-    setEditingDate(null);
     const loadLogs = async () => {
       setLoadingLogs(true);
 
-      const dates: string[] = [];
-      const start = new Date(cutoffFrom);
-      const end = new Date(cutoffTo);
-      const current = new Date(start);
-      while (current <= end) {
-        dates.push(current.toISOString().split('T')[0]);
-        current.setDate(current.getDate() + 1);
-      }
-
       try {
-        const [existingLogs, attList] = await Promise.all([
-          getParcelLogs(selectedRiderId, cutoffFrom, cutoffTo),
-          getRiderAttendanceInDateRange(selectedRiderId, cutoffFrom, cutoffTo)
+        const targetRecord = activeRider && activeRider.rider_id === selectedRiderId
+          ? activeRider
+          : {
+              id: `draft-${selectedRiderId}`,
+              rider_id: selectedRiderId,
+              cutoff_start: cutoffFrom,
+              cutoff_end: cutoffTo,
+              status: 'draft',
+              calculation_version: 2,
+            };
+        const isWorkingRecord = targetRecord.status === 'draft' || targetRecord.status === 'rejected';
+        const [deliveryData, attList] = await Promise.all([
+          getPayrollDeliveryData(targetRecord),
+          isWorkingRecord
+            ? getRiderAttendanceInDateRange(selectedRiderId, cutoffFrom, cutoffTo)
+            : Promise.resolve([])
         ]);
-        const entries = dates.map(date => {
-          const existing = existingLogs.find(l => l.date === date);
-          const att = attList.find(a => a.date === date);
-
-          const canonicalTimeIn = att?.rawTimeIn || (att?.timeIn ? `${date}T${att.timeIn}:00` : null);
-          let calculatedRate = 10;
-          if (canonicalTimeIn) {
-            const d = new Date(canonicalTimeIn);
-            if (!isNaN(d.getTime())) {
-              const hours = d.getHours();
-              const mins = d.getMinutes();
-              const totalMinutes = hours * 60 + mins;
-              if (totalMinutes <= 480) calculatedRate = 12; // before or at 8:00 AM
-              else if (totalMinutes <= 540) calculatedRate = 11; // 8:01 to 9:00 AM
-            }
-          } else if (existing && existing.rate) {
-            calculatedRate = existing.rate;
-          }
-
+        const entries = deliveryData.lines.map(line => {
+          const att = attList.find(a => a.date === line.date);
           return {
-            date,
-            parcels: existing?.parcels ?? 0,
-            dailyGross: existing ? existing.parcels * calculatedRate : 0,
-            rate: calculatedRate,
-            timeIn: canonicalTimeIn,
-            saving: false,
-            saved: !!existing,
-            error: false,
+            ...line,
+            timeIn: att?.rawTimeIn || (att?.timeIn ? `${line.date}T${att.timeIn}:00` : null),
           };
         });
 
         setDayEntries(entries);
+        setSnapshotContext({
+          source: deliveryData.source,
+          calculationVersion: deliveryData.calculationVersion,
+          standardParcels: deliveryData.summary.standardDelivered,
+          heavyParcels: deliveryData.summary.heavyDelivered,
+          failedParcels: deliveryData.summary.failed,
+          returnedParcels: deliveryData.summary.returned,
+          standardEarnings: deliveryData.summary.standardEarnings,
+          heavyEarnings: deliveryData.summary.heavyEarnings,
+          grossDeliveryPay: deliveryData.summary.grossDeliveryPay,
+        });
       } catch (err) {
         console.error('Failed to load logs', err);
         pushToast({
@@ -293,66 +262,7 @@ export function PayrollComputation() {
     };
 
     loadLogs();
-  }, [selectedRiderId, cutoffFrom, cutoffTo, refreshKey]);
-
-  // Handle typing in input field (saves to local draft state instead of DB)
-  const handleInputChange = useCallback((date: string, val: number) => {
-    setEditingDate(date);
-    setEditingVal(val);
-  }, []);
-
-  // Update a single day's parcels and auto-save in Supabase
-  const updateDayParcels = useCallback(async (
-    date: string,
-    parcels: number
-  ) => {
-    if (date > isoToday()) return;
-
-    const entry = dayEntries.find(e => e.date === date);
-    const targetRate = entry ? entry.rate : 10;
-
-    setDayEntries(prev =>
-      prev.map(item =>
-        item.date === date
-          ? {
-              ...item,
-              parcels,
-              dailyGross: parcels * targetRate,
-              saving: true,
-              saved: false,
-              error: false,
-            }
-          : item
-      )
-    );
-
-    try {
-      await upsertParcelLog(
-        selectedRiderId,
-        date,
-        parcels,
-        targetRate,
-        user?.id ?? ''
-      );
-
-      setDayEntries(prev =>
-        prev.map(item =>
-          item.date === date
-            ? { ...item, saving: false, saved: true }
-            : item
-        )
-      );
-    } catch (err) {
-      console.error('Auto-save failed', err);
-      setDayEntries(prev =>
-        prev.map(item =>
-          item.date === date
-            ? { ...item, saving: false, error: true }
-            : item
-        )
-      );
-    }
-  }, [selectedRiderId, dayEntries, user?.id]);
+  }, [selectedRiderId, cutoffFrom, cutoffTo, parcelLogsVersion, activeRider]);
 
   // Save finalized payroll record
   const handleFinalize = async () => {
@@ -362,14 +272,11 @@ export function PayrollComputation() {
       await savePayrollRecord(
         selectedRiderId,
         cutoffFrom,
-        cutoffTo,
-        totalParcels,
-        10, // Base/fallback rate per parcel
-        grossPay
+        cutoffTo
       );
       pushToast({
         title: 'Payroll Finalized',
-        description: `${selectedRider?.name} · {totalParcels} parcels · ₱${grossPay.toLocaleString()}`,
+        description: `${selectedRider?.name} · ${totalParcels} parcels · ₱${grossPay.toLocaleString()}`,
         tone: 'success'
       });
       setReloadTrigger(prev => prev + 1);
@@ -386,15 +293,13 @@ export function PayrollComputation() {
   };
 
   // Computations
-  const totalParcels = dayEntries.reduce((sum, e) => sum + e.parcels, 0);
+  const totalParcels = dayEntries.reduce((sum, e) => sum + e.parcels + e.heavyParcels, 0);
   const grossPay = dayEntries.reduce((sum, e) => sum + e.dailyGross, 0);
   const selectedRider = riders.find(r => r.id === selectedRiderId);
   const zoneName = selectedRider?.zones?.name || '—';
+  const payslipDays = parcelLogsToPayslipDays(dayEntries);
 
   const isReadOnly = activeRider ? isReadOnlyStatus(activeRider.status) : false;
-
-  const confirmEntry = dayEntries.find(e => e.date === confirmDate);
-  const activeConfirmRate = confirmEntry ? confirmEntry.rate : 10;
 
   // Export handlers
   const handleExportPDF = () => {
@@ -406,8 +311,8 @@ export function PayrollComputation() {
         zoneName,
         cutoffFrom,
         cutoffTo,
-        rate, // fallbackRate (default 10)
-        dayEntries
+        payslipDays,
+        snapshotContext
       );
       pushToast({
         title: 'PDF Payslip Generated',
@@ -416,6 +321,7 @@ export function PayrollComputation() {
     } catch (err) {
       pushToast({
         title: 'PDF generation failed',
+        description: err instanceof Error ? err.message : 'The payroll snapshot could not be exported.',
         tone: 'error'
       });
     }
@@ -429,8 +335,8 @@ export function PayrollComputation() {
         selectedRider.mkb_id || 'MKB-RIDER',
         cutoffFrom,
         cutoffTo,
-        rate,
-        dayEntries
+        payslipDays,
+        snapshotContext
       );
       pushToast({
         title: 'CSV exported successfully',
@@ -439,6 +345,7 @@ export function PayrollComputation() {
     } catch (err) {
       pushToast({
         title: 'CSV export failed',
+        description: err instanceof Error ? err.message : 'The payroll snapshot could not be exported.',
         tone: 'error'
       });
     }
@@ -544,17 +451,6 @@ export function PayrollComputation() {
               </>
             )}
 
-            {/* Bulk Upload Button (only in list view) */}
-            {!activeRider && (
-              <button
-                type="button"
-                onClick={() => setBulkImportOpen(true)}
-                className="h-9 px-3.5 rounded-lg bg-white border border-border hover:bg-panel-bg text-muted-foreground text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-primary" />
-                Import Excel
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -672,12 +568,12 @@ export function PayrollComputation() {
                     <div>
                       <div className="text-sm font-semibold text-foreground">Salary Computation</div>
                       <div className="text-[11px] text-muted-foreground font-mono">
-                        {cutoffFrom} → {cutoffTo} &bull; auto-saving logs
+                        {cutoffFrom} → {cutoffTo} &bull; operational data is read-only
                       </div>
                     </div>
                   </div>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold text-primary bg-accent border border-primary/30 uppercase tracking-wider">
-                    <Lock className="w-3 h-3" /> Auto-Saving
+                    <Lock className="w-3 h-3" /> Parcel Operations Source
                   </span>
                 </div>
 
@@ -784,13 +680,13 @@ export function PayrollComputation() {
             </div>
           </div>
 
-          {/* Day-by-Day Parcel Breakdown */}
+          {/* Read-only operational context from parcel_logs */}
           <div className="bg-white border border-border rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-foreground">Day-by-Day Parcel Breakdown</div>
+                <div className="text-sm font-semibold text-foreground">Operational Breakdown</div>
                 <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                  {dayEntries.length} days &bull; {selectedRider?.name || '—'}
+                  {dayEntries.length} days &bull; {selectedRider?.name || '—'} &bull; read-only from parcel_logs
                 </div>
               </div>
             </div>
@@ -817,18 +713,20 @@ export function PayrollComputation() {
                     <tr className="text-left text-[10.5px] uppercase tracking-wider text-muted-foreground font-bold">
                       <th className="px-5 py-3.5">Date</th>
                       <th className="px-5 py-3.5">Clock In</th>
-                      <th className="px-5 py-3.5 text-right">Parcels</th>
-                      <th className="px-5 py-3.5 text-right">Rate</th>
-                      <th className="px-5 py-3.5 text-right">Gross Wages</th>
-                      <th className="px-5 py-3.5 text-center">Status</th>
+                      <th className="px-5 py-3.5 text-right">Standard</th>
+                      <th className="px-5 py-3.5 text-right">Heavy</th>
+                      <th className="px-5 py-3.5 text-right">Failed</th>
+                      <th className="px-5 py-3.5 text-right">Returned</th>
+                      <th className="px-5 py-3.5 text-right">Std Rate</th>
+                      <th className="px-5 py-3.5 text-right">Heavy Rate</th>
+                      <th className="px-5 py-3.5 text-right">Std Earnings</th>
+                      <th className="px-5 py-3.5 text-right">Heavy Earnings</th>
+                      <th className="px-5 py-3.5 text-right">Gross Wage</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dayEntries.map(e => {
                       const dt = new Date(e.date);
-                      const isFuture = e.date > isoToday();
-                      const isEditing = editingDate === e.date;
-
                       // Display values
                       const displayTimeIn = (() => {
                         if (!e.timeIn) return '—';
@@ -853,9 +751,7 @@ export function PayrollComputation() {
                       return (
                         <tr
                           key={e.date}
-                          className={`border-b border-border transition-colors hover:bg-panel-bg ${
-                            isFuture ? 'opacity-40 select-none' : ''
-                          }`}
+                          className="border-b border-border transition-colors hover:bg-panel-bg"
                         >
                           <td className="px-5 py-4 font-semibold text-foreground">
                             {dt.toLocaleDateString('en-US', {
@@ -865,53 +761,18 @@ export function PayrollComputation() {
                             })}
                           </td>
                           <td className="px-5 py-4 text-muted-foreground">{displayTimeIn}</td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <input
-                                type="number"
-                                disabled={isFuture || e.saving || isReadOnly}
-                                min={0}
-                                value={isEditing ? editingVal : e.parcels || ''}
-                                placeholder="0"
-                                onChange={ev => {
-                                  const v = Math.max(0, parseInt(ev.target.value) || 0);
-                                  handleInputChange(e.date, v);
-                                }}
-                                onBlur={() => {
-                                  if (isEditing) {
-                                    if (editingVal !== e.parcels) {
-                                      setConfirmDate(e.date);
-                                      setConfirmVal(editingVal);
-                                      setConfirmOpen(true);
-                                    } else {
-                                      setEditingDate(null);
-                                    }
-                                  }
-                                }}
-                                className="w-20 text-right px-2 py-1 rounded bg-panel-bg border border-border hover:border-primary/30 outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 font-mono text-xs disabled:opacity-50"
-                              />
-                            </div>
-                          </td>
+                          <td className="px-5 py-4 text-right font-mono font-semibold text-foreground">{e.parcels}</td>
+                          <td className="px-5 py-4 text-right font-mono font-semibold text-violet-700">{e.heavyParcels}</td>
+                          <td className="px-5 py-4 text-right font-mono text-red-700">{e.failedParcels}</td>
+                          <td className="px-5 py-4 text-right font-mono text-amber-700">{e.returnedParcels}</td>
                           <td className="px-5 py-4 text-right font-mono text-muted-foreground">
                             ₱{e.rate.toFixed(2)}
                           </td>
+                          <td className="px-5 py-4 text-right font-mono text-muted-foreground">₱{e.heavyRate.toFixed(2)}</td>
+                          <td className="px-5 py-4 text-right font-mono text-foreground">₱{e.standardEarnings.toLocaleString()}</td>
+                          <td className="px-5 py-4 text-right font-mono text-violet-700">₱{e.heavyEarnings.toLocaleString()}</td>
                           <td className="px-5 py-4 text-right font-mono font-semibold text-primary">
                             ₱{e.dailyGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="px-5 py-4 text-center">
-                            {e.saving ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary">
-                                <Loader2 className="w-3 h-3 animate-spin" /> Saving...
-                              </span>
-                            ) : e.saved ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-200">
-                                Saved
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-semibold border border-amber-200">
-                                Draft
-                              </span>
-                            )}
                           </td>
                         </tr>
                       );
@@ -923,76 +784,6 @@ export function PayrollComputation() {
           </div>
         </div>
       )}
-
-      {/* Override Confirmation Modal */}
-      <AnimatePresence>
-        {confirmOpen && (
-          <div className="fixed inset-0 bg-foreground/20 backdrop-blur-xs flex items-center justify-center p-4 z-[2000]">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white border border-border rounded-xl shadow-xl w-full max-w-sm p-5 space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                  <Calculator className="w-4.5 h-4.5 text-primary" />
-                  Confirm Log Adjustment
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setConfirmOpen(false)}
-                  className="p-1 rounded-lg hover:bg-panel-bg text-subtle-text hover:text-foreground transition"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="text-xs text-muted-foreground leading-relaxed">
-                You are manually overriding the parcel logs for{' '}
-                <span className="font-semibold text-foreground">
-                  {confirmDate ? new Date(confirmDate).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                </span>{' '}
-                to <span className="font-bold text-primary">{confirmVal} parcels</span>. This will immediately recalculate wages for this date.
-              </div>
-
-              <div className="bg-panel-bg border border-border rounded-lg p-3 grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Active Rate</div>
-                  <div className="text-sm font-bold text-foreground font-mono mt-0.5">₱{activeConfirmRate.toFixed(2)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">New Gross Pay</div>
-                  <div className="text-lg font-bold text-primary font-mono mt-0.5">₱{(confirmVal * activeConfirmRate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirmOpen(false)}
-                  className="px-4 h-9 rounded-md bg-white border border-border hover:bg-panel-bg text-sm font-semibold text-muted-foreground transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (confirmDate) {
-                      await updateDayParcels(confirmDate, confirmVal);
-                      setEditingDate(null);
-                    }
-                    setConfirmOpen(false);
-                  }}
-                  className="px-4 h-9 rounded-md bg-primary hover:bg-primary-hover text-sm font-semibold text-white transition shadow-sm cursor-pointer"
-                >
-                  Confirm & Save
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Details Slide-over Drawer */}
       <AnimatePresence>
@@ -1012,17 +803,6 @@ export function PayrollComputation() {
         )}
       </AnimatePresence>
 
-      <BulkParcelUploadModal
-        isOpen={bulkImportOpen}
-        onClose={() => setBulkImportOpen(false)}
-        riders={riders}
-        onUploadSuccess={() => {
-          setRefreshKey(k => k + 1);
-          setReloadTrigger(prev => prev + 1);
-        }}
-        currentUserId={user?.id}
-      />
-
       <SearchableRiderComboboxModal
         isOpen={comboboxOpen}
         onClose={() => setComboboxOpen(false)}
@@ -1037,7 +817,12 @@ export function PayrollComputation() {
               cutoff_start: cutoffFrom,
               cutoff_end: cutoffTo,
               total_parcels: 0,
-              rate_per_parcel: 10,
+              rate_per_parcel: null,
+              standard_parcels: 0,
+              heavy_parcels: 0,
+              standard_earnings: 0,
+              heavy_earnings: 0,
+              calculation_version: 2,
               gross_pay: 0,
               status: 'draft',
               created_at: new Date().toISOString(),

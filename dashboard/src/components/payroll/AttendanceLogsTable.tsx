@@ -29,9 +29,15 @@ export function AttendanceLogsTable({
           <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
             <th className="px-4 py-2.5 font-semibold">Date</th>
             <th className="px-4 py-2.5 font-semibold text-center">Status</th>
-            <th className="px-4 py-2.5 font-semibold text-center">Parcels</th>
-            <th className="px-4 py-2.5 font-semibold text-center">Rate</th>
-            <th className="px-4 py-2.5 font-semibold text-right">Gross Pay</th>
+            <th className="px-4 py-2.5 font-semibold text-center">Standard</th>
+            <th className="px-4 py-2.5 font-semibold text-center">Heavy</th>
+            <th className="px-4 py-2.5 font-semibold text-center">Failed</th>
+            <th className="px-4 py-2.5 font-semibold text-center">Returned</th>
+            <th className="px-4 py-2.5 font-semibold text-center">Std Rate</th>
+            <th className="px-4 py-2.5 font-semibold text-center">Heavy Rate</th>
+            <th className="px-4 py-2.5 font-semibold text-right">Std Pay</th>
+            <th className="px-4 py-2.5 font-semibold text-right">Heavy Pay</th>
+            <th className="px-4 py-2.5 font-semibold text-right">Gross Wage</th>
           </tr>
         </thead>
         <tbody>
@@ -88,10 +94,28 @@ export function AttendanceLogsTable({
                   {day.parcels}
                 </td>
                 <td className="px-4 py-2 text-center font-mono tabular-nums text-foreground">
-                  ₱{day.rate.toFixed(2)}
+                  {day.heavyParcels}
+                </td>
+                <td className="px-4 py-2 text-center font-mono tabular-nums text-red-700">
+                  {day.failedParcels}
+                </td>
+                <td className="px-4 py-2 text-center font-mono tabular-nums text-amber-700">
+                  {day.returnedParcels}
+                </td>
+                <td className="px-4 py-2 text-center font-mono tabular-nums text-foreground">
+                  {phpFmt(day.rate)}
+                </td>
+                <td className="px-4 py-2 text-center font-mono tabular-nums text-foreground">
+                  {phpFmt(day.heavyRate)}
                 </td>
                 <td className="px-4 py-2 text-right font-mono tabular-nums text-foreground">
-                  {day.parcels === 0 ? "—" : phpFmt(day.dailyGross)}
+                  {phpFmt(day.standardEarnings)}
+                </td>
+                <td className="px-4 py-2 text-right font-mono tabular-nums text-foreground">
+                  {phpFmt(day.heavyEarnings)}
+                </td>
+                <td className="px-4 py-2 text-right font-mono tabular-nums text-foreground">
+                  {phpFmt(day.dailyGross)}
                 </td>
               </tr>
             );

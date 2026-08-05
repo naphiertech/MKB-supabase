@@ -197,6 +197,10 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
       return s + ((r.gross_pay ?? 0) + other + fm - deduct);
     }, 0);
     const totalParcels = allCutoffRecords.reduce((s, r) => s + (r.total_parcels || 0), 0);
+    const standardParcels = allCutoffRecords.reduce((s, r) => s + Number(r.standard_parcels ?? r.total_parcels ?? 0), 0);
+    const heavyParcels = allCutoffRecords.reduce((s, r) => s + Number(r.heavy_parcels ?? 0), 0);
+    const standardEarnings = allCutoffRecords.reduce((s, r) => s + Number(r.standard_earnings ?? r.gross_pay ?? 0), 0);
+    const heavyEarnings = allCutoffRecords.reduce((s, r) => s + Number(r.heavy_earnings ?? 0), 0);
 
     // Work Queue Pipeline metrics
     const draft = allCutoffRecords.filter(r => r.status === PayrollStatus.DRAFT || !r.status).length;
@@ -214,6 +218,10 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
       totalGross,
       totalNet,
       totalParcels,
+      standardParcels,
+      heavyParcels,
+      standardEarnings,
+      heavyEarnings,
       draft,
       pending,
       approved,
@@ -400,6 +408,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
             <div className="text-lg font-black text-foreground">
               {totals.totalParcels.toLocaleString()} <span className="text-xs text-subtle-text font-normal">pcs</span>
             </div>
+            <div className="text-[10px] text-muted-foreground">{totals.standardParcels.toLocaleString()} standard · {totals.heavyParcels.toLocaleString()} heavy</div>
           </div>
 
           {/* Gross Payroll */}
@@ -411,6 +420,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
             <div className="text-lg font-black text-foreground">
               {phpFmt(totals.totalGross)}
             </div>
+            <div className="text-[10px] text-muted-foreground">{phpFmt(totals.standardEarnings)} standard · {phpFmt(totals.heavyEarnings)} heavy</div>
           </div>
 
           {/* Net Payroll */}

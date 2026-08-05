@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
@@ -18,8 +18,9 @@ import {
 import { supabase } from "../../lib/supabaseClient";
 import {
   getRiderPayrollMetrics,
-  getParcelLogs,
+  getPayrollDeliveryData,
   updatePayrollRecordStatus,
+  type OperationalParcelSummary,
   type PayrollMetrics,
   type ParcelLog,
 } from "../../services/parcelService";
@@ -29,6 +30,8 @@ import {
   exportParcelPayslipPDF,
   exportParcelCSV,
   exportParcelPayslipXLSX,
+  parcelLogsToPayslipDays,
+  type PayslipSnapshotContext,
 } from "../../lib/exports/payrollExport";
 import { pushToast } from "../../hooks/useToast";
 import { logActivity } from "../../lib/apiService";
@@ -37,6 +40,7 @@ import { PayrollMetricsGrid } from "./PayrollMetricsGrid";
 import { SelectedDayDetails } from "./SelectedDayDetails";
 import { AttendanceLogsTable } from "./AttendanceLogsTable";
 import { PayslipSlipCard } from "./PayslipSlipCard";
+import { useParcelLogsRealtimeVersion } from "../../hooks/useParcelLogsRealtimeVersion";
 
 export interface PayrollRecordShape {
   id: string;
@@ -46,6 +50,13 @@ export interface PayrollRecordShape {
   total_parcels: number;
   rate_per_parcel: number | null;
   gross_pay: number | null;
+  standard_parcels?: number | null;
+  heavy_parcels?: number | null;
+  standard_earnings?: number | null;
+  heavy_earnings?: number | null;
+  rate_configuration_id?: string | null;
+  calculation_version?: number | null;
+  snapshot_finalized_at?: string | null;
   status: string;
   other_earnings?: number;
   fm_pickup_count?: number;
@@ -92,6 +103,47 @@ interface PayrollDetailsModalProps {
   indexLabel?: string; // e.g. "3 of 12"
 }
 
+function OperationalSummaryCard({ summary, source, calculationVersion }: { summary: OperationalParcelSummary; source: string; calculationVersion: number }) {
+  const metrics = [
+    { label: "Standard", value: summary.standardDelivered.toLocaleString(), tone: "text-foreground" },
+    { label: "Heavy", value: summary.heavyDelivered.toLocaleString(), tone: "text-primary" },
+    { label: "Failed", value: summary.failed.toLocaleString(), tone: "text-red-700" },
+    { label: "Returned", value: summary.returned.toLocaleString(), tone: "text-amber-700" },
+    { label: "Handled", value: summary.totalHandled.toLocaleString(), tone: "text-foreground" },
+    { label: "Success", value: summary.successRate == null ? "—" : `${summary.successRate.toFixed(1)}%`, tone: "text-emerald-700" },
+    { label: "Standard Pay", value: `₱${summary.standardEarnings.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`, tone: "text-foreground" },
+    { label: "Heavy Pay", value: `₱${summary.heavyEarnings.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`, tone: "text-primary" },
+    { label: "Gross Delivery", value: `₱${summary.grossDeliveryPay.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`, tone: "text-emerald-700" },
+  ];
+
+  return (
+    <section className="rounded-xl border border-border bg-panel-bg/60 p-3.5" aria-labelledby="operational-summary-title">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h4 id="operational-summary-title" className="text-[11px] font-bold uppercase tracking-wider text-foreground">
+            Operational Summary
+          </h4>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Read-only {source === "live" ? "Parcel Operations data" : "payroll snapshot"}</p>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+          <FileSpreadsheet className="h-3 w-3 text-primary" /> {source === "legacy" ? "Legacy Snapshot" : `Calculation v${calculationVersion}`}
+        </span>
+      </div>
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="rounded-lg border border-border bg-white px-2.5 py-2">
+            <dt className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{metric.label}</dt>
+            <dd className={`mt-0.5 font-mono text-sm font-bold ${metric.tone}`}>{metric.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-[9px] font-mono text-muted-foreground">
+        Rate configuration: {summary.rateConfigurationIds.length > 0 ? summary.rateConfigurationIds.join(", ") : source === "legacy" ? "legacy aggregate snapshot" : "not available"}
+      </p>
+    </section>
+  );
+}
+
 
 export function PayrollDetailsModal({
   isOpen,
@@ -114,6 +166,13 @@ export function PayrollDetailsModal({
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
   const [riderAvatar, setRiderAvatar] = useState<string | null>(null);
+  const [deliverySource, setDeliverySource] = useState<"live" | "snapshot" | "legacy">("live");
+  const [calculationVersion, setCalculationVersion] = useState(2);
+  const [operationalSummary, setOperationalSummary] = useState<OperationalParcelSummary>({
+    delivered: 0, standardDelivered: 0, heavyDelivered: 0, failed: 0, returned: 0,
+    totalHandled: 0, assigned: null, successRate: 0, standardEarnings: 0,
+    heavyEarnings: 0, grossDeliveryPay: 0, rateConfigurationIds: [],
+  });
 
   // Option B: Dynamic adjustments states
   const [otherEarnings, setOtherEarnings] = useState(0);
@@ -122,6 +181,12 @@ export function PayrollDetailsModal({
   const [lateOnhold, setLateOnhold] = useState(0);
   const [lateRemittance, setLateRemittance] = useState(0);
   const [isSavingAdjustments, setIsSavingAdjustments] = useState(false);
+  const parcelLogsVersion = useParcelLogsRealtimeVersion(
+    record?.rider_id,
+    record?.cutoff_start,
+    record?.cutoff_end,
+    isOpen
+  );
 
   // Load metrics & logs when record changes
   useEffect(() => {
@@ -144,60 +209,22 @@ export function PayrollDetailsModal({
           setRiderAvatar(avatarVal || record.riders?.avatar_url || null);
         }
 
-        const [fetchedMetrics, fetchedLogs] = await Promise.all([
-          getRiderPayrollMetrics(
+        const shouldLoadLiveTelemetry = isEditableStatus(record.status);
+        const [fetchedMetrics, deliveryData] = await Promise.all([
+          shouldLoadLiveTelemetry ? getRiderPayrollMetrics(
             record.rider_id,
             record.cutoff_start,
             record.cutoff_end,
-          ),
-          getParcelLogs(
-            record.rider_id,
-            record.cutoff_start,
-            record.cutoff_end,
-          ),
+          ) : Promise.resolve<PayrollMetrics>({ presentDays: 0, lateDays: 0, violationsCount: 0, attendanceLogs: [], violations: [] }),
+          getPayrollDeliveryData(record),
         ]);
 
         if (active) {
-          const dates: string[] = [];
-          const start = new Date(record.cutoff_start);
-          const end = new Date(record.cutoff_end);
-          const current = new Date(start);
-          while (current <= end) {
-            dates.push(current.toISOString().split("T")[0]);
-            current.setDate(current.getDate() + 1);
-          }
-
-          const mappedLogs = dates.map((date) => {
-            const existing = fetchedLogs.find((l) => l.date === date);
-            const attObj = fetchedMetrics.attendanceLogs.find(
-              (a) => a.date === date
-            );
-            const rawTimeIn = attObj?.time_in || null;
-            let calculatedRate = existing?.rate || 10;
-            if (rawTimeIn) {
-              const d = new Date(rawTimeIn.replace(" ", "T"));
-              if (!isNaN(d.getTime())) {
-                const hours = d.getHours();
-                const mins = d.getMinutes();
-                const totalMinutes = hours * 60 + mins;
-                if (totalMinutes <= 480) calculatedRate = 12;
-                else if (totalMinutes <= 540) calculatedRate = 11;
-                else calculatedRate = 10;
-              }
-            }
-            const parcels = existing?.parcels ?? 0;
-            return {
-              id: existing?.id || "",
-              riderId: record.rider_id,
-              date,
-              parcels,
-              rate: calculatedRate,
-              dailyGross: parcels * calculatedRate,
-            };
-          });
-
           setMetrics(fetchedMetrics);
-          setDayEntries(mappedLogs);
+          setDayEntries(deliveryData.lines);
+          setOperationalSummary(deliveryData.summary);
+          setDeliverySource(deliveryData.source);
+          setCalculationVersion(deliveryData.calculationVersion);
 
           // Option B: Initialize adjustments state from record
           setOtherEarnings(Number(record.other_earnings ?? 0));
@@ -207,11 +234,11 @@ export function PayrollDetailsModal({
           setLateRemittance(Number(record.late_remittance ?? 0));
 
           // Default selected day to the latest day with parcel deliveries, or just the first day in logs
-          const withDeliveries = mappedLogs.filter((l) => l.parcels > 0);
+          const withDeliveries = deliveryData.lines.filter((l) => l.parcels + l.heavyParcels > 0);
           if (withDeliveries.length > 0) {
             setSelectedDate(withDeliveries[withDeliveries.length - 1].date);
-          } else if (mappedLogs.length > 0) {
-            setSelectedDate(mappedLogs[mappedLogs.length - 1].date);
+          } else if (deliveryData.lines.length > 0) {
+            setSelectedDate(deliveryData.lines[deliveryData.lines.length - 1].date);
           } else {
             setSelectedDate(null);
           }
@@ -220,7 +247,7 @@ export function PayrollDetailsModal({
         console.error("[PayrollDetailsModal] Failed to load details:", err);
         pushToast({
           title: "Error loading payroll details",
-          description: "Failed to fetch attendance metrics or parcel logs.",
+          description: err instanceof Error ? err.message : "Failed to load the payroll snapshot.",
           tone: "error",
         });
       } finally {
@@ -232,29 +259,7 @@ export function PayrollDetailsModal({
     return () => {
       active = false;
     };
-  }, [record, isOpen]);
-
-  // Group parcels by rate
-  const rateBreakdown = useMemo(() => {
-    if (!isOpen || !record) return [];
-    const groups: Record<number, { parcels: number; gross: number }> = {};
-    dayEntries.forEach((e) => {
-      if (e.parcels > 0) {
-        const r = e.rate || record.rate_per_parcel;
-        if (r == null) return;
-        if (!groups[r]) {
-          groups[r] = { parcels: 0, gross: 0 };
-        }
-        groups[r].parcels += e.parcels;
-        groups[r].gross += e.dailyGross;
-      }
-    });
-    return Object.entries(groups).map(([rateKey, val]) => ({
-      rate: Number(rateKey),
-      parcels: val.parcels,
-      gross: val.gross,
-    })).sort((a, b) => b.rate - a.rate);
-  }, [dayEntries, record, isOpen]);
+  }, [record, isOpen, parcelLogsVersion]);
 
   if (!isOpen || !record) return null;
 
@@ -262,10 +267,21 @@ export function PayrollDetailsModal({
   const riderMkbId = record.riders?.mkb_id || "MKB-RIDER";
   const zoneName = record.riders?.zones?.name || "Zamboanga City";
   const shiftText = record.riders?.shift || "Morning";
-  const hasStoredRate = record.rate_per_parcel != null;
-  const ratePerParcel = record.rate_per_parcel ?? 0;
   const computedGrossPay = dayEntries.reduce((sum, e) => sum + e.dailyGross, 0);
   const grossPay = record.gross_pay ?? computedGrossPay;
+  const payslipDays = parcelLogsToPayslipDays(dayEntries);
+  const snapshotContext: PayslipSnapshotContext = {
+    source: deliverySource,
+    calculationVersion,
+    standardParcels: operationalSummary.standardDelivered,
+    heavyParcels: operationalSummary.heavyDelivered,
+    failedParcels: operationalSummary.failed,
+    returnedParcels: operationalSummary.returned,
+    standardEarnings: operationalSummary.standardEarnings,
+    heavyEarnings: operationalSummary.heavyEarnings,
+    grossDeliveryPay: operationalSummary.grossDeliveryPay,
+  };
+  const isExportReady = deliverySource === "legacy" || dayEntries.every(entry => Boolean(entry.rateConfigurationId));
 
   // Status mapping
   const statusColors: Record<
@@ -423,29 +439,23 @@ export function PayrollDetailsModal({
   };
 
   const handleExportPDF = () => {
-    if (!hasStoredRate) {
+    if (!isExportReady) {
       pushToast({
         title: "Rate requires review",
-        description: "A payroll rate must be stored before this payslip can be exported.",
+        description: "Required payroll rate snapshots are missing. Review this payroll before export.",
         tone: "error",
       });
       return;
     }
     try {
-      const mappedEntries = dayEntries.map((e) => ({
-        date: e.date,
-        parcels: e.parcels,
-        rate: e.rate,
-        dailyGross: e.dailyGross,
-      }));
       exportParcelPayslipPDF(
         riderName,
         riderMkbId,
         zoneName,
         record.cutoff_start,
         record.cutoff_end,
-        ratePerParcel,
-        mappedEntries,
+        payslipDays,
+        snapshotContext,
         {
           otherEarnings,
           fmPickupCount,
@@ -463,29 +473,22 @@ export function PayrollDetailsModal({
       console.error("[PayrollDetailsModal] PDF export failed:", err);
       pushToast({
         title: "PDF Export failed",
-        description: "Please try again.",
+        description: err instanceof Error ? err.message : "Please try again.",
         tone: "error",
       });
     }
   };
 
   const handleExportExcel = async () => {
-    if (!hasStoredRate) {
+    if (!isExportReady) {
       pushToast({
         title: "Rate requires review",
-        description: "A payroll rate must be stored before this payslip can be exported.",
+        description: "Required payroll rate snapshots are missing. Review this payroll before export.",
         tone: "error",
       });
       return;
     }
     try {
-      const mappedEntries = dayEntries.map((e) => ({
-        date: e.date,
-        parcels: e.parcels,
-        rate: e.rate,
-        dailyGross: e.dailyGross,
-      }));
-
       let atmNumber = 'N/A';
       const notesStr = record.riders?.notes || '';
       const match = notesStr.match(/ATM\s*Number:\s*(\d+)/i) || notesStr.match(/ATM:\s*(\d+)/i) || notesStr.match(/ATM\s*#?\s*(\d+)/i);
@@ -498,7 +501,8 @@ export function PayrollDetailsModal({
         riderMkbId,
         record.cutoff_start,
         record.cutoff_end,
-        mappedEntries,
+        payslipDays,
+        snapshotContext,
         atmNumber,
         {
           otherEarnings,
@@ -518,7 +522,7 @@ export function PayrollDetailsModal({
       console.error("[PayrollDetailsModal] Excel export failed:", err);
       pushToast({
         title: "Excel Export failed",
-        description: "Please try again.",
+        description: err instanceof Error ? err.message : "Please try again.",
         tone: "error",
       });
     }
@@ -594,9 +598,9 @@ export function PayrollDetailsModal({
           </div>
         </div>
 
-        {!hasStoredRate && (
+        {!isExportReady && (
           <div className="mx-5 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900" role="status">
-            Payroll rate is missing. Review and save the rate before exporting this payslip.
+            Required payroll rate snapshots are missing. Review this payroll before exporting.
           </div>
         )}
 
@@ -670,6 +674,8 @@ export function PayrollDetailsModal({
                   violationCount={violationCount}
                   avgDailyParcels={avgDailyParcels}
                 />
+
+                <OperationalSummaryCard summary={operationalSummary} source={deliverySource} calculationVersion={calculationVersion} />
 
                 {/* Day Details Timeline Banner */}
                 <SelectedDayDetails
@@ -791,8 +797,8 @@ export function PayrollDetailsModal({
                 record={record}
                 role={role}
                 grossPay={grossPay}
-                rateBreakdown={rateBreakdown}
-                ratePerParcel={ratePerParcel}
+                operationalSummary={operationalSummary}
+                calculationVersion={calculationVersion}
                 otherEarnings={otherEarnings}
                 setOtherEarnings={setOtherEarnings}
                 fmPickupCount={fmPickupCount}
@@ -963,7 +969,7 @@ export function PayrollDetailsModal({
                   <div className="flex gap-2 pt-2 border-t border-border/50">
                     <button
                       onClick={handleExportPDF}
-                      disabled={!hasStoredRate}
+                      disabled={!isExportReady}
                       className="flex-1 h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
                       <Printer className="w-3.5 h-3.5 text-primary" />
@@ -972,7 +978,7 @@ export function PayrollDetailsModal({
 
                     <button
                       onClick={handleExportExcel}
-                      disabled={!hasStoredRate}
+                      disabled={!isExportReady}
                       className="flex-1 h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -980,21 +986,16 @@ export function PayrollDetailsModal({
                     </button>
 
                     <button
-                      disabled={!hasStoredRate}
+                      disabled={!isExportReady}
                       onClick={() => {
                         try {
-                          const mappedEntries = dayEntries.map((e) => ({
-                            date: e.date,
-                            parcels: e.parcels,
-                            dailyGross: e.dailyGross,
-                          }));
                           exportParcelCSV(
                             riderName,
                             riderMkbId,
                             record.cutoff_start,
                             record.cutoff_end,
-                            ratePerParcel,
-                            mappedEntries,
+                            payslipDays,
+                            snapshotContext,
                             {
                               otherEarnings,
                               fmPickupCount,
@@ -1008,9 +1009,10 @@ export function PayrollDetailsModal({
                             description: "Voucher downloaded in CSV format.",
                             tone: "success",
                           });
-                        } catch {
+                        } catch (err) {
                           pushToast({
                             title: "CSV Export failed",
+                            description: err instanceof Error ? err.message : "Please try again.",
                             tone: "error",
                           });
                         }
@@ -1027,7 +1029,7 @@ export function PayrollDetailsModal({
                 <div className="space-y-2">
                   <button
                     onClick={handleExportPDF}
-                    disabled={!hasStoredRate}
+                    disabled={!isExportReady}
                     className="w-full h-9 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -1036,7 +1038,7 @@ export function PayrollDetailsModal({
 
                   <button
                     onClick={handleExportExcel}
-                    disabled={!hasStoredRate}
+                    disabled={!isExportReady}
                     className="w-full h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />

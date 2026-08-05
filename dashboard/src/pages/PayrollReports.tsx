@@ -12,12 +12,11 @@ import {
   Users,
   Package
 } from 'lucide-react';
-import { getRiderAttendanceInDateRange } from '../services/attendanceService';
 import { getZones } from '../services/geofenceService';
 import { getAllRiders } from '../services/monitoringService';
 import type { Rider, Zone } from '../services/types';
 import {
-  getParcelLogs,
+  getPayrollDeliveryData,
   getParcelLogsSummary,
   getPayrollRecordsSummary,
   getParcelLogsDetails,
@@ -27,7 +26,10 @@ import {
   exportParcelPayslipPDF,
   exportParcelCSV,
   exportCutoffSummaryCSV,
+  parcelLogsToPayslipDays,
+  type PayslipSnapshotContext,
 } from '../lib/exports/payrollExport';
+import { isReadOnlyStatus } from '../types/payroll';
 import { pushToast } from '../hooks/useToast';
 import { exportXLSXFile } from '../lib/exports/excelHelper';
 import autoTable from 'jspdf-autotable';
@@ -110,7 +112,6 @@ export function PayrollReports() {
   const [to, setTo] = useState(isoToday());
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const [bulkMode, setBulkMode] = useState<'single' | 'bulk'>('bulk');
-  const [rate, setRate] = useState(50);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,6 +138,11 @@ export function PayrollReports() {
 
   interface ParcelLogRow {
     parcels: number;
+    heavy_parcels: number;
+    failed_parcels: number;
+    returned_parcels: number;
+    standard_earnings: number;
+    heavy_earnings: number;
     daily_gross: number;
     date: string;
     rider_id: string;
@@ -208,13 +214,15 @@ export function PayrollReports() {
     ? cutoffLogs
     : cutoffLogs.filter(log => log.riders?.zone_id && selectedZones.includes(log.riders.zone_id));
 
-  const totalParcels = filteredLogs.reduce((sum, log) => sum + (log.parcels || 0), 0);
+  const totalStandardParcels = filteredLogs.reduce((sum, log) => sum + Number(log.parcels || 0), 0);
+  const totalHeavyParcels = filteredLogs.reduce((sum, log) => sum + Number(log.heavy_parcels || 0), 0);
+  const totalParcels = totalStandardParcels + totalHeavyParcels;
   const totalGross = filteredLogs.reduce((sum, log) => sum + (log.daily_gross || 0), 0);
   const distinctRiders = new Set(filteredLogs.map(log => log.rider_id));
   const totalRiders = distinctRiders.size;
 
   const flaggedRiders = new Set(
-    filteredLogs.filter(log => log.parcels > 100).map(log => log.rider_id)
+    filteredLogs.filter(log => Number(log.parcels || 0) + Number(log.heavy_parcels || 0) > 100).map(log => log.rider_id)
   ).size;
 
   const activeRidersCount = selectedZones.length === 0
@@ -244,7 +252,7 @@ export function PayrollReports() {
 
   filteredLogs.forEach(log => {
     if (riderParcelsMap[log.rider_id]) {
-      riderParcelsMap[log.rider_id].parcels += log.parcels || 0;
+      riderParcelsMap[log.rider_id].parcels += Number(log.parcels || 0) + Number(log.heavy_parcels || 0);
     }
   });
 
@@ -286,9 +294,10 @@ export function PayrollReports() {
 
       if (template === 'cutoff_summary') {
         const records = await getPayrollRecords(from, to);
+        const finalizedRecords = records.filter(r => isReadOnlyStatus(r.status));
         const filteredRecords = selectedZones.length === 0
-          ? records
-          : records.filter(r => r.riders?.zone_id && selectedZones.includes(r.riders.zone_id));
+          ? finalizedRecords
+          : finalizedRecords.filter(r => r.riders?.zone_id && selectedZones.includes(r.riders.zone_id));
 
         if (filteredRecords.length === 0) {
           pushToast({
@@ -300,16 +309,25 @@ export function PayrollReports() {
           return;
         }
 
-        const rows = filteredRecords.map(r => {
+        const recordsWithDelivery = await Promise.all(filteredRecords.map(async record => ({
+          record,
+          delivery: await getPayrollDeliveryData(record),
+        })));
+        const rows = recordsWithDelivery.map(({ record: r, delivery }) => {
           const zName = r.riders?.zones?.name || '—';
-          const activeRate = parseFloat(r.rate_per_parcel || 10);
-          const computedGross = r.gross_pay ? parseFloat(r.gross_pay) : (r.total_parcels * activeRate);
+          const computedGross = Number(r.gross_pay ?? 0);
           return {
             riderName: r.riders?.name || 'Unknown Rider',
             riderId: r.riders?.mkb_id || '—',
             zone: zName,
             totalParcels: r.total_parcels,
-            ratePerParcel: activeRate,
+            standardParcels: delivery.summary.standardDelivered,
+            heavyParcels: delivery.summary.heavyDelivered,
+            failedParcels: delivery.summary.failed,
+            returnedParcels: delivery.summary.returned,
+            standardEarnings: delivery.summary.standardEarnings,
+            heavyEarnings: delivery.summary.heavyEarnings,
+            calculationVersion: delivery.calculationVersion,
             flagged: r.status === 'flagged' ? 'YES' : 'NO',
             grossPay: computedGross
           };
@@ -321,7 +339,13 @@ export function PayrollReports() {
               riderName: r.riderName,
               zone: r.zone,
               totalParcels: r.totalParcels,
-              ratePerParcel: r.ratePerParcel,
+              standardParcels: r.standardParcels,
+              heavyParcels: r.heavyParcels,
+              failedParcels: r.failedParcels,
+              returnedParcels: r.returnedParcels,
+              standardEarnings: r.standardEarnings,
+              heavyEarnings: r.heavyEarnings,
+              calculationVersion: r.calculationVersion,
               grossPay: r.grossPay
             })),
             cutoffLabel
@@ -329,14 +353,13 @@ export function PayrollReports() {
         } else if (format === 'xlsx') {
           await exportXLSXFile(
             'Cutoff Summary',
-            ['Rider', 'Rider ID', 'Zone', 'Total Parcels', 'Flagged', 'Total Gross Pay'],
+            ['Rider', 'Rider ID', 'Zone', 'Standard', 'Heavy', 'Failed', 'Returned', 'Standard Earnings', 'Heavy Earnings', 'Gross Delivery Pay', 'Calculation Version', 'Flagged'],
             rows.map(r => [
               r.riderName,
               r.riderId,
               r.zone,
-              r.totalParcels,
-              r.flagged,
-              r.grossPay
+              r.standardParcels, r.heavyParcels, r.failedParcels, r.returnedParcels,
+              r.standardEarnings, r.heavyEarnings, r.grossPay, r.calculationVersion, r.flagged
             ]),
             `mkbridertrack_cutoff_summary_${from}_${to}`,
             '/files/MKB_Cutoff_Summary_Payroll_Template.xlsx'
@@ -358,13 +381,13 @@ export function PayrollReports() {
 
             autoTable(doc, {
               startY: 35,
-              head: [['Rider', 'Zone', 'Total Parcels', 'Rate per Parcel', 'Gross Pay']],
+              head: [['Rider', 'Zone', 'Standard', 'Heavy', 'Failed', 'Returned', 'Gross Pay', 'Version']],
               body: rows.map(r => [
                 r.riderName,
                 r.zone,
-                r.totalParcels.toString(),
-                `₱${r.ratePerParcel.toFixed(2)}`,
-                `₱${r.grossPay.toLocaleString()}`
+                r.standardParcels.toString(), r.heavyParcels.toString(),
+                r.failedParcels.toString(), r.returnedParcels.toString(),
+                `₱${r.grossPay.toLocaleString()}`, `v${r.calculationVersion}`
               ]),
               headStyles: { fillColor: [219, 108, 0], textColor: 255 },
               alternateRowStyles: { fillColor: [255, 241, 224] }
@@ -401,47 +424,20 @@ export function PayrollReports() {
           return;
         }
 
-        // Fetch logs for all target riders and export
+        const payrollRecords = (await getPayrollRecords(from, to)).filter(record => isReadOnlyStatus(record.status));
+        // Finalized payslips are generated only from immutable payroll snapshots.
         for (const rider of targets) {
-          const dates: string[] = [];
-          const start = new Date(from);
-          const end = new Date(to);
-          const current = new Date(start);
-          while (current <= end) {
-            dates.push(current.toISOString().split('T')[0]);
-            current.setDate(current.getDate() + 1);
-          }
-
-          const [logs, attList] = await Promise.all([
-            getParcelLogs(rider.id, from, to),
-            getRiderAttendanceInDateRange(rider.id, from, to)
-          ]);
-          const dayEntries = dates.map(date => {
-            const existing = logs.find(l => l.date === date);
-            const att = attList.find(a => a.date === date);
-
-            const canonicalTimeIn = att?.rawTimeIn || (att?.timeIn ? `${date}T${att.timeIn}:00` : null);
-            let calculatedRate = 10;
-            if (canonicalTimeIn) {
-              const d = new Date(canonicalTimeIn);
-              if (!isNaN(d.getTime())) {
-                const hours = d.getHours();
-                const mins = d.getMinutes();
-                const totalMinutes = hours * 60 + mins;
-                if (totalMinutes <= 480) calculatedRate = 12;
-                else if (totalMinutes <= 540) calculatedRate = 11;
-              }
-            } else if (existing && existing.rate) {
-              calculatedRate = existing.rate;
-            }
-
-            return {
-              date,
-              parcels: existing?.parcels ?? 0,
-              rate: calculatedRate,
-              dailyGross: existing ? existing.parcels * calculatedRate : 0
-            };
-          });
+          const payrollRecord = payrollRecords.find(record => record.rider_id === rider.id);
+          if (!payrollRecord) throw new Error(`No finalized payroll snapshot found for ${rider.name}.`);
+          const deliveryData = await getPayrollDeliveryData(payrollRecord);
+          const dayEntries = parcelLogsToPayslipDays(deliveryData.lines);
+          const snapshot: PayslipSnapshotContext = {
+            source: deliveryData.source, calculationVersion: deliveryData.calculationVersion,
+            standardParcels: deliveryData.summary.standardDelivered, heavyParcels: deliveryData.summary.heavyDelivered,
+            failedParcels: deliveryData.summary.failed, returnedParcels: deliveryData.summary.returned,
+            standardEarnings: deliveryData.summary.standardEarnings, heavyEarnings: deliveryData.summary.heavyEarnings,
+            grossDeliveryPay: deliveryData.summary.grossDeliveryPay,
+          };
 
           const zoneName = zonesList.find(z => z.id === rider.zoneId)?.name || '—';
 
@@ -451,8 +447,8 @@ export function PayrollReports() {
               rider.riderCode || 'MKB-RIDER',
               from,
               to,
-              rate,
-              dayEntries
+              dayEntries,
+              snapshot
             );
           } else {
             exportParcelPayslipPDF(
@@ -461,8 +457,8 @@ export function PayrollReports() {
               zoneName,
               from,
               to,
-              rate,
-              dayEntries
+              dayEntries,
+              snapshot
             );
           }
         }
@@ -493,15 +489,22 @@ export function PayrollReports() {
           return;
         }
 
-        const cols = ['Rider', 'Rider ID', 'Zone', 'Date', 'Parcels Delivered', 'Rate per Parcel', 'Daily Gross'];
+        const cols = ['Rider', 'Rider ID', 'Zone', 'Date', 'Standard', 'Heavy', 'Failed', 'Returned', 'Standard Rate', 'Heavy Rate', 'Standard Earnings', 'Heavy Earnings', 'Gross Delivery Pay', 'Rate Configuration'];
         const rows = data.map(log => [
           log.riders?.name || 'Unknown Rider',
           log.riders?.mkb_id || '—',
           log.riders?.zones?.name || '—',
           log.date,
           log.parcels,
-          parseFloat(log.rate || 10),
-          parseFloat(log.daily_gross || 0)
+          Number(log.heavy_parcels ?? 0),
+          Number(log.failed_parcels ?? 0),
+          Number(log.returned_parcels ?? 0),
+          Number(log.rate),
+          Number(log.heavy_rate),
+          Number(log.standard_earnings),
+          Number(log.heavy_earnings),
+          Number(log.daily_gross),
+          log.rate_configuration_id,
         ]);
 
         if (format === 'xlsx') {
@@ -552,7 +555,7 @@ export function PayrollReports() {
       console.error(err);
       pushToast({
         title: 'Export failed',
-        description: 'Failed to complete query transactions.',
+        description: err instanceof Error ? err.message : 'Failed to complete query transactions.',
         tone: 'error'
       });
     } finally {
@@ -651,19 +654,10 @@ export function PayrollReports() {
                 </div>
               )}
 
-              {/* Rate Per Parcel (needed for payslips) */}
+              {/* Rates come from immutable payroll snapshots. */}
               {template === 'individual_payslips' && (
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
-                    Default Rate per Parcel (₱)
-                  </div>
-                  <input
-                    type="number"
-                    min={0}
-                    value={rate}
-                    onChange={e => setRate(Math.max(0, Number(e.target.value) || 0))}
-                    className="w-full h-10 px-3 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-                  />
+                <div className="rounded-lg border border-border bg-panel-bg px-3 py-2 text-xs text-muted-foreground">
+                  Parcel counts and rates are read-only and come from finalized payroll snapshots.
                 </div>
               )}
 
@@ -790,7 +784,7 @@ export function PayrollReports() {
                 <div className="text-xs text-muted-foreground leading-relaxed space-y-4">
                   <p>
                     This cutoff has <span className="font-semibold text-foreground">{totalRiders} active riders</span> who delivered a total of{' '}
-                    <span className="font-semibold text-foreground">{totalParcels.toLocaleString()} parcels</span>.
+                    <span className="font-semibold text-foreground">{totalParcels.toLocaleString()} parcels</span> ({totalStandardParcels.toLocaleString()} standard, {totalHeavyParcels.toLocaleString()} heavy).
                   </p>
                   <p>
                     Total gross payroll calculated at <span className="font-semibold text-primary">₱{totalGross.toLocaleString()}</span>.{' '}

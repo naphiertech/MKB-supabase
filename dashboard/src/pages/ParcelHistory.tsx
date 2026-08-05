@@ -99,13 +99,16 @@ export function ParcelHistory() {
   const [selectedDetailRow, setSelectedDetailRow] = useState<ParcelHistoryItem | null>(null);
 
   // Auth & Audit state
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const canEditParcelLogs = session?.role === 'admin' || session?.role === 'hr';
+  const canReviewCorrections = session?.role === 'admin';
   const [auditLogs, setAuditLogs] = useState<ParcelLogAuditEntry[]>([]);
   const [loadingAudit, setLoadingAudit] = useState<boolean>(false);
 
   // Drawer Inline Edit state
   const [isEditingDrawer, setIsEditingDrawer] = useState<boolean>(false);
   const [editDelivered, setEditDelivered] = useState<number>(0);
+  const [editHeavy, setEditHeavy] = useState<number>(0);
   const [editFailed, setEditFailed] = useState<number>(0);
   const [editReturned, setEditReturned] = useState<number>(0);
   const [editReason, setEditReason] = useState<string>('');
@@ -121,6 +124,10 @@ export function ParcelHistory() {
 
   // Fetch pending correction requests for admin review
   const loadCorrectionRequests = useCallback(async () => {
+    if (!canReviewCorrections) {
+      setCorrectionRequests([]);
+      return;
+    }
     setLoadingCorrections(true);
     try {
       const data = await getParcelCorrectionRequests('pending');
@@ -130,7 +137,7 @@ export function ParcelHistory() {
     } finally {
       setLoadingCorrections(false);
     }
-  }, []);
+  }, [canReviewCorrections]);
 
   useEffect(() => {
     loadCorrectionRequests();
@@ -139,13 +146,19 @@ export function ParcelHistory() {
   // Fetch audit history & cutoff lock state whenever a row is selected for the detail drawer
   useEffect(() => {
     if (selectedDetailRow?.id) {
-      setLoadingAudit(true);
-      getParcelLogAuditHistory(selectedDetailRow.id)
-        .then(setAuditLogs)
-        .catch(err => console.error('Failed to fetch parcel audit history:', err))
-        .finally(() => setLoadingAudit(false));
+      if (canEditParcelLogs) {
+        setLoadingAudit(true);
+        getParcelLogAuditHistory(selectedDetailRow.id)
+          .then(setAuditLogs)
+          .catch(err => console.error('Failed to fetch parcel audit history:', err))
+          .finally(() => setLoadingAudit(false));
+      } else {
+        setAuditLogs([]);
+        setLoadingAudit(false);
+      }
 
       setEditDelivered(selectedDetailRow.deliveredParcels);
+      setEditHeavy(selectedDetailRow.heavyParcels);
       setEditFailed(selectedDetailRow.failedDeliveries || 0);
       setEditReturned(selectedDetailRow.returnedParcels || 0);
       setEditReason('');
@@ -158,7 +171,7 @@ export function ParcelHistory() {
       setAuditLogs([]);
       setIsEditingDrawer(false);
     }
-  }, [selectedDetailRow]);
+  }, [selectedDetailRow, canEditParcelLogs]);
 
   const handleReviewDecision = async (requestId: string, decision: 'approved' | 'rejected') => {
     setProcessingId(requestId);
@@ -278,7 +291,7 @@ export function ParcelHistory() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-          <button
+          {canReviewCorrections && <button
             type="button"
             onClick={() => setShowCorrectionsModal(true)}
             className="px-3.5 py-2 rounded-lg bg-white border border-border hover:bg-panel-bg text-xs font-semibold text-foreground flex items-center gap-2 cursor-pointer shadow-xs transition"
@@ -290,7 +303,7 @@ export function ParcelHistory() {
                 {correctionRequests.length}
               </span>
             )}
-          </button>
+          </button>}
           <div className="text-xs font-mono text-muted-foreground bg-panel-bg border border-border px-3.5 py-2 rounded-lg shadow-xs">
             Total Manifest Logs: <strong className="text-foreground font-bold tabular-nums">{totalCount.toLocaleString()}</strong>
           </div>
@@ -421,18 +434,20 @@ export function ParcelHistory() {
             <p className="text-[11px]">Adjust your filter date range or search parameters.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="overflow-x-auto hidden lg:block">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-panel-bg border-b border-border text-muted-foreground font-semibold text-[11px] uppercase tracking-wider">
                   <th className="py-3 px-4">Shift Date</th>
                   <th className="py-3 px-4">Courier / Rider</th>
                   <th className="py-3 px-4">Zone</th>
-                  <th className="py-3 px-4">Attendance</th>
-                  <th className="py-3 px-4 text-right">Delivered</th>
-                  <th className="py-3 px-4 text-right">Gross Wage Preview</th>
-                  <th className="py-3 px-4">Payroll Cutoff</th>
-                  <th className="py-3 px-4">Recorded By</th>
+                  <th className="py-3 px-3 text-right">Standard</th>
+                  <th className="py-3 px-3 text-right">Heavy</th>
+                  <th className="py-3 px-3 text-right">Failed</th>
+                  <th className="py-3 px-3 text-right">Returned</th>
+                  <th className="py-3 px-3 text-right">Delivered</th>
+                  <th className="py-3 px-4 text-right">Daily Gross</th>
                   <th className="py-3 px-4 text-center">Action</th>
                 </tr>
               </thead>
@@ -456,21 +471,15 @@ export function ParcelHistory() {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">{row.zoneName}</td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <StatusBadge status={row.attendanceStatus} />
-                    </td>
-                    <td className="py-3 px-4 text-right font-bold font-mono text-primary tabular-nums whitespace-nowrap">
+                    <td className="py-3 px-3 text-right font-bold font-mono text-primary tabular-nums whitespace-nowrap">
                       {row.deliveredParcels.toLocaleString()}
                     </td>
+                    <td className="py-3 px-3 text-right font-bold font-mono text-violet-700 tabular-nums">{row.heavyParcels.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right font-mono tabular-nums">{row.failedDeliveries.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right font-mono tabular-nums">{row.returnedParcels.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right font-bold font-mono tabular-nums">{row.totalDelivered.toLocaleString()}</td>
                     <td className="py-3 px-4 text-right font-bold font-mono text-emerald-700 tabular-nums whitespace-nowrap">
-                      ₱{row.grossWagePreview.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-4 text-[11px] text-muted-foreground font-mono whitespace-nowrap">
-                      {row.payrollCutoff}
-                    </td>
-                    <td className="py-3 px-4 text-[11px] text-muted-foreground whitespace-nowrap">
-                      <div className="font-medium text-foreground">{row.createdByName}</div>
-                      {row.createdByDetail && <div className="text-[10px] text-muted-foreground">{row.createdByDetail}</div>}
+                      ₱{row.dailyGross.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-3 px-4 text-center whitespace-nowrap">
                       <button
@@ -489,6 +498,45 @@ export function ParcelHistory() {
               </tbody>
             </table>
           </div>
+          <div className="grid gap-3 p-3 lg:hidden">
+            {historyItems.map(row => (
+              <button
+                key={row.id}
+                type="button"
+                onClick={() => setSelectedDetailRow(row)}
+                className="text-left rounded-xl border border-border bg-white p-3 space-y-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <RiderAvatar src={row.riderAvatar} name={row.riderName} className="w-9 h-9" />
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs text-foreground truncate">{row.riderName}</div>
+                      <div className="text-[10px] text-muted-foreground">{row.date} · {row.zoneName}</div>
+                    </div>
+                  </div>
+                  <StatusBadge status={row.attendanceStatus} />
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  {[
+                    ['Standard', row.deliveredParcels],
+                    ['Heavy', row.heavyParcels],
+                    ['Failed', row.failedDeliveries],
+                    ['Returned', row.returnedParcels]
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-border bg-panel-bg p-2">
+                      <div className="text-[9px] uppercase font-semibold text-muted-foreground">{label}</div>
+                      <div className="font-mono font-bold text-sm text-foreground">{value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">{row.totalDelivered} delivered · {row.deliverySuccessRate.toFixed(1)}% success</span>
+                  <strong className="font-mono text-emerald-700">₱{row.dailyGross.toLocaleString()}</strong>
+                </div>
+              </button>
+            ))}
+          </div>
+          </>
         )}
 
         {/* Pagination Footer */}
@@ -582,10 +630,8 @@ export function ParcelHistory() {
                           </div>
                         </div>
                         <div>
-                          <div className="text-muted-foreground text-[11px]">Delivered Parcels</div>
-                          <div className="font-bold font-mono text-primary text-sm tabular-nums">
-                            {selectedDetailRow.deliveredParcels.toLocaleString()}
-                          </div>
+                          <div className="text-muted-foreground text-[11px]">Total Delivered</div>
+                          <div className="font-bold font-mono text-primary text-sm tabular-nums">{selectedDetailRow.totalDelivered.toLocaleString()}</div>
                         </div>
                       </div>
                     </div>
@@ -594,14 +640,14 @@ export function ParcelHistory() {
                     <div className="p-4 rounded-xl bg-panel-bg border border-border space-y-3">
                       <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                         <span>Delivery Outcome Breakdown</span>
-                        <button
+                        {canEditParcelLogs && <button
                           type="button"
                           onClick={() => setIsEditingDrawer(!isEditingDrawer)}
                           className="px-2.5 py-1 rounded-lg bg-white border border-border hover:bg-panel-bg text-[10.5px] font-semibold text-primary flex items-center gap-1 cursor-pointer shadow-2xs"
                         >
                           <Edit3 className="w-3 h-3" />
                           {isEditingDrawer ? 'Cancel Edit' : drawerCutoffLocked ? 'Request Correction' : 'Edit Manifest'}
-                        </button>
+                        </button>}
                       </div>
 
                       {isEditingDrawer ? (
@@ -611,14 +657,26 @@ export function ParcelHistory() {
                             {drawerCutoffLocked ? 'Submit Correction Request' : 'Direct Operational Edit (Draft Status)'}
                           </div>
 
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="block text-[10.5px] font-semibold text-muted-foreground mb-1">Delivered</label>
+                              <label className="block text-[10.5px] font-semibold text-muted-foreground mb-1">Standard</label>
                               <input
                                 type="number"
                                 min={0}
+                                step={1}
                                 value={editDelivered}
-                                onChange={e => setEditDelivered(parseInt(e.target.value) || 0)}
+                                onChange={e => setEditDelivered(Number(e.target.value))}
+                                className="w-full h-8 px-2 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground font-bold"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10.5px] font-semibold text-muted-foreground mb-1">Heavy</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={editHeavy}
+                                onChange={e => setEditHeavy(Number(e.target.value))}
                                 className="w-full h-8 px-2 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground font-bold"
                               />
                             </div>
@@ -627,8 +685,9 @@ export function ParcelHistory() {
                               <input
                                 type="number"
                                 min={0}
+                                step={1}
                                 value={editFailed}
-                                onChange={e => setEditFailed(parseInt(e.target.value) || 0)}
+                                onChange={e => setEditFailed(Number(e.target.value))}
                                 className="w-full h-8 px-2 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground"
                               />
                             </div>
@@ -637,8 +696,9 @@ export function ParcelHistory() {
                               <input
                                 type="number"
                                 min={0}
+                                step={1}
                                 value={editReturned}
-                                onChange={e => setEditReturned(parseInt(e.target.value) || 0)}
+                                onChange={e => setEditReturned(Number(e.target.value))}
                                 className="w-full h-8 px-2 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground"
                               />
                             </div>
@@ -690,9 +750,11 @@ export function ParcelHistory() {
                                       riderId: selectedDetailRow.riderId,
                                       date: selectedDetailRow.date,
                                       previousDelivered: selectedDetailRow.deliveredParcels,
+                                      previousHeavy: selectedDetailRow.heavyParcels,
                                       previousFailed: selectedDetailRow.failedDeliveries || 0,
                                       previousReturned: selectedDetailRow.returnedParcels || 0,
                                       requestedDelivered: editDelivered,
+                                      requestedHeavy: editHeavy,
                                       requestedFailed: editFailed,
                                       requestedReturned: editReturned,
                                       reason: editReason,
@@ -711,6 +773,7 @@ export function ParcelHistory() {
                                           riderId: selectedDetailRow.riderId,
                                           date: selectedDetailRow.date,
                                           parcels: editDelivered,
+                                          heavyParcels: editHeavy,
                                           assignedParcels: selectedDetailRow.assignedParcels,
                                           failedDeliveries: editFailed,
                                           returnedParcels: editReturned,
@@ -753,12 +816,16 @@ export function ParcelHistory() {
                           </div>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="grid grid-cols-2 gap-2 text-center">
                           <div className="p-2.5 rounded-lg bg-emerald-50/80 border border-emerald-500/20">
-                            <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">Delivered</div>
+                            <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">Standard</div>
                             <div className="text-base font-bold font-mono text-emerald-700 tabular-nums mt-0.5">
                               {selectedDetailRow.deliveredParcels.toLocaleString()}
                             </div>
+                          </div>
+                          <div className="p-2.5 rounded-lg bg-violet-50/80 border border-violet-500/20">
+                            <div className="text-[10px] uppercase font-bold text-violet-800 tracking-wider">Heavy</div>
+                            <div className="text-base font-bold font-mono text-violet-700 tabular-nums mt-0.5">{selectedDetailRow.heavyParcels.toLocaleString()}</div>
                           </div>
                           <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-500/20">
                             <div className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">Failed</div>
@@ -774,6 +841,18 @@ export function ParcelHistory() {
                           </div>
                         </div>
                       )}
+
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] border-t border-border pt-3">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Total delivered</span><strong>{selectedDetailRow.totalDelivered}</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Total handled</span><strong>{selectedDetailRow.totalHandled}</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Success rate</span><strong>{selectedDetailRow.deliverySuccessRate.toFixed(1)}%</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Daily gross</span><strong className="font-mono">₱{selectedDetailRow.dailyGross.toLocaleString()}</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Standard rate</span><strong className="font-mono">₱{selectedDetailRow.standardRate}</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Heavy rate</span><strong className="font-mono">₱{selectedDetailRow.heavyRate}</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Standard earnings</span><strong className="font-mono">₱{selectedDetailRow.standardEarnings.toLocaleString()}</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Heavy earnings</span><strong className="font-mono">₱{selectedDetailRow.heavyEarnings.toLocaleString()}</strong></div>
+                        <div className="col-span-2 text-muted-foreground break-all">Rate configuration: {selectedDetailRow.rateConfigurationEffectiveFrom || selectedDetailRow.rateConfigurationId || 'Legacy record'}</div>
+                      </div>
 
                       {selectedDetailRow.assignedParcels ? (
                         <div className="text-[11px] text-muted-foreground flex justify-between items-center border-t border-border/60 pt-2 font-mono">
@@ -808,7 +887,9 @@ export function ParcelHistory() {
                         </div>
                       ) : auditLogs.length === 0 ? (
                         <div className="text-xs text-muted-foreground italic p-3 rounded-lg bg-white border border-border text-center">
-                          No historical modifications recorded. Manifest values represent original encoding.
+                          {canEditParcelLogs
+                            ? 'No historical modifications recorded. Manifest values represent original encoding.'
+                            : 'Detailed correction history is available to Parcel Operations. This parcel record is read-only.'}
                         </div>
                       ) : (
                         <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
@@ -854,12 +935,12 @@ export function ParcelHistory() {
 
                                 <div className="text-[11px] text-muted-foreground grid grid-cols-2 gap-2 p-2 rounded-lg bg-panel-bg font-mono text-[10.5px]">
                                   <div>
-                                    <span className="text-gray-500">Old (D/F/R):</span>{' '}
-                                    <span className="font-semibold text-gray-700">{log.oldDelivered}/{log.oldFailed}/{log.oldReturned}</span>
+                                    <span className="text-gray-500">Old (S/H/F/R):</span>{' '}
+                                    <span className="font-semibold text-gray-700">{log.oldDelivered}/{log.oldHeavy}/{log.oldFailed}/{log.oldReturned}</span>
                                   </div>
                                   <div>
-                                    <span className="text-gray-500">New (D/F/R):</span>{' '}
-                                    <span className="font-semibold text-emerald-700">{log.newDelivered}/{log.newFailed}/{log.newReturned}</span>
+                                    <span className="text-gray-500">New (S/H/F/R):</span>{' '}
+                                    <span className="font-semibold text-emerald-700">{log.newDelivered}/{log.newHeavy}/{log.newFailed}/{log.newReturned}</span>
                                   </div>
                                 </div>
 
@@ -884,11 +965,11 @@ export function ParcelHistory() {
 
                     <div className="p-4 rounded-xl bg-panel-bg border border-border space-y-2">
                       <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                        <span>Operational Wage Estimate</span>
-                        <span className="text-[10px] font-mono font-normal">Final rate set in Payroll</span>
+                        <span>Daily Operational Gross</span>
+                        <span className="text-[10px] font-mono font-normal">Applied rates are read-only</span>
                       </div>
                       <div className="text-lg font-bold font-mono text-emerald-800 tabular-nums">
-                        ₱{selectedDetailRow.grossWagePreview.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        ₱{selectedDetailRow.dailyGross.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </div>
                       <div className="text-[11px] text-muted-foreground leading-tight">
                         Payroll Cutoff: <strong className="font-mono">{selectedDetailRow.payrollCutoff}</strong>
@@ -942,7 +1023,7 @@ export function ParcelHistory() {
         )}
 
       {/* Correction Requests Review Modal */}
-      {showCorrectionsModal &&
+      {showCorrectionsModal && canReviewCorrections &&
         createPortal(
           <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
             <motion.div
@@ -1010,13 +1091,15 @@ export function ParcelHistory() {
                       <div className="grid grid-cols-2 gap-3 text-xs bg-white p-3 rounded-lg border border-border font-mono">
                         <div>
                           <div className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Previous Values</div>
-                          <div>Delivered: <strong>{req.previousDelivered}</strong></div>
+                          <div>Standard: <strong>{req.previousDelivered}</strong></div>
+                          <div>Heavy: <strong>{req.previousHeavy}</strong></div>
                           <div>Failed: <strong>{req.previousFailed}</strong></div>
                           <div>Returned: <strong>{req.previousReturned}</strong></div>
                         </div>
                         <div>
                           <div className="text-[10px] text-primary uppercase font-bold mb-1">Requested Target</div>
-                          <div>Delivered: <strong className="text-emerald-700">{req.requestedDelivered}</strong></div>
+                          <div>Standard: <strong className="text-emerald-700">{req.requestedDelivered}</strong></div>
+                          <div>Heavy: <strong className="text-violet-700">{req.requestedHeavy}</strong></div>
                           <div>Failed: <strong className="text-amber-700">{req.requestedFailed}</strong></div>
                           <div>Returned: <strong className="text-red-700">{req.requestedReturned}</strong></div>
                         </div>

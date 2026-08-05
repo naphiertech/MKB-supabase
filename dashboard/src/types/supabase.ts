@@ -141,7 +141,7 @@ export type Database = {
           sender_id?: string | null
           target_roles?: Database["public"]["Enums"]["user_role"][]
           title: string
-          type?: Database["public"]["Enums"]["notification_type"]
+          type: Database["public"]["Enums"]["notification_type"]
           violation_id?: string | null
         }
         Update: {
@@ -192,6 +192,206 @@ export type Database = {
           },
         ]
       }
+      parcel_correction_requests: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          parcel_log_id: string
+          previous_delivered: number
+          previous_failed: number
+          previous_heavy: number
+          previous_returned: number
+          reason: string
+          requested_at: string
+          requested_by: string | null
+          requested_delivered: number
+          requested_failed: number
+          requested_heavy: number
+          requested_returned: number
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          rider_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          parcel_log_id: string
+          previous_delivered?: number
+          previous_failed?: number
+          previous_heavy?: number
+          previous_returned?: number
+          reason: string
+          requested_at?: string
+          requested_by?: string | null
+          requested_delivered?: number
+          requested_failed?: number
+          requested_heavy?: number
+          requested_returned?: number
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rider_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          parcel_log_id?: string
+          previous_delivered?: number
+          previous_failed?: number
+          previous_heavy?: number
+          previous_returned?: number
+          reason?: string
+          requested_at?: string
+          requested_by?: string | null
+          requested_delivered?: number
+          requested_failed?: number
+          requested_heavy?: number
+          requested_returned?: number
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          rider_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcel_correction_requests_parcel_log_id_fkey"
+            columns: ["parcel_log_id"]
+            isOneToOne: false
+            referencedRelation: "parcel_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_correction_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_correction_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_correction_requests_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parcel_log_audit: {
+        Row: {
+          action_type: string
+          approved_by: string | null
+          changed_by: string | null
+          correction_request_id: string | null
+          date: string
+          id: string
+          new_delivered: number
+          new_failed: number
+          new_heavy: number
+          new_returned: number
+          old_delivered: number
+          old_failed: number
+          old_heavy: number
+          old_returned: number
+          parcel_log_id: string
+          reason: string | null
+          rider_id: string
+          timestamp: string
+        }
+        Insert: {
+          action_type: string
+          approved_by?: string | null
+          changed_by?: string | null
+          correction_request_id?: string | null
+          date: string
+          id?: string
+          new_delivered?: number
+          new_failed?: number
+          new_heavy?: number
+          new_returned?: number
+          old_delivered?: number
+          old_failed?: number
+          old_heavy?: number
+          old_returned?: number
+          parcel_log_id: string
+          reason?: string | null
+          rider_id: string
+          timestamp?: string
+        }
+        Update: {
+          action_type?: string
+          approved_by?: string | null
+          changed_by?: string | null
+          correction_request_id?: string | null
+          date?: string
+          id?: string
+          new_delivered?: number
+          new_failed?: number
+          new_heavy?: number
+          new_returned?: number
+          old_delivered?: number
+          old_failed?: number
+          old_heavy?: number
+          old_returned?: number
+          parcel_log_id?: string
+          reason?: string | null
+          rider_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcel_log_audit_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_log_audit_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_log_audit_correction_request_id_fkey"
+            columns: ["correction_request_id"]
+            isOneToOne: false
+            referencedRelation: "parcel_correction_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_log_audit_parcel_log_id_fkey"
+            columns: ["parcel_log_id"]
+            isOneToOne: false
+            referencedRelation: "parcel_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_log_audit_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parcel_logs: {
         Row: {
           assigned_parcels: number | null
@@ -200,12 +400,17 @@ export type Database = {
           daily_gross: number | null
           date: string
           failed_parcels: number | null
+          heavy_earnings: number
+          heavy_parcels: number
+          heavy_rate: number | null
           id: string
           notes: string | null
           parcels: number
           rate: number
+          rate_configuration_id: string | null
           returned_parcels: number | null
           rider_id: string
+          standard_earnings: number
           updated_at: string
         }
         Insert: {
@@ -215,12 +420,17 @@ export type Database = {
           daily_gross?: number | null
           date: string
           failed_parcels?: number | null
+          heavy_earnings?: number
+          heavy_parcels?: number
+          heavy_rate?: number | null
           id?: string
           notes?: string | null
           parcels?: number
           rate?: number
+          rate_configuration_id?: string | null
           returned_parcels?: number | null
           rider_id: string
+          standard_earnings?: number
           updated_at?: string
         }
         Update: {
@@ -230,12 +440,17 @@ export type Database = {
           daily_gross?: number | null
           date?: string
           failed_parcels?: number | null
+          heavy_earnings?: number
+          heavy_parcels?: number
+          heavy_rate?: number | null
           id?: string
           notes?: string | null
           parcels?: number
           rate?: number
+          rate_configuration_id?: string | null
           returned_parcels?: number | null
           rider_id?: string
+          standard_earnings?: number
           updated_at?: string
         }
         Relationships: [
@@ -247,6 +462,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "parcel_logs_rate_configuration_id_fkey"
+            columns: ["rate_configuration_id"]
+            isOneToOne: false
+            referencedRelation: "parcel_rate_configurations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "parcel_logs_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
@@ -255,193 +477,364 @@ export type Database = {
           },
         ]
       }
-      parcel_correction_requests: {
+      parcel_rate_configuration_audit: {
         Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          effective_date: string
+          id: string
+          new_values: Json
+          previous_values: Json | null
+          rate_configuration_id: string
+          reason: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          effective_date: string
+          id?: string
+          new_values: Json
+          previous_values?: Json | null
+          rate_configuration_id: string
+          reason: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          effective_date?: string
+          id?: string
+          new_values?: Json
+          previous_values?: Json | null
+          rate_configuration_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcel_rate_configuration_audit_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_rate_configuration_audit_rate_configuration_id_fkey"
+            columns: ["rate_configuration_id"]
+            isOneToOne: false
+            referencedRelation: "parcel_rate_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parcel_rate_configurations: {
+        Row: {
+          active: boolean
+          change_reason: string
+          created_at: string
+          created_by: string | null
+          early_standard_rate: number
+          effective_from: string
+          effective_until: string | null
+          heavy_parcel_rate: number
+          heavy_threshold_kg: number
+          id: string
+          late_standard_rate: number
+          regular_standard_rate: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          change_reason: string
+          created_at?: string
+          created_by?: string | null
+          early_standard_rate: number
+          effective_from: string
+          effective_until?: string | null
+          heavy_parcel_rate: number
+          heavy_threshold_kg: number
+          id?: string
+          late_standard_rate: number
+          regular_standard_rate: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          change_reason?: string
+          created_at?: string
+          created_by?: string | null
+          early_standard_rate?: number
+          effective_from?: string
+          effective_until?: string | null
+          heavy_parcel_rate?: number
+          heavy_threshold_kg?: number
+          id?: string
+          late_standard_rate?: number
+          regular_standard_rate?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parcel_rate_configurations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_rate_configurations_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_delivery_lines: {
+        Row: {
+          applied_heavy_rate: number | null
+          applied_standard_rate: number
+          calculation_version: number
           created_at: string
           date: string
+          failed: number
+          gross_delivery_pay: number
+          heavy_delivered: number
+          heavy_earnings: number
           id: string
-          parcel_log_id: string
-          previous_delivered: number
-          previous_failed: number
-          previous_returned: number
-          reason: string
-          requested_at: string
-          requested_by: string | null
-          requested_delivered: number
-          requested_failed: number
-          requested_returned: number
-          review_notes: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
+          payroll_record_id: string
+          rate_configuration_id: string | null
+          returned: number
           rider_id: string
-          status: 'pending' | 'approved' | 'rejected'
-          updated_at: string
+          standard_delivered: number
+          standard_earnings: number
         }
         Insert: {
+          applied_heavy_rate?: number | null
+          applied_standard_rate: number
+          calculation_version?: number
           created_at?: string
           date: string
+          failed?: number
+          gross_delivery_pay?: number
+          heavy_delivered?: number
+          heavy_earnings?: number
           id?: string
-          parcel_log_id: string
-          previous_delivered?: number
-          previous_failed?: number
-          previous_returned?: number
-          reason: string
-          requested_at?: string
-          requested_by?: string | null
-          requested_delivered?: number
-          requested_failed?: number
-          requested_returned?: number
-          review_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
+          payroll_record_id: string
+          rate_configuration_id?: string | null
+          returned?: number
           rider_id: string
-          status?: 'pending' | 'approved' | 'rejected'
-          updated_at?: string
+          standard_delivered?: number
+          standard_earnings?: number
         }
         Update: {
+          applied_heavy_rate?: number | null
+          applied_standard_rate?: number
+          calculation_version?: number
           created_at?: string
           date?: string
+          failed?: number
+          gross_delivery_pay?: number
+          heavy_delivered?: number
+          heavy_earnings?: number
           id?: string
-          parcel_log_id?: string
-          previous_delivered?: number
-          previous_failed?: number
-          previous_returned?: number
-          reason?: string
-          requested_at?: string
-          requested_by?: string | null
-          requested_delivered?: number
-          requested_failed?: number
-          requested_returned?: number
-          review_notes?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
+          payroll_record_id?: string
+          rate_configuration_id?: string | null
+          returned?: number
           rider_id?: string
-          status?: 'pending' | 'approved' | 'rejected'
-          updated_at?: string
+          standard_delivered?: number
+          standard_earnings?: number
         }
-        Relationships: []
-      }
-      parcel_log_audit: {
-        Row: {
-          action_type: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected'
-          approved_by: string | null
-          changed_by: string | null
-          correction_request_id: string | null
-          date: string
-          id: string
-          new_delivered: number
-          new_failed: number
-          new_returned: number
-          old_delivered: number
-          old_failed: number
-          old_returned: number
-          parcel_log_id: string
-          reason: string | null
-          rider_id: string
-          timestamp: string
-        }
-        Insert: {
-          action_type: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected'
-          approved_by?: string | null
-          changed_by?: string | null
-          correction_request_id?: string | null
-          date: string
-          id?: string
-          new_delivered?: number
-          new_failed?: number
-          new_returned?: number
-          old_delivered?: number
-          old_failed?: number
-          old_returned?: number
-          parcel_log_id: string
-          reason?: string | null
-          rider_id: string
-          timestamp?: string
-        }
-        Update: {
-          action_type?: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected'
-          approved_by?: string | null
-          changed_by?: string | null
-          correction_request_id?: string | null
-          date?: string
-          id?: string
-          new_delivered?: number
-          new_failed?: number
-          new_returned?: number
-          old_delivered?: number
-          old_failed?: number
-          old_returned?: number
-          parcel_log_id?: string
-          reason?: string | null
-          rider_id?: string
-          timestamp?: string
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payroll_delivery_lines_payroll_record_id_fkey"
+            columns: ["payroll_record_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_delivery_lines_rate_configuration_id_fkey"
+            columns: ["rate_configuration_id"]
+            isOneToOne: false
+            referencedRelation: "parcel_rate_configurations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_delivery_lines_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payroll_records: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
+          calculation_version: number
           created_at: string
           cutoff_end: string
           cutoff_start: string
           deductions: number | null
+          early_standard_rate_snapshot: number | null
           fm_pickup_count: number | null
           gross_pay: number | null
+          heavy_earnings: number
+          heavy_parcels: number
+          heavy_rate_snapshot: number | null
+          heavy_threshold_kg_snapshot: number | null
           id: string
           late_onhold: number | null
           late_remittance: number | null
+          late_standard_rate_snapshot: number | null
           notes: string | null
           other_earnings: number | null
+          paid_at: string | null
+          paid_by: string | null
           processed_at: string | null
+          rate_configuration_id: string | null
           rate_per_parcel: number
+          regular_standard_rate_snapshot: number | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
           rider_id: string
+          snapshot_finalized_at: string | null
+          standard_earnings: number
+          standard_parcels: number
           status: Database["public"]["Enums"]["payroll_status"]
+          submitted_at: string | null
+          submitted_by: string | null
           total_parcels: number
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          calculation_version?: number
           created_at?: string
           cutoff_end: string
           cutoff_start: string
           deductions?: number | null
+          early_standard_rate_snapshot?: number | null
           fm_pickup_count?: number | null
           gross_pay?: number | null
+          heavy_earnings?: number
+          heavy_parcels?: number
+          heavy_rate_snapshot?: number | null
+          heavy_threshold_kg_snapshot?: number | null
           id?: string
           late_onhold?: number | null
           late_remittance?: number | null
+          late_standard_rate_snapshot?: number | null
           notes?: string | null
           other_earnings?: number | null
+          paid_at?: string | null
+          paid_by?: string | null
           processed_at?: string | null
+          rate_configuration_id?: string | null
           rate_per_parcel?: number
+          regular_standard_rate_snapshot?: number | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           rider_id: string
+          snapshot_finalized_at?: string | null
+          standard_earnings?: number
+          standard_parcels?: number
           status?: Database["public"]["Enums"]["payroll_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
           total_parcels?: number
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          calculation_version?: number
           created_at?: string
           cutoff_end?: string
           cutoff_start?: string
           deductions?: number | null
+          early_standard_rate_snapshot?: number | null
           fm_pickup_count?: number | null
           gross_pay?: number | null
+          heavy_earnings?: number
+          heavy_parcels?: number
+          heavy_rate_snapshot?: number | null
+          heavy_threshold_kg_snapshot?: number | null
           id?: string
           late_onhold?: number | null
           late_remittance?: number | null
+          late_standard_rate_snapshot?: number | null
           notes?: string | null
           other_earnings?: number | null
+          paid_at?: string | null
+          paid_by?: string | null
           processed_at?: string | null
+          rate_configuration_id?: string | null
           rate_per_parcel?: number
+          regular_standard_rate_snapshot?: number | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
           rider_id?: string
+          snapshot_finalized_at?: string | null
+          standard_earnings?: number
+          standard_parcels?: number
           status?: Database["public"]["Enums"]["payroll_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
           total_parcels?: number
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "payroll_records_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_rate_configuration_id_fkey"
+            columns: ["rate_configuration_id"]
+            isOneToOne: false
+            referencedRelation: "parcel_rate_configurations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payroll_records_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
             referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -475,6 +868,91 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      rider_documents: {
+        Row: {
+          created_at: string
+          document_label: string | null
+          document_number: string | null
+          document_type: string
+          expiration_date: string | null
+          file_size_bytes: number
+          id: string
+          issue_date: string | null
+          mime_type: string
+          notes: string | null
+          original_filename: string
+          rider_id: string
+          storage_path: string
+          updated_at: string
+          uploaded_by: string
+          verification_status: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_label?: string | null
+          document_number?: string | null
+          document_type: string
+          expiration_date?: string | null
+          file_size_bytes: number
+          id?: string
+          issue_date?: string | null
+          mime_type: string
+          notes?: string | null
+          original_filename: string
+          rider_id: string
+          storage_path: string
+          updated_at?: string
+          uploaded_by: string
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_label?: string | null
+          document_number?: string | null
+          document_type?: string
+          expiration_date?: string | null
+          file_size_bytes?: number
+          id?: string
+          issue_date?: string | null
+          mime_type?: string
+          notes?: string | null
+          original_filename?: string
+          rider_id?: string
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string
+          verification_status?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rider_documents_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_documents_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rider_locations: {
         Row: {
@@ -648,62 +1126,6 @@ export type Database = {
         }
         Relationships: []
       }
-      users: {
-        Row: {
-          contact: string | null
-          created_at: string
-          date_of_hire: string | null
-          email: string
-          employment_type: string | null
-          full_name: string
-          id: string
-          last_login: string | null
-          notes: string | null
-          rider_id: string | null
-          role: Database["public"]["Enums"]["user_role"]
-          status: Database["public"]["Enums"]["user_status"]
-          updated_at: string
-        }
-        Insert: {
-          contact?: string | null
-          created_at?: string
-          date_of_hire?: string | null
-          email: string
-          employment_type?: string | null
-          full_name: string
-          id: string
-          last_login?: string | null
-          notes?: string | null
-          rider_id?: string | null
-          role: Database["public"]["Enums"]["user_role"]
-          status?: Database["public"]["Enums"]["user_status"]
-          updated_at?: string
-        }
-        Update: {
-          contact?: string | null
-          created_at?: string
-          date_of_hire?: string | null
-          email?: string
-          employment_type?: string | null
-          full_name?: string
-          id?: string
-          last_login?: string | null
-          notes?: string | null
-          rider_id?: string | null
-          role?: Database["public"]["Enums"]["user_role"]
-          status?: Database["public"]["Enums"]["user_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "users_rider_id_fkey"
-            columns: ["rider_id"]
-            isOneToOne: false
-            referencedRelation: "riders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_devices: {
         Row: {
           device_fingerprint_hash: string
@@ -760,6 +1182,62 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          contact: string | null
+          created_at: string
+          date_of_hire: string | null
+          email: string
+          employment_type: string | null
+          full_name: string
+          id: string
+          last_login: string | null
+          notes: string | null
+          rider_id: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          status: Database["public"]["Enums"]["user_status"]
+          updated_at: string
+        }
+        Insert: {
+          contact?: string | null
+          created_at?: string
+          date_of_hire?: string | null
+          email: string
+          employment_type?: string | null
+          full_name: string
+          id: string
+          last_login?: string | null
+          notes?: string | null
+          rider_id?: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["user_status"]
+          updated_at?: string
+        }
+        Update: {
+          contact?: string | null
+          created_at?: string
+          date_of_hire?: string | null
+          email?: string
+          employment_type?: string | null
+          full_name?: string
+          id?: string
+          last_login?: string | null
+          notes?: string | null
+          rider_id?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: Database["public"]["Enums"]["user_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
             referencedColumns: ["id"]
           },
         ]
@@ -907,6 +1385,45 @@ export type Database = {
         }
         Relationships: []
       }
+      v_attendance_summary: {
+        Row: {
+          date: string | null
+          hours: number | null
+          hr_status: string | null
+          id: string | null
+          lat: number | null
+          lng: number | null
+          log_status: Database["public"]["Enums"]["attendance_status"] | null
+          notes: string | null
+          raw_time_in: string | null
+          raw_time_out: string | null
+          rider_avatar: string | null
+          rider_code: string | null
+          rider_id: string | null
+          rider_name: string | null
+          source: Database["public"]["Enums"]["attendance_source"] | null
+          time_in: string | null
+          time_out: string | null
+          zone_id: string | null
+          zone_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_logs_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riders_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -1040,6 +1557,10 @@ export type Database = {
         Args: { p_descriptor: Json; p_rider_id: string }
         Returns: undefined
       }
+      calculate_distance: {
+        Args: { lat1: number; lat2: number; lng1: number; lng2: number }
+        Returns: number
+      }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -1171,12 +1692,24 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_executive_analytics_summary: {
+        Args: { p_end_date?: string; p_start_date?: string; p_zone_id?: string }
+        Returns: Json
+      }
       get_my_rider_id: { Args: never; Returns: string }
       get_my_role: {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      get_rider_route_summary: {
+        Args: { p_date?: string; p_rider_id: string }
+        Returns: Json
+      }
       gettransactionid: { Args: never; Returns: unknown }
+      is_point_in_polygon: {
+        Args: { p_lat: number; p_lng: number; polygon_coords: Json }
+        Returns: boolean
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
@@ -1811,15 +2344,40 @@ export type Database = {
         }
         Returns: string
       }
+      validate_and_register_device: {
+        Args: {
+          p_device_name: string
+          p_device_uuid: string
+          p_fingerprint_hash: string
+          p_ip: string
+          p_platform: string
+          p_user_agent: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
-      attendance_source: "face-scan" | "manual"
+      attendance_source: "face-scan" | "manual" | "system"
       attendance_status: "present" | "late" | "absent" | "on_leave"
       device_status: "trusted" | "revoked"
-      notification_category: "attendance" | "payroll" | "geofence" | "biometrics" | "account" | "system" | "announcement"
+      notification_category:
+        | "attendance"
+        | "payroll"
+        | "geofence"
+        | "biometrics"
+        | "account"
+        | "system"
+        | "announcement"
       notification_priority: "low" | "medium" | "high" | "critical"
       notification_type: "violation" | "absent" | "attendance" | "system"
-      payroll_status: "pending" | "processed" | "flagged" | "approved" | "paid" | "rejected" | "draft"
+      payroll_status:
+        | "pending"
+        | "processed"
+        | "flagged"
+        | "approved"
+        | "paid"
+        | "rejected"
+        | "draft"
       rider_status: "active" | "idle" | "violation" | "offline"
       shift_type: "Morning" | "Afternoon" | "Evening"
       user_role: "admin" | "hr" | "rider" | "payroll"
@@ -1961,10 +2519,29 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      attendance_source: ["face-scan", "manual"],
+      attendance_source: ["face-scan", "manual", "system"],
       attendance_status: ["present", "late", "absent", "on_leave"],
+      device_status: ["trusted", "revoked"],
+      notification_category: [
+        "attendance",
+        "payroll",
+        "geofence",
+        "biometrics",
+        "account",
+        "system",
+        "announcement",
+      ],
+      notification_priority: ["low", "medium", "high", "critical"],
       notification_type: ["violation", "absent", "attendance", "system"],
-      payroll_status: ["pending", "processed", "flagged", "approved", "paid", "rejected", "draft"],
+      payroll_status: [
+        "pending",
+        "processed",
+        "flagged",
+        "approved",
+        "paid",
+        "rejected",
+        "draft",
+      ],
       rider_status: ["active", "idle", "violation", "offline"],
       shift_type: ["Morning", "Afternoon", "Evening"],
       user_role: ["admin", "hr", "rider", "payroll"],

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { PayrollStatus } from '../types/payroll';
-import { exportCutoffSummaryCSV, exportParcelPayslipXLSX, exportParcelPayslipPDF } from '../lib/exports/payrollExport';
+import { exportCutoffSummaryCSV, exportParcelPayslipXLSX, exportParcelPayslipPDF, type PayslipDay, type PayslipSnapshotContext } from '../lib/exports/payrollExport';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { PageKey } from '../components/common/Sidebar';
 
@@ -29,6 +29,13 @@ export interface HistoricalRecord {
   total_parcels: number;
   rate_per_parcel: number;
   gross_pay: number;
+  standard_parcels: number | null;
+  heavy_parcels: number | null;
+  standard_earnings: number | null;
+  heavy_earnings: number | null;
+  rate_configuration_id: string | null;
+  calculation_version: number | null;
+  snapshot_finalized_at: string | null;
   other_earnings: number | null;
   fm_pickup_count: number | null;
   deductions: number | null;
@@ -55,6 +62,36 @@ export interface HistoricalRecord {
   approved_user?: { full_name: string } | null;
   rejected_user?: { full_name: string } | null;
   paid_user?: { full_name: string } | null;
+  payroll_delivery_lines: Array<{
+    date: string; standard_delivered: number; heavy_delivered: number; failed: number; returned: number;
+    applied_standard_rate: number; applied_heavy_rate: number; standard_earnings: number; heavy_earnings: number;
+    gross_delivery_pay: number; rate_configuration_id: string | null; calculation_version: number;
+  }>;
+}
+
+function historicalExportData(record: HistoricalRecord): { days: PayslipDay[]; snapshot: PayslipSnapshotContext } {
+  const legacy = Number(record.calculation_version ?? 1) === 1;
+  const lines = record.payroll_delivery_lines ?? [];
+  const days = lines.map(line => ({
+    date: line.date, standardParcels: Number(line.standard_delivered), heavyParcels: Number(line.heavy_delivered),
+    failedParcels: Number(line.failed), returnedParcels: Number(line.returned),
+    standardRate: Number(line.applied_standard_rate), heavyRate: Number(line.applied_heavy_rate),
+    standardEarnings: Number(line.standard_earnings), heavyEarnings: Number(line.heavy_earnings),
+    grossDeliveryPay: Number(line.gross_delivery_pay), rateConfigurationId: line.rate_configuration_id,
+    calculationVersion: Number(line.calculation_version),
+  }));
+  return {
+    days,
+    snapshot: {
+      source: legacy ? 'legacy' : 'snapshot', calculationVersion: Number(record.calculation_version ?? 1),
+      standardParcels: Number(record.standard_parcels ?? record.total_parcels ?? 0),
+      heavyParcels: Number(record.heavy_parcels ?? 0),
+      failedParcels: lines.reduce((sum, line) => sum + Number(line.failed), 0),
+      returnedParcels: lines.reduce((sum, line) => sum + Number(line.returned), 0),
+      standardEarnings: Number(record.standard_earnings ?? record.gross_pay ?? 0),
+      heavyEarnings: Number(record.heavy_earnings ?? 0), grossDeliveryPay: Number(record.gross_pay ?? 0),
+    },
+  };
 }
 
 export interface CutoffSummaryGroup {
@@ -132,6 +169,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
           approved_user:users!payroll_records_approved_by_fkey(full_name),
           rejected_user:users!payroll_records_rejected_by_fkey(full_name),
           paid_user:users!payroll_records_paid_by_fkey(full_name)
+          ,payroll_delivery_lines(date, standard_delivered, heavy_delivered, failed, returned, applied_standard_rate, applied_heavy_rate, standard_earnings, heavy_earnings, gross_delivery_pay, rate_configuration_id, calculation_version)
         `)
         .order('cutoff_start', { ascending: false });
 
@@ -311,7 +349,13 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       riderName: r.riders?.name || 'Rider',
       zone: r.riders?.zones?.name || 'Unassigned',
       totalParcels: r.total_parcels || 0,
-      ratePerParcel: r.rate_per_parcel,
+      standardParcels: Number(r.standard_parcels ?? r.total_parcels ?? 0),
+      heavyParcels: Number(r.heavy_parcels ?? 0),
+      failedParcels: (r.payroll_delivery_lines ?? []).reduce((sum, line) => sum + Number(line.failed), 0),
+      returnedParcels: (r.payroll_delivery_lines ?? []).reduce((sum, line) => sum + Number(line.returned), 0),
+      standardEarnings: Number(r.standard_earnings ?? r.gross_pay ?? 0),
+      heavyEarnings: Number(r.heavy_earnings ?? 0),
+      calculationVersion: Number(r.calculation_version ?? 1),
       grossPay: r.gross_pay || 0
     }));
 
@@ -320,13 +364,15 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
     } else if (format === 'xlsx' || format === 'pdf') {
       const firstRider = group.records[0];
       if (firstRider) {
+        const exportData = historicalExportData(firstRider);
         if (format === 'xlsx') {
           void exportParcelPayslipXLSX(
             firstRider.riders?.name || 'Rider',
             firstRider.riders?.mkb_id || '',
             group.cutoffStart,
             group.cutoffEnd,
-            []
+            exportData.days,
+            exportData.snapshot
           );
         } else {
           exportParcelPayslipPDF(
@@ -335,8 +381,8 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
             firstRider.riders?.zones?.name || 'Unassigned',
             group.cutoffStart,
             group.cutoffEnd,
-            firstRider.rate_per_parcel,
-            []
+            exportData.days,
+            exportData.snapshot
           );
         }
       }
@@ -642,8 +688,9 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                 <tr>
                   <th className="p-3.5">Rider Info</th>
                   <th className="p-3.5">Cutoff Period</th>
-                  <th className="p-3.5 text-right">Total Parcels</th>
-                  <th className="p-3.5 text-right">Gross Pay</th>
+                  <th className="p-3.5 text-right">Standard</th>
+                  <th className="p-3.5 text-right">Heavy</th>
+                  <th className="p-3.5 text-right">Gross Delivery</th>
                   <th className="p-3.5 text-right">Deductions</th>
                   <th className="p-3.5 text-right">Net Payable</th>
                   <th className="p-3.5 text-center">Status</th>
@@ -653,14 +700,14 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
               <tbody className="divide-y divide-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={9} className="py-12 text-center text-muted-foreground">
                       <Loader2 className="w-5 h-5 animate-spin mx-auto mb-1 text-primary" />
                       Loading rider records...
                     </td>
                   </tr>
                 ) : filteredRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-muted-foreground italic">
+                    <td colSpan={9} className="py-12 text-center text-muted-foreground italic">
                       No rider payroll records found.
                     </td>
                   </tr>
@@ -681,7 +728,10 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                           {r.cutoff_start} to {r.cutoff_end}
                         </td>
                         <td className="p-3.5 text-right font-extrabold text-foreground">
-                          {r.total_parcels || 0} pcs
+                          {Number(r.standard_parcels ?? r.total_parcels ?? 0)} pcs
+                        </td>
+                        <td className="p-3.5 text-right font-extrabold text-primary">
+                          {Number(r.heavy_parcels ?? 0)} pcs
                         </td>
                         <td className="p-3.5 text-right font-semibold text-foreground">
                           {phpFmt(r.gross_pay || 0)}
@@ -696,6 +746,9 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${r.status === 'paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : r.status === 'approved' ? 'bg-sky-50 text-sky-700 border border-sky-200' : r.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
                             {r.status || 'DRAFT'}
                           </span>
+                          {Number(r.calculation_version ?? 1) === 1 && (
+                            <span className="ml-1 inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-bold uppercase text-slate-600">Legacy snapshot</span>
+                          )}
                         </td>
                         <td className="p-3.5 text-center">
                           <button
@@ -923,12 +976,20 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
               {/* Earnings Breakdown */}
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between border-b border-border pb-1">
-                  <span className="text-muted-foreground">Total Parcels Delivered:</span>
-                  <span className="font-bold text-foreground">{selectedRiderRecord.total_parcels || 0} pcs</span>
+                  <span className="text-muted-foreground">Standard Delivered:</span>
+                  <span className="font-bold text-foreground">{Number(selectedRiderRecord.standard_parcels ?? selectedRiderRecord.total_parcels ?? 0)} pcs</span>
                 </div>
                 <div className="flex justify-between border-b border-border pb-1">
-                  <span className="text-muted-foreground">Base Rate per Parcel:</span>
-                  <span className="font-bold text-foreground">₱{selectedRiderRecord.rate_per_parcel}/pc</span>
+                  <span className="text-muted-foreground">Heavy Delivered:</span>
+                  <span className="font-bold text-primary">{Number(selectedRiderRecord.heavy_parcels ?? 0)} pcs</span>
+                </div>
+                <div className="flex justify-between border-b border-border pb-1">
+                  <span className="text-muted-foreground">Standard Earnings:</span>
+                  <span className="font-bold text-foreground">{phpFmt(Number(selectedRiderRecord.standard_earnings ?? selectedRiderRecord.gross_pay ?? 0))}</span>
+                </div>
+                <div className="flex justify-between border-b border-border pb-1">
+                  <span className="text-muted-foreground">Heavy Earnings:</span>
+                  <span className="font-bold text-primary">{phpFmt(Number(selectedRiderRecord.heavy_earnings ?? 0))}</span>
                 </div>
                 <div className="flex justify-between border-b border-border pb-1">
                   <span className="text-muted-foreground">Gross Base Pay:</span>

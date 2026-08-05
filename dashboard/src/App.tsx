@@ -343,7 +343,7 @@ export function App() {
       return allowed.includes(normalized) ? normalized : 'dashboard';
     }
     // payroll
-    const allowed: PageKey[] = ['dashboard', 'computation', 'payroll_history', 'reports'];
+    const allowed: PageKey[] = ['dashboard', 'computation', 'payroll_history', 'reports', 'parcel_history'];
     return allowed.includes(normalized) ? normalized : 'dashboard';
   }
   const safePage = safePageFor(dashRole, currentPage);
@@ -444,6 +444,7 @@ export function App() {
                     {safePage === 'computation' && <PayrollComputation />}
                     {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
                     {safePage === 'reports' && <PayrollReports />}
+                    {safePage === 'parcel_history' && <ParcelHistory />}
                   </>
                 }
               </motion.div>

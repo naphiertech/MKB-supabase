@@ -9,9 +9,52 @@ interface JsPDFWithAutoTable extends jsPDF {
 
 export interface PayslipDay {
   date: string;
-  parcels: number;
-  rate?: number;
-  dailyGross: number;
+  standardParcels: number;
+  heavyParcels: number;
+  failedParcels: number;
+  returnedParcels: number;
+  standardRate: number;
+  heavyRate: number;
+  standardEarnings: number;
+  heavyEarnings: number;
+  grossDeliveryPay: number;
+  rateConfigurationId: string | null;
+  calculationVersion: number;
+}
+
+export interface PayslipSnapshotContext {
+  source: 'live' | 'snapshot' | 'legacy';
+  calculationVersion: number;
+  standardParcels: number;
+  heavyParcels: number;
+  failedParcels: number;
+  returnedParcels: number;
+  standardEarnings: number;
+  heavyEarnings: number;
+  grossDeliveryPay: number;
+}
+
+export function parcelLogsToPayslipDays(entries: Array<{
+  date: string; parcels: number; heavyParcels: number; failedParcels: number; returnedParcels: number;
+  rate: number; heavyRate: number; standardEarnings: number; heavyEarnings: number; dailyGross: number;
+  rateConfigurationId: string | null; calculationVersion: number;
+}>): PayslipDay[] {
+  return entries.map(entry => ({
+    date: entry.date, standardParcels: entry.parcels, heavyParcels: entry.heavyParcels,
+    failedParcels: entry.failedParcels, returnedParcels: entry.returnedParcels,
+    standardRate: entry.rate, heavyRate: entry.heavyRate, standardEarnings: entry.standardEarnings,
+    heavyEarnings: entry.heavyEarnings, grossDeliveryPay: entry.dailyGross,
+    rateConfigurationId: entry.rateConfigurationId, calculationVersion: entry.calculationVersion,
+  }));
+}
+
+function validateSnapshotExport(dayEntries: PayslipDay[], snapshot: PayslipSnapshotContext): void {
+  if (snapshot.source === 'legacy') return;
+  for (const entry of dayEntries) {
+    if (!entry.rateConfigurationId || !Number.isFinite(entry.standardRate) || !Number.isFinite(entry.heavyRate)) {
+      throw new Error(`Cannot export payroll: required rate snapshot is missing for ${entry.date}.`);
+    }
+  }
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -37,8 +80,8 @@ export const exportParcelPayslipPDF = (
   zoneName: string,
   cutoffFrom: string,
   cutoffTo: string,
-  rate: number, // fallbackRate
-  dayEntries: { date: string; parcels: number; rate?: number; dailyGross: number }[],
+  dayEntries: PayslipDay[],
+  snapshot: PayslipSnapshotContext,
   adjustments: {
     otherEarnings?: number;
     fmPickupCount?: number;
@@ -47,13 +90,10 @@ export const exportParcelPayslipPDF = (
     lateRemittance?: number;
   } = {}
 ) => {
+  validateSnapshotExport(dayEntries, snapshot);
   const doc = new jsPDF();
-  const totalParcels = dayEntries.reduce(
-    (sum, e) => sum + e.parcels, 0
-  );
-  const grossPay = dayEntries.reduce(
-    (sum, e) => sum + e.dailyGross, 0
-  );
+  const totalParcels = snapshot.standardParcels + snapshot.heavyParcels;
+  const grossPay = snapshot.grossDeliveryPay;
 
   const otherEarnings = adjustments.otherEarnings ?? 0;
   const fmPickupCount = adjustments.fmPickupCount ?? 0;
@@ -100,18 +140,15 @@ export const exportParcelPayslipPDF = (
   // Day-by-day table
   autoTable(doc, {
     startY: 76,
-    head: [['Date', 'Parcels Delivered', 'Rate', 'Daily Gross']],
-    body: dayEntries.map(e => {
-      const activeRate = e.rate ?? rate;
-      return [
+    head: [['Date', 'Standard', 'Heavy', 'Failed', 'Returned', 'Std Rate', 'Heavy Rate', 'Gross']],
+    body: dayEntries.map(e => [
         new Date(e.date).toLocaleDateString('en-PH', {
           month: 'long', day: '2-digit', year: 'numeric'
         }),
-        e.parcels === 0 ? '0 (rest day)' : e.parcels.toString(),
-        e.parcels === 0 ? '—' : `₱${activeRate.toFixed(2)}`,
-        e.parcels === 0 ? '—' : `₱${e.dailyGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      ];
-    }),
+        e.standardParcels.toString(), e.heavyParcels.toString(), e.failedParcels.toString(), e.returnedParcels.toString(),
+        `₱${e.standardRate.toFixed(2)}`, `₱${e.heavyRate.toFixed(2)}`,
+        `₱${e.grossDeliveryPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      ]),
     headStyles: {
       fillColor: [219, 108, 0],
       textColor: 255,
@@ -137,33 +174,17 @@ export const exportParcelPayslipPDF = (
     14, finalY + 8
   );
 
-  // Calculate breakdown by rate
-  const parcelsByRate: Record<number, number> = {};
-  dayEntries.forEach(e => {
-    if (e.parcels > 0) {
-      const r = e.rate ?? rate;
-      parcelsByRate[r] = (parcelsByRate[r] || 0) + e.parcels;
-    }
-  });
-
   let currentY = finalY + 15;
-  const ratesUsed = Object.keys(parcelsByRate).map(Number).sort((a, b) => b - a);
-  if (ratesUsed.length > 0) {
-    ratesUsed.forEach(r => {
-      const count = parcelsByRate[r];
-      doc.text(
-        `Rate ₱${r}.00 breakdown    : ${count} parcels @ ₱${r}.00 = ₱${(count * r).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        14, currentY
-      );
-      currentY += 7;
-    });
-  } else {
-    doc.text(
-      `Rate per Parcel         : ₱${rate}.00`,
-      14, currentY
-    );
-    currentY += 7;
-  }
+  doc.text(`Standard / Heavy       : ${snapshot.standardParcels} / ${snapshot.heavyParcels}`, 14, currentY);
+  currentY += 7;
+  doc.text(`Failed / Returned      : ${snapshot.failedParcels} / ${snapshot.returnedParcels}`, 14, currentY);
+  currentY += 7;
+  doc.text(`Standard delivery pay   : ₱${snapshot.standardEarnings.toFixed(2)}`, 14, currentY);
+  currentY += 7;
+  doc.text(`Heavy delivery pay      : ₱${snapshot.heavyEarnings.toFixed(2)}`, 14, currentY);
+  currentY += 7;
+  doc.text(snapshot.source === 'legacy' ? 'Legacy immutable snapshot' : `Calculation v${snapshot.calculationVersion}`, 14, currentY);
+  currentY += 7;
 
   currentY += 3;
 
@@ -245,8 +266,8 @@ export const exportParcelCSV = (
   mkbId: string,
   cutoffFrom: string,
   cutoffTo: string,
-  rate: number, // fallbackRate
-  dayEntries: { date: string; parcels: number; rate?: number; dailyGross: number }[],
+  dayEntries: PayslipDay[],
+  snapshot: PayslipSnapshotContext,
   adjustments: {
     otherEarnings?: number;
     fmPickupCount?: number;
@@ -255,12 +276,9 @@ export const exportParcelCSV = (
     lateRemittance?: number;
   } = {}
 ) => {
-  const totalParcels = dayEntries.reduce(
-    (sum, e) => sum + e.parcels, 0
-  );
-  const grossPay = dayEntries.reduce(
-    (sum, e) => sum + e.dailyGross, 0
-  );
+  validateSnapshotExport(dayEntries, snapshot);
+  const totalParcels = snapshot.standardParcels + snapshot.heavyParcels;
+  const grossPay = snapshot.grossDeliveryPay;
 
   const otherEarnings = adjustments.otherEarnings ?? 0;
   const fmPickupCount = adjustments.fmPickupCount ?? 0;
@@ -280,16 +298,13 @@ export const exportParcelCSV = (
     []
   ];
 
-  const headers = ['Date', 'Parcels Delivered', 'Rate per Parcel', 'Daily Gross'];
-  const rows = dayEntries.map(e => {
-    const activeRate = e.rate ?? rate;
-    return [
-      e.date,
-      e.parcels,
-      `₱${activeRate.toFixed(2)}`,
-      e.parcels === 0 ? '—' : `₱${e.dailyGross.toFixed(2)}`
-    ];
-  });
+  const headers = ['Date', 'Standard', 'Heavy', 'Failed', 'Returned', 'Standard Rate', 'Heavy Rate', 'Standard Earnings', 'Heavy Earnings', 'Gross Delivery Pay', 'Calculation Version'];
+  const rows = dayEntries.map(e => [
+    e.date, e.standardParcels, e.heavyParcels, e.failedParcels, e.returnedParcels,
+    `₱${e.standardRate.toFixed(2)}`, `₱${e.heavyRate.toFixed(2)}`,
+    `₱${e.standardEarnings.toFixed(2)}`, `₱${e.heavyEarnings.toFixed(2)}`,
+    `₱${e.grossDeliveryPay.toFixed(2)}`, e.calculationVersion,
+  ]);
 
   const lines = [
     ...metadata,
@@ -298,6 +313,12 @@ export const exportParcelCSV = (
     [],
     ['TOTALS & ADJUSTMENTS'],
     ['Total Parcels Delivered', totalParcels],
+    ['Standard Delivered', snapshot.standardParcels],
+    ['Heavy Delivered', snapshot.heavyParcels],
+    ['Failed', snapshot.failedParcels],
+    ['Returned', snapshot.returnedParcels],
+    ['Standard Earnings', `₱${snapshot.standardEarnings.toFixed(2)}`],
+    ['Heavy Earnings', `₱${snapshot.heavyEarnings.toFixed(2)}`],
     ['Gross Delivery Pay', `₱${grossPay.toFixed(2)}`],
     ['Other Earnings', `₱${otherEarnings.toFixed(2)}`],
     [`FM Pick Up (${fmPickupCount} pcs)`, `₱${fmPickupPay.toFixed(2)}`],
@@ -321,7 +342,13 @@ export interface CutoffSummaryRow {
   riderName: string;
   zone: string;
   totalParcels: number;
-  ratePerParcel: number;
+  standardParcels?: number;
+  heavyParcels?: number;
+  standardEarnings?: number;
+  heavyEarnings?: number;
+  failedParcels?: number;
+  returnedParcels?: number;
+  calculationVersion?: number;
   grossPay: number;
 }
 
@@ -330,7 +357,7 @@ export const exportCutoffSummaryCSV = (
   cutoffLabel: string
 ) => {
   const filename = `mkbridertrack_cutoff_summary_${cutoffLabel.replace(/\s+/g, '_')}`;
-  const header = ['Rider', 'Zone', 'Total Parcels', 'Rate per Parcel', 'Gross Pay'];
+  const header = ['Rider', 'Zone', 'Standard', 'Heavy', 'Failed', 'Returned', 'Total Delivered', 'Standard Earnings', 'Heavy Earnings', 'Gross Delivery Pay', 'Calculation Version'];
 
   const lines = [
     ['MKBRiderTrack Cutoff Summary'],
@@ -340,9 +367,15 @@ export const exportCutoffSummaryCSV = (
     ...rows.map(r => [
       r.riderName,
       r.zone,
+      r.standardParcels ?? r.totalParcels,
+      r.heavyParcels ?? 0,
+      r.failedParcels ?? 0,
+      r.returnedParcels ?? 0,
       r.totalParcels,
-      `₱${r.ratePerParcel.toFixed(2)}`,
-      `₱${r.grossPay.toFixed(2)}`
+      `₱${Number(r.standardEarnings ?? r.grossPay).toFixed(2)}`,
+      `₱${Number(r.heavyEarnings ?? 0).toFixed(2)}`,
+      `₱${r.grossPay.toFixed(2)}`,
+      r.calculationVersion ?? 1,
     ])
   ];
 
@@ -357,6 +390,7 @@ export const exportParcelPayslipXLSX = async (
   cutoffFrom: string,
   cutoffTo: string,
   dayEntries: PayslipDay[],
+  snapshot: PayslipSnapshotContext,
   atmNumber = 'N/A',
   adjustments: {
     otherEarnings?: number;
@@ -367,6 +401,21 @@ export const exportParcelPayslipXLSX = async (
   } = {}
 ) => {
   try {
+    validateSnapshotExport(dayEntries, snapshot);
+    const exportDays = dayEntries.length > 0 ? dayEntries : [{
+      date: cutoffTo,
+      standardParcels: snapshot.standardParcels,
+      heavyParcels: snapshot.heavyParcels,
+      failedParcels: snapshot.failedParcels,
+      returnedParcels: snapshot.returnedParcels,
+      standardRate: 0,
+      heavyRate: 0,
+      standardEarnings: snapshot.standardEarnings,
+      heavyEarnings: snapshot.heavyEarnings,
+      grossDeliveryPay: snapshot.grossDeliveryPay,
+      rateConfigurationId: null,
+      calculationVersion: snapshot.calculationVersion,
+    }];
     const response = await fetch('/files/MKB_PAYSLIP_Template.xlsx');
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const arrayBuffer = await response.arrayBuffer();
@@ -381,7 +430,7 @@ export const exportParcelPayslipXLSX = async (
     ws.getCell('C5').value = 'N/A'; // Dummy Account
     ws.getCell('C6').value = atmNumber || 'N/A';
 
-    const totalDays = dayEntries.length;
+    const totalDays = exportDays.length;
     const originalDaysCount = 7;
     const extraDays = totalDays - originalDaysCount;
 
@@ -470,8 +519,18 @@ export const exportParcelPayslipXLSX = async (
     // Update To date formula in header
     ws.getCell('L6').value = { formula: `C${lastDayRow}` };
 
-    // Fill in dates and parcel counts
-    dayEntries.forEach((entry, idx) => {
+    // Use exact immutable line earnings; never infer or fall back to a current rate.
+    ws.getCell('D8').value = 'Heavy Qty';
+    ws.getCell('E8').value = 'Heavy Pay';
+    ws.getCell('F8').value = 'Standard Qty';
+    ws.getCell('G8').value = 'Standard Pay';
+    ws.getCell('Q8').value = 'Failed';
+    ws.getCell('R8').value = 'Returned';
+    ws.getCell('S8').value = 'Rate Configuration';
+    ws.getCell('T8').value = 'Calculation Version';
+    ws.getCell('U8').value = 'Standard Rate';
+    ws.getCell('V8').value = 'Heavy Rate';
+    exportDays.forEach((entry, idx) => {
       const rowNum = startDayRow + idx;
       const dateVal = new Date(entry.date);
       ws.getCell(`C${rowNum}`).value = dateVal;
@@ -484,15 +543,16 @@ export const exportParcelPayslipXLSX = async (
       ws.getCell(`L${rowNum}`).value = 0;
       ws.getCell(`N${rowNum}`).value = 0;
 
-      // Distribute parcels based on rate (12 early, 11 standard, 10 late)
-      const entryRate = entry.rate ?? 10;
-      if (entryRate === 12) {
-        ws.getCell(`F${rowNum}`).value = entry.parcels;
-      } else if (entryRate === 11) {
-        ws.getCell(`J${rowNum}`).value = entry.parcels;
-      } else {
-        ws.getCell(`N${rowNum}`).value = entry.parcels;
-      }
+      ws.getCell(`D${rowNum}`).value = entry.heavyParcels;
+      ws.getCell(`E${rowNum}`).value = entry.heavyEarnings;
+      ws.getCell(`F${rowNum}`).value = entry.standardParcels;
+      ws.getCell(`G${rowNum}`).value = entry.standardEarnings;
+      ws.getCell(`Q${rowNum}`).value = entry.failedParcels;
+      ws.getCell(`R${rowNum}`).value = entry.returnedParcels;
+      ws.getCell(`S${rowNum}`).value = entry.rateConfigurationId ?? (snapshot.source === 'legacy' ? 'Legacy snapshot' : 'Missing');
+      ws.getCell(`T${rowNum}`).value = entry.calculationVersion;
+      ws.getCell(`U${rowNum}`).value = snapshot.source === 'legacy' ? 'Legacy' : entry.standardRate;
+      ws.getCell(`V${rowNum}`).value = snapshot.source === 'legacy' ? 'Legacy' : entry.heavyRate;
     });
 
     // Update Sub Total formulas
@@ -509,6 +569,7 @@ export const exportParcelPayslipXLSX = async (
     ws.getCell(`N${subTotalRow}`).value = { formula: `SUM(N${startDayRow}:N${lastDayRow})` };
     ws.getCell(`O${subTotalRow}`).value = { formula: `SUM(O${startDayRow}:O${lastDayRow})` };
     ws.getCell(`P${subTotalRow}`).value = { formula: `SUM(P${startDayRow}:P${lastDayRow})` };
+    ws.getCell(`P${subTotalRow}`).value = snapshot.grossDeliveryPay;
 
     // Write dynamic adjustments values to cells
     ws.getCell(`D${otherEarningsRow}`).value = (adjustments.otherEarnings ?? 0) / 5;
@@ -525,11 +586,11 @@ export const exportParcelPayslipXLSX = async (
     ws.getCell(`N${lateOnholdRow}`).value = { formula: lateOnholdFormula };
     ws.getCell(`N${lateRemittanceRow}`).value = { formula: lateOnholdFormula };
 
-    // ATM Credited = (Sub Total + Other + FM) - (Deductions + Late Onhold + Late Remittance)
-    ws.getCell(`N${atmRow}`).value = { formula: `SUM(D${subTotalRow}:N${fmPickUpRow})-SUM(N${deductionsRow}:P${lateRemittanceRow})` };
+    // Use the stored gross snapshot rather than summing template quantity cells.
+    ws.getCell(`N${atmRow}`).value = { formula: `P${subTotalRow}+N${otherEarningsRow}+N${fmPickUpRow}-SUM(N${deductionsRow}:N${lateRemittanceRow})` };
 
-    // TOTAL = SUM(D${subTotalRow}:N${fmPickUpRow}) - SUM(N${deductionsRow}:P${atmRow})
-    ws.getCell(`N${totalRow}`).value = { formula: `SUM(D${subTotalRow}:N${fmPickUpRow})-SUM(N${deductionsRow}:P${atmRow})` };
+    // TOTAL uses the same immutable delivery gross plus existing adjustments.
+    ws.getCell(`N${totalRow}`).value = { formula: `P${subTotalRow}+N${otherEarningsRow}+N${fmPickUpRow}-SUM(N${deductionsRow}:N${lateRemittanceRow})` };
 
     // Generate buffer and trigger download
     const buffer = await wb.xlsx.writeBuffer();

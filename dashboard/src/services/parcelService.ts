@@ -8,8 +8,64 @@ export interface ParcelLog {
   riderId: string;
   date: string;
   parcels: number;
+  heavyParcels: number;
+  assignedParcels: number | null;
+  failedParcels: number;
+  returnedParcels: number;
   rate: number;
+  heavyRate: number;
+  standardEarnings: number;
+  heavyEarnings: number;
   dailyGross: number;
+  rateConfigurationId: string | null;
+  calculationVersion: number;
+  source: 'live' | 'snapshot';
+}
+
+export interface OperationalParcelSummary {
+  delivered: number;
+  standardDelivered: number;
+  heavyDelivered: number;
+  failed: number;
+  returned: number;
+  totalHandled: number;
+  assigned: number | null;
+  successRate: number | null;
+  standardEarnings: number;
+  heavyEarnings: number;
+  grossDeliveryPay: number;
+  rateConfigurationIds: string[];
+}
+
+export interface PayrollSnapshotRecordLike {
+  id: string;
+  rider_id: string;
+  cutoff_start: string;
+  cutoff_end: string;
+  status: string;
+  total_parcels?: number | null;
+  standard_parcels?: number | null;
+  heavy_parcels?: number | null;
+  standard_earnings?: number | null;
+  heavy_earnings?: number | null;
+  gross_pay?: number | null;
+  rate_configuration_id?: string | null;
+  calculation_version?: number | null;
+  snapshot_finalized_at?: string | null;
+}
+
+export interface PayrollDeliveryData {
+  lines: ParcelLog[];
+  summary: OperationalParcelSummary;
+  source: 'live' | 'snapshot' | 'legacy';
+  calculationVersion: number;
+}
+
+export class MissingPayrollSnapshotError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MissingPayrollSnapshotError';
+  }
 }
 
 export interface ParcelSummary {
@@ -27,7 +83,7 @@ export const getParcelLogs = async (
 ): Promise<ParcelLog[]> => {
   const { data, error } = await supabase
     .from('parcel_logs')
-    .select('*')
+    .select('id, rider_id, date, parcels, heavy_parcels, assigned_parcels, failed_parcels, returned_parcels, rate, heavy_rate, standard_earnings, heavy_earnings, daily_gross, rate_configuration_id')
     .eq('rider_id', riderId)
     .gte('date', cutoffFrom)
     .lte('date', cutoffTo)
@@ -39,11 +95,147 @@ export const getParcelLogs = async (
     id: row.id,
     riderId: row.rider_id,
     date: row.date,
-    parcels: row.parcels,
-    rate: parseFloat(row.rate),
-    dailyGross: parseFloat(row.daily_gross),
+    parcels: Number(row.parcels ?? 0),
+    heavyParcels: Number(row.heavy_parcels ?? 0),
+    assignedParcels: row.assigned_parcels == null ? null : Number(row.assigned_parcels),
+    failedParcels: Number(row.failed_parcels ?? 0),
+    returnedParcels: Number(row.returned_parcels ?? 0),
+    rate: row.rate == null ? Number.NaN : Number(row.rate),
+    heavyRate: row.heavy_rate == null ? Number.NaN : Number(row.heavy_rate),
+    standardEarnings: Number(row.standard_earnings ?? 0),
+    heavyEarnings: Number(row.heavy_earnings ?? 0),
+    dailyGross: Number(row.daily_gross ?? 0),
+    rateConfigurationId: row.rate_configuration_id ?? null,
+    calculationVersion: 2,
+    source: 'live' as const,
   }));
 };
+
+export const calculateDeliverySuccessRate = (
+  delivered: number,
+  assigned: number | null
+): number | null => {
+  if (assigned == null || assigned <= 0) return null;
+  return Math.round((delivered / assigned) * 1000) / 10;
+};
+
+export const summarizeOperationalParcels = (
+  logs: ParcelLog[]
+): OperationalParcelSummary => {
+  const standardDelivered = logs.reduce((sum, log) => sum + log.parcels, 0);
+  const heavyDelivered = logs.reduce((sum, log) => sum + log.heavyParcels, 0);
+  const delivered = standardDelivered + heavyDelivered;
+  const failed = logs.reduce((sum, log) => sum + log.failedParcels, 0);
+  const returned = logs.reduce((sum, log) => sum + log.returnedParcels, 0);
+  const totalHandled = delivered + failed + returned;
+  const logsWithAssigned = logs.filter((log) => log.assignedParcels != null);
+  const assigned = logsWithAssigned.length > 0
+    ? logsWithAssigned.reduce((sum, log) => sum + (log.assignedParcels ?? 0), 0)
+    : null;
+
+  return {
+    delivered,
+    standardDelivered,
+    heavyDelivered,
+    failed,
+    returned,
+    totalHandled,
+    assigned,
+    successRate: totalHandled > 0 ? Math.round((delivered / totalHandled) * 1000) / 10 : 0,
+    standardEarnings: logs.reduce((sum, log) => sum + log.standardEarnings, 0),
+    heavyEarnings: logs.reduce((sum, log) => sum + log.heavyEarnings, 0),
+    grossDeliveryPay: logs.reduce((sum, log) => sum + log.dailyGross, 0),
+    rateConfigurationIds: Array.from(new Set(logs.map(log => log.rateConfigurationId).filter((id): id is string => Boolean(id)))),
+  };
+};
+
+export function validatePayrollDeliveryLine(line: ParcelLog): void {
+  if (!Number.isFinite(line.rate) || line.rate < 0) {
+    throw new MissingPayrollSnapshotError(`Standard rate snapshot is missing for ${line.date}. Review the operational record before submission.`);
+  }
+  if (!Number.isFinite(line.heavyRate) || line.heavyRate < 0) {
+    throw new MissingPayrollSnapshotError(`Heavy rate snapshot is missing for ${line.date}. Review the operational record before submission.`);
+  }
+  if (!line.rateConfigurationId) {
+    throw new MissingPayrollSnapshotError(`Rate configuration reference is missing for ${line.date}. Review the operational record before submission.`);
+  }
+  const numericValues = [line.parcels, line.heavyParcels, line.failedParcels, line.returnedParcels, line.standardEarnings, line.heavyEarnings, line.dailyGross];
+  if (numericValues.some(value => !Number.isFinite(value) || value < 0)) {
+    throw new MissingPayrollSnapshotError(`Delivery snapshot amounts are incomplete for ${line.date}. Review the operational record before submission.`);
+  }
+}
+
+function legacySummary(record: PayrollSnapshotRecordLike): OperationalParcelSummary {
+  const standardDelivered = Number(record.standard_parcels ?? record.total_parcels ?? 0);
+  const heavyDelivered = Number(record.heavy_parcels ?? 0);
+  const standardEarnings = Number(record.standard_earnings ?? record.gross_pay ?? 0);
+  const heavyEarnings = Number(record.heavy_earnings ?? 0);
+  return {
+    delivered: standardDelivered + heavyDelivered,
+    standardDelivered,
+    heavyDelivered,
+    failed: 0,
+    returned: 0,
+    totalHandled: standardDelivered + heavyDelivered,
+    assigned: null,
+    successRate: standardDelivered + heavyDelivered > 0 ? 100 : 0,
+    standardEarnings,
+    heavyEarnings,
+    grossDeliveryPay: Number(record.gross_pay ?? standardEarnings + heavyEarnings),
+    rateConfigurationIds: record.rate_configuration_id ? [record.rate_configuration_id] : [],
+  };
+}
+
+export async function getPayrollDeliveryData(record: PayrollSnapshotRecordLike): Promise<PayrollDeliveryData> {
+  const calculationVersion = Number(record.calculation_version ?? 1);
+  const isLegacy = calculationVersion === 1;
+  const isWorking = record.status === PayrollStatus.DRAFT || record.status === PayrollStatus.REJECTED;
+
+  if (isLegacy && !isWorking) {
+    return { lines: [], summary: legacySummary(record), source: 'legacy', calculationVersion };
+  }
+
+  if (isWorking) {
+    const lines = await getParcelLogs(record.rider_id, record.cutoff_start, record.cutoff_end);
+    lines.forEach(validatePayrollDeliveryLine);
+    return { lines, summary: summarizeOperationalParcels(lines), source: 'live', calculationVersion: 2 };
+  }
+
+  const { data, error } = await supabase
+    .from('payroll_delivery_lines')
+    .select('id, payroll_record_id, rider_id, date, standard_delivered, heavy_delivered, failed, returned, applied_standard_rate, applied_heavy_rate, standard_earnings, heavy_earnings, gross_delivery_pay, rate_configuration_id, calculation_version')
+    .eq('payroll_record_id', record.id)
+    .order('date', { ascending: true });
+
+  if (error) throw error;
+  const lines: ParcelLog[] = (data ?? []).map(row => ({
+    id: row.id,
+    riderId: row.rider_id,
+    date: row.date,
+    parcels: Number(row.standard_delivered),
+    heavyParcels: Number(row.heavy_delivered),
+    assignedParcels: null,
+    failedParcels: Number(row.failed),
+    returnedParcels: Number(row.returned),
+    rate: row.applied_standard_rate == null ? Number.NaN : Number(row.applied_standard_rate),
+    heavyRate: row.applied_heavy_rate == null ? Number.NaN : Number(row.applied_heavy_rate),
+    standardEarnings: Number(row.standard_earnings),
+    heavyEarnings: Number(row.heavy_earnings),
+    dailyGross: Number(row.gross_delivery_pay),
+    rateConfigurationId: row.rate_configuration_id,
+    calculationVersion: Number(row.calculation_version),
+    source: 'snapshot',
+  }));
+
+  if (lines.length === 0) {
+    const hasNoDelivery = Number(record.total_parcels ?? 0) === 0 && Number(record.gross_pay ?? 0) === 0;
+    if (!hasNoDelivery) {
+      throw new MissingPayrollSnapshotError('This finalized payroll is missing its immutable delivery lines. Review is required; live records will not be used.');
+    }
+  }
+  lines.forEach(validatePayrollDeliveryLine);
+  return { lines, summary: summarizeOperationalParcels(lines), source: 'snapshot', calculationVersion };
+}
 
 // Upsert a single day parcel entry
 // Updates if exists, inserts if not
@@ -96,30 +288,22 @@ export const computeParcelSummary = (
 export const savePayrollRecord = async (
   riderId: string,
   cutoffFrom: string,
-  cutoffTo: string,
-  totalParcels: number,
-  ratePerParcel: number,
-  grossPay?: number
+  cutoffTo: string
 ): Promise<void> => {
-  const finalGross = grossPay ?? (totalParcels * ratePerParcel);
-
-  const { error } = await supabase
+  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
+  const { data: savedRecord, error } = await supabase
     .from('payroll_records')
-    .upsert(
-      {
-        rider_id: riderId,
-        cutoff_start: cutoffFrom,
-        cutoff_end: cutoffTo,
-        total_parcels: totalParcels,
-        rate_per_parcel: ratePerParcel,
-        gross_pay: finalGross,
-        status: PayrollStatus.DRAFT,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'rider_id,cutoff_start' }
-    );
+    .select('id, total_parcels, gross_pay, status')
+    .eq('rider_id', riderId)
+    .eq('cutoff_start', cutoffFrom)
+    .single();
 
   if (error) throw error;
+  if (!savedRecord || (savedRecord.status !== PayrollStatus.DRAFT && savedRecord.status !== PayrollStatus.REJECTED)) {
+    throw new Error('Only Draft or Rejected payroll records can synchronize from Parcel Operations.');
+  }
+  const finalGross = Number(savedRecord.gross_pay ?? 0);
+  const totalParcels = Number(savedRecord.total_parcels ?? 0);
 
   // Retrieve rider details to create a descriptive activity log
   try {
@@ -318,56 +502,98 @@ export const syncPayrollRecordsFromParcelLogs = async (
     // 1. Fetch all parcel_logs for the cutoff period
     const { data: logs, error: logsErr } = await supabase
       .from('parcel_logs')
-      .select('rider_id, parcels, rate, daily_gross')
+      .select('rider_id, date, parcels, heavy_parcels, rate, heavy_rate, standard_earnings, heavy_earnings, daily_gross, rate_configuration_id')
       .gte('date', cutoffFrom)
       .lte('date', cutoffTo);
 
     if (logsErr) {
-      console.error('Failed to fetch parcel logs for payroll sync:', logsErr);
-      return;
+      throw logsErr;
     }
 
     if (!logs || logs.length === 0) return;
 
     // 2. Aggregate parcels and gross pay by rider_id
-    const riderAggregates = new Map<string, { parcels: number; gross: number; rate: number }>();
+    const riderAggregates = new Map<string, {
+      standardParcels: number;
+      heavyParcels: number;
+      standardEarnings: number;
+      heavyEarnings: number;
+      gross: number;
+      rate: number;
+    }>();
     for (const log of logs) {
       const riderId = log.rider_id;
       if (!riderId) continue;
 
       const parcels = Number(log.parcels || 0);
-      const rate = Number(log.rate || 10);
-      const gross = log.daily_gross != null ? Number(log.daily_gross) : parcels * rate;
+      const heavyParcels = Number(log.heavy_parcels || 0);
+      if (log.rate == null || log.heavy_rate == null || log.standard_earnings == null
+        || log.heavy_earnings == null || log.daily_gross == null || !log.rate_configuration_id) {
+        throw new MissingPayrollSnapshotError(`Stored rate data is incomplete for ${log.date}. Review the Parcel Operations record before payroll synchronization.`);
+      }
+      const rate = Number(log.rate);
+      const standardEarnings = Number(log.standard_earnings);
+      const heavyEarnings = Number(log.heavy_earnings);
+      const gross = Number(log.daily_gross);
 
-      const curr = riderAggregates.get(riderId) || { parcels: 0, gross: 0, rate: 10 };
-      curr.parcels += parcels;
+      const curr = riderAggregates.get(riderId) || {
+        standardParcels: 0,
+        heavyParcels: 0,
+        standardEarnings: 0,
+        heavyEarnings: 0,
+        gross: 0,
+        rate,
+      };
+      curr.standardParcels += parcels;
+      curr.heavyParcels += heavyParcels;
+      curr.standardEarnings += standardEarnings;
+      curr.heavyEarnings += heavyEarnings;
       curr.gross += gross;
       curr.rate = rate;
       riderAggregates.set(riderId, curr);
     }
 
-    // 3. Fetch existing payroll_records for this cutoff to preserve status & additional fields
-    const { data: existingRecords } = await supabase
+    // 3. Fetch existing payroll records so finalized snapshots are never rewritten.
+    const { data: existingRecords, error: existingRecordsErr } = await supabase
       .from('payroll_records')
       .select('id, rider_id, status')
       .eq('cutoff_start', cutoffFrom);
 
+    if (existingRecordsErr) {
+      throw existingRecordsErr;
+    }
+
     const existingMap = new Map((existingRecords || []).map(r => [r.rider_id, r]));
 
     // 4. Build upsert payload
-    const upsertPayloads = Array.from(riderAggregates.entries()).map(([riderId, agg]) => {
+    const upsertPayloads = Array.from(riderAggregates.entries()).flatMap(([riderId, agg]) => {
       const existing = existingMap.get(riderId);
-      return {
+
+      // Only working records may track live parcel changes. Pending, approved,
+      // paid, and other historical states must retain their submitted snapshot.
+      if (
+        existing
+        && existing.status !== PayrollStatus.DRAFT
+        && existing.status !== PayrollStatus.REJECTED
+      ) {
+        return [];
+      }
+
+      return [{
         ...(existing?.id ? { id: existing.id } : {}),
         rider_id: riderId,
         cutoff_start: cutoffFrom,
         cutoff_end: cutoffTo,
-        total_parcels: agg.parcels,
+        total_parcels: agg.standardParcels + agg.heavyParcels,
+        standard_parcels: agg.standardParcels,
+        heavy_parcels: agg.heavyParcels,
+        standard_earnings: agg.standardEarnings,
+        heavy_earnings: agg.heavyEarnings,
         rate_per_parcel: agg.rate,
         gross_pay: agg.gross,
         status: existing?.status || PayrollStatus.DRAFT,
         updated_at: new Date().toISOString()
-      };
+      }];
     });
 
     if (upsertPayloads.length === 0) return;
@@ -377,10 +603,11 @@ export const syncPayrollRecordsFromParcelLogs = async (
       .upsert(upsertPayloads, { onConflict: 'rider_id,cutoff_start' });
 
     if (upsertErr) {
-      console.error('Failed to upsert synchronized payroll records:', upsertErr);
+      throw upsertErr;
     }
   } catch (err) {
     console.error('Error in syncPayrollRecordsFromParcelLogs:', err);
+    throw err;
   }
 };
 
@@ -628,20 +855,24 @@ export const updatePayrollRecordStatus = async (
   let cutoffEnd = '';
   let grossPay = 0;
   try {
-    const { data: record } = await supabase
+    const { data: record, error: recordError } = await supabase
       .from('payroll_records')
-      .select('cutoff_start, cutoff_end, gross_pay, riders(name)')
+      .select('id, rider_id, cutoff_start, cutoff_end, total_parcels, standard_parcels, heavy_parcels, standard_earnings, heavy_earnings, gross_pay, rate_configuration_id, calculation_version, snapshot_finalized_at, status, riders(name)')
       .eq('id', recordId)
       .single();
 
-    if (record) {
-      riderName = (record.riders as any)?.name || 'Rider';
-      cutoffStart = record.cutoff_start;
-      cutoffEnd = record.cutoff_end;
-      grossPay = record.gross_pay || 0;
+    if (recordError) throw recordError;
+    if (!record) throw new Error('Payroll record not found.');
+    if (normStatus === PayrollStatus.PENDING) {
+      await getPayrollDeliveryData(record);
     }
+    riderName = (record.riders as any)?.name || 'Rider';
+    cutoffStart = record.cutoff_start;
+    cutoffEnd = record.cutoff_end;
+    grossPay = record.gross_pay || 0;
   } catch (err) {
-    console.warn('Failed to fetch payroll record for status logging:', err);
+    console.error('Failed to validate payroll record before status update:', err);
+    throw err;
   }
 
   const { error } = await supabase
@@ -746,7 +977,7 @@ export const bulkSubmitPayrollForApproval = async (
   // 1. Fetch current status of records to validate they are editable (draft or rejected)
   const { data: records, error: fetchError } = await supabase
     .from('payroll_records')
-    .select('id, status, cutoff_start, cutoff_end, gross_pay, riders(name)')
+    .select('id, rider_id, status, cutoff_start, cutoff_end, total_parcels, standard_parcels, heavy_parcels, standard_earnings, heavy_earnings, gross_pay, rate_configuration_id, calculation_version, snapshot_finalized_at, riders(name)')
     .in('id', recordIds);
 
   if (fetchError) throw fetchError;
@@ -761,6 +992,8 @@ export const bulkSubmitPayrollForApproval = async (
   if (invalidRecords.length > 0) {
     throw new Error('Some selected records are already submitted, approved, or paid.');
   }
+
+  await Promise.all(records.map(record => getPayrollDeliveryData(record)));
 
   // 3. Perform bulk update
   const { error: updateError } = await supabase
@@ -795,7 +1028,7 @@ export const bulkSubmitPayrollForApproval = async (
 export const getParcelLogsSummary = async (from: string, to: string) => {
   const { data, error } = await supabase
     .from('parcel_logs')
-    .select('parcels, daily_gross, date, rider_id, riders(id, name, zone_id)')
+    .select('parcels, heavy_parcels, failed_parcels, returned_parcels, standard_earnings, heavy_earnings, daily_gross, date, rider_id, riders(id, name, zone_id)')
     .gte('date', from)
     .lte('date', to);
 

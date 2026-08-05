@@ -12,6 +12,9 @@ interface SelectedDayDetailsProps {
   } | null;
   selectedDayLog: {
     parcels?: number;
+    heavyParcels?: number;
+    failedParcels?: number;
+    returnedParcels?: number;
   } | null;
   selectedDayViolations: PayrollMetrics["violations"];
 }
@@ -41,7 +44,7 @@ export function SelectedDayDetails({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-2 border-y border-border text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 py-2 border-y border-border text-xs">
         <div>
           <div className="text-muted-foreground mb-0.5">Clock In</div>
           <div className="font-semibold font-mono text-foreground flex items-center gap-1">
@@ -108,11 +111,14 @@ export function SelectedDayDetails({
         </div>
 
         <div>
-          <div className="text-muted-foreground mb-0.5">Delivered</div>
+          <div className="text-muted-foreground mb-0.5">Standard</div>
           <div className="font-semibold font-mono text-foreground">
             {selectedDayLog?.parcels ?? 0} pcs
           </div>
         </div>
+        <div><div className="text-muted-foreground mb-0.5">Heavy</div><div className="font-semibold font-mono text-primary">{selectedDayLog?.heavyParcels ?? 0} pcs</div></div>
+        <div><div className="text-muted-foreground mb-0.5">Failed</div><div className="font-semibold font-mono text-red-700">{selectedDayLog?.failedParcels ?? 0} pcs</div></div>
+        <div><div className="text-muted-foreground mb-0.5">Returned</div><div className="font-semibold font-mono text-amber-700">{selectedDayLog?.returnedParcels ?? 0} pcs</div></div>
       </div>
 
       {/* Geofence Breach Banner */}

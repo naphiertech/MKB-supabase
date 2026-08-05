@@ -2,13 +2,14 @@ import { Shield, Loader2, CheckCircle2 } from "lucide-react";
 import { type PayrollRecordShape } from "./PayrollDetailsModal";
 import { isEditableStatus } from "../../types/payroll";
 import { BRANDING } from "../../config/branding";
+import { type OperationalParcelSummary } from "../../services/parcelService";
 
 interface PayslipSlipCardProps {
   record: PayrollRecordShape;
   role: "admin" | "hr" | "payroll" | "rider";
   grossPay: number;
-  rateBreakdown: Array<{ rate: number; parcels: number; gross: number }>;
-  ratePerParcel: number;
+  operationalSummary: OperationalParcelSummary;
+  calculationVersion: number;
   otherEarnings: number;
   setOtherEarnings: (val: number) => void;
   fmPickupCount: number;
@@ -38,8 +39,8 @@ export function PayslipSlipCard({
   record,
   role,
   grossPay,
-  rateBreakdown,
-  ratePerParcel,
+  operationalSummary,
+  calculationVersion,
   otherEarnings,
   setOtherEarnings,
   fmPickupCount,
@@ -93,25 +94,17 @@ export function PayslipSlipCard({
               {phpFmt(grossPay)}
             </span>
           </div>
-          {rateBreakdown.length === 0 ? (
-            <div className="pl-3 text-[11px] text-muted-foreground/80 flex justify-between font-mono">
-              <span>
-                ({record.total_parcels} parcels @ {phpFmt(ratePerParcel)}/pc)
-              </span>
-            </div>
-          ) : (
-            rateBreakdown.map((b) => (
-              <div
-                key={b.rate}
-                className="pl-3 text-[11px] text-muted-foreground/80 flex justify-between font-mono"
-              >
-                <span>
-                  ({b.parcels} parcels @ {phpFmt(b.rate)}/pc)
-                </span>
-                <span className="tabular-nums">{phpFmt(b.gross)}</span>
-              </div>
-            ))
-          )}
+          <div className="pl-3 text-[11px] text-muted-foreground/80 flex justify-between font-mono">
+            <span>{operationalSummary.standardDelivered} standard parcels</span>
+            <span className="tabular-nums">{phpFmt(operationalSummary.standardEarnings)}</span>
+          </div>
+          <div className="pl-3 text-[11px] text-muted-foreground/80 flex justify-between font-mono">
+            <span>{operationalSummary.heavyDelivered} heavy parcels</span>
+            <span className="tabular-nums">{phpFmt(operationalSummary.heavyEarnings)}</span>
+          </div>
+          <div className="pl-3 text-[10px] text-subtle-text font-mono">
+            Calculation v{calculationVersion}
+          </div>
 
           {/* Option B: Other Earnings Input */}
           <div className="flex justify-between items-center pt-1 border-t border-border/40">
