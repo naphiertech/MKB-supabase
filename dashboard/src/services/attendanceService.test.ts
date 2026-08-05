@@ -18,7 +18,7 @@ vi.mock('./notificationService', () => ({
   dispatchNotificationSafe: vi.fn()
 }));
 
-import { buildTimeOutQueueOperation, recordTimeIn } from './attendanceService';
+import { buildTimeOutQueueOperation, getRiderAttendanceInDateRange, recordTimeIn } from './attendanceService';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -88,5 +88,31 @@ describe('Time In fallback identity', () => {
       })
     }));
     expect(result?.id).toBe(existingAttendanceId);
+  });
+});
+
+describe('Payroll attendance lookup', () => {
+  it('loads a rider date range without attempting attendance finalization', async () => {
+    const viewQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+      order: vi.fn()
+    };
+    viewQuery.select.mockReturnValue(viewQuery);
+    viewQuery.eq.mockReturnValue(viewQuery);
+    viewQuery.gte.mockReturnValue(viewQuery);
+    viewQuery.lte.mockReturnValue(viewQuery);
+    viewQuery.order.mockResolvedValue({ data: [], error: null });
+    mocks.from.mockReturnValueOnce(viewQuery);
+
+    await expect(
+      getRiderAttendanceInDateRange('rider-1', '2026-08-01', '2026-08-15')
+    ).resolves.toEqual([]);
+
+    expect(mocks.from).toHaveBeenCalledOnce();
+    expect(mocks.from).toHaveBeenCalledWith('v_attendance_summary');
+    expect(viewQuery.eq).toHaveBeenCalledWith('rider_id', 'rider-1');
   });
 });

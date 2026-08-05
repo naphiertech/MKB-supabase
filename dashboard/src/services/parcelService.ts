@@ -512,7 +512,20 @@ export const syncPayrollRecordsFromParcelLogs = async (
 
     if (!logs || logs.length === 0) return;
 
-    // 2. Aggregate parcels and gross pay by rider_id
+    // 2. Fetch existing payroll records before validating live rows. Finalized
+    // legacy payroll is immutable and does not depend on newly added rate metadata.
+    const { data: existingRecords, error: existingRecordsErr } = await supabase
+      .from('payroll_records')
+      .select('id, rider_id, status')
+      .eq('cutoff_start', cutoffFrom);
+
+    if (existingRecordsErr) {
+      throw existingRecordsErr;
+    }
+
+    const existingMap = new Map((existingRecords || []).map(r => [r.rider_id, r]));
+
+    // 3. Aggregate parcels and gross pay only for records that may track live data.
     const riderAggregates = new Map<string, {
       standardParcels: number;
       heavyParcels: number;
@@ -524,6 +537,15 @@ export const syncPayrollRecordsFromParcelLogs = async (
     for (const log of logs) {
       const riderId = log.rider_id;
       if (!riderId) continue;
+
+      const existing = existingMap.get(riderId);
+      if (
+        existing
+        && existing.status !== PayrollStatus.DRAFT
+        && existing.status !== PayrollStatus.REJECTED
+      ) {
+        continue;
+      }
 
       const parcels = Number(log.parcels || 0);
       const heavyParcels = Number(log.heavy_parcels || 0);
@@ -552,18 +574,6 @@ export const syncPayrollRecordsFromParcelLogs = async (
       curr.rate = rate;
       riderAggregates.set(riderId, curr);
     }
-
-    // 3. Fetch existing payroll records so finalized snapshots are never rewritten.
-    const { data: existingRecords, error: existingRecordsErr } = await supabase
-      .from('payroll_records')
-      .select('id, rider_id, status')
-      .eq('cutoff_start', cutoffFrom);
-
-    if (existingRecordsErr) {
-      throw existingRecordsErr;
-    }
-
-    const existingMap = new Map((existingRecords || []).map(r => [r.rider_id, r]));
 
     // 4. Build upsert payload
     const upsertPayloads = Array.from(riderAggregates.entries()).flatMap(([riderId, agg]) => {

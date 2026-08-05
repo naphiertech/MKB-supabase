@@ -191,6 +191,44 @@ describe('immutable payroll delivery reads', () => {
 });
 
 describe('payroll synchronization immutability', () => {
+  it('ignores incomplete legacy parcel metadata when the payroll record is finalized', async () => {
+    const logsQuery = {
+      select: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+    };
+    logsQuery.select.mockReturnValue(logsQuery);
+    logsQuery.gte.mockReturnValue(logsQuery);
+    logsQuery.lte.mockResolvedValue({
+      data: [{
+        rider_id: 'rider-1', date: '2026-07-11', parcels: 10, heavy_parcels: 0,
+        rate: 12, heavy_rate: null,
+        standard_earnings: 120, heavy_earnings: 0, daily_gross: 120, rate_configuration_id: null,
+      }],
+      error: null,
+    });
+
+    const recordsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      upsert: vi.fn(),
+    };
+    recordsQuery.select.mockReturnValue(recordsQuery);
+    recordsQuery.eq.mockResolvedValue({
+      data: [{ id: 'payroll-1', rider_id: 'rider-1', status: 'paid' }],
+      error: null,
+    });
+
+    mocks.from
+      .mockReturnValueOnce(logsQuery)
+      .mockReturnValueOnce(recordsQuery);
+
+    await expect(syncPayrollRecordsFromParcelLogs('2026-07-01', '2026-07-15')).resolves.toBeUndefined();
+
+    expect(recordsQuery.upsert).not.toHaveBeenCalled();
+    expect(mocks.from).toHaveBeenCalledTimes(2);
+  });
+
   it('does not upsert paid or otherwise finalized payroll records', async () => {
     const logsQuery = {
       select: vi.fn(),

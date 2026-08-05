@@ -120,10 +120,13 @@ export async function getAttendanceLogs(filters?: {
   dateFrom?: string;
   dateTo?: string;
   zoneId?: string;
-}): Promise<AttendanceLog[]> {
+  riderId?: string;
+}, options: { finalizeDaily?: boolean } = {}): Promise<AttendanceLog[]> {
   // Trigger auto-absent finalization for requested dates
-  const queryDate = filters?.dateFrom || getLocalDateString();
-  await finalizeDailyAttendance(queryDate).catch(err => console.warn('Finalization notice:', err));
+  if (options.finalizeDaily !== false) {
+    const queryDate = filters?.dateFrom || getLocalDateString();
+    await finalizeDailyAttendance(queryDate).catch(err => console.warn('Finalization notice:', err));
+  }
 
   let query = supabase
     .from('v_attendance_summary')
@@ -140,6 +143,9 @@ export async function getAttendanceLogs(filters?: {
   }
   if (filters?.zoneId && filters.zoneId !== 'all') {
     query = query.eq('zone_id', filters.zoneId);
+  }
+  if (filters?.riderId) {
+    query = query.eq('rider_id', filters.riderId);
   }
 
   // Sort descending by date
@@ -356,8 +362,10 @@ export function exportLogsCsv(logs: AttendanceLog[], filename = 'attendance_logs
 }
 
 export async function getRiderAttendanceInDateRange(riderId: string, dateFrom: string, dateTo: string): Promise<AttendanceLog[]> {
-  const logs = await getAttendanceLogs({ dateFrom, dateTo });
-  return logs.filter(l => l.riderId === riderId);
+  return getAttendanceLogs(
+    { riderId, dateFrom, dateTo },
+    { finalizeDaily: false }
+  );
 }
 
 export async function recordTimeIn(riderId: string, zoneId?: string, cutoffHour = 17): Promise<AttendanceLog | null> {
