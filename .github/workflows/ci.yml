@@ -25,6 +25,12 @@ jobs:
 
   dashboard:
     runs-on: ubuntu-latest
+    # Unit tests and this verification build do not contact Supabase, but the
+    # client validates its Vite configuration when modules are imported.
+    # Deployment workflows must provide the real project values separately.
+    env:
+      VITE_SUPABASE_URL: https://ci-test.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci-test-anon-key
     defaults:
       run:
         working-directory: dashboard
