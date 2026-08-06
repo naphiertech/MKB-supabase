@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarClock, History, Loader2, Pencil, Plus, Power } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AlertTriangle, Calendar, CalendarClock, Coins, FileText, History, Info, Loader2, Pencil, Plus, Power, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { Role } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
 import { Modal } from '../common/Modal';
@@ -69,6 +71,10 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const savingRef = useRef(saving);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -86,6 +92,61 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
   }, [role]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    savingRef.current = saving;
+  }, [saving]);
+
+  useEffect(() => {
+    if (!editorOpen) return;
+    openerRef.current = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !savingRef.current) {
+        setEditorOpen(false);
+        return;
+      }
+
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => !element.hasAttribute('hidden'));
+
+      if (focusable.length === 0) {
+        e.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    window.requestAnimationFrame(() => {
+      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      (firstFocusable ?? dialogRef.current)?.focus();
+    });
+
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+      openerRef.current?.focus();
+    };
+  }, [editorOpen]);
 
   const current = useMemo(() => getCurrentParcelRateConfiguration(configurations), [configurations]);
   const sortedConfigurations = useMemo(
@@ -195,17 +256,270 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
 
       {role === 'admin' && <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-xs" aria-labelledby="rate-audit-heading"><div className="border-b border-border px-5 py-4"><h3 id="rate-audit-heading" className="text-sm font-bold text-foreground">Rate-change Audit History</h3><p className="mt-0.5 text-xs text-muted-foreground">Append-only record of previous and new effective-dated values.</p></div><div className="divide-y divide-border">{audit.length ? audit.slice(0, 50).map((entry) => <div key={entry.id} className="space-y-2 px-5 py-3 text-xs"><div className="flex flex-wrap gap-x-5 gap-y-1"><span className="font-semibold text-foreground">{new Date(entry.changed_at).toLocaleString('en-PH')}</span><span className="capitalize text-foreground">{entry.action}</span><span className="text-foreground">By {entry.changedByName}</span><span className="text-muted-foreground">Effective {formatDate(entry.effective_date)}</span></div><p className="text-muted-foreground">{entry.reason}</p><div className="grid gap-1 rounded-lg border border-border bg-panel-bg p-2 text-[10px] sm:grid-cols-2"><span><strong>Previous:</strong> {auditRateSummary(entry.previous_values)}</span><span><strong>New:</strong> {auditRateSummary(entry.new_values)}</span></div></div>) : <p className="px-5 py-8 text-center text-xs text-muted-foreground">No audit entries available.</p>}</div></section>}
 
-      <Modal open={editorOpen} onClose={() => !saving && setEditorOpen(false)} title={editing ? 'Edit future configuration' : 'Create future rate configuration'} subtitle="All values are effective-dated and require a reason." size="lg" dismissible={!saving}>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {([
-            ['Early standard rate', 'earlyStandardRate'], ['Regular standard rate', 'regularStandardRate'], ['Late standard rate', 'lateStandardRate'], ['Heavy parcel rate', 'heavyParcelRate'], ['Heavy threshold (kg)', 'heavyThresholdKg'],
-          ] as const).map(([label, key]) => <label key={key} className="space-y-1 text-xs font-semibold text-foreground">{label} *<input type="number" min={key === 'heavyThresholdKg' ? '0.01' : '0'} step="0.01" value={input[key]} onChange={(event) => setInput((currentInput) => ({ ...currentInput, [key]: Number(event.target.value) }))} className="ar-input" /></label>)}
-          <label className="space-y-1 text-xs font-semibold text-foreground">Effective from *<input type="date" min={localDateString(new Date(Date.now() + 86400000))} value={input.effectiveFrom} onChange={(event) => setInput((currentInput) => ({ ...currentInput, effectiveFrom: event.target.value }))} className="ar-input" disabled={Boolean(editing)} /></label>
-          <label className="space-y-1 text-xs font-semibold text-foreground sm:col-span-2">Reason for change *<textarea value={input.reason} onChange={(event) => setInput((currentInput) => ({ ...currentInput, reason: event.target.value }))} className="ar-textarea" rows={3} placeholder="Explain why these rates are changing." /></label>
-        </div>
-        {error && <p role="alert" className="mt-3 text-xs font-medium text-red-600">{error}</p>}
-        <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4"><button type="button" onClick={() => setEditorOpen(false)} disabled={saving} className="h-9 rounded-md border border-border px-4 text-xs font-semibold">Cancel</button><button type="button" onClick={() => void handleSave()} disabled={saving} className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-white disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />} Save configuration</button></div>
-      </Modal>
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {editorOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => !saving && setEditorOpen(false)}
+                className="fixed inset-0 z-[9990] bg-foreground/40 backdrop-blur-xs cursor-default"
+                aria-hidden="true"
+              />
+
+              {/* Right-Side Drawer Panel - Portaled to document.body for full viewport coverage */}
+              <motion.div
+                ref={dialogRef}
+                tabIndex={-1}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="drawer-rate-title"
+                aria-describedby="drawer-rate-subtitle"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 30, stiffness: 350 }}
+                className="fixed inset-y-0 right-0 z-[9991] flex h-full w-full flex-col bg-white border-l border-border shadow-2xl sm:w-[520px] md:w-[560px]"
+              >
+                {/* Sticky Header */}
+                <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-white px-5 py-4">
+                  <div className="min-w-0">
+                    <h2 id="drawer-rate-title" className="text-base font-bold text-foreground tracking-tight">
+                      {editing ? 'Edit Future Configuration' : 'Create Future Rate Configuration'}
+                    </h2>
+                    <p id="drawer-rate-subtitle" className="text-xs text-muted-foreground mt-0.5">
+                      Effective-dated rate values require an audit reason.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => !saving && setEditorOpen(false)}
+                    disabled={saving}
+                    aria-label="Close panel"
+                    className="rounded-lg p-1.5 text-muted-foreground hover:bg-panel-bg hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Scrollable Content Area */}
+                <div className="flex-1 overflow-y-auto ar-scroll px-5 py-4 space-y-4 text-xs">
+                  {/* Informational Policy Banner */}
+                  <div className="flex items-start gap-2.5 rounded-lg border border-amber-200/90 bg-amber-50/70 p-3 text-xs text-amber-950 shadow-xs">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <div className="space-y-0.5 leading-relaxed">
+                      <p className="font-bold text-amber-950">Effective-Dated Policy</p>
+                      <p className="text-amber-900/90 text-[11px]">
+                        Rates become active strictly on the selected start date and never alter paid historical payroll.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Section 1: Rate Configuration */}
+                  <div className="rounded-xl border border-border/80 bg-panel-bg/50 p-4 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-border/60 pb-2 text-xs font-bold text-foreground">
+                      <Coins className="h-4 w-4 text-primary" />
+                      <span>Rate Configuration</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {/* Early Standard Rate */}
+                      <div className="space-y-1">
+                        <label htmlFor="earlyStandardRate" className="block text-[11px] font-semibold text-foreground">
+                          Early Standard Rate <span className="text-primary">*</span>
+                        </label>
+                        <div className="relative rounded-lg shadow-xs">
+                          <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-semibold text-muted-foreground">
+                            ₱
+                          </span>
+                          <input
+                            id="earlyStandardRate"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={input.earlyStandardRate}
+                            onChange={(event) => setInput((currentInput) => ({ ...currentInput, earlyStandardRate: Number(event.target.value) }))}
+                            className="ar-input w-full rounded-lg border border-border bg-white pl-7 pr-3 py-2 text-xs font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Applies before early cutoff.</p>
+                      </div>
+
+                      {/* Regular Standard Rate */}
+                      <div className="space-y-1">
+                        <label htmlFor="regularStandardRate" className="block text-[11px] font-semibold text-foreground">
+                          Regular Standard Rate <span className="text-primary">*</span>
+                        </label>
+                        <div className="relative rounded-lg shadow-xs">
+                          <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-semibold text-muted-foreground">
+                            ₱
+                          </span>
+                          <input
+                            id="regularStandardRate"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={input.regularStandardRate}
+                            onChange={(event) => setInput((currentInput) => ({ ...currentInput, regularStandardRate: Number(event.target.value) }))}
+                            className="ar-input w-full rounded-lg border border-border bg-white pl-7 pr-3 py-2 text-xs font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Applies during regular hours.</p>
+                      </div>
+
+                      {/* Late Standard Rate */}
+                      <div className="space-y-1">
+                        <label htmlFor="lateStandardRate" className="block text-[11px] font-semibold text-foreground">
+                          Late Standard Rate <span className="text-primary">*</span>
+                        </label>
+                        <div className="relative rounded-lg shadow-xs">
+                          <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-semibold text-muted-foreground">
+                            ₱
+                          </span>
+                          <input
+                            id="lateStandardRate"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={input.lateStandardRate}
+                            onChange={(event) => setInput((currentInput) => ({ ...currentInput, lateStandardRate: Number(event.target.value) }))}
+                            className="ar-input w-full rounded-lg border border-border bg-white pl-7 pr-3 py-2 text-xs font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Applies after regular cutoff.</p>
+                      </div>
+
+                      {/* Heavy Parcel Rate */}
+                      <div className="space-y-1">
+                        <label htmlFor="heavyParcelRate" className="block text-[11px] font-semibold text-foreground">
+                          Heavy Parcel Rate <span className="text-primary">*</span>
+                        </label>
+                        <div className="relative rounded-lg shadow-xs">
+                          <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-semibold text-muted-foreground">
+                            ₱
+                          </span>
+                          <input
+                            id="heavyParcelRate"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={input.heavyParcelRate}
+                            onChange={(event) => setInput((currentInput) => ({ ...currentInput, heavyParcelRate: Number(event.target.value) }))}
+                            className="ar-input w-full rounded-lg border border-border bg-white pl-7 pr-3 py-2 text-xs font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Rate per heavy parcel above threshold.</p>
+                      </div>
+
+                      {/* Heavy Threshold (kg) */}
+                      <div className="space-y-1 sm:col-span-2">
+                        <label htmlFor="heavyThresholdKg" className="block text-[11px] font-semibold text-foreground">
+                          Heavy Threshold (kg) <span className="text-primary">*</span>
+                        </label>
+                        <div className="relative rounded-lg shadow-xs max-w-xs">
+                          <input
+                            id="heavyThresholdKg"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={input.heavyThresholdKg}
+                            onChange={(event) => setInput((currentInput) => ({ ...currentInput, heavyThresholdKg: Number(event.target.value) }))}
+                            className="ar-input w-full rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-xs font-semibold text-muted-foreground">
+                            kg
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Minimum weight (kg) to qualify as heavy.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Effective Schedule */}
+                  <div className="rounded-xl border border-border/80 bg-panel-bg/50 p-4 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-border/60 pb-2 text-xs font-bold text-foreground">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <span>Effective Schedule</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor="effectiveFrom" className="block text-[11px] font-semibold text-foreground">
+                        Effective From Date <span className="text-primary">*</span>
+                      </label>
+                      <input
+                        id="effectiveFrom"
+                        type="date"
+                        min={localDateString(new Date(Date.now() + 86400000))}
+                        value={input.effectiveFrom}
+                        onChange={(event) => setInput((currentInput) => ({ ...currentInput, effectiveFrom: event.target.value }))}
+                        className="ar-input w-full rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-slate-100 disabled:opacity-70"
+                        disabled={Boolean(editing)}
+                      />
+                      <p className="text-[10px] text-muted-foreground">The date when these rates automatically take effect.</p>
+                    </div>
+                  </div>
+
+                  {/* Section 3: Reason for Change */}
+                  <div className="rounded-xl border border-border/80 bg-panel-bg/50 p-4 space-y-3">
+                    <div className="flex items-center gap-2 border-b border-border/60 pb-2 text-xs font-bold text-foreground">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span>Reason for Change</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label htmlFor="changeReason" className="block text-[11px] font-semibold text-foreground">
+                        Audit Rationale & Description <span className="text-primary">*</span>
+                      </label>
+                      <textarea
+                        id="changeReason"
+                        value={input.reason}
+                        onChange={(event) => setInput((currentInput) => ({ ...currentInput, reason: event.target.value }))}
+                        className="ar-textarea w-full rounded-lg border border-border bg-white px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
+                        rows={3}
+                        placeholder="Explain why rates are changing (e.g., Annual rate adjustment, fuel surcharge update, or company policy revision)..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Validation Error Alert */}
+                  {error && (
+                    <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700 shadow-xs">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sticky Footer */}
+                <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-border bg-white px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditorOpen(false)}
+                    disabled={saving}
+                    className="h-9 rounded-lg border border-border bg-white px-4 text-xs font-semibold text-foreground hover:bg-panel-bg active:scale-[0.99] transition-all disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleSave()}
+                    disabled={saving}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-xs font-bold text-white shadow-xs hover:bg-primary-hover active:scale-[0.99] transition-all disabled:opacity-50"
+                  >
+                    {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    <span>{editing ? 'Update Configuration' : 'Save Configuration'}</span>
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       <Modal open={Boolean(deactivating)} onClose={() => !saving && setDeactivating(null)} title="Deactivate future configuration" subtitle="Only scheduled configurations can be deactivated." size="sm" dismissible={!saving}><label className="space-y-1 text-xs font-semibold text-foreground">Reason *<textarea value={reason} onChange={(event) => setReason(event.target.value)} className="ar-textarea" rows={3} /></label>{error && <p role="alert" className="mt-3 text-xs font-medium text-red-600">{error}</p>}<div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setDeactivating(null)} disabled={saving} className="h-9 rounded-md border border-border px-4 text-xs font-semibold">Cancel</button><button type="button" onClick={() => void handleDeactivate()} disabled={saving} className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-4 text-xs font-semibold text-white disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />} Deactivate</button></div></Modal>
     </div>

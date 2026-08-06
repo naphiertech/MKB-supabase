@@ -28,6 +28,7 @@ agents.md
 attenrider_schema.sql
 *.md
 !/README.md
+!/WALKTHROUGH.md
 !dashboard/README.md
 !landing/README.md
 !docs/maintenance-baseline.md
