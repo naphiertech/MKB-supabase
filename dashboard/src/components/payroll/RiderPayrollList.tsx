@@ -564,9 +564,15 @@ export function RiderPayrollList({
             <div className="text-sm font-semibold text-foreground">
               No payroll records computed for {cutoffLabel} yet.
             </div>
-            <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Use <span className="font-semibold text-primary">&ldquo;Initialize Fleet Cutoff&rdquo;</span> above to generate draft records for all active riders, or <span className="font-semibold text-foreground">&ldquo;Search & Pick Rider&rdquo;</span> to log daily parcels individually.
-            </p>
+            {role === 'payroll' ? (
+              <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+                Use <span className="font-semibold text-primary">&ldquo;Initialize Fleet Cutoff&rdquo;</span> above to generate draft records for all active riders, or <span className="font-semibold text-foreground">&ldquo;Search & Pick Rider&rdquo;</span> to log daily parcels individually.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+                No payroll records have been initialized or submitted for this cutoff period yet.
+              </p>
+            )}
           </div>
         )}
 
