@@ -423,7 +423,7 @@ export function RiderPayrollList({
             >
               Bulk Export — Not yet available
             </button>
-            {role === 'payroll' ? (
+            {(role === 'payroll' || role === 'admin') ? (
               <>
                 <button
                   onClick={handleSubmitForApproval}
@@ -684,7 +684,7 @@ export function RiderPayrollList({
                                 {isEditableStatus(r.status) ? 'Compute' : 'View'}
                               </button>
                             )}
-                            {isEditableStatus(r.status) && (
+                            {(role === 'payroll' || role === 'admin') && isEditableStatus(r.status) && (
                               <button
                                 type="button"
                                 onClick={(e) => {
