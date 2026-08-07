@@ -67,15 +67,15 @@ function getQuickRangeDates(type: QuickRange): { from: string; to: string } {
 
 export function Attendance() {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('present');
   const [punctualityFilter, setPunctualityFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const today = getLocalDateString();
   const sevenDaysAgo = getLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
-  const [dateFrom, setDateFrom] = useState<string>(sevenDaysAgo);
+  const [dateFrom, setDateFrom] = useState<string>(today);
   const [dateTo, setDateTo] = useState<string>(today);
-  const [activeQuickRange, setActiveQuickRange] = useState<QuickRange>('custom');
+  const [activeQuickRange, setActiveQuickRange] = useState<QuickRange>('today');
 
   const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
@@ -225,14 +225,14 @@ export function Attendance() {
   const isFilterModified = useMemo(() => {
     return (
       zoneFilter !== 'all' ||
-      statusFilter !== 'all' ||
+      statusFilter !== 'present' ||
       punctualityFilter !== 'all' ||
       searchQuery !== '' ||
-      activeQuickRange !== 'custom' ||
-      dateFrom !== sevenDaysAgo ||
+      activeQuickRange !== 'today' ||
+      dateFrom !== today ||
       dateTo !== today
     );
-  }, [zoneFilter, statusFilter, punctualityFilter, searchQuery, activeQuickRange, dateFrom, dateTo, sevenDaysAgo, today]);
+  }, [zoneFilter, statusFilter, punctualityFilter, searchQuery, activeQuickRange, dateFrom, dateTo, today]);
 
   const handleApplyQuickRange = (range: QuickRange) => {
     setActiveQuickRange(range);
@@ -242,13 +242,13 @@ export function Attendance() {
   };
 
   const handleResetFilters = () => {
-    setDateFrom(sevenDaysAgo);
+    setDateFrom(today);
     setDateTo(today);
     setZoneFilter('all');
-    setStatusFilter('all');
+    setStatusFilter('present');
     setPunctualityFilter('all');
     setSearchQuery('');
-    setActiveQuickRange('custom');
+    setActiveQuickRange('today');
   };
 
   const handleExportCSV = () => {
