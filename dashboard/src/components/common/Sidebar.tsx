@@ -1,48 +1,30 @@
-import { useEffect, ComponentType, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { BRANDING } from '../../config/branding';
 import {
-  LayoutDashboard,
-  MapPin,
-  ClipboardCheck,
-  BarChart3,
-  Users as UsersIcon,
   Activity,
-  LogOut,
-  ChevronDown,
-  Target,
-  Calculator,
-  Wallet,
-  Star,
-  Settings,
   X,
   BookOpen,
   HelpCircle,
   Headphones,
-  PackageCheck,
-  History
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-export type PageKey =
-  | 'dashboard'
-  | 'monitoring'
-  | 'geofence'
-  | 'attendance'
-  | 'reports'
-  | 'users'
-  | 'computation'
-  | 'reviews'
-  | 'payroll'
-  | 'settings'
-  | 'audit_logs'
-  | 'daily_parcels'
-  | 'parcel_history'
-  | 'payroll_history';
-export type SidebarRole = 'admin' | 'hr' | 'payroll';
-interface SidebarUser {
-  name: string;
-  email: string;
-  avatar: string;
-}
+import {
+  PageKey,
+  SidebarRole,
+  SidebarUser,
+  SidebarItem,
+  getSidebarNavigation
+} from './sidebar/sidebarNavigation';
+import { useSidebarCollapse } from './sidebar/useSidebarCollapse';
+import { SidebarNavItem } from './sidebar/SidebarNavItem';
+import { SidebarNavGroup } from './sidebar/SidebarNavGroup';
+import { SidebarFlyout } from './sidebar/SidebarFlyout';
+import { SidebarFooter } from './sidebar/SidebarFooter';
+
+export type { PageKey, SidebarRole, SidebarUser, SidebarItem };
+
 interface SidebarProps {
   current: PageKey;
   onNavigate: (page: PageKey) => void;
@@ -56,194 +38,6 @@ interface SidebarProps {
   badgeCounts?: Partial<Record<PageKey, number>>;
 }
 
-export type SidebarItem =
-  | {
-      type: 'link';
-      key: PageKey;
-      label: string;
-      icon: ComponentType<{ className?: string }>;
-    }
-  | {
-      type: 'section';
-      title: string;
-      icon: ComponentType<{ className?: string }>;
-      items: {
-        key: PageKey;
-        label: string;
-        icon: ComponentType<{ className?: string }>;
-      }[];
-    };
-
-const ADMIN_ITEMS: SidebarItem[] = [
-  {
-    type: 'link',
-    key: 'dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboard
-  },
-  {
-    type: 'section',
-    title: 'Tracking & Zones',
-    icon: MapPin,
-    items: [
-      { key: 'monitoring', label: 'Live Monitoring', icon: Activity },
-      { key: 'geofence', label: 'Geofence / Zones', icon: Target }
-    ]
-  },
-  {
-    type: 'section',
-    title: 'HR & Employees',
-    icon: ClipboardCheck,
-    items: [
-      { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
-      { key: 'users', label: 'Users Registry', icon: UsersIcon },
-      { key: 'reviews', label: 'Courier Reviews', icon: Star },
-      { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
-    ]
-  },
-  {
-    type: 'section',
-    title: 'Parcel Operations',
-    icon: PackageCheck,
-    items: [
-      { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
-      { key: 'parcel_history', label: 'Parcel History', icon: History }
-    ]
-  },
-  {
-    type: 'section',
-    title: 'Finance & Reports',
-    icon: Wallet,
-    items: [
-      { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
-      { key: 'payroll_history', label: 'Payroll History', icon: History },
-      { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
-    ]
-  }
-];
-
-const HR_ITEMS: SidebarItem[] = [
-  {
-    type: 'link',
-    key: 'dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboard
-  },
-  {
-    type: 'section',
-    title: 'Tracking & Zones',
-    icon: MapPin,
-    items: [
-      { key: 'monitoring', label: 'Live Monitoring', icon: Activity }
-    ]
-  },
-  {
-    type: 'section',
-    title: 'HR & Employees',
-    icon: ClipboardCheck,
-    items: [
-      { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
-      { key: 'users', label: 'Employee Management', icon: UsersIcon },
-      { key: 'reviews', label: 'Courier Reviews', icon: Star },
-      { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
-    ]
-  },
-  {
-    type: 'section',
-    title: 'Parcel Operations',
-    icon: PackageCheck,
-    items: [
-      { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
-      { key: 'parcel_history', label: 'Parcel History', icon: History }
-    ]
-  },
-  {
-    type: 'section',
-    title: 'Finance & Reports',
-    icon: Wallet,
-    items: [
-      { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
-      { key: 'payroll_history', label: 'Payroll History', icon: History },
-      { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
-    ]
-  }
-];
-
-const PAYROLL_ITEMS: SidebarItem[] = [
-  {
-    type: 'link',
-    key: 'dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboard
-  },
-  {
-    type: 'section',
-    title: 'Compensation',
-    icon: Calculator,
-    items: [
-      { key: 'computation', label: 'Salary Computation', icon: Calculator },
-      { key: 'reports', label: 'Payroll Reports', icon: Wallet },
-      { key: 'payroll_history', label: 'Payroll History', icon: History },
-      { key: 'parcel_history', label: 'Parcel History', icon: PackageCheck }
-    ]
-  }
-];
-
-const ROLE_LABEL: Record<SidebarRole, string> = {
-  admin: 'Admin',
-  hr: 'HR',
-  payroll: 'Payroll'
-};
-type AccentTheme = {
-  text: string;
-  badgeBg: string;
-  badgeBorder: string;
-  badgeDot: string;
-  activeBg: string;
-  activeBar: string;
-  iconActive: string;
-  chevron: string;
-  profileRing: string;
-  profileHover: string;
-};
-const ACCENTS: Record<SidebarRole, AccentTheme> = {
-  admin: {
-    text: 'text-accent-foreground',
-    badgeBg: 'bg-accent',
-    badgeBorder: 'border-primary/30',
-    badgeDot: 'bg-primary',
-    activeBg: 'bg-accent',
-    activeBar: 'bg-primary',
-    iconActive: 'text-primary',
-    chevron: 'text-primary',
-    profileRing: 'ring-primary/15',
-    profileHover: 'hover:bg-accent/60'
-  },
-  hr: {
-    text: 'text-accent-foreground',
-    badgeBg: 'bg-accent',
-    badgeBorder: 'border-primary/30',
-    badgeDot: 'bg-primary',
-    activeBg: 'bg-accent',
-    activeBar: 'bg-primary',
-    iconActive: 'text-primary',
-    chevron: 'text-primary',
-    profileRing: 'ring-primary/15',
-    profileHover: 'hover:bg-accent/60'
-  },
-  payroll: {
-    text: 'text-[#a16207]',
-    badgeBg: 'bg-[#FEF3C7]',
-    badgeBorder: 'border-[#ca8a04]/40',
-    badgeDot: 'bg-[#ca8a04]',
-    activeBg: 'bg-[#FEF9C3]',
-    activeBar: 'bg-[#ca8a04]',
-    iconActive: 'text-[#ca8a04]',
-    chevron: 'text-[#ca8a04]',
-    profileRing: 'ring-[#ca8a04]/20',
-    profileHover: 'hover:bg-[#FEF9C3]/70'
-  }
-};
 export function Sidebar({
   current,
   onNavigate,
@@ -256,12 +50,10 @@ export function Sidebar({
   onOpenHelp,
   badgeCounts
 }: SidebarProps) {
-  const items =
-  role === 'admin' ? ADMIN_ITEMS : role === 'hr' ? HR_ITEMS : PAYROLL_ITEMS;
-  const badgeLabel = ROLE_LABEL[role];
-  const a = ACCENTS[role];
+  const { items, badgeLabel, accents: a } = getSidebarNavigation(role);
+  const { isCollapsed, toggleCollapse } = useSidebarCollapse();
 
-  // Accordion open/close states
+  // Accordion open/close states for expanded sidebar
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     'Parcel Operations': true,
     'Tracking & Zones': true,
@@ -275,6 +67,66 @@ export function Sidebar({
       ...prev,
       [title]: !prev[title]
     }));
+  };
+
+  // Collapsed flyout and tooltip states
+  const [activeFlyout, setActiveFlyout] = useState<{
+    title: string;
+    top: number;
+    item: Extract<SidebarItem, { type: 'section' }>;
+  } | null>(null);
+
+  const [hoveredTooltip, setHoveredTooltip] = useState<{
+    label: string;
+    top: number;
+  } | null>(null);
+
+  const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnterSection = (
+    item: Extract<SidebarItem, { type: 'section' }>,
+    e: React.MouseEvent<HTMLElement> | React.FocusEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>
+  ) => {
+    if (!isCollapsed) return;
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    setHoveredTooltip(null);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setActiveFlyout({
+      title: item.title,
+      top: rect.top,
+      item
+    });
+  };
+
+  const handleMouseLeaveSection = () => {
+    if (!isCollapsed) return;
+    closeTimerRef.current = setTimeout(() => {
+      setActiveFlyout(null);
+    }, 180);
+  };
+
+  const handleMouseEnterFlyout = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  };
+
+  const handleMouseLeaveFlyout = () => {
+    closeTimerRef.current = setTimeout(() => {
+      setActiveFlyout(null);
+    }, 180);
+  };
+
+  const handleMouseEnterLink = (label: string, e: React.MouseEvent<HTMLElement>) => {
+    if (!isCollapsed) return;
+    if (activeFlyout) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoveredTooltip({
+      label,
+      top: rect.top + rect.height / 2
+    });
+  };
+
+  const handleMouseLeaveLink = () => {
+    setHoveredTooltip(null);
   };
 
   // Auto-expand the section containing the active page on load/change
@@ -304,287 +156,308 @@ export function Sidebar({
       document.removeEventListener('keydown', handleKey);
     };
   }, [isMobileOpen, onMobileClose]);
+
+  // Escape key closes flyout menu or tooltip
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setActiveFlyout(null);
+        setHoveredTooltip(null);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   function handleNavigate(key: PageKey) {
     onNavigate(key);
-    // Auto-close drawer on mobile after selecting an item
+    setActiveFlyout(null);
+    setHoveredTooltip(null);
     if (isMobileOpen) onMobileClose?.();
   }
-  const panel = (mobile: boolean) =>
-  <motion.aside
-    initial={mobile ? { x: '-100%' } : { x: -20, opacity: 0 }}
-    animate={mobile ? { x: 0 } : { x: 0, opacity: 1 }}
-    exit={mobile ? { x: '-100%' } : undefined}
-    transition={{ duration: mobile ? 0.3 : 0.4, ease: "easeOut" }}
-    className={
-    mobile ?
-    `relative flex w-72 max-w-[85vw] shrink-0 flex-col bg-white border-r border-border h-full shadow-2xl` :
-    'hidden md:flex w-64 shrink-0 flex-col bg-white border-r border-border h-screen sticky top-0'
-    }>
-    
-      {/* Brand */}
-      <div className="px-5 pt-5 pb-4 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-amber-500 flex items-center justify-center shadow-sm">
-            <Activity className="w-5 h-5 text-white" strokeWidth={2.5} />
-            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
-          </div>
-          <div className="flex flex-col leading-tight flex-1 min-w-0">
-            <span className="text-foreground font-semibold tracking-tight text-[15px]">
-              {BRANDING.appName}
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono">
-              MKB Corp
-            </span>
-          </div>
-          {mobile &&
-        <button
-          type="button"
-          onClick={onMobileClose}
-          aria-label="Close menu"
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg transition">
-          
-              <X className="w-5 h-5" />
-            </button>
+
+  const panel = (mobile: boolean) => {
+    const showCollapsed = !mobile && isCollapsed;
+
+    return (
+      <motion.aside
+        initial={mobile ? { x: '-100%' } : { x: -20, opacity: 0 }}
+        animate={mobile ? { x: 0 } : { x: 0, opacity: 1 }}
+        exit={mobile ? { x: '-100%' } : undefined}
+        transition={{ duration: mobile ? 0.3 : 0.4, ease: "easeOut" }}
+        className={
+          mobile
+            ? `relative flex w-72 max-w-[85vw] shrink-0 flex-col bg-white border-r border-border h-full shadow-2xl z-[1050]`
+            : `hidden md:flex ${showCollapsed ? 'w-[72px]' : 'w-64'} shrink-0 flex-col bg-white border-r border-border h-screen sticky top-0 transition-[width] duration-300 ease-in-out z-30`
         }
-        </div>
-        <div
-        className={`mt-4 inline-flex items-center gap-1.5 px-2 py-1 rounded-md ${a.badgeBg} border ${a.badgeBorder}`}>
-        
-          <span className={`w-1.5 h-1.5 rounded-full ${a.badgeDot}`} />
-          <span
-          className={`text-[11px] uppercase tracking-wider ${a.text} font-semibold`}>
-          
-            {badgeLabel}
-          </span>
-        </div>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
-        <div className="px-2 mb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
-          Operations
-        </div>
-        {items.map((item, index) => {
-          if (item.type === 'link') {
-            const active = current === item.key;
-            const Icon = item.icon;
-            return (
-              <motion.div
-                key={item.key}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 + 0.1 }}
-              >
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleNavigate(item.key)}
-                  aria-current={active ? 'page' : undefined}
-                  className={`group relative z-0 w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition cursor-pointer ${active ? a.text : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}>
-                  {active && (
-                    <motion.span
-                      layoutId="activeNav"
-                      className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  {active && (
-                    <motion.span
-                      layoutId="activeBar"
-                      className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${a.activeBar}`}
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <Icon className={`w-[18px] h-[18px] transition-colors duration-150 ${active ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
-                  <span className="flex-1 text-left font-medium">{item.label}</span>
-                  {badgeCounts?.[item.key] ? (
-                    <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center shadow-sm">
-                      {badgeCounts[item.key]}
-                    </span>
-                  ) : null}
-                </motion.button>
-              </motion.div>
-            );
-          } else {
-            const Icon = item.icon;
-            const expanded = !!expandedSections[item.title];
-            const hasActiveChild = item.items.some((sub) => sub.key === current);
-            const sectionBadgeSum = item.items.reduce((sum, sub) => sum + (badgeCounts?.[sub.key] || 0), 0);
-            return (
-              <motion.div
-                key={item.title}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 + 0.1 }}
-                className="space-y-0.5"
-              >
-                <button
-                  onClick={() => toggleSection(item.title)}
-                  aria-expanded={expanded}
-                  className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition cursor-pointer text-muted-foreground hover:text-foreground hover:bg-panel-bg ${hasActiveChild ? 'font-semibold text-foreground' : ''}`}>
-                  <Icon className={`w-[18px] h-[18px] ${hasActiveChild ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
-                  <span className="flex-1 text-left font-medium">{item.title}</span>
-                  {sectionBadgeSum > 0 && !expanded && (
-                    <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center mr-1 shadow-sm animate-pulse">
-                      {sectionBadgeSum}
-                    </span>
-                  )}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground ${expanded ? 'rotate-180' : ''}`} />
-                </button>
-                <AnimatePresence initial={false}>
-                  {expanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.18, ease: "easeInOut" }}
-                      className="overflow-hidden border-l border-border ml-5 pl-[14px] mt-1 space-y-1"
-                    >
-                      {item.items.map((subItem) => {
-                        const subActive = current === subItem.key;
-                        const SubIcon = subItem.icon;
-                        return (
-                          <button
-                            key={subItem.key}
-                            onClick={() => handleNavigate(subItem.key)}
-                            aria-current={subActive ? 'page' : undefined}
-                            className={`group relative z-0 w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${subActive ? a.text : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}>
-                            {subActive && (
-                              <motion.span
-                                layoutId="activeSubNav"
-                                className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
-                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                              />
-                            )}
-                            <SubIcon className={`w-3.5 h-3.5 ${subActive ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
-                            <span className="flex-1 text-left font-medium">{subItem.label}</span>
-                            {badgeCounts?.[subItem.key] ? (
-                              <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center ml-auto shadow-sm animate-pulse">
-                                {badgeCounts[subItem.key]}
-                              </span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          }
-        })}
-
-        <div className="px-2 mt-6 mb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
-          Help & Support
-        </div>
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: items.length * 0.05 + 0.2 }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              onOpenHelp?.('guide');
-              if (isMobileOpen) onMobileClose?.();
-            }}
-            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-panel-bg transition cursor-pointer"
-          >
-            <BookOpen className="w-[18px] h-[18px] text-muted-foreground group-hover:text-foreground shrink-0" />
-            <span className="flex-1 text-left font-medium">User Guide</span>
-          </button>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: (items.length + 1) * 0.05 + 0.2 }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              onOpenHelp?.('faq');
-              if (isMobileOpen) onMobileClose?.();
-            }}
-            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-panel-bg transition cursor-pointer"
-          >
-            <HelpCircle className="w-[18px] h-[18px] text-muted-foreground group-hover:text-foreground shrink-0" />
-            <span className="flex-1 text-left font-medium">FAQ</span>
-          </button>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: (items.length + 2) * 0.05 + 0.2 }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              onOpenHelp?.('support');
-              if (isMobileOpen) onMobileClose?.();
-            }}
-            className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-panel-bg transition cursor-pointer"
-          >
-            <Headphones className="w-[18px] h-[18px] text-muted-foreground group-hover:text-foreground shrink-0" />
-            <span className="flex-1 text-left font-medium">Contact Support</span>
-          </button>
-        </motion.div>
-
-        <div className="px-2 mt-6 mb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
-          System
-        </div>
-        <div className="mx-2 p-3 rounded-lg bg-panel-bg border border-border">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Geofence
-            </span>
-            <span className="text-[11px] text-emerald-600 font-mono">
-              ● Online
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-            <span>Realtime</span>
-            <span className="text-emerald-600/90">1.8s tick</span>
-          </div>
-        </div>
-      </nav>
-
-      {/* Profile */}
-      <div className="p-3 border-t border-border">
-        <div
-        className={`flex items-center gap-3 px-2 py-2 rounded-lg bg-panel-bg ${a.profileHover} transition`}>
-        
-          <img
-          src={user.avatar}
-          alt={`${user.name} avatar`}
-          className={`w-9 h-9 rounded-full bg-white border border-border ring-2 ${a.profileRing}`} />
-        
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-foreground font-semibold truncate">
-              {user.name}
+      >
+        {/* Brand Header */}
+        <div className={`pt-5 pb-4 border-b border-border ${showCollapsed ? 'px-2' : 'px-5'}`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className={`flex items-center gap-2.5 ${showCollapsed ? 'mx-auto' : ''}`}>
+              <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-amber-500 flex items-center justify-center shadow-sm shrink-0">
+                <Activity className="w-5 h-5 text-white" strokeWidth={2.5} />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
+              </div>
+              {!showCollapsed && (
+                <div className="flex flex-col leading-tight flex-1 min-w-0">
+                  <span className="text-foreground font-semibold tracking-tight text-[15px] truncate">
+                    {BRANDING.appName}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono truncate">
+                    MKB Corp
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="text-[11px] text-muted-foreground truncate font-mono">
-              {user.email}
-            </div>
+
+            {/* Collapse button for Desktop */}
+            {!mobile && !showCollapsed && (
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+                className="w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center transition cursor-pointer shrink-0"
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+            )}
+
+            {/* Mobile close button */}
+            {mobile && (
+              <button
+                type="button"
+                onClick={onMobileClose}
+                aria-label="Close menu"
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg transition shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={onOpenSettings || (() => handleNavigate('settings'))}
-            aria-label="Account settings"
-            title="Account settings"
-            className={`p-1.5 rounded-md hover:bg-white transition mr-0.5 cursor-pointer ${current === 'settings' ? a.iconActive : 'text-muted-foreground hover:text-primary'}`}>
-            <Settings className="w-4 h-4" />
-          </button>
-          <button
-          type="button"
-          onClick={onSignOut}
-          aria-label="Sign out"
-          title="Sign out"
-          className="text-muted-foreground hover:text-destructive p-1.5 rounded-md hover:bg-white transition">
-          
-            <LogOut className="w-4 h-4" />
-          </button>
+
+          {/* Desktop Collapsed Expand Button */}
+          {!mobile && showCollapsed && (
+            <div className="mt-3 flex flex-col items-center">
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                aria-label="Expand sidebar"
+                title="Expand sidebar"
+                className="w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center transition cursor-pointer"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Role Badge */}
+          {!showCollapsed ? (
+            <div className={`mt-4 inline-flex items-center gap-1.5 px-2 py-1 rounded-md ${a.badgeBg} border ${a.badgeBorder}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${a.badgeDot}`} />
+              <span className={`text-[11px] uppercase tracking-wider ${a.text} font-semibold`}>
+                {badgeLabel}
+              </span>
+            </div>
+          ) : (
+            <div className="mt-2 flex justify-center">
+              <span className={`w-2 h-2 rounded-full ${a.badgeDot}`} title={`Role: ${badgeLabel}`} />
+            </div>
+          )}
         </div>
-      </div>
-    </motion.aside>;
+
+        {/* Navigation Scroll Area */}
+        <nav className={`flex-1 ${showCollapsed ? 'px-2 py-3 space-y-2' : 'px-3 py-3 space-y-1'} overflow-y-auto`}>
+          {!showCollapsed ? (
+            <div className="px-2 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
+              Operations
+            </div>
+          ) : (
+            <div className="my-2 border-t border-border/60 mx-1" />
+          )}
+
+          {items.map((item, index) => {
+            if (item.type === 'link') {
+              const active = current === item.key;
+              return (
+                <motion.div
+                  key={item.key}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.04 + 0.05 }}
+                >
+                  <SidebarNavItem
+                    itemKey={item.key}
+                    label={item.label}
+                    icon={item.icon}
+                    active={active}
+                    isCollapsed={isCollapsed}
+                    mobile={mobile}
+                    accents={a}
+                    badgeCount={badgeCounts?.[item.key]}
+                    onNavigate={handleNavigate}
+                    onMouseEnterLink={handleMouseEnterLink}
+                    onMouseLeaveLink={handleMouseLeaveLink}
+                  />
+                </motion.div>
+              );
+            } else {
+              const expanded = !!expandedSections[item.title];
+              const isFlyoutOpen = showCollapsed && activeFlyout?.title === item.title;
+
+              return (
+                <motion.div
+                  key={item.title}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.04 + 0.05 }}
+                >
+                  <SidebarNavGroup
+                    item={item}
+                    current={current}
+                    isCollapsed={isCollapsed}
+                    mobile={mobile}
+                    expanded={expanded}
+                    accents={a}
+                    badgeCounts={badgeCounts}
+                    isFlyoutOpen={isFlyoutOpen}
+                    onToggleSection={toggleSection}
+                    onNavigate={handleNavigate}
+                    onMouseEnterSection={handleMouseEnterSection}
+                    onMouseLeaveSection={handleMouseLeaveSection}
+                  />
+                </motion.div>
+              );
+            }
+          })}
+
+          {!showCollapsed ? (
+            <div className="px-2 mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
+              Help & Support
+            </div>
+          ) : (
+            <div className="my-3 border-t border-border/60 mx-1" />
+          )}
+
+          {/* User Guide */}
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: items.length * 0.04 + 0.1 }}
+          >
+            <SidebarNavItem
+              itemKey="dashboard"
+              label="User Guide"
+              icon={BookOpen}
+              active={false}
+              isCollapsed={isCollapsed}
+              mobile={mobile}
+              accents={a}
+              onNavigate={() => {
+                onOpenHelp?.('guide');
+                if (isMobileOpen) onMobileClose?.();
+              }}
+              onMouseEnterLink={handleMouseEnterLink}
+              onMouseLeaveLink={handleMouseLeaveLink}
+            />
+          </motion.div>
+
+          {/* FAQ */}
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: (items.length + 1) * 0.04 + 0.1 }}
+          >
+            <SidebarNavItem
+              itemKey="dashboard"
+              label="FAQ"
+              icon={HelpCircle}
+              active={false}
+              isCollapsed={isCollapsed}
+              mobile={mobile}
+              accents={a}
+              onNavigate={() => {
+                onOpenHelp?.('faq');
+                if (isMobileOpen) onMobileClose?.();
+              }}
+              onMouseEnterLink={handleMouseEnterLink}
+              onMouseLeaveLink={handleMouseLeaveLink}
+            />
+          </motion.div>
+
+          {/* Contact Support */}
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: (items.length + 2) * 0.04 + 0.1 }}
+          >
+            <SidebarNavItem
+              itemKey="dashboard"
+              label="Contact Support"
+              icon={Headphones}
+              active={false}
+              isCollapsed={isCollapsed}
+              mobile={mobile}
+              accents={a}
+              onNavigate={() => {
+                onOpenHelp?.('support');
+                if (isMobileOpen) onMobileClose?.();
+              }}
+              onMouseEnterLink={handleMouseEnterLink}
+              onMouseLeaveLink={handleMouseLeaveLink}
+            />
+          </motion.div>
+
+          {!showCollapsed ? (
+            <>
+              <div className="px-2 mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
+                System
+              </div>
+              <div className="mx-2 p-3 rounded-lg bg-panel-bg border border-border">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Geofence
+                  </span>
+                  <span className="text-[11px] text-emerald-600 font-mono">
+                    ● Online
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                  <span>Realtime</span>
+                  <span className="text-emerald-600/90">1.8s tick</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div
+              onMouseEnter={(e) => handleMouseEnterLink('Geofence: Online (1.8s tick)', e)}
+              onMouseLeave={handleMouseLeaveLink}
+              className="my-3 flex justify-center"
+            >
+              <div className="w-9 h-9 rounded-lg bg-panel-bg border border-border flex items-center justify-center cursor-help">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+            </div>
+          )}
+        </nav>
+
+        {/* Profile Footer */}
+        <SidebarFooter
+          user={user}
+          current={current}
+          isCollapsed={isCollapsed}
+          mobile={mobile}
+          accents={a}
+          onNavigate={handleNavigate}
+          onOpenSettings={onOpenSettings}
+          onSignOut={onSignOut}
+          onMouseEnterLink={handleMouseEnterLink}
+          onMouseLeaveLink={handleMouseLeaveLink}
+        />
+      </motion.aside>
+    );
+  };
 
   return (
     <>
@@ -604,12 +477,37 @@ export function Sidebar({
               onClick={onMobileClose}
               className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
             />
-            
+
             {/* Drawer panel */}
             <div className="absolute inset-y-0 left-0 flex">{panel(true)}</div>
           </div>
         )}
       </AnimatePresence>
-    </>);
 
+      {/* Collapsed Dropdown Flyout Menu */}
+      {isCollapsed && activeFlyout && (
+        <SidebarFlyout
+          activeFlyout={activeFlyout}
+          current={current}
+          accents={a}
+          badgeCounts={badgeCounts}
+          onNavigate={handleNavigate}
+          onMouseEnterFlyout={handleMouseEnterFlyout}
+          onMouseLeaveFlyout={handleMouseLeaveFlyout}
+          onCloseFlyout={() => setActiveFlyout(null)}
+        />
+      )}
+
+      {/* Collapsed Direct Item Tooltip */}
+      {isCollapsed && hoveredTooltip && !activeFlyout && (
+        <div
+          style={{ top: hoveredTooltip.top }}
+          className="hidden md:block fixed left-[78px] -translate-y-1/2 z-[1000] px-2.5 py-1 rounded-md bg-foreground text-background text-xs font-medium whitespace-nowrap shadow-md pointer-events-none transition-opacity duration-150"
+          role="tooltip"
+        >
+          {hoveredTooltip.label}
+        </div>
+      )}
+    </>
+  );
 }
