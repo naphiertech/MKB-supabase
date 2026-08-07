@@ -262,7 +262,7 @@ export function Sidebar({
         </div>
 
         {/* Navigation Scroll Area */}
-        <nav className={`flex-1 ${showCollapsed ? 'px-2 py-3 space-y-2' : 'px-3 py-3 space-y-1'} overflow-y-auto`}>
+        <nav className={`flex-1 ${showCollapsed ? 'px-2 py-3 space-y-2' : 'px-3 py-3 space-y-1'} overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}>
           <div className={`px-2 transition-all duration-300 ease-in-out ${
             showCollapsed ? 'my-2 border-t border-border/60 mx-1' : 'mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono'
           }`}>
