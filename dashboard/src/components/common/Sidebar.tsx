@@ -50,8 +50,14 @@ export function Sidebar({
   onOpenHelp,
   badgeCounts
 }: SidebarProps) {
-  const { items, badgeLabel, accents: a } = getSidebarNavigation(role);
+  const { items, accents: a } = getSidebarNavigation(role);
   const { isCollapsed, toggleCollapse } = useSidebarCollapse();
+
+  const handleToggleCollapse = () => {
+    setActiveFlyout(null);
+    setHoveredTooltip(null);
+    toggleCollapse();
+  };
 
   // Accordion open/close states for expanded sidebar
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -192,33 +198,35 @@ export function Sidebar({
         }
       >
         {/* Brand Header */}
-        <div className={`pt-5 pb-4 border-b border-border ${showCollapsed ? 'px-2' : 'px-5'}`}>
+        <div className={`pt-5 pb-4 border-b border-border transition-all duration-300 ease-in-out ${showCollapsed ? 'px-2' : 'px-5'}`}>
           <div className="flex items-center justify-between gap-2">
             <div className={`flex items-center gap-2.5 ${showCollapsed ? 'mx-auto' : ''}`}>
               <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-amber-500 flex items-center justify-center shadow-sm shrink-0">
                 <Activity className="w-5 h-5 text-white" strokeWidth={2.5} />
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
               </div>
-              {!showCollapsed && (
-                <div className="flex flex-col leading-tight flex-1 min-w-0">
-                  <span className="text-foreground font-semibold tracking-tight text-[15px] truncate">
-                    {BRANDING.appName}
-                  </span>
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono truncate">
-                    MKB Corp
-                  </span>
-                </div>
-              )}
+              <div className={`flex flex-col leading-tight flex-1 min-w-0 transition-all duration-300 ease-in-out ${
+                showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100 max-w-[140px]'
+              }`}>
+                <span className="text-foreground font-semibold tracking-tight text-[15px] truncate">
+                  {BRANDING.appName}
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono truncate">
+                  MKB Corp
+                </span>
+              </div>
             </div>
 
             {/* Collapse button for Desktop */}
-            {!mobile && !showCollapsed && (
+            {!mobile && (
               <button
                 type="button"
-                onClick={toggleCollapse}
-                aria-label="Collapse sidebar"
-                title="Collapse sidebar"
-                className="w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center transition cursor-pointer shrink-0"
+                onClick={handleToggleCollapse}
+                aria-label={showCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                title={showCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                className={`w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center transition-all duration-300 ease-in-out cursor-pointer shrink-0 ${
+                  showCollapsed ? 'hidden' : ''
+                }`}
               >
                 <PanelLeftClose className="w-4 h-4" />
               </button>
@@ -242,7 +250,7 @@ export function Sidebar({
             <div className="mt-3 flex flex-col items-center">
               <button
                 type="button"
-                onClick={toggleCollapse}
+                onClick={handleToggleCollapse}
                 aria-label="Expand sidebar"
                 title="Expand sidebar"
                 className="w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center transition cursor-pointer"
@@ -251,42 +259,25 @@ export function Sidebar({
               </button>
             </div>
           )}
-
-          {/* Role Badge */}
-          {!showCollapsed ? (
-            <div className={`mt-4 inline-flex items-center gap-1.5 px-2 py-1 rounded-md ${a.badgeBg} border ${a.badgeBorder}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${a.badgeDot}`} />
-              <span className={`text-[11px] uppercase tracking-wider ${a.text} font-semibold`}>
-                {badgeLabel}
-              </span>
-            </div>
-          ) : (
-            <div className="mt-2 flex justify-center">
-              <span className={`w-2 h-2 rounded-full ${a.badgeDot}`} title={`Role: ${badgeLabel}`} />
-            </div>
-          )}
         </div>
 
         {/* Navigation Scroll Area */}
         <nav className={`flex-1 ${showCollapsed ? 'px-2 py-3 space-y-2' : 'px-3 py-3 space-y-1'} overflow-y-auto`}>
-          {!showCollapsed ? (
-            <div className="px-2 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
+          <div className={`px-2 transition-all duration-300 ease-in-out ${
+            showCollapsed ? 'my-2 border-t border-border/60 mx-1' : 'mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono'
+          }`}>
+            <span className={`transition-all duration-300 ease-in-out ${
+              showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
+            }`}>
               Operations
-            </div>
-          ) : (
-            <div className="my-2 border-t border-border/60 mx-1" />
-          )}
+            </span>
+          </div>
 
-          {items.map((item, index) => {
+          {items.map((item) => {
             if (item.type === 'link') {
               const active = current === item.key;
               return (
-                <motion.div
-                  key={item.key}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.04 + 0.05 }}
-                >
+                <div key={item.key}>
                   <SidebarNavItem
                     itemKey={item.key}
                     label={item.label}
@@ -300,19 +291,14 @@ export function Sidebar({
                     onMouseEnterLink={handleMouseEnterLink}
                     onMouseLeaveLink={handleMouseLeaveLink}
                   />
-                </motion.div>
+                </div>
               );
             } else {
               const expanded = !!expandedSections[item.title];
               const isFlyoutOpen = showCollapsed && activeFlyout?.title === item.title;
 
               return (
-                <motion.div
-                  key={item.title}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.04 + 0.05 }}
-                >
+                <div key={item.title}>
                   <SidebarNavGroup
                     item={item}
                     current={current}
@@ -327,25 +313,23 @@ export function Sidebar({
                     onMouseEnterSection={handleMouseEnterSection}
                     onMouseLeaveSection={handleMouseLeaveSection}
                   />
-                </motion.div>
+                </div>
               );
             }
           })}
 
-          {!showCollapsed ? (
-            <div className="px-2 mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
+          <div className={`px-2 transition-all duration-300 ease-in-out ${
+            showCollapsed ? 'my-3 border-t border-border/60 mx-1' : 'mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono'
+          }`}>
+            <span className={`transition-all duration-300 ease-in-out ${
+              showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
+            }`}>
               Help & Support
-            </div>
-          ) : (
-            <div className="my-3 border-t border-border/60 mx-1" />
-          )}
+            </span>
+          </div>
 
           {/* User Guide */}
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: items.length * 0.04 + 0.1 }}
-          >
+          <div>
             <SidebarNavItem
               itemKey="dashboard"
               label="User Guide"
@@ -361,14 +345,10 @@ export function Sidebar({
               onMouseEnterLink={handleMouseEnterLink}
               onMouseLeaveLink={handleMouseLeaveLink}
             />
-          </motion.div>
+          </div>
 
           {/* FAQ */}
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: (items.length + 1) * 0.04 + 0.1 }}
-          >
+          <div>
             <SidebarNavItem
               itemKey="dashboard"
               label="FAQ"
@@ -384,14 +364,10 @@ export function Sidebar({
               onMouseEnterLink={handleMouseEnterLink}
               onMouseLeaveLink={handleMouseLeaveLink}
             />
-          </motion.div>
+          </div>
 
           {/* Contact Support */}
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: (items.length + 2) * 0.04 + 0.1 }}
-          >
+          <div>
             <SidebarNavItem
               itemKey="dashboard"
               label="Contact Support"
@@ -407,14 +383,31 @@ export function Sidebar({
               onMouseEnterLink={handleMouseEnterLink}
               onMouseLeaveLink={handleMouseLeaveLink}
             />
-          </motion.div>
+          </div>
 
-          {!showCollapsed ? (
-            <>
-              <div className="px-2 mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono">
-                System
+          <div className={`px-2 transition-all duration-300 ease-in-out ${
+            showCollapsed ? 'my-3 border-t border-border/60 mx-1' : 'mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono'
+          }`}>
+            <span className={`transition-all duration-300 ease-in-out ${
+              showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
+            }`}>
+              System
+            </span>
+          </div>
+
+          <div
+            onMouseEnter={(e) => showCollapsed && handleMouseEnterLink('Geofence: Online (1.8s tick)', e)}
+            onMouseLeave={handleMouseLeaveLink}
+            className={`transition-all duration-300 ease-in-out ${
+              showCollapsed ? 'my-1 flex justify-center' : 'mx-2 p-3 rounded-lg bg-panel-bg border border-border'
+            }`}
+          >
+            {showCollapsed ? (
+              <div className="w-9 h-9 rounded-lg bg-panel-bg border border-border flex items-center justify-center cursor-help">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
-              <div className="mx-2 p-3 rounded-lg bg-panel-bg border border-border">
+            ) : (
+              <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
                     Geofence
@@ -428,18 +421,8 @@ export function Sidebar({
                   <span className="text-emerald-600/90">1.8s tick</span>
                 </div>
               </div>
-            </>
-          ) : (
-            <div
-              onMouseEnter={(e) => handleMouseEnterLink('Geofence: Online (1.8s tick)', e)}
-              onMouseLeave={handleMouseLeaveLink}
-              className="my-3 flex justify-center"
-            >
-              <div className="w-9 h-9 rounded-lg bg-panel-bg border border-border flex items-center justify-center cursor-help">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </nav>
 
         {/* Profile Footer */}

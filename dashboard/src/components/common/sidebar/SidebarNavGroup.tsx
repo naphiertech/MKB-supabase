@@ -60,7 +60,7 @@ export function SidebarNavGroup({
         aria-expanded={showCollapsed ? isFlyoutOpen : expanded}
         aria-haspopup={showCollapsed ? 'menu' : undefined}
         aria-label={showCollapsed ? item.title : undefined}
-        className={`group relative z-0 w-full flex items-center rounded-lg text-sm transition cursor-pointer text-muted-foreground hover:text-foreground hover:bg-panel-bg ${
+        className={`group relative z-0 w-full flex items-center rounded-lg text-sm transition-all duration-300 ease-in-out cursor-pointer text-muted-foreground hover:text-foreground hover:bg-panel-bg ${
           showCollapsed ? 'px-0 justify-center h-10' : 'px-3 py-2 gap-3'
         } ${hasActiveChild ? `font-semibold ${a.text}` : ''}`}
       >
@@ -72,7 +72,7 @@ export function SidebarNavGroup({
         )}
 
         {/* Icon Slot Container */}
-        <div className={`flex items-center justify-center shrink-0 relative ${
+        <div className={`flex items-center justify-center shrink-0 relative transition-all duration-300 ease-in-out ${
           showCollapsed ? 'w-9 h-9' : 'w-5 h-5'
         }`}>
           <Icon className={`w-[18px] h-[18px] transition-colors duration-150 ${hasActiveChild ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
@@ -81,17 +81,21 @@ export function SidebarNavGroup({
           ) : null}
         </div>
 
-        {!showCollapsed && (
-          <>
-            <span className="flex-1 text-left font-medium truncate">{item.title}</span>
-            {sectionBadgeSum > 0 && !expanded && (
-              <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center mr-1 shadow-sm animate-pulse shrink-0">
-                {sectionBadgeSum}
-              </span>
-            )}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground shrink-0 ${expanded ? 'rotate-180' : ''}`} />
-          </>
+        <span className={`flex-1 text-left font-medium truncate transition-all duration-300 ease-in-out ${
+          showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100 max-w-[160px]'
+        }`}>
+          {item.title}
+        </span>
+        {sectionBadgeSum > 0 && !expanded && (
+          <span className={`bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center mr-1 shadow-sm animate-pulse shrink-0 transition-all duration-300 ease-in-out ${
+            showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
+          }`}>
+            {sectionBadgeSum}
+          </span>
         )}
+        <ChevronDown className={`w-3.5 h-3.5 transition-all duration-300 ease-in-out text-muted-foreground shrink-0 ${
+          expanded ? 'rotate-180' : ''
+        } ${showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'}`} />
       </button>
 
       {/* Expanded Accordion List */}

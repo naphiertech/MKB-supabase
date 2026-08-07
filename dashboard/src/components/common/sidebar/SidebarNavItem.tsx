@@ -38,7 +38,7 @@ export function SidebarNavItem({
       onMouseLeave={onMouseLeaveLink}
       aria-current={active ? 'page' : undefined}
       aria-label={showCollapsed ? label : undefined}
-      className={`group relative z-0 w-full flex items-center rounded-lg text-sm transition cursor-pointer ${
+      className={`group relative z-0 w-full flex items-center rounded-lg text-sm transition-all duration-300 ease-in-out cursor-pointer ${
         showCollapsed ? 'px-0 justify-center h-10' : 'px-3 py-2 gap-3'
       } ${active ? a.text : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}
     >
@@ -58,7 +58,7 @@ export function SidebarNavItem({
       )}
 
       {/* Icon Slot Container */}
-      <div className={`flex items-center justify-center shrink-0 relative ${
+      <div className={`flex items-center justify-center shrink-0 relative transition-all duration-300 ease-in-out ${
         showCollapsed ? 'w-9 h-9' : 'w-5 h-5'
       }`}>
         <Icon className={`w-[18px] h-[18px] transition-colors duration-150 ${active ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
@@ -67,16 +67,18 @@ export function SidebarNavItem({
         ) : null}
       </div>
 
-      {!showCollapsed && (
-        <>
-          <span className="flex-1 text-left font-medium truncate">{label}</span>
-          {badgeCount ? (
-            <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center shadow-sm shrink-0">
-              {badgeCount}
-            </span>
-          ) : null}
-        </>
-      )}
+      <span className={`flex-1 text-left font-medium truncate transition-all duration-300 ease-in-out ${
+        showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100 max-w-[160px]'
+      }`}>
+        {label}
+      </span>
+      {badgeCount ? (
+        <span className={`bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center shadow-sm shrink-0 transition-all duration-300 ease-in-out ${
+          showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
+        }`}>
+          {badgeCount}
+        </span>
+      ) : null}
     </button>
   );
 }
