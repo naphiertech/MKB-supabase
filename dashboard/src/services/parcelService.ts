@@ -290,7 +290,7 @@ export const savePayrollRecord = async (
   cutoffFrom: string,
   cutoffTo: string
 ): Promise<void> => {
-  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
+  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo, { allowCreateMissing: true });
   const { data: savedRecord, error } = await supabase
     .from('payroll_records')
     .select('id, total_parcels, gross_pay, status')
@@ -490,13 +490,18 @@ export function getCutoffRangeForDate(dateStr: string): { cutoffFrom: string; cu
   }
 }
 
+export interface SyncPayrollOptions {
+  allowCreateMissing?: boolean;
+}
+
 /**
  * Automatically synchronizes payroll_records from parcel_logs for a specific cutoff period.
  * Aggregates daily parcel_logs (total parcels & gross pay) per rider and upserts payroll_records.
  */
 export const syncPayrollRecordsFromParcelLogs = async (
   cutoffFrom: string,
-  cutoffTo: string
+  cutoffTo: string,
+  options?: SyncPayrollOptions
 ): Promise<void> => {
   try {
     // 1. Fetch all parcel_logs for the cutoff period
@@ -576,8 +581,16 @@ export const syncPayrollRecordsFromParcelLogs = async (
     }
 
     // 4. Build upsert payload
+    const allowCreateMissing = options?.allowCreateMissing ?? false;
+
     const upsertPayloads = Array.from(riderAggregates.entries()).flatMap(([riderId, agg]) => {
       const existing = existingMap.get(riderId);
+
+      // Do not recreate draft records that were intentionally deleted,
+      // unless explicit creation/initialization is requested.
+      if (!existing && !allowCreateMissing) {
+        return [];
+      }
 
       // Only working records may track live parcel changes. Pending, approved,
       // paid, and other historical states must retain their submitted snapshot.
@@ -626,9 +639,6 @@ export const getPayrollRecords = async (
   cutoffFrom: string,
   cutoffTo: string
 ) => {
-  // Sync payroll_records from parcel_logs before querying
-  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
-
   const { data, error } = await supabase
     .from('payroll_records')
     .select('*, riders(id, name, mkb_id, avatar_url, zone_id, notes, zones(name))')
@@ -670,9 +680,6 @@ export const getPaginatedPayrollRecords = async (params: PaginatedPayrollParams)
     sortBy = 'riderName',
     sortOrder = 'asc'
   } = params;
-
-  // Sync payroll_records from parcel_logs before querying
-  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
 
   // 1. Build base query with exact count
   // We use riders!inner to allow filtering on relation attributes (name, mkb_id, zone_id)

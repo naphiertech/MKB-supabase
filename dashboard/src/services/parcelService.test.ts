@@ -267,7 +267,7 @@ describe('payroll synchronization immutability', () => {
     expect(mocks.from).toHaveBeenCalledTimes(2);
   });
 
-  it('continues synchronizing draft records and creating missing drafts', async () => {
+  it('continues synchronizing draft records and creating missing drafts when explicitly requested', async () => {
     const logsQuery = {
       select: vi.fn(),
       gte: vi.fn(),
@@ -308,7 +308,7 @@ describe('payroll synchronization immutability', () => {
       .mockReturnValueOnce(recordsQuery)
       .mockReturnValueOnce(recordsQuery);
 
-    await syncPayrollRecordsFromParcelLogs('2026-08-01', '2026-08-15');
+    await syncPayrollRecordsFromParcelLogs('2026-08-01', '2026-08-15', { allowCreateMissing: true });
 
     expect(recordsQuery.upsert).toHaveBeenCalledOnce();
     expect(recordsQuery.upsert).toHaveBeenCalledWith(
@@ -335,6 +335,64 @@ describe('payroll synchronization immutability', () => {
           gross_pay: 55,
         }),
       ]),
+      { onConflict: 'rider_id,cutoff_start' }
+    );
+  });
+
+  it('does not recreate missing or deleted draft records when allowCreateMissing is false', async () => {
+    const logsQuery = {
+      select: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+    };
+    logsQuery.select.mockReturnValue(logsQuery);
+    logsQuery.gte.mockReturnValue(logsQuery);
+    logsQuery.lte.mockResolvedValue({
+      data: [
+        {
+          rider_id: 'rider-1', date: '2026-08-01', parcels: 10, heavy_parcels: 2,
+          rate: 12, heavy_rate: 17,
+          standard_earnings: 120, heavy_earnings: 34, daily_gross: 154, rate_configuration_id: 'rate-1',
+        },
+        {
+          rider_id: 'rider-deleted', date: '2026-08-01', parcels: 5, heavy_parcels: 0,
+          rate: 11, heavy_rate: 17,
+          standard_earnings: 55, heavy_earnings: 0, daily_gross: 55, rate_configuration_id: 'rate-1',
+        },
+      ],
+      error: null,
+    });
+
+    const recordsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      upsert: vi.fn(),
+    };
+    recordsQuery.select.mockReturnValue(recordsQuery);
+    recordsQuery.eq.mockResolvedValue({
+      data: [{ id: 'payroll-1', rider_id: 'rider-1', status: 'draft' }],
+      error: null,
+    });
+    recordsQuery.upsert.mockResolvedValue({ error: null });
+
+    mocks.from
+      .mockReturnValueOnce(logsQuery)
+      .mockReturnValueOnce(recordsQuery)
+      .mockReturnValueOnce(recordsQuery);
+
+    await syncPayrollRecordsFromParcelLogs('2026-08-01', '2026-08-15');
+
+    expect(recordsQuery.upsert).toHaveBeenCalledOnce();
+    // Verify only existing rider-1 draft was updated, rider-deleted was NOT recreated
+    expect(recordsQuery.upsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'payroll-1',
+          rider_id: 'rider-1',
+          status: 'draft',
+          total_parcels: 12,
+        }),
+      ],
       { onConflict: 'rider_id,cutoff_start' }
     );
   });
@@ -377,5 +435,70 @@ describe('payroll synchronization immutability', () => {
     expect(recordsQuery.upsert).not.toHaveBeenCalled();
     expect(mocks.from).toHaveBeenCalledTimes(2);
     consoleError.mockRestore();
+  });
+});
+
+describe('payroll deletion & read purity tests', () => {
+  it('deletePayrollRecord deletes the record without modifying parcel logs or source data', async () => {
+    const deleteQuery = {
+      delete: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+    };
+    deleteQuery.delete.mockReturnValue(deleteQuery);
+    deleteQuery.eq.mockReturnValue(deleteQuery);
+    deleteQuery.select.mockResolvedValue({
+      data: [{ id: 'payroll-to-delete' }],
+      error: null,
+    });
+
+    mocks.from.mockReturnValue(deleteQuery);
+
+    const { deletePayrollRecord } = await import('./parcelService');
+    await deletePayrollRecord('payroll-to-delete');
+
+    expect(mocks.from).toHaveBeenCalledWith('payroll_records');
+    expect(deleteQuery.delete).toHaveBeenCalled();
+    expect(deleteQuery.eq).toHaveBeenCalledWith('id', 'payroll-to-delete');
+    // Ensure no calls to delete parcel_logs or riders were made
+    expect(mocks.from).not.toHaveBeenCalledWith('parcel_logs');
+    expect(mocks.from).not.toHaveBeenCalledWith('riders');
+  });
+
+  it('getPayrollRecords and getPaginatedPayrollRecords perform pure SELECT queries without triggering payroll sync', async () => {
+    const selectQuery = {
+      select: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+      or: vi.fn(),
+      eq: vi.fn(),
+    };
+    selectQuery.select.mockReturnValue(selectQuery);
+    selectQuery.gte.mockReturnValue(selectQuery);
+    selectQuery.lte.mockReturnValue(selectQuery);
+    selectQuery.order.mockReturnValue(selectQuery);
+    selectQuery.range.mockResolvedValue({
+      data: [{ id: 'payroll-1', rider_id: 'rider-1', status: 'draft', riders: { name: 'Test Rider', mkb_id: 'MKB-1' } }],
+      count: 1,
+      error: null,
+    });
+
+    mocks.from.mockReturnValue(selectQuery);
+
+    const { getPaginatedPayrollRecords } = await import('./parcelService');
+    const result = await getPaginatedPayrollRecords({
+      cutoffFrom: '2026-08-01',
+      cutoffTo: '2026-08-15',
+      page: 1,
+      pageSize: 25,
+    });
+
+    expect(result.records).toHaveLength(1);
+    expect(result.totalCount).toBe(1);
+    // Verify only SELECT query on payroll_records occurred (no sync SELECT/UPSERT on parcel_logs)
+    expect(mocks.from).toHaveBeenCalledOnce();
+    expect(mocks.from).toHaveBeenCalledWith('payroll_records');
   });
 });
