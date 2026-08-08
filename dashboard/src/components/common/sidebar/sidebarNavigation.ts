@@ -166,7 +166,14 @@ export const PAYROLL_ITEMS: SidebarItem[] = [
     items: [
       { key: 'computation', label: 'Salary Computation', icon: Calculator },
       { key: 'reports', label: 'Payroll Reports', icon: Wallet },
-      { key: 'payroll_history', label: 'Payroll History', icon: History },
+      { key: 'payroll_history', label: 'Payroll History', icon: History }
+    ]
+  },
+  {
+    type: 'section',
+    title: 'Reference',
+    icon: PackageCheck,
+    items: [
       { key: 'parcel_history', label: 'Parcel History', icon: PackageCheck }
     ]
   }
