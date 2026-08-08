@@ -501,4 +501,132 @@ describe('payroll deletion & read purity tests', () => {
     expect(mocks.from).toHaveBeenCalledOnce();
     expect(mocks.from).toHaveBeenCalledWith('payroll_records');
   });
+
+  it('initializeCutoffPayrollForFleet creates missing fleet drafts and immediately hydrates them from parcel_logs', async () => {
+    const ridersQuery = {
+      select: vi.fn(),
+    };
+    ridersQuery.select.mockResolvedValue({
+      data: [{ id: 'rider-fleet-1', name: 'Fleet Rider' }],
+      error: null,
+    });
+
+    const recordsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      upsert: vi.fn(),
+    };
+    recordsQuery.select.mockReturnValue(recordsQuery);
+    recordsQuery.eq.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+    recordsQuery.upsert.mockResolvedValue({ error: null });
+
+    const logsQuery = {
+      select: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+    };
+    logsQuery.select.mockReturnValue(logsQuery);
+    logsQuery.gte.mockReturnValue(logsQuery);
+    logsQuery.lte.mockResolvedValue({
+      data: [{
+        rider_id: 'rider-fleet-1', date: '2026-08-01', parcels: 61, heavy_parcels: 8,
+        rate: 10, heavy_rate: 17,
+        standard_earnings: 610, heavy_earnings: 136, daily_gross: 746, rate_configuration_id: 'rate-1',
+      }],
+      error: null,
+    });
+
+    const existingAfterInsertQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+    };
+    existingAfterInsertQuery.select.mockReturnValue(existingAfterInsertQuery);
+    existingAfterInsertQuery.eq.mockResolvedValue({
+      data: [{ id: 'new-draft-id', rider_id: 'rider-fleet-1', status: 'draft' }],
+      error: null,
+    });
+
+    mocks.from
+      .mockReturnValueOnce(ridersQuery)               // 1. fetch riders
+      .mockReturnValueOnce(recordsQuery)              // 2. fetch existing payroll records
+      .mockReturnValueOnce(recordsQuery)              // 3. upsert initial placeholder draft
+      .mockReturnValueOnce(logsQuery)                 // 4. sync: fetch parcel logs
+      .mockReturnValueOnce(existingAfterInsertQuery)  // 5. sync: fetch existing records
+      .mockReturnValueOnce(recordsQuery);             // 6. sync: upsert hydrated draft
+
+    const { initializeCutoffPayrollForFleet } = await import('./parcelService');
+    const result = await initializeCutoffPayrollForFleet('2026-08-01', '2026-08-15');
+
+    expect(result).toEqual({ initializedCount: 1, totalRiders: 1 });
+    // Verify initial upsert was called with skeleton
+    expect(recordsQuery.upsert).toHaveBeenNthCalledWith(1, [
+      expect.objectContaining({
+        rider_id: 'rider-fleet-1',
+        cutoff_start: '2026-08-01',
+        cutoff_end: '2026-08-15',
+        status: 'draft',
+      })
+    ], { onConflict: 'rider_id,cutoff_start' });
+
+    // Verify hydrated upsert was called with real parcel totals
+    expect(recordsQuery.upsert).toHaveBeenNthCalledWith(2, [
+      expect.objectContaining({
+        id: 'new-draft-id',
+        rider_id: 'rider-fleet-1',
+        total_parcels: 69,
+        standard_parcels: 61,
+        heavy_parcels: 8,
+        gross_pay: 746,
+        status: 'draft',
+      })
+    ], { onConflict: 'rider_id,cutoff_start' });
+  });
+
+  it('initializeCutoffPayrollForFleet fails cleanly if hydration encounters an error', async () => {
+    const ridersQuery = {
+      select: vi.fn(),
+    };
+    ridersQuery.select.mockResolvedValue({
+      data: [{ id: 'rider-fleet-1', name: 'Fleet Rider' }],
+      error: null,
+    });
+
+    const recordsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      upsert: vi.fn(),
+    };
+    recordsQuery.select.mockReturnValue(recordsQuery);
+    recordsQuery.eq.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+    recordsQuery.upsert.mockResolvedValue({ error: null });
+
+    const logsQuery = {
+      select: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+    };
+    logsQuery.select.mockReturnValue(logsQuery);
+    logsQuery.gte.mockReturnValue(logsQuery);
+    logsQuery.lte.mockResolvedValue({
+      data: null,
+      error: { message: 'Failed to read parcel logs' },
+    });
+
+    mocks.from
+      .mockReturnValueOnce(ridersQuery)
+      .mockReturnValueOnce(recordsQuery)
+      .mockReturnValueOnce(recordsQuery)
+      .mockReturnValueOnce(logsQuery);
+
+    const { initializeCutoffPayrollForFleet } = await import('./parcelService');
+    await expect(initializeCutoffPayrollForFleet('2026-08-01', '2026-08-15')).rejects.toEqual({
+      message: 'Failed to read parcel logs',
+    });
+  });
 });

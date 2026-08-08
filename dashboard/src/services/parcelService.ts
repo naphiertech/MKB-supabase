@@ -388,6 +388,9 @@ export const initializeCutoffPayrollForFleet = async (
 
   if (insertErr) throw insertErr;
 
+  // Immediately hydrate newly created draft records from parcel_logs
+  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo, { allowCreateMissing: false });
+
   return {
     initializedCount: missingRiders.length,
     totalRiders: riders.length
