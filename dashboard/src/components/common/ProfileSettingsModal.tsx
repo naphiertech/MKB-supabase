@@ -15,6 +15,7 @@ import {
   ChevronDown,
   AlertTriangle
 } from 'lucide-react';
+import { AccountSecurityControls } from '../settings/AccountSecurityControls';
 
 interface ProfileSettingsModalProps {
   open: boolean;
@@ -58,8 +59,6 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
   // Security states
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [twoStepVerification, setTwoStepVerification] = useState(false);
-  const [supportAccess, setSupportAccess] = useState(false);
 
   // Notification states
   const [notifBoundaryExit, setNotifBoundaryExit] = useState(true);
@@ -171,8 +170,6 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
 
 
 
-    setTwoStepVerification(localStorage.getItem(`2fa_${userId}`) === 'true');
-    setSupportAccess(localStorage.getItem(`support_access_${userId}`) === 'true');
     setAvatarUrl(localStorage.getItem(`custom_avatar_${userId}`) || '');
 
     setNotifBoundaryExit(localStorage.getItem(`notif_boundary_${userId}`) !== 'false');
@@ -782,78 +779,7 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
               {/* Right Column Toggles */}
               <div className="space-y-6">
                 
-                {/* Advanced Security Card */}
-                <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
-                  <h3 className="text-sm font-bold text-foreground mb-0.5">Account Security</h3>
-                  
-                  {/* Toggle 1 */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-xs font-semibold text-foreground">2-Step Verification</h4>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Planned security control — not yet available.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled
-                      aria-label="2-step verification is not yet available"
-                      title="Not yet available"
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent opacity-60 ${
-                        twoStepVerification ? 'bg-[#1b3d32]' : 'bg-border'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                          twoStepVerification ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  <div className="h-px bg-border" />
-
-                  {/* Toggle 2 */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-xs font-semibold text-foreground">Support Access</h4>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Planned administrator support control — not yet available.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled
-                      aria-label="Support access is not yet available"
-                      title="Not yet available"
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent opacity-60 ${
-                        supportAccess ? 'bg-[#1b3d32]' : 'bg-border'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                          supportAccess ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Force Sessions Log Out */}
-                <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-3">
-                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Active Sessions</h3>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Session management is planned but not connected yet.
-                  </p>
-                  <button
-                    type="button"
-                    disabled
-                    title="Not yet available"
-                    className="w-full py-2 bg-panel-bg border border-border text-muted-foreground rounded-xl text-xs font-bold cursor-not-allowed opacity-70"
-                  >
-                    Log out of other devices — Not yet available
-                  </button>
-                </div>
+                <AccountSecurityControls />
 
                 {/* Delete Account Card */}
                 <div className="bg-red-50/20 border border-red-200/50 rounded-2xl p-5 shadow-xs space-y-3">

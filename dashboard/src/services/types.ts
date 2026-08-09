@@ -62,7 +62,7 @@ export interface ViolationEvent {
   riderName: string;
   zoneName: string;
   ts: number;
-  type: 'boundary_exit' | 'boundary_enter' | 'idle_excess';
+  type: 'boundary_exit' | 'idle_timeout' | 'manual_flag';
   read: boolean;
   lat?: number;
   lng?: number;

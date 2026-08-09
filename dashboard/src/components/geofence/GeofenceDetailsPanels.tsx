@@ -282,10 +282,10 @@ function ViolationsTodayDetail({ violations }: ViolationsTodayDetailProps) {
     switch (type) {
       case 'boundary_exit':
         return 'Boundary Exit';
-      case 'boundary_enter':
-        return 'Boundary Enter';
-      case 'idle_excess':
-        return 'Excessive Idle';
+      case 'manual_flag':
+        return 'Manual Flag';
+      case 'idle_timeout':
+        return 'Idle Timeout';
       default:
         return type;
     }

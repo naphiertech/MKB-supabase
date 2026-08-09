@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Users,
   CheckCircle2,
@@ -93,6 +93,8 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
   const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<PayrollRecordRow | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [recordsInPage, setRecordsInPage] = useState<PayrollRecordRow[]>([]);
+  const [pendingReviewRequest, setPendingReviewRequest] = useState(0);
+  const approvalWorkspaceRef = useRef<HTMLDivElement>(null);
 
   // Derive Cutoff Period Date range
   const cutoffFrom = useMemo(() => {
@@ -274,6 +276,13 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
     }
   };
 
+  const handleReviewApprovals = () => {
+    setPendingReviewRequest(current => current + 1);
+    window.requestAnimationFrame(() => {
+      approvalWorkspaceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
 
@@ -376,7 +385,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
             ) : (
               <>
                 <button
-                  onClick={() => onNavigate?.('computation')}
+                  onClick={handleReviewApprovals}
                   className="h-8 px-3 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <CheckSquare className="w-3.5 h-3.5" />
@@ -609,7 +618,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
         </>
       ) : (
         /* HR / ADMIN VIEW: Primary Hero Approval Workspace */
-        <div className="space-y-3 pt-1">
+        <div ref={approvalWorkspaceRef} className="space-y-3 pt-1">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-2">
               <CheckSquare className="w-4 h-4 text-amber-600" />
@@ -621,6 +630,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
             cutoffTo={cutoffTo}
             role={currentUserRole}
             reloadTrigger={reloadTrigger}
+            pendingReviewRequest={pendingReviewRequest}
             onStatusUpdated={() => setReloadTrigger(prev => prev + 1)}
             onOpenDetails={handleOpenDetails}
           />

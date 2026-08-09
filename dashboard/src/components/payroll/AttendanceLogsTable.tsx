@@ -49,7 +49,7 @@ export function AttendanceLogsTable({
                 const vDate = new Date(v.created_at).toISOString().split("T")[0];
                 return (
                   vDate === day.date &&
-                  (v.type === "boundary_exit" || v.type === "idle_excess")
+                  (v.type === "boundary_exit" || v.type === "idle_timeout")
                 );
               } catch {
                 return false;

@@ -1,5 +1,6 @@
 import { AlertCircle, Clock, ShieldAlert, UserCheck, ArrowRight } from 'lucide-react';
 import type { AttendanceLog, ViolationEvent } from '../../services/types';
+import { isActiveViolation } from '../../lib/violationPresentation';
 
 interface NeedsAttentionProps {
   attendanceLogs: AttendanceLog[];
@@ -18,7 +19,7 @@ export function NeedsAttention({ attendanceLogs, violations, onNavigate }: Needs
   const lateArrivals = attendanceLogs.filter((l) => l.status === 'late');
 
   // 4. Active unresolved geofence violations
-  const activeViolations = violations.filter((v) => !v.read || !v.resolved);
+  const activeViolations = violations.filter(isActiveViolation);
 
   const totalPriorityCount = manualLogs.length + missingTimeOut.length + lateArrivals.length + activeViolations.length;
 

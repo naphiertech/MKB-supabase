@@ -15,6 +15,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { PayrollParcelRatesSettings } from '../components/settings/PayrollParcelRatesSettings';
+import { AccountSecurityControls } from '../components/settings/AccountSecurityControls';
 
 type TabType = 'Personal Detail' | 'Security' | 'Notification' | 'Payroll & Parcel Rates';
 
@@ -52,8 +53,6 @@ export function Settings() {
   // Security states
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [twoStepVerification, setTwoStepVerification] = useState(false);
-  const [supportAccess, setSupportAccess] = useState(false);
 
   // Notification states
   const [notifBoundaryExit, setNotifBoundaryExit] = useState(true);
@@ -163,8 +162,6 @@ export function Settings() {
     setProvince(savedProvince);
     setCity(savedCity);
 
-    setTwoStepVerification(localStorage.getItem(`2fa_${userId}`) === 'true');
-    setSupportAccess(localStorage.getItem(`support_access_${userId}`) === 'true');
     setAvatarUrl(localStorage.getItem(`custom_avatar_${userId}`) || '');
 
     setNotifBoundaryExit(localStorage.getItem(`notif_boundary_${userId}`) !== 'false');
@@ -781,80 +778,7 @@ export function Settings() {
                 {/* Right Column Toggles */}
                 <div className="space-y-6">
                   
-                  {/* Advanced Security Card */}
-                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-sm font-bold text-foreground">Account Security</h3>
-                      <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                        Not yet available
-                      </span>
-                    </div>
-                    
-                    {/* Toggle 1 */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-foreground">2-Step Verification</h4>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">
-                          Planned protection for account authentication. This control is not connected yet.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled
-                        aria-label="2-Step Verification — not yet available"
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent opacity-60 ${
-                          twoStepVerification ? 'bg-primary' : 'bg-border'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                            twoStepVerification ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="h-px bg-border" />
-
-                    {/* Toggle 2 */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-foreground">Support Access</h4>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">
-                          Planned controlled access for authorized support. This control is not connected yet.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled
-                        aria-label="Support Access — not yet available"
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-transparent opacity-60 ${
-                          supportAccess ? 'bg-primary' : 'bg-border'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                            supportAccess ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Force Sessions Log Out */}
-                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-3">
-                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">Active Sessions</h3>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Cross-device session management is planned but is not connected yet.
-                    </p>
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full py-2 bg-panel-bg border border-border text-muted-foreground rounded-xl text-xs font-bold cursor-not-allowed opacity-70"
-                    >
-                      Log out of all other devices — Not yet available
-                    </button>
-                  </div>
+                  <AccountSecurityControls />
 
                   {/* Delete Account Card */}
                   <div className="bg-red-50/20 border border-red-200/50 rounded-2xl p-5 shadow-xs space-y-3">

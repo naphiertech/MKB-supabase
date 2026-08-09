@@ -1276,7 +1276,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-semibold text-sm text-foreground">
-                          {v.type === 'boundary_exit' ? 'Boundary Exit Alert' : v.type === 'idle_excess' ? 'Excess Idle Warning' : 'Geofence Violation'}
+                          {v.type === 'boundary_exit' ? 'Boundary Exit Alert' : v.type === 'idle_timeout' ? 'Location Timeout' : 'Manual Flag'}
                         </span>
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider ${
                           v.resolved ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'

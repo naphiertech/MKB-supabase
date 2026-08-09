@@ -80,7 +80,7 @@ const mapViolation = (row: DbViolationRow): ViolationEvent => {
     riderName: rider?.name || 'Unknown Rider',
     zoneName: row.zone_name || 'No Zone',
     ts: new Date(row.created_at).getTime(),
-    type: row.type as 'boundary_exit' | 'boundary_enter' | 'idle_excess',
+    type: row.type as ViolationEvent['type'],
     read: row.read,
     lat: row.lat ?? undefined,
     lng: row.lng ?? undefined,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
@@ -11,7 +11,8 @@ import {
   ChevronDown,
   Loader2,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Download
 } from 'lucide-react';
 import {
   getPaginatedPayrollRecords,
@@ -24,6 +25,8 @@ import type { Zone } from '../../services/types';
 import { useAuth } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
 import { PayrollStatus, PayrollStatusLabels, PayrollStatusColors, isEditableStatus } from '../../types/payroll';
+import { buildBulkPayrollExportRows } from '../../services/payrollBulkExport';
+import { exportCutoffSummaryCSV } from '../../lib/exports/payrollExport';
 
 function phpFmt(val: number) {
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -112,6 +115,7 @@ interface RiderPayrollListProps {
   cutoffTo: string;
   role: 'admin' | 'hr' | 'payroll';
   reloadTrigger: number;
+  pendingReviewRequest?: number;
   onStatusUpdated?: () => void;
   onComputeRider?: (record: PayrollRecordRow) => void;
   onOpenDetails: (record: PayrollRecordRow, allRecordsInPage: PayrollRecordRow[]) => void;
@@ -122,6 +126,7 @@ export function RiderPayrollList({
   cutoffTo,
   role,
   reloadTrigger,
+  pendingReviewRequest = 0,
   onStatusUpdated,
   onComputeRider,
   onOpenDetails
@@ -136,6 +141,7 @@ export function RiderPayrollList({
   const [confirmSingleDeleteOpen, setConfirmSingleDeleteOpen] = useState(false);
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const handleSingleDelete = async () => {
     if (!recordToDelete) return;
@@ -272,6 +278,14 @@ export function RiderPayrollList({
   const [statusFilter, setStatusFilter] = useState('all');
   const [zoneFilter, setZoneFilter] = useState('all');
   const [allZones, setAllZones] = useState<Zone[]>([]);
+  const statusFilterRef = useRef<HTMLSelectElement>(null);
+
+  useEffect(() => {
+    if (pendingReviewRequest === 0) return;
+    setStatusFilter(PayrollStatus.PENDING);
+    setPage(1);
+    window.requestAnimationFrame(() => statusFilterRef.current?.focus());
+  }, [pendingReviewRequest]);
 
   // Sorting states
   const [sortBy, setSortBy] = useState<'riderName' | 'total_parcels' | 'gross_pay' | 'net_pay' | 'status'>('riderName');
@@ -402,6 +416,21 @@ export function RiderPayrollList({
     }
   }, [cutoffFrom, cutoffTo]);
 
+  const handleBulkExport = async () => {
+    if (selectedRecordIds.size === 0) return;
+    setExporting(true);
+    try {
+      const rows = await buildBulkPayrollExportRows(payrollRecords, selectedRecordIds);
+      if (rows.length === 0) throw new Error('No selected payroll records are available to export.');
+      exportCutoffSummaryCSV(rows, cutoffLabel);
+      pushToast({ title: 'Payroll export ready', description: `Exported ${rows.length} selected payroll record(s).`, tone: 'success' });
+    } catch (error: unknown) {
+      pushToast({ title: 'Bulk export failed', description: error instanceof Error ? error.message : 'The selected payroll records could not be exported.', tone: 'error' });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Bulk Actions Banner */}
@@ -417,11 +446,14 @@ export function RiderPayrollList({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              disabled
-              className="h-8 px-3 rounded-lg border border-border bg-white/50 text-subtle-text text-xs font-semibold cursor-not-allowed"
-              title="Bulk export is not yet available"
+              type="button"
+              onClick={() => void handleBulkExport()}
+              disabled={exporting || submitting || deleting}
+              className="h-8 px-3 rounded-lg border border-border bg-white hover:bg-panel-bg text-foreground text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 inline-flex items-center gap-1.5"
+              title="Export selected payroll records as CSV"
             >
-              Bulk Export — Not yet available
+              {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              {exporting ? 'Preparing export…' : 'Bulk Export'}
             </button>
             {(role === 'payroll' || role === 'admin') ? (
               <>
@@ -536,6 +568,7 @@ export function RiderPayrollList({
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Status:</span>
               <select
+                ref={statusFilterRef}
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
                 className="h-9 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer font-mono text-[11px]"

@@ -20,6 +20,8 @@ import { useAuth } from '../hooks/useAuth';
 import { clearCachedAvatar } from '../lib/avatarCache';
 import { exportXLSXFile } from '../lib/exports/excelHelper';
 import { toast } from 'react-hot-toast';
+import { requestStaffPasswordReset, setUserSuspension } from '../services/adminUserService';
+import { recoveryRedirectUrl } from '../lib/authRecoveryRoute';
 import {
   getUsersAndRiders,
   updateUserProfile,
@@ -222,6 +224,28 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
       );
     } catch (err) {
       console.error('Failed to export registry:', err);
+    }
+  };
+
+  const handleSendPasswordReset = async (target: AppUser) => {
+    try {
+      const redirectTo = recoveryRedirectUrl(window.location);
+      await requestStaffPasswordReset({ id: target.id, email: target.email, name: target.name }, redirectTo);
+      toast.success(`Recovery email sent to ${target.email}`);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Password recovery email could not be sent.');
+      throw error;
+    }
+  };
+
+  const handleToggleSuspension = async (target: AppUser, suspended: boolean) => {
+    try {
+      await setUserSuspension(target.id, suspended);
+      await loadData();
+      toast.success(`${target.name} was ${suspended ? 'suspended' : 'reactivated'}.`);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : `Unable to ${suspended ? 'suspend' : 'reactivate'} this account.`);
+      throw error;
     }
   };
 
@@ -574,6 +598,10 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                 setSelectedUser(u);
                 setView('details');
               }}
+              currentUserId={session?.id}
+              currentUserRole={currentUserRole === 'admin' || currentUserRole === 'hr' ? currentUserRole : undefined}
+              onSendPasswordReset={handleSendPasswordReset}
+              onToggleSuspension={handleToggleSuspension}
             />
           )}
         </motion.div>

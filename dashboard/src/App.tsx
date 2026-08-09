@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState, Component } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState, Component } from 'react';
 import { Sidebar, type PageKey } from './components/common/Sidebar';
 import { Topbar } from './components/common/Topbar';
 import { DashboardSkeleton } from './components/common/DashboardSkeleton';
@@ -20,6 +20,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
 import { initSyncEngine, startSyncEngine, stopSyncEngine } from './lib/sync/SyncEngine';
 import { PAGE_TRANSITION_VARIANTS } from './lib/motion';
+import { PasswordRecovery } from './components/auth/PasswordRecovery';
+import { MfaChallenge } from './components/auth/MfaChallenge';
+import { getMfaState } from './services/authSecurity';
+import { isPasswordRecoveryUrl } from './lib/authRecoveryRoute';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
 const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring').then((module) => ({ default: module.LiveMonitoring })));
@@ -78,6 +82,13 @@ export function App() {
     window.location.pathname !== '/index.html';
 
   const { session, isReady: isAuthReady, user, signOut } = useAuth();
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return isPasswordRecoveryUrl(window.location);
+  });
+  const [mfaChecking, setMfaChecking] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
   const getInitialPage = (): PageKey => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -107,6 +118,46 @@ export function App() {
   const { riders: allRiders, zones: allZones } = useRiderZone();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
+  const refreshMfaGate = useCallback(async () => {
+    if (!session || isPasswordRecovery || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      setMfaRequired(false);
+      setMfaChecking(false);
+      setMfaError(null);
+      return;
+    }
+    setMfaChecking(true);
+    setMfaError(null);
+    try {
+      const state = await getMfaState();
+      setMfaRequired(state.requiresChallenge);
+    } catch (error: unknown) {
+      setMfaRequired(false);
+      setMfaError(error instanceof Error ? error.message : 'Unable to verify account security.');
+    } finally {
+      setMfaChecking(false);
+    }
+  }, [isPasswordRecovery, session]);
+
+  useEffect(() => {
+    void refreshMfaGate();
+  }, [refreshMfaGate]);
+
+  useEffect(() => {
+    if (!session?.id) return;
+    const channel = supabase
+      .channel(`account-status-${session.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${session.id}` },
+        (payload) => {
+          const updated = payload.new as { status?: string };
+          if (updated.status === 'suspended') void signOut();
+        }
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [session?.id, signOut]);
+
   // Attach passive listeners, then activate replay only after rider identity is verified.
   useEffect(() => {
     initSyncEngine();
@@ -127,6 +178,7 @@ export function App() {
 
   // Sync state changes to URL hash
   useEffect(() => {
+    if (isPasswordRecovery) return;
     if (!session) {
       if (typeof window !== 'undefined' && window.location.hash) {
         window.history.replaceState(null, '', window.location.pathname);
@@ -141,10 +193,11 @@ export function App() {
         window.location.hash = page;
       }
     }
-  }, [currentPage, riderPage, session]);
+  }, [currentPage, isPasswordRecovery, riderPage, session]);
 
   // Listen for hash changes (e.g. browser back/forward buttons)
   useEffect(() => {
+    if (isPasswordRecovery) return;
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#/', '').replace('#', '');
       if (!hash) return;
@@ -158,7 +211,7 @@ export function App() {
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [session]);
+  }, [isPasswordRecovery, session]);
 
   // Riders and zones are now loaded globally via RiderZoneContext
 
@@ -217,6 +270,25 @@ export function App() {
   // If route is 404
   if (isNotFound) {
     return <NotFound />;
+  }
+
+  if (isPasswordRecovery) {
+    return <><PasswordRecovery onReturnToLogin={() => {
+      window.history.replaceState(null, '', window.location.pathname);
+      setIsPasswordRecovery(false);
+    }} /><Toaster position="top-right" reverseOrder={false} /></>;
+  }
+
+  if (session && mfaChecking) {
+    return <div className="min-h-screen grid place-items-center bg-panel-bg text-sm text-muted-foreground">Verifying account security…</div>;
+  }
+
+  if (session && mfaError) {
+    return <div className="min-h-screen grid place-items-center bg-panel-bg p-6"><div className="max-w-sm rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm"><h1 className="font-semibold text-red-800">Security verification unavailable</h1><p className="mt-2 text-sm text-muted-foreground">{mfaError}</p><div className="mt-4 flex justify-center gap-2"><button type="button" onClick={() => void refreshMfaGate()} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white">Retry</button><button type="button" onClick={signOut} className="rounded-lg border border-border px-4 py-2 text-xs font-semibold">Sign out</button></div></div></div>;
+  }
+
+  if (session && mfaRequired) {
+    return <><MfaChallenge onVerified={() => void refreshMfaGate()} onSignOut={signOut} /><Toaster position="top-right" reverseOrder={false} /></>;
   }
 
   // Unauthenticated — show login

@@ -819,7 +819,7 @@ export const getRiderPayrollMetrics = async (
 
   const presentDays = (attendance ?? []).filter(a => a.status === 'present' || a.status === 'late').length;
   const lateDays = (attendance ?? []).filter(a => a.status === 'late').length;
-  const violationsCount = (violations ?? []).filter(v => v.type === 'boundary_exit' || v.type === 'idle_excess').length;
+  const violationsCount = (violations ?? []).filter(v => v.type === 'boundary_exit' || v.type === 'idle_timeout').length;
 
   return {
     presentDays,

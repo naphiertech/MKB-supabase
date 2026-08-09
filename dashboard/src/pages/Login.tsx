@@ -15,6 +15,9 @@ import { pushToast } from '../hooks/useToast';
 import { BRANDING } from '../config/branding';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginSkeleton } from '../components/common/DashboardSkeleton';
+import { Modal } from '../components/common/Modal';
+import { requestPasswordRecovery } from '../services/authSecurity';
+import { recoveryRedirectUrl } from '../lib/authRecoveryRoute';
 const DEMO_ACCOUNTS = [
 {
   role: 'admin' as const,
@@ -44,6 +47,11 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoverySent, setRecoverySent] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [activeRole, setActiveRole] = useState<
     'admin' | 'hr' | 'rider' | 'payroll' | null>(
     null);
@@ -91,6 +99,28 @@ export function Login() {
     setPassword('demo1234');
     setActiveRole(account.role);
     setError(null);
+  }
+
+  function openPasswordRecovery() {
+    setRecoveryEmail(email);
+    setRecoverySent(false);
+    setRecoveryError(null);
+    setForgotOpen(true);
+  }
+
+  async function handlePasswordRecovery(event: React.FormEvent) {
+    event.preventDefault();
+    setRecoveryLoading(true);
+    setRecoveryError(null);
+    try {
+      const redirectTo = recoveryRedirectUrl(window.location);
+      await requestPasswordRecovery(recoveryEmail, redirectTo);
+      setRecoverySent(true);
+    } catch (err: unknown) {
+      setRecoveryError(err instanceof Error ? err.message : 'Recovery email could not be sent. Please try again.');
+    } finally {
+      setRecoveryLoading(false);
+    }
   }
   return (
     <motion.div 
@@ -248,10 +278,9 @@ export function Login() {
                       </label>
                       <button
                         type="button"
-                        disabled
-                        title="Password recovery is not yet available"
-                        className="text-[11px] text-muted-foreground font-semibold cursor-not-allowed">
-                        Forgot? — Not yet available
+                        onClick={openPasswordRecovery}
+                        className="text-[11px] text-primary hover:text-primary-hover font-semibold cursor-pointer">
+                        Forgot password?
                       </button>
                     </div>
                     <div className="relative">
@@ -380,6 +409,25 @@ export function Login() {
           </AnimatePresence>
         </div>
       </motion.main>
+      <Modal open={forgotOpen} onClose={() => setForgotOpen(false)} title="Reset your password" subtitle="We’ll email a secure recovery link to the address on your account.">
+        {recoverySent ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              If an account exists for that email, a recovery link has been sent. Check your inbox and spam folder.
+            </div>
+            <button type="button" onClick={() => setForgotOpen(false)} className="h-10 w-full rounded-lg bg-primary text-sm font-semibold text-white hover:bg-primary-hover">Done</button>
+          </div>
+        ) : (
+          <form onSubmit={handlePasswordRecovery} className="space-y-4">
+            <div>
+              <label htmlFor="recovery-email" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Email address</label>
+              <input id="recovery-email" type="email" value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} autoComplete="email" required aria-invalid={Boolean(recoveryError)} aria-describedby={recoveryError ? 'recovery-request-error' : undefined} className="h-11 w-full rounded-lg border border-border px-3.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" />
+            </div>
+            {recoveryError && <p id="recovery-request-error" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{recoveryError}</p>}
+            <button type="submit" disabled={recoveryLoading} className="h-10 w-full rounded-lg bg-primary text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-60">{recoveryLoading ? 'Sending recovery link…' : 'Send recovery link'}</button>
+          </form>
+        )}
+      </Modal>
     </motion.div>);
 
 }

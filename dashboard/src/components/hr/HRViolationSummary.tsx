@@ -4,18 +4,16 @@ import type { ViolationEvent, Rider } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 import { pushToast } from '../../hooks/useToast';
 import { getFlaggedViolationIds, createNotificationAlert } from '../../services/notificationService';
+import {
+  isViolationOnBusinessDate,
+  VIOLATION_TYPE_LABEL
+} from '../../lib/violationPresentation';
 
 interface HRViolationSummaryProps {
   violations: ViolationEvent[];
   riders: Rider[];
   onViewAll?: () => void;
 }
-
-const TYPE_LABEL: Record<ViolationEvent['type'], string> = {
-  boundary_exit: 'Boundary exit',
-  boundary_enter: 'Re-entry',
-  idle_excess: 'Idle > 5 min'
-};
 
 export function HRViolationSummary({ violations, riders, onViewAll }: HRViolationSummaryProps) {
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
@@ -28,8 +26,10 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
     return m;
   }, [riders]);
 
-  // Limit dashboard view to top 5 recent violations
-  const recent = useMemo(() => violations.slice(0, 5), [violations]);
+  const recent = useMemo(
+    () => violations.filter((violation) => isViolationOnBusinessDate(violation.ts, now)).slice(0, 5),
+    [violations, now]
+  );
 
   useEffect(() => {
     async function loadFlagged() {
@@ -53,18 +53,27 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
     });
 
     try {
-      await createNotificationAlert({
+      const flaggedSuccessfully = await createNotificationAlert({
         type: 'violation',
         title: 'Flagged Violation',
-        message: `${v.riderName} breached geofence boundary (${TYPE_LABEL[v.type]} at ${v.zoneName})`,
+        message: `${v.riderName} requires follow-up (${VIOLATION_TYPE_LABEL[v.type]} at ${v.zoneName})`,
         riderId: v.riderId,
         violationId: v.id,
-        targetRoles: ['admin', 'hr']
+        targetRoles: ['admin', 'hr'],
+        metadata: {
+          source: 'hr_violation_flag',
+          manual_flag: true,
+          violation_type: v.type
+        }
       });
+
+      if (!flaggedSuccessfully) {
+        throw new Error('The follow-up flag could not be saved.');
+      }
 
       pushToast({
         title: `Flagged for Admin · ${v.riderName}`,
-        description: `${TYPE_LABEL[v.type]} · ${v.zoneName}`,
+        description: `${VIOLATION_TYPE_LABEL[v.type]} · ${v.zoneName}`,
         tone: 'default'
       });
     } catch (err: unknown) {
@@ -93,7 +102,7 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
           <div>
             <div className="text-sm font-semibold text-foreground">Recent Violation Summary</div>
             <div className="text-[11px] text-muted-foreground font-mono">
-              Top 5 recent incidents · {recent.length} logged
+              Today in Manila · {recent.length} recent incident{recent.length === 1 ? '' : 's'}
             </div>
           </div>
         </div>
@@ -138,7 +147,7 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
       {/* Incident List */}
       <div className="p-3 space-y-2 overflow-y-auto ar-scroll flex-1">
         {recent.length === 0 && (
-          <div className="text-center text-xs text-muted-foreground py-8 font-mono">No active violations today. All clear.</div>
+          <div className="text-center text-xs text-muted-foreground py-8 font-mono">No violation incidents recorded today.</div>
         )}
         {recent
           .filter((v) => {
@@ -196,7 +205,7 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
                     )}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center">
-                    <span className="text-foreground font-semibold">{TYPE_LABEL[v.type]}</span>
+                    <span className="text-foreground font-semibold">{VIOLATION_TYPE_LABEL[v.type]}</span>
                     <span className="text-muted-foreground/60 mx-1">·</span>
                     <span>{v.zoneName}</span>
                     {v.type === 'boundary_exit' && (
@@ -210,9 +219,9 @@ export function HRViolationSummary({ violations, riders, onViewAll }: HRViolatio
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[10px] text-muted-foreground font-mono">
                     <span>{relativeTime(v.ts, now)}</span>
-                    {rider && (
+                    {v.lat !== undefined && v.lng !== undefined && (
                       <span className="text-muted-foreground/70">
-                        {rider.lat.toFixed(4)}, {rider.lng.toFixed(4)}
+                        {v.lat.toFixed(4)}, {v.lng.toFixed(4)}
                       </span>
                     )}
                   </div>

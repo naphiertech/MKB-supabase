@@ -14,6 +14,9 @@ import { LiveMonitoringMap } from '../components/maps/LiveMonitoringMap';
 import { EventTicker } from '../components/monitoring/EventTicker';
 import { useNow, relativeTime } from '../hooks/useNow';
 import { RouteTrailMap } from '../components/maps/RouteTrailMap';
+import { Modal } from '../components/common/Modal';
+import { pushToast } from '../hooks/useToast';
+import { createLiveMonitoringManualFlag, phoneHref } from '../services/liveMonitoringActions';
 import { 
   getRouteForRider, 
   computeRouteStats,
@@ -34,6 +37,9 @@ export function LiveMonitoring() {
   const [selectedRiderStats, setSelectedRiderStats] = useState<RouteStats | null>(null);
   const [routeDrawerOpen, setRouteDrawerOpen] = useState(false);
   const [isRouteFullscreen, setIsRouteFullscreen] = useState(false);
+  const [flagModalOpen, setFlagModalOpen] = useState(false);
+  const [flagReason, setFlagReason] = useState('');
+  const [flagging, setFlagging] = useState(false);
 
   const { zones: zonesList } = useRiderZone();
 
@@ -56,6 +62,29 @@ export function LiveMonitoring() {
     setSelectedRiderRoute(points);
     setSelectedRiderStats(computeRouteStats(points));
     setRouteDrawerOpen(true);
+  };
+
+  const handleQuickFlag = async () => {
+    if (!focused) return;
+    setFlagging(true);
+    try {
+      await createLiveMonitoringManualFlag({
+        riderId: focused.id,
+        riderName: focused.name,
+        zoneId: focused.zoneId,
+        zoneName: focusedZone?.name,
+        lat: focused.lat,
+        lng: focused.lng,
+        reason: flagReason,
+      });
+      setFlagModalOpen(false);
+      setFlagReason('');
+      pushToast({ title: 'Rider flagged', description: `${focused.name} was added to the violation feed for follow-up.`, tone: 'success' });
+    } catch (error: unknown) {
+      pushToast({ title: 'Flag failed', description: error instanceof Error ? error.message : 'Could not flag this rider.', tone: 'error' });
+    } finally {
+      setFlagging(false);
+    }
   };
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
@@ -241,9 +270,9 @@ export function LiveMonitoring() {
                       </div>
                     )}
                     <div className="mt-3 pt-3 border-t border-border grid grid-cols-3 gap-1.5">
-                      <ActionBtn icon={MessageSquare} label="Message" />
-                      <ActionBtn icon={Phone} label="Call" />
-                      <ActionBtn icon={Flag} label="Flag" tone="red" />
+                      <ActionBtn icon={MessageSquare} label="Message" disabled unavailable />
+                      <ActionBtn icon={Phone} label="Call" href={phoneHref(focused.phone) ?? undefined} disabled={!phoneHref(focused.phone)} title={!focused.phone ? 'No phone number is stored for this rider' : 'Open this device’s phone dialer'} />
+                      <ActionBtn icon={Flag} label="Flag" tone="red" onClick={() => setFlagModalOpen(true)} />
                     </div>
                   </div>
                 )}
@@ -301,7 +330,14 @@ export function LiveMonitoring() {
         </main>
       </div>
 
-      <EventTicker riders={riders} zones={zonesList} violations={violations} />
+      <EventTicker violations={violations} />
+      <Modal open={flagModalOpen} onClose={() => !flagging && setFlagModalOpen(false)} dismissible={!flagging} title="Flag rider for follow-up?" subtitle={focused?.name}>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">This creates a persisted <strong className="text-foreground">manual flag</strong> incident using the existing violations workflow. It does not change attendance or payroll records.</p>
+          <div><label htmlFor="quick-flag-reason" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Reason (optional)</label><textarea id="quick-flag-reason" value={flagReason} onChange={(event) => setFlagReason(event.target.value)} maxLength={500} rows={3} className="w-full resize-none rounded-lg border border-border p-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" placeholder="Add context for Admin/HR follow-up" /></div>
+          <div className="flex justify-end gap-2"><button type="button" disabled={flagging} onClick={() => setFlagModalOpen(false)} className="rounded-lg border border-border px-4 py-2 text-xs font-semibold disabled:opacity-60">Cancel</button><button type="button" disabled={flagging || !focused} onClick={() => void handleQuickFlag()} className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{flagging ? 'Saving flag…' : 'Create manual flag'}</button></div>
+        </div>
+      </Modal>
     </div>);
 
 }
@@ -352,16 +388,16 @@ function Row({
 function ActionBtn({
   icon: Icon,
   label,
-  tone
-}: {icon: ComponentType<{className?: string;}>;label: string;tone?: 'red';}) {
-  return (
-    <button
-      disabled
-      title={`${label} is not yet available`}
-      className={`flex flex-col items-center gap-1 py-2 rounded-md border text-[10px] font-semibold cursor-not-allowed opacity-60 ${tone === 'red' ? 'bg-red-50 border-red-500/30 text-red-700' : 'bg-white border-border text-muted-foreground'}`}>
-      
-      <Icon className="w-3.5 h-3.5" />
-      {label} · Soon
-    </button>);
+  tone,
+  href,
+  onClick,
+  disabled = false,
+  unavailable = false,
+  title
+}: {icon: ComponentType<{className?: string;}>;label: string;tone?: 'red';href?: string;onClick?: () => void;disabled?: boolean;unavailable?: boolean;title?: string;}) {
+  const className = `flex flex-col items-center gap-1 py-2 rounded-md border text-[10px] font-semibold transition ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:shadow-sm'} ${tone === 'red' ? 'bg-red-50 border-red-500/30 text-red-700' : 'bg-white border-border text-muted-foreground hover:text-primary'}`;
+  const content = <><Icon className="w-3.5 h-3.5" />{label}{unavailable ? ' · Soon' : ''}</>;
+  if (href && !disabled) return <a href={href} title={title} className={className}>{content}</a>;
+  return <button type="button" disabled={disabled} onClick={onClick} title={title ?? (unavailable ? `${label} is not yet available` : label)} className={className}>{content}</button>;
 
 }

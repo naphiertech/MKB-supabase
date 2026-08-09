@@ -112,8 +112,9 @@ export const createNotificationAlert = async (input: {
   actionLink?: string | null;
   category?: NotificationCategory;
   priority?: NotificationPriority;
-}): Promise<void> => {
-  await dispatchNotificationSafe({
+  metadata?: Record<string, unknown> | null;
+}): Promise<boolean> => {
+  return dispatchNotificationSafe({
     senderId: input.senderId,
     type: (input.type as NotificationType) || 'system',
     category: input.category || (input.type === 'violation' ? 'geofence' : 'system'),
@@ -123,19 +124,21 @@ export const createNotificationAlert = async (input: {
     riderId: input.riderId,
     violationId: input.violationId,
     actionLink: input.actionLink,
+    metadata: input.metadata,
     targetRoles: input.targetRoles as UserRole[]
   });
 };
 
 /**
- * Retrieves set of violation IDs that have active notification records.
- * Backward compatible with HRViolationSummary.
+ * Retrieves violation IDs explicitly marked by HR/Admin for follow-up.
+ * Automatic incident notifications are intentionally excluded.
  */
 export const getFlaggedViolationIds = async (): Promise<Set<string>> => {
   const { data, error } = await supabase
     .from('notifications')
     .select('violation_id')
     .eq('type', 'violation')
+    .contains('metadata', { manual_flag: true })
     .not('violation_id', 'is', null);
 
   if (error) throw error;

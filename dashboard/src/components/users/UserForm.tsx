@@ -751,25 +751,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Account Status" required>
-                    <div className="flex gap-2">
-                      {(["active", "suspended"] as const).map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          disabled={submitting}
-                          onClick={() => setField("status", s)}
-                          className={`flex-1 h-9 rounded-md border text-xs capitalize font-semibold transition ${
-                            form.status === s
-                              ? s === "active"
-                                ? "bg-emerald-50 border-emerald-500/40 text-emerald-700 font-bold"
-                                : "bg-red-50 border-red-500/40 text-red-700 font-bold"
-                              : "bg-white border-border text-foreground hover:border-primary/30 cursor-pointer"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
+                    <div className={`h-9 rounded-md border px-3 inline-flex items-center text-xs capitalize font-bold ${form.status === 'suspended' ? 'bg-red-50 border-red-500/40 text-red-700' : 'bg-emerald-50 border-emerald-500/40 text-emerald-700'}`}>{form.status}</div>
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">Use the employee list account action to suspend or reactivate an existing account.</p>
                   </Field>
 
                   {currentUserRole !== "hr" && (
@@ -800,7 +783,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 <Field
                   label={
                     mode === "edit"
-                      ? "Reset Password (optional)"
+                      ? "Password Changes"
                       : "Temporary Password"
                   }
                   error={errors.tempPassword}
@@ -809,7 +792,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   innerRef={(el) => (fieldRefs.current.tempPassword = el)}
                   helper={
                     mode === "edit"
-                      ? "Leave blank to keep current password."
+                      ? "Use Send Password Reset from the employee list. Passwords are never displayed here."
                       : "User will change this on first login."
                   }
                 >
@@ -822,12 +805,12 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         onChange={(e) =>
                           setField("tempPassword", e.target.value)
                         }
-                        placeholder="Min. 8 characters"
+                        placeholder={mode === "edit" ? "Use Send Password Reset" : "Min. 8 characters"}
                         className="ar-input pr-9"
                         autoComplete="new-password"
-                        disabled={submitting}
+                        disabled={submitting || mode === "edit"}
                       />
-                      <button
+                      {mode === "create" && <button
                         type="button"
                         onClick={() => setShowPassword((s) => !s)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
@@ -837,7 +820,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         ) : (
                           <Eye className="w-4 h-4" />
                         )}
-                      </button>
+                      </button>}
                     </div>
                     <button
                       type="button"
@@ -1162,25 +1145,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
 
                 <div className="grid grid-cols-1 gap-4">
                   <Field label="Account Status" required>
-                    <div className="flex gap-2">
-                      {(["active", "suspended"] as const).map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          disabled={submitting}
-                          onClick={() => setField("status", s)}
-                          className={`flex-1 h-9 rounded-md border text-xs capitalize font-semibold transition ${
-                            form.status === s
-                              ? s === "active"
-                                ? "bg-emerald-50 border-emerald-500/40 text-emerald-700 font-bold"
-                                : "bg-red-50 border-red-500/40 text-red-700 font-bold"
-                              : "bg-white border-border text-foreground hover:border-primary/30 cursor-pointer"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
+                    <div className={`h-9 rounded-md border px-3 inline-flex items-center text-xs capitalize font-bold ${form.status === 'suspended' ? 'bg-red-50 border-red-500/40 text-red-700' : 'bg-emerald-50 border-emerald-500/40 text-emerald-700'}`}>{form.status}</div>
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">Use the employee list account action to suspend or reactivate an existing account.</p>
                   </Field>
 
                   {currentUserRole !== "hr" && (
@@ -1210,7 +1176,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   <Field
                     label={
                       mode === "edit"
-                        ? "Reset Password (optional)"
+                        ? "Password Changes"
                         : "Temporary Password"
                     }
                     error={errors.tempPassword}
@@ -1219,7 +1185,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                     innerRef={(el) => (fieldRefs.current.tempPassword = el)}
                     helper={
                       mode === "edit"
-                        ? "Leave blank to keep current password."
+                        ? "Use Send Password Reset from the employee list. Passwords are never displayed here."
                         : "User will change this on first login."
                     }
                   >
@@ -1232,10 +1198,10 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                           onChange={(e) =>
                             setField("tempPassword", e.target.value)
                           }
-                          placeholder="Min. 8 characters"
+                          placeholder={mode === "edit" ? "Use Send Password Reset" : "Min. 8 characters"}
                           className="ar-input pr-9"
                           autoComplete="new-password"
-                          disabled={submitting}
+                          disabled={submitting || mode === "edit"}
                         />
                         <button
                           type="button"
@@ -1249,7 +1215,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                           )}
                         </button>
                       </div>
-                      <button
+                      {mode === "create" && <button
                         type="button"
                         disabled={submitting}
                         onClick={() => {
@@ -1267,7 +1233,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                         className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-border text-xs text-foreground hover:border-primary/30 hover:text-primary transition shrink-0 cursor-pointer font-semibold"
                       >
                         <Sparkles className="w-3.5 h-3.5" /> Generate
-                      </button>
+                      </button>}
                     </div>
                   </Field>
                 </div>

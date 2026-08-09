@@ -8,10 +8,13 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Loader2,
+  RotateCcw
 } from 'lucide-react';
 import type { AppUser, UserRole, Zone } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
+import { Modal } from '../common/Modal';
 
 interface UsersTableProps {
   users: AppUser[];
@@ -24,6 +27,10 @@ interface UsersTableProps {
   onPageSizeChange?: (size: number) => void;
   onEdit?: (user: AppUser) => void;
   onViewDetails?: (user: AppUser) => void;
+  currentUserId?: string;
+  currentUserRole?: 'admin' | 'hr';
+  onSendPasswordReset?: (user: AppUser) => Promise<void>;
+  onToggleSuspension?: (user: AppUser, suspended: boolean) => Promise<void>;
 }
 
 const ROLE_STYLES: Record<
@@ -84,10 +91,32 @@ export function UsersTable({
   onPageChange,
   onPageSizeChange,
   onEdit,
-  onViewDetails
+  onViewDetails,
+  currentUserId,
+  currentUserRole,
+  onSendPasswordReset,
+  onToggleSuspension
 }: UsersTableProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ type: 'reset' | 'suspend' | 'reactivate'; user: AppUser } | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const now = useNow();
+
+  async function confirmAction() {
+    if (!pendingAction) return;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      if (pendingAction.type === 'reset') await onSendPasswordReset?.(pendingAction.user);
+      else await onToggleSuspension?.(pendingAction.user, pendingAction.type === 'suspend');
+      setPendingAction(null);
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : 'The account action could not be completed.');
+    } finally {
+      setActionBusy(false);
+    }
+  }
 
   const total = totalCount ?? users.length;
   const page = currentPage;
@@ -209,19 +238,20 @@ export function UsersTable({
                           </button>
                           <button
                             type="button"
-                            disabled
-                            title="Password reset is not yet available"
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground cursor-not-allowed opacity-70"
+                            onClick={() => { setActionError(null); setPendingAction({ type: 'reset', user: u }); setOpenMenu(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent cursor-pointer"
                           >
-                            <KeyRound className="w-3.5 h-3.5" /> Reset Password — Not yet available
+                            <KeyRound className="w-3.5 h-3.5" /> Send Password Reset
                           </button>
                           <button
                             type="button"
-                            disabled
-                            title="Account suspension is not yet available"
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground cursor-not-allowed opacity-70"
+                            disabled={u.id === currentUserId || (currentUserRole === 'hr' && u.role !== 'rider')}
+                            title={u.id === currentUserId ? 'You cannot change your own account status' : undefined}
+                            onClick={() => { setActionError(null); setPendingAction({ type: u.status === 'suspended' ? 'reactivate' : 'suspend', user: u }); setOpenMenu(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent cursor-pointer disabled:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            <Ban className="w-3.5 h-3.5" /> Suspend — Not yet available
+                            {u.status === 'suspended' ? <RotateCcw className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+                            {u.status === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}
                           </button>
                         </div>
                       )}
@@ -305,6 +335,30 @@ export function UsersTable({
           </div>
         </div>
       )}
+      <Modal
+        open={Boolean(pendingAction)}
+        onClose={() => !actionBusy && setPendingAction(null)}
+        dismissible={!actionBusy}
+        title={pendingAction?.type === 'reset' ? 'Send password reset?' : pendingAction?.type === 'suspend' ? 'Suspend this account?' : 'Reactivate this account?'}
+        subtitle={pendingAction?.user.name}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {pendingAction?.type === 'reset'
+              ? `A secure recovery link will be emailed to ${pendingAction.user.email}. No password will be displayed or generated here.`
+              : pendingAction?.type === 'suspend'
+                ? 'The user will be blocked from signing in. Employee, attendance, parcel, payroll, and audit records will be preserved.'
+                : 'The user will be allowed to sign in again. Existing employee and operational records are unchanged.'}
+          </p>
+          {actionError && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{actionError}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" disabled={actionBusy} onClick={() => setPendingAction(null)} className="rounded-lg border border-border px-4 py-2 text-xs font-semibold disabled:opacity-60">Cancel</button>
+            <button type="button" disabled={actionBusy} onClick={() => void confirmAction()} className={`rounded-lg px-4 py-2 text-xs font-semibold text-white disabled:opacity-60 ${pendingAction?.type === 'suspend' ? 'bg-red-600' : 'bg-primary'}`}>
+              {actionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : pendingAction?.type === 'reset' ? 'Send recovery link' : pendingAction?.type === 'suspend' ? 'Suspend account' : 'Reactivate account'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
@@ -55,6 +55,18 @@ interface LocationRow {
   status: string | null;
   recorded_at: string;
 }
+
+interface RiderUpdateRow {
+  id: string;
+  zone_id: string | null;
+  status: Rider['status'];
+  lat: number | null;
+  lng: number | null;
+  speed: number | null;
+  last_ping: string | null;
+}
+
+const MAX_LIVE_LOCATION_AGE_MS = 2 * 60 * 1000;
 
 type Listener = (v: ViolationEvent) => void;
 const listeners: Set<Listener> = new Set();
@@ -225,6 +237,10 @@ export function useRealtimeLocation(): {
         if (riderIdx === -1) return prevRiders;
 
         const r = prevRiders[riderIdx];
+        const recordedAt = new Date(newLocation.recorded_at).getTime();
+        if (recordedAt <= r.lastPing || recordedAt < Date.now() - MAX_LIVE_LOCATION_AGE_MS) {
+          return prevRiders;
+        }
         const newStatus: Rider['status'] = newLocation.status as Rider['status'];
 
         const updatedRiders = [...prevRiders];
@@ -233,11 +249,31 @@ export function useRealtimeLocation(): {
           lat: newLocation.lat,
           lng: newLocation.lng,
           status: newStatus,
-          speed: newLocation.speed || 0,
-          lastPing: new Date(newLocation.recorded_at).getTime()
+          speed: newLocation.speed ?? 0,
+          lastPing: recordedAt
         };
         return updatedRiders;
       });
+    };
+
+    const handleRiderUpdate = (updatedRider: RiderUpdateRow) => {
+      setRiderState((prevRiders) =>
+        prevRiders.map((rider) =>
+          rider.id === updatedRider.id
+            ? {
+                ...rider,
+                zoneId: updatedRider.zone_id,
+                status: updatedRider.status,
+                lat: updatedRider.lat ?? rider.lat,
+                lng: updatedRider.lng ?? rider.lng,
+                speed: updatedRider.speed ?? 0,
+                lastPing: updatedRider.last_ping
+                  ? new Date(updatedRider.last_ping).getTime()
+                  : rider.lastPing
+              }
+            : rider
+        )
+      );
     };
 
     // Event Handler: Prepend live violations inserted on backend
@@ -314,6 +350,13 @@ export function useRealtimeLocation(): {
           handleViolationUpdate(payload.new as unknown as ViolationRow);
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'riders' },
+        (payload) => {
+          handleRiderUpdate(payload.new as unknown as RiderUpdateRow);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -332,23 +375,8 @@ export function useRealtimeLocation(): {
     setViolationState((prevVs) => prevVs.map((v) => ({ ...v, read: true })));
   }, []);
 
-  const ridersWithUnreadViolations = useMemo(() => {
-    return riderState.map((r) => {
-      const activeV = violationState.find((v) => v.riderId === r.id && !v.resolved);
-      if (activeV) {
-        return {
-          ...r,
-          status: 'violation' as const,
-          lat: r.lat === 0 || r.status === 'offline' ? (activeV.lat ?? r.lat) : r.lat,
-          lng: r.lng === 0 || r.status === 'offline' ? (activeV.lng ?? r.lng) : r.lng,
-        };
-      }
-      return r;
-    });
-  }, [riderState, violationState]);
-
   return {
-    riders: ridersWithUnreadViolations,
+    riders: riderState,
     violations: violationState,
     markLocalViolationRead,
     markAllLocalViolationsRead

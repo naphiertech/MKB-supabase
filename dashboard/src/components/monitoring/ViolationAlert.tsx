@@ -3,17 +3,13 @@ import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import type { ViolationEvent } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
+import { VIOLATION_TYPE_LABEL } from '../../lib/violationPresentation';
 interface ViolationAlertProps {
   alert: ViolationEvent;
   onView?: (riderId: string) => void;
   isNew?: boolean;
   isFlagged?: boolean;
 }
-const TYPE_LABEL: Record<ViolationEvent['type'], string> = {
-  boundary_exit: 'Boundary exit',
-  boundary_enter: 'Re-entry',
-  idle_excess: 'Idle > 5 min'
-};
 export function ViolationAlert({ alert, onView, isNew, isFlagged }: ViolationAlertProps) {
   const now = useNow();
 
@@ -64,7 +60,7 @@ export function ViolationAlert({ alert, onView, isNew, isFlagged }: ViolationAle
     >
       
       <div
-        className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${alert.type === 'idle_excess' ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-500/25' : 'bg-red-50 text-red-600 ring-1 ring-red-500/25'}`}>
+        className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${alert.type === 'idle_timeout' ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-500/25' : 'bg-red-50 text-red-600 ring-1 ring-red-500/25'}`}>
         
         <AlertTriangle className="w-4 h-4" />
       </div>
@@ -84,7 +80,7 @@ export function ViolationAlert({ alert, onView, isNew, isFlagged }: ViolationAle
         </div>
         <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap items-center">
           <span className="text-foreground font-medium">
-            {TYPE_LABEL[alert.type]}
+            {VIOLATION_TYPE_LABEL[alert.type]}
           </span>
           <span className="text-muted-foreground/60 mx-1.5">·</span>
           <span>{alert.zoneName}</span>

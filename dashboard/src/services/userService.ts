@@ -200,7 +200,6 @@ export const updateUserProfile = async (userId: string, input: UserProfileUpdate
     .from('users')
     .update({
       full_name: input.name,
-      status: input.status,
       role: input.role,
       contact: input.contact || null,
       employment_type: input.employmentType || null,

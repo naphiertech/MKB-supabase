@@ -420,10 +420,10 @@ function ViolationsDetail({
     switch (type) {
       case 'boundary_exit':
         return 'Boundary Exit';
-      case 'boundary_enter':
-        return 'Boundary Enter';
-      case 'idle_excess':
-        return 'Excessive Idle Time';
+      case 'manual_flag':
+        return 'Manual Flag';
+      case 'idle_timeout':
+        return 'Idle Timeout';
       default:
         return type;
     }
@@ -436,12 +436,12 @@ function ViolationsDetail({
           icon: AlertTriangle,
           bg: 'bg-red-50 text-red-600 border-red-200',
         };
-      case 'boundary_enter':
+      case 'manual_flag':
         return {
           icon: Zap,
           bg: 'bg-indigo-50 text-indigo-600 border-indigo-200',
         };
-      case 'idle_excess':
+      case 'idle_timeout':
         return {
           icon: Clock,
           bg: 'bg-amber-50 text-amber-600 border-amber-200',
