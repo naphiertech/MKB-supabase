@@ -253,10 +253,73 @@ Time Out                                            -> offline (existing attenda
 - **Realtime Channel**: Subscribes to Supabase Realtime changes on `notifications` table.
 - **Role Targeting**: Filters alerts by role (`admin`, `hr`, `payroll`, `rider`).
 - **Fault Isolation**: Uses `dispatchNotificationSafe()` to ensure notification failures never block primary database transactions.
+- **Current Boundary**: Database-backed in-app Realtime notifications are implemented. External email/push delivery infrastructure and the user-facing delivery preference engine remain deferred.
 
 ---
 
-## 11. Dashboard Skeleton Architecture
+## 11. Implemented Account Security & Operational Actions
+
+The first batch of actions previously presented as **Soon / Not yet available** is implemented. The authentication recovery flows and TOTP MFA have also completed manual acceptance testing successfully.
+
+### Account Recovery and Administration
+
+1. **Forgot Password — IMPLEMENTED / MANUALLY VERIFIED**
+   - `requestPasswordRecovery()` uses Supabase Auth `resetPasswordForEmail()` and supplies an explicit MKBRiderTrack recovery callback URL.
+   - The recovery link returns to the dashboard recovery route, where `PasswordRecovery.tsx` verifies the recovery session and lets the user set a new password through Supabase Auth `updateUser()`.
+   - Invalid or expired links display a recovery-specific error and direct the user back to sign-in to request another link.
+   - Recovery email delivery, callback routing, and new-password completion have been manually verified.
+
+2. **Admin/HR Send Password Reset — IMPLEMENTED / MANUALLY VERIFIED**
+   - Employee Management sends the target user a Supabase Auth recovery link; staff never see, assign, or transmit the user's password.
+   - The request is recorded through the existing activity-log path.
+   - The action remains available only within the Admin/HR employee-management workflow. Privileged account administration that requires elevated Auth access remains server-side rather than exposing service-role credentials to the browser.
+   - Recovery email delivery and the resulting reset link have been manually verified.
+
+3. **Suspend / Reactivate User Account — IMPLEMENTED**
+   - The frontend invokes the authenticated `admin-user-actions` Edge Function. The function validates the caller and target, updates the Supabase Auth ban state with server-side administrative credentials, synchronizes `public.users.status`, and appends an activity audit record.
+   - Admin has the broader account-management workflow; HR is restricted to rider accounts. Users cannot suspend/reactivate themselves.
+   - Suspended users are denied sign-in and an already-open session is signed out when the authoritative account status changes through Realtime. Reactivation restores Auth and application access.
+   - Suspension/reactivation updates account access only. It does not delete attendance, parcel, payroll, violation, notification, or audit history.
+
+### Session Security and MFA
+
+4. **Log Out All Other Devices — IMPLEMENTED**
+   - Supabase Auth `signOut({ scope: 'others' })` remains the authoritative refresh-session revocation operation.
+   - A private, user-specific Supabase Realtime Broadcast supplies immediate cross-device logout UX. The broadcast includes the initiating Auth `session_id`, so the initiating browser stays signed in while the user's other connected sessions perform a local sign-out automatically.
+   - If another device is offline or disconnected from Realtime, Auth revocation still applies; its visible UI logout may wait until the device reconnects or its access token refreshes/expires.
+   - Explicit `SELECT` and `INSERT` policies on `realtime.messages` restrict private session-control topics to the matching authenticated user.
+
+5. **Two-Step Verification / TOTP MFA — IMPLEMENTED / MANUALLY VERIFIED**
+   - Uses Supabase Auth MFA APIs for factor enrollment, challenge/verification, assurance-level checks, factor listing, and removal.
+   - Enrollment displays the Supabase-generated QR code, manual setup secret, and six-digit verification input for authenticator applications such as Google Authenticator.
+   - After a verified factor is enrolled, sign-in is gated by `MfaChallenge.tsx` until the session reaches the required MFA assurance level.
+   - MFA removal is supported. Factor state comes from Supabase Auth and is not treated as a `localStorage` preference.
+   - Enrollment, authenticator verification, MFA sign-in challenge, and removal have been manually tested successfully.
+
+### Live Monitoring and Payroll Actions
+
+6. **Live Monitoring Call Rider — IMPLEMENTED**
+   - Uses the selected rider's stored phone number and a normalized `tel:` link to open the device's supported dialer.
+   - The action is disabled when no rider phone number is available. No VoIP service or external telecommunications provider was introduced.
+
+7. **Live Monitoring Quick Flag — IMPLEMENTED**
+   - Reuses the existing persisted `manual_flag` violation workflow and appends the corresponding activity record with optional follow-up context.
+   - Manual flagging remains distinct from automatic `boundary_exit`/`idle_timeout` incidents, incident read state, notification delivery state, and resolution state. It does not modify attendance or payroll.
+
+8. **Payroll Bulk Export — IMPLEMENTED**
+   - Exports selected payroll records as CSV through `buildBulkPayrollExportRows()` and the existing payroll export utility.
+   - The operation is read-only and does not update payroll status, calculations, approvals, payment state, parcel logs, or attendance.
+   - Export rows use `getPayrollDeliveryData()`, preserving the authoritative live-data rules for editable payroll and finalized delivery-line snapshots for protected historical payroll. No second payroll calculation path was introduced.
+
+### Acceptance-Test Regression Fixes
+
+- **Immediate cross-device logout**: Added the private Realtime session-control signal described above while retaining Supabase Auth as the revocation authority.
+- **Shared Modal focus stability**: `Modal.tsx` now keeps its open/close focus lifecycle stable when callers pass new callback identities during controlled-input state updates. Inputs remain mounted and focused during continuous typing without per-keystroke focus hacks.
+- **Employee Management action menu**: `UsersTable.tsx` renders the action menu through a body portal with fixed positioning, viewport clamping, downward/upward collision handling, scroll/resize repositioning, outside-click dismissal, Escape handling, and keyboard navigation. Bottom-row actions are no longer clipped by table overflow containers.
+
+---
+
+## 12. Dashboard Skeleton Architecture
 
 `DashboardSkeleton.tsx` is modularized to prevent layout shifts and maintain exact visual synchronization with live pages:
 
@@ -279,7 +342,7 @@ Time Out                                            -> offline (existing attenda
 
 ---
 
-## 12. Database Schema & RLS Summary
+## 13. Database Schema & RLS Summary
 
 The generated Supabase schema and repository migrations confirm the following application tables. This list excludes extension-owned/PostGIS metadata tables and should not be treated as an exhaustive inventory of every database relation:
 
@@ -304,7 +367,7 @@ The generated Supabase schema and repository migrations confirm the following ap
 
 ---
 
-## 13. Safe Operational Reset State
+## 14. Safe Operational Reset State
 
 An operational test data reset was previously conducted on the staging database.
 
@@ -313,15 +376,20 @@ An operational test data reset was previously conducted on the staging database.
 
 ---
 
-## 14. Current Test & Build Verification
+## 15. Current Test & Build Verification
 
 Verification executed against active repository state:
 
 - **TypeScript Type-Check (`npm run typecheck`)**: **PASS (0 errors)**
 - **Violations Database Lifecycle/RLS Suite**: **PASS (27 / 27 transactional assertions)**
-- **Automated Test Suite (`npm test`)**: **PASS (71 / 71 tests passed across 14 test files)**
+- **Automated Test Suite (`npm test`)**: **PASS (92 / 92 tests passed across 22 test files)**
+- **Account-Security Database Suite**: **PASS (14 / 14 transactional assertions)**
+- **Session-Control RLS Suite**: **PASS (5 / 5 transactional assertions)**
 - **ESLint Linting (`npm run lint`)**: **PASS (0 errors, 8 warnings)**
-- **Production Build (`npm run build`)**: **PASS (built in 31.95s)**
+- **Production Build (`npm run build`)**: **PASS**
+- **Diff Validation (`git diff --check`)**: **PASS**
+
+`jsdom@26.1.0` is installed as a **test-only development dependency** for real DOM focus, portal positioning, and interaction regression tests. It is not part of the application runtime architecture.
 
 ### Known Remaining Risks
 - Stale rider status is evaluated on a one-minute schedule after a two-minute freshness threshold, so the visible transition may take approximately **2–3 minutes**.
@@ -330,34 +398,55 @@ Verification executed against active repository state:
 
 ---
 
-## 15. Recently Resolved Issues
+## 16. Recently Resolved Issues
 
 1. **Payroll Deletion Resurrection Bug**: Resolved. Read queries (`getPayrollRecords`, `getPaginatedPayrollRecords`) made pure SELECT operations so deleted draft records stay deleted.
 2. **Payroll Re-Initialization Zero-Parcel Summary Bug**: Resolved. `initializeCutoffPayrollForFleet()` now explicitly calls `syncPayrollRecordsFromParcelLogs(..., { allowCreateMissing: false })` to hydrate newly created draft records with parcel aggregates and effective rates.
 3. **Sidebar Modularization & Reference Section**: Resolved. Extracted presentation subcomponents into `components/common/sidebar/` and organized Payroll sidebar items into `Compensation` and `Reference` (`Parcel History`).
 4. **DashboardSkeleton Modularization**: Resolved. Extracted skeletons into domain component folders (`components/dashboard/`, `components/hr/`, `components/payroll/`, etc.) with `SkeletonPrimitives.tsx`.
 5. **Authoritative Violations Lifecycle**: Resolved. PostgreSQL now protects current rider state from historical GPS replay, scopes re-entry resolution to `boundary_exit`, handles zone reassignment and stale GPS deterministically, publishes rider status changes through Realtime, and separates automatic notifications from manual follow-up flags.
+6. **First “Soon” Action Batch**: Resolved. Forgot Password, Admin/HR password-reset requests, account suspension/reactivation, logout of other sessions, TOTP MFA, Call Rider, Quick Flag, and Payroll Bulk Export are implemented; working actions no longer report fake success or appear as unavailable.
+7. **One-Character Modal Focus Regression**: Resolved in the shared `Modal.tsx` focus lifecycle. Controlled modal inputs retain the same DOM node, caret, and focus across state updates.
+8. **Employee Action Menu Clipping**: Resolved with a portal/fixed menu that flips within the viewport and preserves accessible dismissal and keyboard behavior.
 
 ---
 
-## 16. Deferred / Future Features (Explicitly Marked PLANNED / DEFERRED)
+## 17. Deferred / Future Features (Explicitly Marked PLANNED / DEFERRED)
 
 > [!CAUTION]
 > The following features have been discussed or planned for future releases, but **are NOT yet implemented in the codebase**. Future agents must not assume these exist.
 
-1. **Multi-Hub HR & Payroll Architecture** *(PLANNED / DEFERRED)*:
+1. **Account Deletion** *(PLANNED / DEFERRED)*:
+   - No self-service or automated account-deletion workflow is implemented. Current UI directs the user to an administrator so operational history is not accidentally removed.
+2. **Support Access** *(PLANNED / DEFERRED)*:
+   - The controlled support-access setting is disabled and explicitly marked not yet available.
+3. **Online Support Tickets** *(PLANNED / DEFERRED)*:
+   - The in-app support form is disabled and does not submit to a ticket backend; direct contact channels remain available.
+4. **Internal Live Monitoring Message / Chat** *(PLANNED / DEFERRED)*:
+   - Live Monitoring's Message action remains disabled and marked Soon. Call Rider does not provide chat functionality.
+5. **Payroll Bulk Approval** *(PLANNED / DEFERRED)*:
+   - Bulk approval remains disabled. Existing individual approval workflow and current status rules remain authoritative.
+6. **Payroll Bulk Payment** *(PLANNED / DEFERRED)*:
+   - Bulk payment remains disabled. Payroll Bulk Export is read-only and does not implement payment.
+7. **Notification Delivery Infrastructure** *(PLANNED / DEFERRED)*:
+   - External email/push delivery and background browser-notification infrastructure behind the settings toggles are not connected. Existing database-backed in-app Realtime notifications remain separate and implemented.
+8. **Localization / Preferred-Language Engine** *(PLANNED / DEFERRED)*:
+   - Preferred-language selection is currently a stored preference only; it does not translate application content.
+9. **Landing Contact-Form Backend** *(PLANNED / DEFERRED)*:
+   - The public landing contact form has no submission handler, API route, or persistence workflow.
+10. **Multi-Hub HR & Payroll Architecture** *(PLANNED / DEFERRED)*:
    - 4 regional hub structures (Hub-scoped HR/Payroll access vs main organization scope).
    - Currently, single organization-wide role model is used.
-2. **Loan & Financial Management** *(PLANNED / DEFERRED)*:
+11. **Loans / Cash Advances / Financial Management** *(PLANNED / DEFERRED)*:
    - Cash Advances, Loans, and automatic repayment deductions.
    - Currently, standard gross pay and manual adjustment fields (`other_earnings`, `deductions`, `late_onhold`, `late_remittance`) are used.
-3. **Native Capacitor Mobile Application / Background GPS** *(PLANNED / DEFERRED)*:
+12. **Native Capacitor Rider Application / Native Background GPS** *(PLANNED / DEFERRED)*:
    - Native iOS/Android builds and background geolocation daemon.
    - Currently, mobile rider features run as responsive web app / PWA with foreground GPS.
 
 ---
 
-## 17. Current Handover State for Next IDE (Codex / Antigravity Handoff)
+## 18. Current Handover State for Next IDE (Codex / Antigravity Handoff)
 
 ### Essential Invariants for Future Developers & AI Agents
 

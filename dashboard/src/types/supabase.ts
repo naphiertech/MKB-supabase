@@ -1126,6 +1126,92 @@ export type Database = {
         }
         Relationships: []
       }
+      support_ticket_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          sender_id: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          sender_id?: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          sender_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          category: Database["public"]["Enums"]["support_ticket_category"]
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["support_ticket_status"]
+          subject: string
+          ticket_number: string
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["support_ticket_category"]
+          created_at?: string
+          created_by?: string
+          description: string
+          id?: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          subject: string
+          ticket_number?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["support_ticket_category"]
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          subject?: string
+          ticket_number?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_devices: {
         Row: {
           device_fingerprint_hash: string
@@ -2380,6 +2466,15 @@ export type Database = {
         | "draft"
       rider_status: "active" | "idle" | "violation" | "offline"
       shift_type: "Morning" | "Afternoon" | "Evening"
+      support_ticket_category:
+        | "account_login"
+        | "attendance"
+        | "payroll"
+        | "parcel_operations"
+        | "geofence_location"
+        | "technical_issue"
+        | "other"
+      support_ticket_status: "open" | "in_progress" | "resolved"
       user_role: "admin" | "hr" | "rider" | "payroll"
       user_status: "active" | "suspended"
       violation_type: "boundary_exit" | "idle_timeout" | "manual_flag"
@@ -2544,6 +2639,16 @@ export const Constants = {
       ],
       rider_status: ["active", "idle", "violation", "offline"],
       shift_type: ["Morning", "Afternoon", "Evening"],
+      support_ticket_category: [
+        "account_login",
+        "attendance",
+        "payroll",
+        "parcel_operations",
+        "geofence_location",
+        "technical_issue",
+        "other",
+      ],
+      support_ticket_status: ["open", "in_progress", "resolved"],
       user_role: ["admin", "hr", "rider", "payroll"],
       user_status: ["active", "suspended"],
       violation_type: ["boundary_exit", "idle_timeout", "manual_flag"],

@@ -548,7 +548,12 @@ export function App() {
         </main>
       </div>
       <Toaster position="top-right" reverseOrder={false} />
-      <HelpSupportModal open={helpOpen} onClose={() => setHelpOpen(false)} defaultTab={helpTab} />
+      <HelpSupportModal
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        defaultTab={helpTab}
+        currentUser={{ id: session.id, name: session.fullName, role: session.role }}
+      />
     </div>);
 
 }

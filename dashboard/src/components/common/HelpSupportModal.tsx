@@ -12,12 +12,10 @@ import {
   Target,
   ClipboardCheck,
   Calculator,
-  AlertTriangle,
-  User,
-  MessageSquare,
-  ChevronDown
+  AlertTriangle
 } from 'lucide-react';
 import { BRANDING } from '../../config/branding';
+import { SupportTicketDesk } from './SupportTicketDesk';
 
 export type HelpTab = 'guide' | 'faq' | 'support';
 
@@ -25,20 +23,17 @@ interface HelpSupportModalProps {
   open: boolean;
   onClose: () => void;
   defaultTab?: HelpTab;
+  currentUser: {
+    id: string;
+    name: string;
+    role: 'admin' | 'hr' | 'payroll' | 'rider';
+  };
 }
 
-export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSupportModalProps) {
+export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentUser }: HelpSupportModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [activeTab, setActiveTab] = useState<HelpTab>(defaultTab);
   const [faqSearch, setFaqSearch] = useState('');
-  
-  // Support Form State
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    category: 'technical',
-    message: ''
-  });
   // Sync active tab with defaultTab prop when modal opens
   useEffect(() => {
     if (open) {
@@ -277,119 +272,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide' }: HelpSu
               {/* Tab 3: Contact Support */}
               {activeTab === 'support' && (
                 <div id="help-panel-support" role="tabpanel" aria-labelledby="help-tab-support" className="grid grid-cols-1 gap-6">
-                  {/* Left Form Panel */}
-                  <div className="space-y-4">
-                    <h3 className="text-base font-bold text-foreground">Submit Support Ticket</h3>
-                    
-                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <div>
-                        <div className="text-xs font-bold">Not yet available</div>
-                        <p id="support-unavailable-note" className="mt-0.5 text-xs leading-relaxed text-amber-800">
-                          Online support tickets are planned but are not connected yet. Please use the direct contact channels below.
-                        </p>
-                      </div>
-                    </div>
-                    <form onSubmit={(event) => event.preventDefault()} className="space-y-4" aria-describedby="support-unavailable-note">
-                      <fieldset disabled className="space-y-4 opacity-60">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-1.5">
-                            <label htmlFor="support-name" className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Your Name</label>
-                            <div className="relative group">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
-                                <User className="w-4 h-4" />
-                              </span>
-                              <input
-                                id="support-name"
-                                type="text"
-                                required
-                                placeholder="e.g. Ronald"
-                                value={formData.name}
-                                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                className="w-full h-10 pl-9 pr-3 rounded-xl border border-border text-xs outline-none bg-panel-bg/30 hover:bg-white hover:border-primary/40 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/8 transition-all duration-200"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-1.5">
-                            <label htmlFor="support-email" className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Email Address</label>
-                            <div className="relative group">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
-                                <Mail className="w-4 h-4" />
-                              </span>
-                              <input
-                                id="support-email"
-                                type="email"
-                                required
-                                placeholder="ronald@mkb.ph"
-                                value={formData.email}
-                                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                                className="w-full h-10 pl-9 pr-3 rounded-xl border border-border text-xs outline-none bg-panel-bg/30 hover:bg-white hover:border-primary/40 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/8 transition-all duration-200"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label htmlFor="support-category" className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Ticket Category</label>
-                          <div className="relative group">
-                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
-                              <HelpCircle className="w-4 h-4" />
-                            </span>
-                            <select
-                              id="support-category"
-                              value={formData.category}
-                              onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                              className="w-full h-10 pl-9 pr-8 rounded-xl border border-border text-xs outline-none bg-panel-bg/30 hover:bg-white hover:border-primary/40 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/8 transition-all duration-200 font-sans appearance-none cursor-pointer"
-                            >
-                              <option value="technical">Technical Glitch / Bug</option>
-                              <option value="attendance">Biometric Face Check-in Failure</option>
-                              <option value="geofence">Geofence / GPS Pin Discrepancy</option>
-                              <option value="payroll">Payroll Cutoff / Rate Modification</option>
-                            </select>
-                            <span className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
-                              <ChevronDown className="w-4 h-4" />
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <label htmlFor="support-message" className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold block">Message / Issue Details</label>
-                            <span className={`text-[10px] font-mono font-semibold transition-colors duration-200 ${
-                              formData.message.length >= 450 ? 'text-red-500' :
-                              formData.message.length >= 350 ? 'text-amber-500' : 'text-muted-foreground'
-                            }`}>
-                              {formData.message.length} / 500
-                            </span>
-                          </div>
-                          <div className="relative group">
-                            <span className="absolute top-3 left-3 pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors duration-200">
-                              <MessageSquare className="w-4 h-4" />
-                            </span>
-                            <textarea
-                              id="support-message"
-                              required
-                              rows={4}
-                              maxLength={500}
-                              placeholder="Explain the technical problem here..."
-                              value={formData.message}
-                              onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
-                              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border text-xs outline-none bg-panel-bg/30 hover:bg-white hover:border-primary/40 focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/8 transition-all duration-200 resize-none font-sans"
-                            />
-                          </div>
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled
-                          className="w-full h-11 rounded-xl border border-border bg-panel-bg text-muted-foreground text-xs font-bold flex items-center justify-center disabled:cursor-not-allowed"
-                        >
-                          Submit Support Ticket — Not yet available
-                        </button>
-                      </fieldset>
-                      </form>
-                  </div>
-
+                  <SupportTicketDesk currentUser={currentUser} />
                   {/* Right Hotline/Channel Panel */}
                   <div className="p-5 border border-border bg-panel-bg/50 rounded-xl flex flex-col justify-between h-fit space-y-4">
                     <div className="space-y-4">
