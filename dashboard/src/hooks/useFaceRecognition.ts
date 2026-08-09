@@ -8,9 +8,17 @@ import {
   loadMediaPipeLandmarker,
   calculateMediaPipeEAR,
   getFaceAiGlobals,
+  FACE_DESCRIPTOR_LENGTH,
+  FACE_MATCH_THRESHOLD,
   type FaceRecognitionData
 } from '../lib/faceAi';
 import { getCachedDescriptor, setCachedDescriptor } from '../lib/descriptorCache';
+import { biometricTelemetry } from '../lib/biometricTelemetry';
+import {
+  advanceFreshMatchState,
+  isCurrentScanSession,
+  type FreshMatchState,
+} from '../lib/biometricScanLifecycle';
 
 export type ScanPhase =
   | 'idle'
@@ -81,8 +89,23 @@ export function useFaceRecognition({
   const blinkCompletedRef = useRef(false);
   const headTiltedDetectedRef = useRef(false);
   const faceMatchedRef = useRef(false);
-  const matchCountRef = useRef(0);
-  const maxEarRef = useRef<number>(0);
+  const currentEarRef = useRef(0);
+  const optionsRef = useRef({
+    riderId,
+    durationMs,
+    successRate,
+    referenceAvatar,
+    referenceDescriptor,
+    onDescriptorCalculated,
+  });
+  optionsRef.current = {
+    riderId,
+    durationMs,
+    successRate,
+    referenceAvatar,
+    referenceDescriptor,
+    onDescriptorCalculated,
+  };
 
   // Liveness Frame Stability Counters (requires ~800ms stable alignment before blink prompt)
   const alignmentFramesRef = useRef<number>(0);
@@ -93,6 +116,12 @@ export function useFaceRecognition({
   const lastInferenceTimeRef = useRef<number>(0);
   const lastDescriptorMatchTimeRef = useRef<number>(0);
   const cachedFaceDataRef = useRef<FaceRecognitionData | null>(null);
+  const descriptorSampleIdRef = useRef(0);
+  const freshMatchStateRef = useRef<FreshMatchState>({
+    sessionId: 0,
+    lastSampleId: 0,
+    matchCount: 0,
+  });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -100,9 +129,11 @@ export function useFaceRecognition({
   const scanLoopRef = useRef<number | null>(null);
   const timers = useRef<number[]>([]);
   const isScanningActiveRef = useRef(false);
+  const scanSessionIdRef = useRef(0);
 
   const clearTimers = useCallback(() => {
     isScanningActiveRef.current = false;
+    scanSessionIdRef.current += 1;
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
     if (scanLoopRef.current) {
@@ -122,14 +153,19 @@ export function useFaceRecognition({
     blinkCompletedRef.current = false;
     headTiltedDetectedRef.current = false;
     faceMatchedRef.current = false;
-    matchCountRef.current = 0;
-    maxEarRef.current = 0;
+    currentEarRef.current = 0;
     alignmentFramesRef.current = 0;
     closedFramesRef.current = 0;
     reopenFramesRef.current = 0;
     lastInferenceTimeRef.current = 0;
     lastDescriptorMatchTimeRef.current = 0;
     cachedFaceDataRef.current = null;
+    descriptorSampleIdRef.current = 0;
+    freshMatchStateRef.current = {
+      sessionId: scanSessionIdRef.current,
+      lastSampleId: 0,
+      matchCount: 0,
+    };
     setDebugInfo({
       referenceLoaded: null,
       eyesOpen: false,
@@ -153,10 +189,11 @@ export function useFaceRecognition({
    * Safe Fallback Scan Loop (Simulated animations when scripts/cameras are unavailable)
    */
   const startSimulatedScanning = useCallback(() => {
+    const { durationMs: simulatedDuration, successRate: simulatedSuccessRate } = optionsRef.current;
     setPhase('scanning');
 
     const steps = 30;
-    const tick = durationMs / steps;
+    const tick = simulatedDuration / steps;
 
     for (let i = 1; i <= steps; i++) {
       timers.current.push(
@@ -167,7 +204,7 @@ export function useFaceRecognition({
     timers.current.push(
       window.setTimeout(
         () => {
-          const ok = Math.random() <= successRate;
+          const ok = Math.random() <= simulatedSuccessRate;
           setPhase(ok ? 'matched' : 'failed');
           setResult({
             matched: ok,
@@ -175,54 +212,68 @@ export function useFaceRecognition({
             capturedAt: Date.now()
           });
         },
-        150 + durationMs
+        150 + simulatedDuration
       )
     );
-  }, [durationMs, successRate]);
+  }, []);
 
   /**
    * Real Facial Detection, Liveness Verification and Embedding Matching Loop
    */
-  const startRealScanning = useCallback(async () => {
-    setPhase('scanning');
-    isScanningActiveRef.current = true;
-
-    const isVerificationMode = !!referenceAvatar;
-    const isCartoonPlaceholder = !!referenceAvatar && (
-      referenceAvatar.includes('api.dicebear.com') ||
-      referenceAvatar.includes('dicebear') ||
-      referenceAvatar.includes('/svg?') ||
-      referenceAvatar.endsWith('.svg')
+  const startRealScanning = useCallback(async (sessionId: number) => {
+    const sessionIsCurrent = () => isCurrentScanSession(
+      scanSessionIdRef.current,
+      sessionId,
+      isScanningActiveRef.current,
     );
 
-    console.log('[Face AI] Starting real scan. Reference avatar:', referenceAvatar ? referenceAvatar.slice(0, 100) + '...' : 'none');
+    if (!sessionIsCurrent()) return;
+    setPhase('scanning');
+    const {
+      riderId: activeRiderId,
+      durationMs: activeDuration,
+      referenceAvatar: activeReferenceAvatar,
+      referenceDescriptor: activeReferenceDescriptor,
+      onDescriptorCalculated: handleDescriptorCalculated,
+    } = optionsRef.current;
+
+    const isVerificationMode = !!activeReferenceAvatar;
+    const isCartoonPlaceholder = !!activeReferenceAvatar && (
+      activeReferenceAvatar.includes('api.dicebear.com') ||
+      activeReferenceAvatar.includes('dicebear') ||
+      activeReferenceAvatar.includes('/svg?') ||
+      activeReferenceAvatar.endsWith('.svg')
+    );
+
+    console.log('[Face AI] Starting real scan. Reference avatar:', activeReferenceAvatar ? activeReferenceAvatar.slice(0, 100) + '...' : 'none');
 
     let referenceDesc: Float32Array | null = null;
     let refLoaded = false;
 
     if (isVerificationMode) {
-      if (referenceDescriptor && referenceDescriptor.length === 128) {
-        referenceDesc = new Float32Array(referenceDescriptor);
+      if (activeReferenceDescriptor && activeReferenceDescriptor.length === FACE_DESCRIPTOR_LENGTH) {
+        referenceDesc = new Float32Array(activeReferenceDescriptor);
         refLoaded = true;
         console.log('[Face AI] Reference descriptor loaded directly from DB/props.');
-        if (riderId || referenceAvatar) {
-          setCachedDescriptor(riderId || referenceAvatar || '', referenceDescriptor, referenceAvatar);
+        if (activeRiderId || activeReferenceAvatar) {
+          setCachedDescriptor(activeRiderId || activeReferenceAvatar || '', activeReferenceDescriptor, activeReferenceAvatar);
         }
       } else {
         // Priority 5: Persistent LocalStorage / IndexedDB Descriptor Cache
-        const targetId = riderId || referenceAvatar || '';
-        const cachedArr = getCachedDescriptor(targetId, referenceAvatar);
-        if (cachedArr && cachedArr.length === 128) {
+        const targetId = activeRiderId || activeReferenceAvatar || '';
+        const cachedArr = getCachedDescriptor(targetId, activeReferenceAvatar);
+        if (cachedArr && cachedArr.length === FACE_DESCRIPTOR_LENGTH) {
           referenceDesc = new Float32Array(cachedArr);
           refLoaded = true;
           console.log('[Face AI] Reference descriptor loaded from local persistent cache for rider:', targetId);
-        } else if (!isCartoonPlaceholder && referenceAvatar && navigator.onLine) {
-          referenceDesc = await getDescriptorFromUrl(referenceAvatar);
+        } else if (!isCartoonPlaceholder && activeReferenceAvatar && navigator.onLine) {
+          referenceDesc = await getDescriptorFromUrl(activeReferenceAvatar);
+          if (!sessionIsCurrent()) return;
           if (referenceDesc) {
             refLoaded = true;
             console.log('[Face AI] Reference descriptor compiled from URL.');
-            setCachedDescriptor(targetId, Array.from(referenceDesc), referenceAvatar);
-            onDescriptorCalculated?.(Array.from(referenceDesc));
+            setCachedDescriptor(targetId, Array.from(referenceDesc), activeReferenceAvatar);
+            handleDescriptorCalculated?.(Array.from(referenceDesc));
           }
         }
       }
@@ -234,16 +285,20 @@ export function useFaceRecognition({
     }
 
     const landmarker = await loadMediaPipeLandmarker();
+    if (!sessionIsCurrent()) return;
     console.log('[Face AI] MediaPipe Face Landmarker loaded:', landmarker ? 'Success' : 'Failed');
 
-    const scanDuration = isVerificationMode ? 30000 : durationMs;
+    const scanDuration = isVerificationMode ? 30000 : activeDuration;
     const startTime = Date.now();
 
     // Priority 1: Throttle AI inferences to ~9 FPS (110ms interval) to keep UI smooth at 60 FPS
     const INFERENCE_INTERVAL_MS = 110;
+    const finishLiveness = biometricTelemetry.start('liveness_completion');
+    const finishMatch = biometricTelemetry.start('match_completion');
+    let livenessTimingCompleted = false;
 
     const tick = async () => {
-      if (!isScanningActiveRef.current) return;
+      if (!sessionIsCurrent()) return;
 
       const now = performance.now();
       const elapsed = Date.now() - startTime;
@@ -262,7 +317,7 @@ export function useFaceRecognition({
 
         const shouldRunInference = (now - lastInferenceTimeRef.current) >= INFERENCE_INTERVAL_MS;
 
-        let mpEAR = debugInfo.currentEAR || 0.0;
+        let mpEAR = currentEarRef.current;
         const mpRoll = 0.0;
         let livenessPassed = blinkCompletedRef.current;
 
@@ -276,6 +331,7 @@ export function useFaceRecognition({
               if (detections && detections.faceLandmarks && detections.faceLandmarks.length > 0) {
                 const landmarks = detections.faceLandmarks[0];
                 mpEAR = calculateMediaPipeEAR(landmarks);
+                currentEarRef.current = mpEAR;
 
                 if (isVerificationMode) {
                   // Challenge Sequence with Frame-Stability Verification:
@@ -313,9 +369,14 @@ export function useFaceRecognition({
                     }
                   }
 
-                  livenessPassed = blinkCompletedRef.current;
+                   livenessPassed = blinkCompletedRef.current;
                 } else {
                   livenessPassed = mpEAR > 0.20;
+                }
+
+                if (livenessPassed && !livenessTimingCompleted) {
+                  finishLiveness();
+                  livenessTimingCompleted = true;
                 }
               }
             } catch (err) {
@@ -327,12 +388,22 @@ export function useFaceRecognition({
           // and no more than once per 1000ms
           const canRunDescriptorMatching = !isVerificationMode || (livenessPassed && (now - lastDescriptorMatchTimeRef.current >= 1000));
 
+          let freshFaceData: FaceRecognitionData | null = null;
+          let freshSampleId = 0;
+
           if (canRunDescriptorMatching) {
             lastDescriptorMatchTimeRef.current = now;
             // Priority 4: Call downscaled 320x320 offscreen canvas detector for ultra-fast inference
-            cachedFaceDataRef.current = await detectFaceWithDetailsDownscaled(video);
+            const finishRecognition = biometricTelemetry.start('recognition_inference');
+            const detectedFaceData = await detectFaceWithDetailsDownscaled(video);
+            finishRecognition();
+            if (!sessionIsCurrent()) return;
+            cachedFaceDataRef.current = detectedFaceData;
+            freshFaceData = detectedFaceData;
+            if (freshFaceData) freshSampleId = ++descriptorSampleIdRef.current;
           }
-        }
+
+          const faceData = cachedFaceDataRef.current;
 
         // Update status prompts
         if (isVerificationMode) {
@@ -348,8 +419,6 @@ export function useFaceRecognition({
         } else {
           setLivenessPrompt(livenessPassed ? 'Face aligned! Capturing...' : 'Look straight and center your face.');
         }
-
-        const faceData = cachedFaceDataRef.current;
 
         // Draw bounding box overlay graphics
         if (canvas) {
@@ -400,13 +469,13 @@ export function useFaceRecognition({
           }
         }
 
-        // Process matching if faceData is available
-        if (faceData) {
+        // Process identity/enrollment only for a descriptor computed by this tick.
+        if (freshFaceData) {
           if (isVerificationMode) {
             let currentDistance: number | null = null;
 
-            const isValidDesc = referenceDesc && referenceDesc.length === 128 && !referenceDesc.some(val => isNaN(val));
-            const isFaceDataValid = faceData && faceData.descriptor && faceData.descriptor.length === 128 && !faceData.descriptor.some(val => isNaN(val));
+            const isValidDesc = referenceDesc && referenceDesc.length === FACE_DESCRIPTOR_LENGTH && !referenceDesc.some(val => isNaN(val));
+            const isFaceDataValid = freshFaceData.descriptor.length === FACE_DESCRIPTOR_LENGTH && !freshFaceData.descriptor.some(val => isNaN(val));
 
             if (isCartoonPlaceholder || !isValidDesc || !isFaceDataValid) {
               console.warn('[Face AI] Aborting verification due to invalid descriptors.');
@@ -428,19 +497,22 @@ export function useFaceRecognition({
               return;
             }
 
-            const verify = verifyFaceIdentity(faceData.descriptor, referenceDesc!, 0.45);
+            const verify = verifyFaceIdentity(freshFaceData.descriptor, referenceDesc!, FACE_MATCH_THRESHOLD);
             currentDistance = verify.distance;
 
-            if (verify.matched) {
-              matchCountRef.current += 1;
-            }
+            freshMatchStateRef.current = advanceFreshMatchState(freshMatchStateRef.current, {
+              sessionId,
+              sampleId: freshSampleId,
+              matched: verify.matched,
+            });
 
-            if (matchCountRef.current >= 3) {
+            if (freshMatchStateRef.current.matchCount >= 3) {
               faceMatchedRef.current = true;
             }
 
             if (faceMatchedRef.current && livenessPassed) {
               isScanningActiveRef.current = false;
+              finishMatch();
               setPhase('matched');
               setProgress(1.0);
               setLivenessPrompt('Verify complete!');
@@ -495,7 +567,7 @@ export function useFaceRecognition({
                 confidence: 0.98,
                 capturedAt: Date.now(),
                 snapshotUrl: base64Data,
-                descriptor: Array.from(faceData.descriptor)
+                descriptor: Array.from(freshFaceData.descriptor)
               });
               return;
             }
@@ -505,8 +577,9 @@ export function useFaceRecognition({
             ...prev,
             currentEAR: mpEAR,
             headTiltAngle: mpRoll,
-            lastDistance: null
+            lastDistance: faceData ? prev.lastDistance : null
           }));
+        }
         }
       }
 
@@ -530,12 +603,13 @@ export function useFaceRecognition({
     };
 
     scanLoopRef.current = window.requestAnimationFrame(tick);
-  }, [riderId, durationMs, referenceAvatar, referenceDescriptor, onDescriptorCalculated, debugInfo.currentEAR]);
+  }, []);
 
   const start = useCallback(async () => {
     const sequenceStart = performance.now();
     console.log('[Face AI] start() triggered. Starting initialization sequence...');
     clearTimers();
+    const sessionId = scanSessionIdRef.current;
     setResult(null);
     setProgress(0);
     setPhase('initializing');
@@ -547,16 +621,21 @@ export function useFaceRecognition({
     blinkCompletedRef.current = false;
     headTiltedDetectedRef.current = false;
     faceMatchedRef.current = false;
-    matchCountRef.current = 0;
-    maxEarRef.current = 0;
+    currentEarRef.current = 0;
     alignmentFramesRef.current = 0;
     closedFramesRef.current = 0;
     reopenFramesRef.current = 0;
     lastInferenceTimeRef.current = 0;
     lastDescriptorMatchTimeRef.current = 0;
     cachedFaceDataRef.current = null;
+    descriptorSampleIdRef.current = 0;
+    freshMatchStateRef.current = {
+      sessionId,
+      lastSampleId: 0,
+      matchCount: 0,
+    };
 
-    const isVerificationMode = !!referenceAvatar;
+    const isVerificationMode = !!optionsRef.current.referenceAvatar;
 
     const { faceapi } = getFaceAiGlobals();
     if (!faceapi) {
@@ -566,6 +645,7 @@ export function useFaceRecognition({
     }
 
     const active = await ensureScriptsLoaded();
+    if (!isCurrentScanSession(scanSessionIdRef.current, sessionId, isScanningActiveRef.current)) return;
 
     if (active) {
       try {
@@ -575,13 +655,15 @@ export function useFaceRecognition({
           loadFaceModels(),
           loadMediaPipeLandmarker()
         ]);
+        if (!isCurrentScanSession(scanSessionIdRef.current, sessionId, isScanningActiveRef.current)) return;
 
         setLivenessPrompt('Initializing camera...');
         console.log(`[Face AI] Initialization sequence ready in ${(performance.now() - sequenceStart).toFixed(2)}ms.`);
 
-        await startRealScanning();
+        await startRealScanning(sessionId);
         return;
       } catch (err) {
+        if (!isCurrentScanSession(scanSessionIdRef.current, sessionId, isScanningActiveRef.current)) return;
         console.warn('Face AI weights loading exception:', err);
         if (isVerificationMode) {
           setPhase('failed');
@@ -610,7 +692,7 @@ export function useFaceRecognition({
     timers.current.push(
       window.setTimeout(() => startSimulatedScanning(), 450)
     );
-  }, [clearTimers, startRealScanning, startSimulatedScanning, referenceAvatar]);
+  }, [clearTimers, startRealScanning, startSimulatedScanning]);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
 

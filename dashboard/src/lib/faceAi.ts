@@ -1,7 +1,16 @@
 /**
  * Facial Recognition and Image Processing AI Engine.
- * Coordinates face-api.js (TensorFlow) and OpenCV.js dynamically.
+ * Coordinates face-api.js (TensorFlow) and MediaPipe dynamically.
  */
+
+import { biometricTelemetry } from './biometricTelemetry';
+
+export { createBiometricTelemetry } from './biometricTelemetry';
+
+export const FACE_MATCH_THRESHOLD = 0.45;
+export const FACE_DESCRIPTOR_LENGTH = 128;
+const FACE_DETECTION_MIN_CONFIDENCE = 0.45;
+const FACE_API_MODEL_PATH = '/models/face-api-0.22.2/';
 
 interface FaceDetectionBox {
   box: { x: number; y: number; width: number; height: number };
@@ -37,21 +46,13 @@ interface FaceApiInstance {
     element: unknown,
     options?: unknown
   ): FaceDetectionChain;
+  detectFaceLandmarks(element: unknown): Promise<unknown>;
+  computeFaceDescriptor(element: unknown): Promise<Float32Array>;
   euclideanDistance(desc1: Float32Array, desc2: Float32Array): number;
-}
-
-interface CvInstance {
-  Mat: new () => { delete(): void };
-  imread(canvas: HTMLCanvasElement): { delete(): void };
-  cvtColor(src: { delete(): void }, dst: { delete(): void }, code: number): void;
-  equalizeHist(src: { delete(): void }, dst: { delete(): void }): void;
-  imshow(canvas: HTMLCanvasElement, mat: { delete(): void }): void;
-  COLOR_RGBA2GRAY: number;
 }
 
 interface WindowWithAi extends Window {
   faceapi?: FaceApiInstance;
-  cv?: CvInstance;
 }
 
 let modelsLoadedPromise: Promise<void> | null = null;
@@ -62,25 +63,19 @@ let biometricsPreloadedPromise: Promise<void> | null = null;
  */
 export function getFaceAiGlobals() {
   const w = window as unknown as WindowWithAi;
-  return { faceapi: w.faceapi, cv: w.cv };
+  return { faceapi: w.faceapi };
 }
 
 /**
- * Wait for globally loaded CDN scripts (face-api and opencv) to be parsed on the window.
- * Retries for up to 10 seconds.
+ * Wait for the globally loaded face-api script to be parsed on the window.
+ * Retries for up to 30 seconds.
  */
 export function ensureScriptsLoaded(): Promise<boolean> {
   return new Promise((resolve) => {
     let attempts = 0;
     const check = () => {
-      const { faceapi, cv } = getFaceAiGlobals();
-      // OpenCV.js is optional (pre-processing checks if it exists), but face-api.js is mandatory.
+      const { faceapi } = getFaceAiGlobals();
       if (faceapi) {
-        if (cv && typeof cv.Mat === 'function') {
-          console.log('Facial AI engines (TensorFlow + OpenCV) fully initialized.');
-        } else {
-          console.log('TensorFlow.js face-api initialized. OpenCV.js is still loading or unavailable (falling back to raw frame capturing).');
-        }
         resolve(true);
         return;
       }
@@ -107,7 +102,7 @@ export function loadFaceModels(): Promise<void> {
     return modelsLoadedPromise;
   }
   console.log('[Face AI] loadFaceModels(): NO CACHED face-api.js promise. Loading weights now...');
-  const tStart = performance.now();
+  const finishModelLoad = biometricTelemetry.start('face_api_model_load');
 
   modelsLoadedPromise = (async () => {
     const { faceapi } = getFaceAiGlobals();
@@ -115,53 +110,27 @@ export function loadFaceModels(): Promise<void> {
 
     try {
       await Promise.all([
-        faceapi.nets.ssdMobilenetv1.loadFromUri('/models/'),
-        faceapi.nets.faceLandmark68Net.loadFromUri('/models/'),
-        faceapi.nets.faceRecognitionNet.loadFromUri('/models/')
+        faceapi.nets.ssdMobilenetv1.loadFromUri(FACE_API_MODEL_PATH),
+        faceapi.nets.faceLandmark68Net.loadFromUri(FACE_API_MODEL_PATH),
+        faceapi.nets.faceRecognitionNet.loadFromUri(FACE_API_MODEL_PATH)
       ]);
-      console.log(`[Face AI] TensorFlow.js SSD MobileNet face models loaded locally from /models/ in ${(performance.now() - tStart).toFixed(2)}ms.`);
     } catch (localErr) {
-      console.warn('Failed to load local models from /models/, falling back to online CDN registry...', localErr);
-      const FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
+      console.warn(`Failed to load local models from ${FACE_API_MODEL_PATH}, falling back to the pinned registry.`, localErr);
+      const FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights/';
       await Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri(FALLBACK_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(FALLBACK_URL),
         faceapi.nets.faceRecognitionNet.loadFromUri(FALLBACK_URL)
       ]);
-      console.log(`[Face AI] TensorFlow.js SSD MobileNet face models loaded from fallback online CDN in ${(performance.now() - tStart).toFixed(2)}ms.`);
     }
-  })();
+  })().catch((error) => {
+    modelsLoadedPromise = null;
+    throw error;
+  }).finally(() => {
+    finishModelLoad();
+  });
 
   return modelsLoadedPromise;
-}
-
-/**
- * Pre-processes a captured canvas element using OpenCV.js.
- * Converts to Grayscale and applies Histogram Equalization to compensate for poor lighting conditions.
- */
-export async function preprocessWithOpenCV(canvas: HTMLCanvasElement): Promise<HTMLCanvasElement> {
-  const { cv } = getFaceAiGlobals();
-  if (!cv || typeof cv.Mat !== 'function') return canvas;
-
-  try {
-    const src = cv.imread(canvas);
-    const dst = new cv.Mat();
-    
-    // Grayscale conversion
-    cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-    
-    // Histogram Equalization
-    cv.equalizeHist(dst, dst);
-    
-    // Write back to canvas
-    cv.imshow(canvas, dst);
-    
-    src.delete();
-    dst.delete();
-  } catch (err) {
-    console.warn('OpenCV pre-processing error:', err);
-  }
-  return canvas;
 }
 
 /**
@@ -174,7 +143,7 @@ export async function detectSingleFaceRect(
   if (!faceapi) return null;
 
   try {
-    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.45 });
+    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_DETECTION_MIN_CONFIDENCE });
     const detection = await faceapi.detectSingleFace(element, options);
     if (!detection) return null;
     return detection.box;
@@ -194,7 +163,7 @@ export async function getFaceDescriptor(
   if (!faceapi) return null;
 
   try {
-    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.45 });
+    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_DETECTION_MIN_CONFIDENCE });
     const detection = await faceapi.detectSingleFace(element, options)
       .withFaceLandmarks()
       .withFaceDescriptor();
@@ -254,7 +223,7 @@ export async function detectFaceWithDetails(
   if (!faceapi) return null;
 
   try {
-    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.45 });
+    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_DETECTION_MIN_CONFIDENCE });
     const detection = await faceapi.detectSingleFace(element, options)
       .withFaceLandmarks()
       .withFaceDescriptor();
@@ -349,7 +318,7 @@ export async function getDescriptorFromUrl(url: string): Promise<Float32Array | 
 export function verifyFaceIdentity(
   desc1: Float32Array,
   desc2: Float32Array,
-  threshold = 0.6
+  threshold = FACE_MATCH_THRESHOLD
 ): { matched: boolean; distance: number; confidence: number } {
   const { faceapi } = getFaceAiGlobals();
   if (!faceapi) return { matched: false, distance: 1.0, confidence: 0 };
@@ -386,13 +355,13 @@ export async function loadMediaPipeLandmarker() {
   }
 
   console.log('[Face AI] loadMediaPipeLandmarker(): NO CACHED landmarker found. Initializing now...');
-  const tStart = performance.now();
+  const finishMediaPipeLoad = biometricTelemetry.start('mediapipe_initialization');
 
   landmarkerPromise = (async () => {
     try {
       const { FilesetResolver, FaceLandmarker } = await import('@mediapipe/tasks-vision');
       const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
       );
       landmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
@@ -403,12 +372,13 @@ export async function loadMediaPipeLandmarker() {
         outputFaceBlendshapes: false,
         outputFacialTransformationMatrixes: false
       });
-      console.log(`[Face AI] MediaPipe FaceLandmarker fully initialized in ${(performance.now() - tStart).toFixed(2)}ms.`);
-      return landmarkerInstance;
+       return landmarkerInstance;
     } catch (err) {
       console.error('Failed to initialize MediaPipe FaceLandmarker:', err);
       landmarkerPromise = null;
       throw err;
+    } finally {
+      finishMediaPipeLoad();
     }
   })();
 
@@ -455,27 +425,47 @@ export function calculateHeadRoll(landmarks: { x: number; y: number; z: number }
 }
 
 /**
- * Warm up both AI models using a dummy 100x100 black canvas.
- * This pre-compiles WebGL shaders and warms up the memory.
+ * Compile every biometric inference stage using a synthetic, non-rider input.
+ * No warmup descriptor is retained, compared, or persisted.
  */
 export async function warmUpModels(landmarker: FaceLandmarkerType | null) {
   try {
     console.log('[Face AI] Running dummy warmups to pre-compile shaders...');
     const canvas = document.createElement('canvas');
-    canvas.width = 100;
-    canvas.height = 100;
+    canvas.width = 160;
+    canvas.height = 160;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, 100, 100);
+      const gradient = ctx.createLinearGradient(0, 0, 160, 160);
+      gradient.addColorStop(0, '#202020');
+      gradient.addColorStop(0.5, '#808080');
+      gradient.addColorStop(1, '#e0e0e0');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 160, 160);
     }
 
-    // Warm up face-api.js model
-    await detectFaceWithDetails(canvas);
+    const { faceapi } = getFaceAiGlobals();
+    if (faceapi) {
+      const finishSsd = biometricTelemetry.start('ssd_detection');
+      await faceapi.detectSingleFace(
+        canvas,
+        new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_DETECTION_MIN_CONFIDENCE }),
+      );
+      finishSsd();
 
-    // Warm up MediaPipe FaceLandmarker
+      const finishLandmarks = biometricTelemetry.start('landmark_completion');
+      await faceapi.detectFaceLandmarks(canvas);
+      finishLandmarks();
+
+      const finishDescriptor = biometricTelemetry.start('descriptor_completion');
+      await faceapi.computeFaceDescriptor(canvas);
+      finishDescriptor();
+    }
+
     if (landmarker && typeof landmarker.detectForVideo === 'function') {
+      const finishMediaPipe = biometricTelemetry.start('warmup_mediapipe');
       landmarker.detectForVideo(canvas, Date.now());
+      finishMediaPipe();
     }
     console.log('[Face AI] Biometric warmup successfully completed.');
   } catch (err) {
@@ -494,6 +484,7 @@ export function preloadBiometrics(): Promise<void> {
 
   console.log('[Face AI] preloadBiometrics(): NO cached promise. Initiating preloader...');
   biometricsPreloadedPromise = (async () => {
+    const finishPreload = biometricTelemetry.start('biometric_preload');
     try {
       console.log('[Face AI] Pre-loading scripts...');
       const active = await ensureScriptsLoaded();
@@ -514,6 +505,8 @@ export function preloadBiometrics(): Promise<void> {
     } catch (err) {
       console.warn('[Face AI] Preloading biometrics failed:', err);
       biometricsPreloadedPromise = null; // reset to allow retry
+    } finally {
+      finishPreload();
     }
   })();
 
@@ -521,11 +514,12 @@ export function preloadBiometrics(): Promise<void> {
 }
 
 /**
- * Releases biometric resources and disposes of memory and WebGL contexts.
+ * Releases transient MediaPipe resources. Face-api weights remain resident for
+ * the authenticated application session, so reuse cannot allocate them twice.
  */
 export async function releaseBiometrics() {
   try {
-    console.log('[Face AI] Releasing resources and closing WebGL contexts...');
+    console.log('[Face AI] Releasing transient biometric resources...');
     if (landmarkerInstance) {
       if (typeof landmarkerInstance.close === 'function') {
         landmarkerInstance.close();
@@ -533,11 +527,9 @@ export async function releaseBiometrics() {
       landmarkerInstance = null;
     }
     landmarkerPromise = null;
-    modelsLoadedPromise = null;
     biometricsPreloadedPromise = null;
     console.log('[Face AI] Resources released.');
   } catch (err) {
     console.warn('[Face AI] Error while releasing resources:', err);
   }
 }
-

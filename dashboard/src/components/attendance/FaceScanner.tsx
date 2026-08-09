@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { ScanFace, CheckCircle2, XCircle, Camera } from 'lucide-react';
 import type { ScanPhase, BiometricDebugInfo } from '../../hooks/useFaceRecognition';
+import { biometricTelemetry } from '../../lib/biometricTelemetry';
 
 interface FaceScannerProps {
   phase: ScanPhase;
@@ -31,9 +32,9 @@ export function FaceScanner({
   const [scanLineY, setScanLineY] = useState(0);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const activeVideoRef = videoRef || internalVideoRef;
-  const [webcamStream, setWebcamStream] = useState<MediaStream | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
   const webcamStreamRef = useRef<MediaStream | null>(null);
-  webcamStreamRef.current = webcamStream;
+  const finishFirstFrameRef = useRef<(() => number) | null>(null);
 
   // Animate digital laser scan line
   useEffect(() => {
@@ -49,30 +50,34 @@ export function FaceScanner({
     return () => cancelAnimationFrame(raf);
   }, [phase]);
 
-  // Handle active webcam media acquisition
-  useEffect(() => {
-    if (phase === 'idle') {
-      if (webcamStreamRef.current) {
-        webcamStreamRef.current.getTracks().forEach(track => track.stop());
-        setWebcamStream(null);
-      }
-      return;
-    }
+  const markFirstUsableFrame = useCallback(() => {
+    setCameraReady(true);
+    finishFirstFrameRef.current?.();
+    finishFirstFrameRef.current = null;
+  }, []);
 
+  // Acquire once for this scanner mount and release only when it unmounts.
+  useEffect(() => {
     let active = true;
+    const video = activeVideoRef.current;
+    const finishCameraRequest = biometricTelemetry.start('camera_request');
     navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 400, facingMode: 'user' } })
       .then(stream => {
+        finishCameraRequest();
         if (active) {
-          setWebcamStream(stream);
-          if (activeVideoRef.current) {
-            activeVideoRef.current.srcObject = stream;
-            activeVideoRef.current.play().catch(err => console.warn('Webcam stream play suspended:', err));
+          webcamStreamRef.current = stream;
+          if (video) {
+            finishFirstFrameRef.current = biometricTelemetry.start('camera_first_usable_frame');
+            video.srcObject = stream;
+            if (video.readyState >= 2) markFirstUsableFrame();
+            video.play().catch(err => console.warn('Webcam stream play suspended:', err));
           }
         } else {
           stream.getTracks().forEach(track => track.stop());
         }
       })
       .catch(err => {
+        finishCameraRequest();
         console.warn('Webcam access not granted or unavailable:', err);
       });
 
@@ -80,9 +85,12 @@ export function FaceScanner({
       active = false;
       if (webcamStreamRef.current) {
         webcamStreamRef.current.getTracks().forEach(track => track.stop());
+        webcamStreamRef.current = null;
       }
+      if (video) video.srcObject = null;
+      finishFirstFrameRef.current = null;
     };
-  }, [phase, activeVideoRef]);
+  }, [activeVideoRef, markFirstUsableFrame]);
 
   const matched = phase === 'matched';
   const failed = phase === 'failed';
@@ -100,22 +108,21 @@ export function FaceScanner({
         className={`relative aspect-square w-full max-w-[280px] mx-auto rounded-2xl overflow-hidden border-2 ${ringColor} bg-[#0a0c12] transition-colors shadow-[0_20px_45px_-20px_rgba(219,108,0,0.35)]`}>
         
         {/* Real Live Camera Feed */}
-        {webcamStream ? (
-          <div className="absolute inset-0 w-full h-full">
-            <video
-              ref={activeVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
-            />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full object-cover scale-x-[-1] pointer-events-none"
-            />
-          </div>
-        ) : (
-          <>
+        <div className="absolute inset-0 w-full h-full">
+          <video
+            ref={activeVideoRef}
+            autoPlay
+            playsInline
+            muted
+            onLoadedData={markFirstUsableFrame}
+            className={`absolute inset-0 w-full h-full object-cover scale-x-[-1] transition-opacity ${cameraReady ? 'opacity-100' : 'opacity-0'}`}
+          />
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 w-full h-full object-cover scale-x-[-1] pointer-events-none"
+          />
+          {!cameraReady && (
+            <>
             <div className="absolute inset-0 bg-gradient-to-br from-[#1a0f06] via-[#0f0a06] to-[#0a0c12]" />
             <div
               className="absolute inset-0 opacity-[0.18]"
@@ -124,8 +131,9 @@ export function FaceScanner({
                   'radial-gradient(circle at 50% 40%, rgba(219,108,0,0.45), transparent 55%)'
               }}
             />
-          </>
-        )}
+            </>
+          )}
+        </div>
         
         {/* Centered target reticle */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

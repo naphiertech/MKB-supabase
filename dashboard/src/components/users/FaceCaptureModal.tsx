@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { FaceScanner } from '../attendance/FaceScanner';
 import { useFaceRecognition } from '../../hooks/useFaceRecognition';
@@ -19,10 +19,11 @@ export function FaceCaptureModal({
   const { phase, progress, result, start, videoRef, canvasRef, debugInfo } = useFaceRecognition({
     durationMs: 2500
   });
+  const initialStartRef = useRef(start);
 
   useEffect(() => {
-    start();
-  }, [start]);
+    void initialStartRef.current();
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

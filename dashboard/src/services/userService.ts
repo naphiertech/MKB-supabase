@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { verifyFaceIdentity } from '../lib/faceAi';
+import { FACE_MATCH_THRESHOLD, verifyFaceIdentity } from '../lib/faceAi';
 
 export interface EmployeeDuplicateCheckParams {
   mkbRiderId?: string;
@@ -133,7 +133,7 @@ export const checkEmployeeDuplicates = async (
       for (const rider of data) {
         if (rider.face_descriptor && Array.isArray(rider.face_descriptor) && rider.face_descriptor.length === 128) {
           const storedDesc = new Float32Array(rider.face_descriptor as number[]);
-          const { matched, distance } = verifyFaceIdentity(newDesc, storedDesc, 0.45);
+          const { matched, distance } = verifyFaceIdentity(newDesc, storedDesc, FACE_MATCH_THRESHOLD);
           if (matched || distance <= 0.45) {
             console.warn(`[Biometric Duplicate Blocked] Matched existing rider ${rider.name} (${rider.mkb_id}) with distance ${distance.toFixed(4)}`);
             return {

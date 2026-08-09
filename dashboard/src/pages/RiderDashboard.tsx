@@ -19,6 +19,7 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { setCachedDescriptor } from '../lib/descriptorCache';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
 import { preloadBiometrics, releaseBiometrics } from '../lib/faceAi';
+import { biometricTelemetry } from '../lib/biometricTelemetry';
 import { Modal } from '../components/common/Modal';
 import { FaceScanner } from '../components/attendance/FaceScanner';
 import { AttendanceButton, type AttendanceAction } from '../components/attendance/AttendanceButton';
@@ -384,9 +385,9 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // Tab is minimized or hidden. Trigger resource release after 3 minutes.
+        // Tab is minimized or hidden. Release transient MediaPipe resources after 3 minutes.
         inactivityTimer = setTimeout(async () => {
-          console.log('[RiderDashboard] Tab hidden for 3 minutes. Releasing biometric resources to free RAM...');
+          console.log('[RiderDashboard] Tab hidden for 3 minutes. Releasing transient biometric resources...');
           await releaseBiometrics();
         }, 180000);
       } else {
@@ -627,7 +628,9 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         retryLocation();
         return;
       }
+      const finishAttendancePersistence = biometricTelemetry.start('attendance_persistence');
       recordTimeIn(currentRiderId).then(async (newLog) => {
+        finishAttendancePersistence();
         if (!newLog) {
           pushToast({
             title: 'Time-In failed',
@@ -676,6 +679,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
           tone: 'success'
         });
       }).catch((err) => {
+        finishAttendancePersistence();
         console.error('Error ticking in:', err);
         pushToast({
           title: 'Time-In failed',
@@ -695,6 +699,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         return;
       }
 
+      const finishAttendancePersistence = biometricTelemetry.start('attendance_persistence');
       recordTimeOut(activeLogId, {
         riderId: currentRiderId,
         date: getLocalDateString(),
@@ -702,6 +707,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
           ? { lat: currentVerifiedPosition.lat, lng: currentVerifiedPosition.lng }
           : {})
       }).then(async (success) => {
+        finishAttendancePersistence();
         if (!success) {
           pushToast({
             title: 'Time-Out failed',
@@ -754,6 +760,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
           tone: 'success'
         });
       }).catch((err) => {
+        finishAttendancePersistence();
         console.error('Error ticking out:', err);
         pushToast({
           title: 'Time-Out failed',

@@ -117,11 +117,60 @@ src/pages/
 - **Automatic Absent Handling**: System marks missing Time-Ins at shift cutoff.
 
 ### Biometric Verification Architecture (`dashboard/src/lib/faceAi.ts`)
-- **Models**: `face-api.js` powered by TensorFlow.js WebGL backend (`ssdMobilenetv1`, `faceLandmark68Net`, `faceRecognitionNet`).
-- **MediaPipe Liveness**: Integrated blink detection / head movement check to prevent photo spoofing.
-- **Descriptor Storage**: 128-element float vector stored in `riders.face_descriptor` (JSONB / Float array).
-- **Duplicate Check**: On onboarding, new face descriptors are checked against all existing riders using Euclidean distance (Threshold = `0.45`). Matches below threshold reject registration as duplicate face.
-- **Warmup & Caching**: Model weights preloaded during application initialization; canvas warmup prevents first-scan camera lag.
+- **Production pipeline remains unchanged**:
+
+```text
+Camera
+  -> SSD MobileNet V1
+  -> Face Landmark 68
+  -> Face Recognition Model
+  -> 128-D descriptor
+  -> MediaPipe liveness
+  -> Euclidean comparison
+  -> threshold 0.45
+```
+
+- **Detector and models**: SSD MobileNet V1 remains the production detector. Face Landmark 68 and the Face Recognition Model remain unchanged. Tiny Face Detector is not implemented.
+- **Descriptor compatibility**: Existing 128-element vectors in `riders.face_descriptor` remain valid and unchanged. The stabilization required no descriptor migration and no rider re-enrollment.
+- **Comparison rule**: Enrollment duplicate checks and rider verification continue to use Euclidean distance with the threshold fixed at exactly `0.45`.
+- **Liveness and business rules**: MediaPipe continues to enforce the existing liveness interaction. Attendance, Time In/Out, offline replay, and geofence rules were not changed by the biometric work.
+
+### Completed Biometric Performance Stabilization
+
+- `warmUpModels()` now executes representative synthetic warmup passes for SSD detection, landmarks, descriptor inference, and MediaPipe without using rider biometric data or retaining/comparing a warmup descriptor.
+- Face-api model weights remain resident for the application session. Transient release closes MediaPipe but does not clear the face-api load promise while tensors remain allocated, preventing the previous release/reload memory doubling state.
+- `FaceScanner.tsx` owns one camera stream per scanner mount. Initializing, scanning, matched, and failed phase changes reuse that stream; tracks stop when the scanner actually unmounts.
+- Enrollment startup callbacks are stable. Rapid EAR/debug updates no longer restart enrollment, and scan-session IDs ensure delayed work from an older scan is ignored after reset, close, or restart.
+- The three-match safeguard now counts only newly computed descriptors from the active scan session. Re-evaluating a cached descriptor cannot increment the count repeatedly.
+- The unused broken OpenCV bootstrap and its uncalled preprocessing path were removed.
+- The face-api runtime/fallback is pinned to `0.22.2`; MediaPipe package and WASM runtime are aligned and pinned to `0.10.35`.
+- Face-api model assets live under versioned `/models/face-api-0.22.2/`. Vercel applies long-lived immutable caching to that versioned path so future model changes require a new path/version.
+- Timing-only telemetry covers preload, model initialization, camera request, first usable frame, liveness, warmup stages, recognition, match completion, and attendance persistence. Development builds expose:
+
+```js
+window.__MKB_BIOMETRIC_TIMINGS__?.snapshot()
+```
+
+Telemetry does not record face images, descriptors, biometric vectors, or rider IDs.
+
+### Biometric Benchmark Context and Current Timing
+
+The completed audit found that the main constraint was cold-start and resource lifecycle behavior, not descriptor-comparison scale:
+
+- Before stabilization, first-process preload was approximately **11.35 seconds**.
+- The first real face after preload was approximately **4.85 seconds**, because the old black-canvas warmup did not execute the landmark and descriptor networks meaningfully.
+- The already-warm recognition pipeline was approximately **92 ms**.
+- A warm MediaPipe frame was approximately **14 ms**.
+- Descriptor comparison at the current rider count was effectively **under 1 ms**.
+- Normal repeated inference did not leak tensors; the defect was that release cleared the load promise without disposing face-api tensors, so a later reload doubled model memory.
+
+A real-device numeric post-fix first-face benchmark is still pending. Do not claim a measured post-fix speedup until camera/WebGL timings are captured on a real target device through the telemetry above.
+
+Intentional interaction timing remains part of the current flow: scanner startup waits about **220 ms**, liveness requires genuine user interaction with roughly a **1-second minimum**, the success state remains visible for about **1.2 seconds**, and three genuinely fresh descriptor samples add verification time because descriptor sampling remains throttled. These are not documented as bugs.
+
+### Deferred Biometric Changes
+
+The following are not implemented: a Tiny Face Detector production switch, MediaPipe Web Worker migration, native TensorFlow Lite/native ML, Capacitor biometric migration, rider re-enrollment, and recognition-model replacement. Tiny remains only a future A/B candidate if measured real-device results still justify evaluating it.
 
 ---
 
@@ -195,6 +244,17 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
    - Submitted, Approved, and Paid payroll use `payroll_delivery_lines` immutable daily snapshots.
    - Paid payroll (Calculation Version 1 or 2) cannot be recalculated or overwritten by live parcel corrections.
 
+6. **Authoritative Payroll Approval and Payment Actions**:
+   - Bulk Approval and Bulk Mark as Paid are implemented for **Admin and HR only** through `bulk_approve_payroll_records()` and `bulk_mark_payroll_records_paid()` server-side RPCs.
+   - Both RPCs delegate to the same `execute_payroll_bulk_transition()` transaction. Selected `payroll_records` rows are sorted and locked with `FOR UPDATE` before validation and transition.
+   - Every selected row must still exist, belong to the requested cutoff, have the expected status and `updated_at` version, and contain a valid finalized snapshot. A mixed, invalid, or stale selection raises an error before any status update, so the complete operation fails atomically.
+   - A caller-scoped request UUID and `payroll_bulk_operations` record make retries idempotent. Replaying the same completed request returns the stored result; reusing the request ID for different data is rejected.
+   - Individual Approve and Mark as Paid actions route a one-record payload through these same RPCs. They do not maintain a separate client-side transition path.
+   - Approval/payment activity logs and notifications are created inside the authoritative transaction. Paid remains immutable under the existing payroll workflow trigger and finalized payroll continues to use stored `payroll_delivery_lines`, never live `parcel_logs` recalculation.
+   - Payroll Bulk Export remains a separate read-only action and cannot approve, pay, or otherwise mutate payroll.
+
+The Payroll Bulk Actions batch passed **57 / 57 database assertions** and **130 / 130 application tests** at the time that batch was completed. The current repository-wide application count is recorded in Section 15.
+
 ---
 
 ## 8. Offline-First Rider Architecture
@@ -253,13 +313,30 @@ Time Out                                            -> offline (existing attenda
 - **Realtime Channel**: Subscribes to Supabase Realtime changes on `notifications` table.
 - **Role Targeting**: Filters alerts by role (`admin`, `hr`, `payroll`, `rider`).
 - **Fault Isolation**: Uses `dispatchNotificationSafe()` to ensure notification failures never block primary database transactions.
-- **Current Boundary**: Database-backed in-app Realtime notifications are implemented. External email/push delivery infrastructure and the user-facing delivery preference engine remain deferred.
+- **Persistence Boundary**: Database-backed in-app notifications and notification history remain authoritative and persisted regardless of whether a user suppresses a toast or sound.
+
+### Notification Preferences — IMPLEMENTED
+
+- `user_notification_preferences` stores one Supabase-backed row per user. RLS restricts each user to their own preference row; `localStorage` is no longer authoritative and is used only for one-time migration of legacy values before those keys are removed.
+- Preferences control toast presentation, notification sound, and role-relevant categories for violations, attendance, payroll, support tickets, and system events.
+- Account-category and critical-priority notifications remain visible even when ordinary presentation is suppressed.
+- Preferences affect presentation only. Notification rows/history are still persisted and Realtime delivery to the existing notification context remains intact.
+- The preferences table intentionally has no Realtime publication/channel and the client adds no preference polling.
+- Email digests, Web Push, SMS, and other external delivery infrastructure are not implemented.
 
 ---
 
-## 11. Implemented Account Security & Operational Actions
+## 11. Implemented Support, Account Security & Operational Actions
 
 The first batch of actions previously presented as **Soon / Not yet available** is implemented. The authentication recovery flows and TOTP MFA have also completed manual acceptance testing successfully.
+
+### Online Support Tickets — IMPLEMENTED
+
+- `support_tickets` and append-only `support_ticket_messages` implement the lifecycle **Open -> In Progress -> Resolved**.
+- Admin can manage all tickets and advance status. HR, Payroll, and Rider users can create, read, and reply only within their own tickets under RLS.
+- Ticket messages have no client update/delete workflow or RLS policy, preserving immutable conversation history. Resolved tickets and their messages remain available as historical records but no longer accept replies.
+- Both tables publish PostgreSQL changes through Supabase Realtime. Database triggers create in-app ticket notifications without making notification delivery a prerequisite for the ticket transaction.
+- The implementation uses Supabase tables, triggers, RLS, and Realtime directly; it does not require an Edge Function or separate support backend.
 
 ### Account Recovery and Administration
 
@@ -310,6 +387,14 @@ The first batch of actions previously presented as **Soon / Not yet available** 
    - Exports selected payroll records as CSV through `buildBulkPayrollExportRows()` and the existing payroll export utility.
    - The operation is read-only and does not update payroll status, calculations, approvals, payment state, parcel logs, or attendance.
    - Export rows use `getPayrollDeliveryData()`, preserving the authoritative live-data rules for editable payroll and finalized delivery-line snapshots for protected historical payroll. No second payroll calculation path was introduced.
+
+9. **Payroll Bulk Approval — IMPLEMENTED**
+   - Admin and HR can approve a homogeneous selection of Pending Review payroll through the server-side atomic transition described in Section 7.
+   - Stale, mixed-status, wrong-cutoff, missing, or invalid-snapshot selections fail as a complete transaction.
+
+10. **Payroll Bulk Mark as Paid — IMPLEMENTED**
+   - Admin and HR can mark a homogeneous selection of Approved payroll as Paid through the same authoritative transition engine.
+   - Paid records retain immutable finalized delivery snapshots and cannot be rewritten from current parcel operations.
 
 ### Acceptance-Test Regression Fixes
 
@@ -364,6 +449,10 @@ The generated Supabase schema and repository migrations confirm the following ap
 16. **`reviews`**: Courier review and moderation records.
 17. **`user_devices`**: Registered user-device and device-validation records.
 18. **`violations`**: Rider incident records for `boundary_exit`, `idle_timeout`, and `manual_flag`, with independent read and resolution state.
+19. **`support_tickets`**: RLS-isolated support requests with Open, In Progress, and Resolved lifecycle state.
+20. **`support_ticket_messages`**: Append-only ticket conversation history.
+21. **`user_notification_preferences`**: One Supabase-backed notification-presentation preference row per user.
+22. **`payroll_bulk_operations`**: Server-only idempotency and completed-result records for atomic payroll bulk transitions.
 
 ---
 
@@ -382,11 +471,12 @@ Verification executed against active repository state:
 
 - **TypeScript Type-Check (`npm run typecheck`)**: **PASS (0 errors)**
 - **Violations Database Lifecycle/RLS Suite**: **PASS (27 / 27 transactional assertions)**
-- **Automated Test Suite (`npm test`)**: **PASS (92 / 92 tests passed across 22 test files)**
+- **Payroll Bulk Actions Database Suite**: **PASS (57 / 57 transactional assertions; latest completed batch result)**
+- **Automated Test Suite (`npm test`)**: **PASS (140 / 140 tests passed across 36 test files)**
 - **Account-Security Database Suite**: **PASS (14 / 14 transactional assertions)**
 - **Session-Control RLS Suite**: **PASS (5 / 5 transactional assertions)**
-- **ESLint Linting (`npm run lint`)**: **PASS (0 errors, 8 warnings)**
-- **Production Build (`npm run build`)**: **PASS**
+- **ESLint Linting (`npm run lint`)**: **PASS (0 errors, 8 pre-existing warnings)**
+- **Production Build (`npm run build`)**: **PASS (the existing Vite large-chunk advisory remains)**
 - **Diff Validation (`git diff --check`)**: **PASS**
 
 `jsdom@26.1.0` is installed as a **test-only development dependency** for real DOM focus, portal positioning, and interaction regression tests. It is not part of the application runtime architecture.
@@ -408,6 +498,10 @@ Verification executed against active repository state:
 6. **First “Soon” Action Batch**: Resolved. Forgot Password, Admin/HR password-reset requests, account suspension/reactivation, logout of other sessions, TOTP MFA, Call Rider, Quick Flag, and Payroll Bulk Export are implemented; working actions no longer report fake success or appear as unavailable.
 7. **One-Character Modal Focus Regression**: Resolved in the shared `Modal.tsx` focus lifecycle. Controlled modal inputs retain the same DOM node, caret, and focus across state updates.
 8. **Employee Action Menu Clipping**: Resolved with a portal/fixed menu that flips within the viewport and preserves accessible dismissal and keyboard behavior.
+9. **Online Support Tickets**: Resolved. The disabled support placeholder was replaced with an RLS-isolated Open/In Progress/Resolved ticket workflow, immutable replies, Realtime updates, and persisted in-app notifications.
+10. **Notification Preferences**: Resolved. Preferences now persist per user in Supabase and control role-relevant toast/sound presentation without suppressing notification-history persistence.
+11. **Payroll Bulk Approval and Payment**: Resolved. Admin/HR bulk and individual approval/payment actions now share atomic, idempotent, row-locked server transitions with immutable-snapshot validation.
+12. **Biometric Cold-Start and Lifecycle Stabilization**: Resolved. Full representative warmup, mount-scoped camera ownership, resident face-api weights, stale-session cancellation, fresh-sample matching, versioned assets, and timing-only telemetry were added without changing models, descriptors, threshold, attendance, or geofence behavior.
 
 ---
 
@@ -420,29 +514,26 @@ Verification executed against active repository state:
    - No self-service or automated account-deletion workflow is implemented. Current UI directs the user to an administrator so operational history is not accidentally removed.
 2. **Support Access** *(PLANNED / DEFERRED)*:
    - The controlled support-access setting is disabled and explicitly marked not yet available.
-3. **Online Support Tickets** *(PLANNED / DEFERRED)*:
-   - The in-app support form is disabled and does not submit to a ticket backend; direct contact channels remain available.
-4. **Internal Live Monitoring Message / Chat** *(PLANNED / DEFERRED)*:
+3. **Internal Live Monitoring Message / Chat** *(PLANNED / DEFERRED)*:
    - Live Monitoring's Message action remains disabled and marked Soon. Call Rider does not provide chat functionality.
-5. **Payroll Bulk Approval** *(PLANNED / DEFERRED)*:
-   - Bulk approval remains disabled. Existing individual approval workflow and current status rules remain authoritative.
-6. **Payroll Bulk Payment** *(PLANNED / DEFERRED)*:
-   - Bulk payment remains disabled. Payroll Bulk Export is read-only and does not implement payment.
-7. **Notification Delivery Infrastructure** *(PLANNED / DEFERRED)*:
-   - External email/push delivery and background browser-notification infrastructure behind the settings toggles are not connected. Existing database-backed in-app Realtime notifications remain separate and implemented.
-8. **Localization / Preferred-Language Engine** *(PLANNED / DEFERRED)*:
+4. **External Notification Delivery** *(PLANNED / DEFERRED)*:
+   - Email digests, Web Push, SMS, and background external-delivery infrastructure are not implemented. Supabase-backed presentation preferences and database-backed in-app Realtime notifications are implemented separately.
+5. **Localization / Preferred-Language Engine** *(PLANNED / DEFERRED)*:
    - Preferred-language selection is currently a stored preference only; it does not translate application content.
-9. **Landing Contact-Form Backend** *(PLANNED / DEFERRED)*:
+6. **Landing Contact-Form Backend** *(PLANNED / DEFERRED)*:
    - The public landing contact form has no submission handler, API route, or persistence workflow.
-10. **Multi-Hub HR & Payroll Architecture** *(PLANNED / DEFERRED)*:
+7. **Multi-Hub HR & Payroll Architecture** *(PLANNED / DEFERRED)*:
    - 4 regional hub structures (Hub-scoped HR/Payroll access vs main organization scope).
    - Currently, single organization-wide role model is used.
-11. **Loans / Cash Advances / Financial Management** *(PLANNED / DEFERRED)*:
+8. **Loans / Cash Advances / Financial Management** *(PLANNED / DEFERRED)*:
    - Cash Advances, Loans, and automatic repayment deductions.
    - Currently, standard gross pay and manual adjustment fields (`other_earnings`, `deductions`, `late_onhold`, `late_remittance`) are used.
-12. **Native Capacitor Rider Application / Native Background GPS** *(PLANNED / DEFERRED)*:
+9. **Native Capacitor Rider Application / Native Background GPS** *(PLANNED / DEFERRED)*:
    - Native iOS/Android builds and background geolocation daemon.
    - Currently, mobile rider features run as responsive web app / PWA with foreground GPS.
+10. **Alternative Biometric Architecture** *(PLANNED / DEFERRED)*:
+   - Tiny Face Detector production use, MediaPipe Web Workers, native TensorFlow Lite/native ML, Capacitor biometric migration, rider re-enrollment, and recognition-model replacement are not implemented.
+   - SSD MobileNet V1 remains authoritative. Tiny may be evaluated only as a future A/B candidate if measured real-device evidence justifies it.
 
 ---
 
@@ -453,6 +544,9 @@ Verification executed against active repository state:
 1. **Never Re-introduce Read-Time Write Side-Effects**: `getPayrollRecords()` and `getPaginatedPayrollRecords()` must remain pure `SELECT` operations. Never call `syncPayrollRecordsFromParcelLogs()` inside read query functions.
 2. **Never Delete Operational Source Data on Payroll Deletion**: Deleting a `payroll_records` row must delete ONLY the `payroll_records` table row. `parcel_logs`, `attendance_logs`, `riders`, and rate configurations must remain 100% untouched.
 3. **Immutable Paid Payroll**: Submitted, Approved, and Paid/Disbursed payroll records use `payroll_delivery_lines` snapshots and must **never** be recalculated or overwritten by live parcel changes.
-4. **Centralized Role Authorization**: Keep role permissions and sidebar definitions centralized in `sidebarNavigation.ts` and enforce authorization via Supabase RLS policies.
-5. **Keep PostgreSQL Authoritative for Geofencing**: `process_rider_location_geofence()` owns persisted status and violation decisions. Historical replay must never regress current rider state or create current alerts, and re-entry must resolve only the matching unresolved `boundary_exit`.
-6. **Preserve Operational Rate Integrity**: Parcel rates are resolved based on work date and Time-In timestamp. The fixed heavy parcel rate (₱17/parcel) applies to parcels above 4 kg.
+4. **Keep Approval and Payment Atomic**: Bulk and individual Approve/Mark as Paid actions must continue to use the server-side RPC transition engine. Never replace row locking, stale-version checks, idempotency, immutable-snapshot validation, audit entries, or notifications with client-side multi-update loops.
+5. **Centralized Role Authorization**: Keep role permissions and sidebar definitions centralized in `sidebarNavigation.ts`; Supabase RLS remains the database security authority even when the frontend hides or disables an action.
+6. **Keep PostgreSQL Authoritative for Geofencing**: `process_rider_location_geofence()` owns persisted status and violation decisions. Historical replay must never regress current rider state or create current alerts, and re-entry must resolve only the matching unresolved `boundary_exit`.
+7. **Preserve Biometric Compatibility**: SSD MobileNet V1 remains the production detector, stored face descriptors remain unchanged 128-D vectors, and the Euclidean match threshold remains exactly `0.45`. Do not switch to Tiny or another recognition architecture without measured real-device evidence and an explicitly approved migration plan.
+8. **Preserve Notification Persistence**: Notification preferences control toast/sound/category presentation, not whether notification rows and history are created. Critical and account notifications must remain visible.
+9. **Preserve Operational Rate Integrity**: Parcel rates are resolved based on work date and Time-In timestamp. The fixed heavy parcel rate (₱17/parcel) applies to parcels above 4 kg.
