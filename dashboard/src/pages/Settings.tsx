@@ -16,6 +16,9 @@ import {
 } from 'lucide-react';
 import { PayrollParcelRatesSettings } from '../components/settings/PayrollParcelRatesSettings';
 import { AccountSecurityControls } from '../components/settings/AccountSecurityControls';
+import { NotificationPreferencesPanel } from '../components/settings/NotificationPreferencesPanel';
+import { useNotificationContext } from '../context/NotificationContext';
+import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '../services/notificationPreferenceService';
 
 type TabType = 'Personal Detail' | 'Security' | 'Notification' | 'Payroll & Parcel Rates';
 
@@ -23,6 +26,12 @@ const CSC_API_KEY = import.meta.env.VITE_CSC_API_KEY || '';
 
 export function Settings() {
   const { session, user } = useAuth();
+  const {
+    notificationPreferences,
+    notificationPreferencesLoading,
+    notificationPreferencesError,
+    saveNotificationPreferences,
+  } = useNotificationContext();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<TabType>('Personal Detail');
@@ -54,12 +63,7 @@ export function Settings() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Notification states
-  const [notifBoundaryExit, setNotifBoundaryExit] = useState(true);
-  const [notifAttendance, setNotifAttendance] = useState(true);
-  const [notifReports, setNotifReports] = useState(false);
-  const [notifSound, setNotifSound] = useState(true);
-  const [notifPush, setNotifPush] = useState(true);
+  const [notificationDraft, setNotificationDraft] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
 
   // UI state
   const [showPassword, setShowPassword] = useState(false);
@@ -164,12 +168,6 @@ export function Settings() {
 
     setAvatarUrl(localStorage.getItem(`custom_avatar_${userId}`) || '');
 
-    setNotifBoundaryExit(localStorage.getItem(`notif_boundary_${userId}`) !== 'false');
-    setNotifAttendance(localStorage.getItem(`notif_attendance_${userId}`) !== 'false');
-    setNotifReports(localStorage.getItem(`notif_reports_${userId}`) === 'true');
-    setNotifSound(localStorage.getItem(`notif_sound_${userId}`) !== 'false');
-    setNotifPush(localStorage.getItem(`notif_push_${userId}`) !== 'false');
-
     // Cascading fetch to initialize country/state/city dropdown choices based on loaded values
     const countries = await fetchCountries();
     if (countries.length > 0) {
@@ -194,6 +192,10 @@ export function Settings() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    setNotificationDraft(notificationPreferences);
+  }, [notificationPreferences]);
 
   const handleCountryChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const countryName = e.target.value;
@@ -251,6 +253,26 @@ export function Settings() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === 'Payroll & Parcel Rates') return;
+    if (activeTab === 'Notification') {
+      setSubmitting(true);
+      try {
+        await saveNotificationPreferences(notificationDraft);
+        pushToast({
+          title: 'Notification preferences saved',
+          description: 'Your in-app toast and sound preferences are now synchronized.',
+          tone: 'success',
+        });
+      } catch (err: unknown) {
+        pushToast({
+          title: 'Unable to save notification preferences',
+          description: err instanceof Error ? err.message : 'Please try again.',
+          tone: 'error',
+        });
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     if (!validate() || !session?.id) return;
 
     setSubmitting(true);
@@ -278,12 +300,6 @@ export function Settings() {
       localStorage.setItem(`province_${userId}`, province);
       localStorage.setItem(`city_${userId}`, city);
       localStorage.setItem(`zip_${userId}`, zipCode);
-
-      localStorage.setItem(`notif_boundary_${userId}`, String(notifBoundaryExit));
-      localStorage.setItem(`notif_attendance_${userId}`, String(notifAttendance));
-      localStorage.setItem(`notif_reports_${userId}`, String(notifReports));
-      localStorage.setItem(`notif_sound_${userId}`, String(notifSound));
-      localStorage.setItem(`notif_push_${userId}`, String(notifPush));
 
       if (avatarUrl) {
         localStorage.setItem(`custom_avatar_${userId}`, avatarUrl);
@@ -313,6 +329,15 @@ export function Settings() {
   };
 
   const handleResetAll = () => {
+    if (activeTab === 'Notification') {
+      setNotificationDraft(notificationPreferences);
+      pushToast({
+        title: 'Notification changes discarded',
+        description: 'The last saved preferences have been restored.',
+        tone: 'info',
+      });
+      return;
+    }
     loadSettings();
     pushToast({
       title: 'Settings reset',
@@ -402,7 +427,7 @@ export function Settings() {
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (activeTab === 'Notification' && notificationPreferencesLoading)}
                 className="px-4 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition duration-200 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {submitting ? (
@@ -801,117 +826,15 @@ export function Settings() {
               </div>
             )}
 
-            {activeTab === 'Notification' && (
-              <div id="settings-panel-notification" role="tabpanel" aria-labelledby="settings-tab-notification" className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start animate-fade-in">
-                <div className="lg:col-span-2 space-y-6">
-                  
-                  {/* Email Notifications */}
-                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-foreground mb-0.5">Email Notifications</h3>
-                      <p className="text-xs text-muted-foreground mb-4">Manage when and how you receive email compliance digests.</p>
-                    </div>
-
-                    {/* Toggle 1 */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-foreground">Geofence Violations</h4>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">Receive instant alerts when riders breach boundaries.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setNotifBoundaryExit(!notifBoundaryExit)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
-                          notifBoundaryExit ? 'bg-primary' : 'bg-border'
-                        }`}
-                      >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifBoundaryExit ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-
-                    <div className="h-px bg-border" />
-
-                    {/* Toggle 2 */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-foreground">Attendance Logs</h4>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">Get notified on late check-ins or absences.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setNotifAttendance(!notifAttendance)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
-                          notifAttendance ? 'bg-primary' : 'bg-border'
-                        }`}
-                      >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifAttendance ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-
-                    <div className="h-px bg-border" />
-
-                    {/* Toggle 3 */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-foreground">Weekly Digests</h4>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">Subscribe to weekly operations and payroll data logs.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setNotifReports(!notifReports)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
-                          notifReports ? 'bg-primary' : 'bg-border'
-                        }`}
-                      >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifReports ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column Alerts */}
-                <div className="space-y-6">
-                  {/* System Alerts Card */}
-                  <div className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
-                    <h3 className="text-sm font-bold text-foreground mb-0.5">System Alerts</h3>
-
-                    {/* sound */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-foreground">Sound Effects</h4>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">Play chime sound when geofence violations trigger.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setNotifSound(!notifSound)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
-                          notifSound ? 'bg-primary' : 'bg-border'
-                        }`}
-                      >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifSound ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-
-                    <div className="h-px bg-border" />
-
-                    {/* push */}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-foreground">Push Notifications</h4>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">Display browser notification alerts in the background.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setNotifPush(!notifPush)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/35 ${
-                          notifPush ? 'bg-primary' : 'bg-border'
-                        }`}
-                      >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${notifPush ? 'translate-x-5' : 'translate-x-0'}`} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+            {activeTab === 'Notification' && session && (
+              <div id="settings-panel-notification" role="tabpanel" aria-labelledby="settings-tab-notification" className="animate-fade-in">
+                <NotificationPreferencesPanel
+                  role={session.role}
+                  value={notificationDraft}
+                  loading={notificationPreferencesLoading}
+                  error={notificationPreferencesError}
+                  onChange={setNotificationDraft}
+                />
               </div>
             )}
 

@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PayrollStatus } from '../types/payroll';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
+  bulkApprove: vi.fn(),
+  bulkPay: vi.fn(),
 }));
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -16,6 +19,11 @@ vi.mock('./notificationService', () => ({
   dispatchNotificationSafe: vi.fn(),
 }));
 
+vi.mock('./payrollBulkActions', () => ({
+  bulkApprovePayrollRecords: mocks.bulkApprove,
+  bulkMarkPayrollRecordsPaid: mocks.bulkPay,
+}));
+
 import {
   calculateDeliverySuccessRate,
   getParcelLogs,
@@ -23,6 +31,7 @@ import {
   MissingPayrollSnapshotError,
   summarizeOperationalParcels,
   syncPayrollRecordsFromParcelLogs,
+  updatePayrollRecordStatus,
   type ParcelLog,
 } from './parcelService';
 
@@ -67,6 +76,64 @@ const sampleLogs: ParcelLog[] = [
 
 beforeEach(() => {
   mocks.from.mockReset();
+  mocks.bulkApprove.mockReset();
+  mocks.bulkPay.mockReset();
+});
+
+describe('individual finalized payroll transitions', () => {
+  function mockPayrollRecord(status: 'pending' | 'approved') {
+    const query = { select: vi.fn(), eq: vi.fn(), single: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.single.mockResolvedValue({
+      data: {
+        id: 'payroll-1',
+        rider_id: 'rider-1',
+        cutoff_start: '2026-08-01',
+        cutoff_end: '2026-08-15',
+        total_parcels: 0,
+        standard_parcels: 0,
+        heavy_parcels: 0,
+        standard_earnings: 0,
+        heavy_earnings: 0,
+        gross_pay: 0,
+        rate_configuration_id: null,
+        calculation_version: 2,
+        snapshot_finalized_at: '2026-08-09T08:00:00Z',
+        status,
+        updated_at: '2026-08-09T08:00:00Z',
+        riders: { name: 'Test Rider' },
+      },
+      error: null,
+    });
+    mocks.from.mockReturnValue(query);
+  }
+
+  it('routes individual approval through the authoritative transition RPC', async () => {
+    mockPayrollRecord('pending');
+    mocks.bulkApprove.mockResolvedValue({ processed_count: 1 });
+
+    await updatePayrollRecordStatus('payroll-1', PayrollStatus.APPROVED, { userId: 'admin-1' });
+
+    expect(mocks.bulkApprove).toHaveBeenCalledWith(expect.objectContaining({
+      records: [{ id: 'payroll-1', status: 'pending', updated_at: '2026-08-09T08:00:00Z' }],
+      cutoffStart: '2026-08-01',
+      cutoffEnd: '2026-08-15',
+    }));
+    expect(mocks.bulkPay).not.toHaveBeenCalled();
+  });
+
+  it('routes individual payment through the authoritative transition RPC', async () => {
+    mockPayrollRecord('approved');
+    mocks.bulkPay.mockResolvedValue({ processed_count: 1 });
+
+    await updatePayrollRecordStatus('payroll-1', PayrollStatus.PAID, { userId: 'hr-1' });
+
+    expect(mocks.bulkPay).toHaveBeenCalledWith(expect.objectContaining({
+      records: [{ id: 'payroll-1', status: 'approved', updated_at: '2026-08-09T08:00:00Z' }],
+    }));
+    expect(mocks.bulkApprove).not.toHaveBeenCalled();
+  });
 });
 
 describe('payroll operational parcel reads', () => {

@@ -12,7 +12,8 @@ import {
   Loader2,
   Trash2,
   AlertTriangle,
-  Download
+  Download,
+  CheckCircle2
 } from 'lucide-react';
 import {
   getPaginatedPayrollRecords,
@@ -27,6 +28,11 @@ import { pushToast } from '../../hooks/useToast';
 import { PayrollStatus, PayrollStatusLabels, PayrollStatusColors, isEditableStatus } from '../../types/payroll';
 import { buildBulkPayrollExportRows } from '../../services/payrollBulkExport';
 import { exportCutoffSummaryCSV } from '../../lib/exports/payrollExport';
+import {
+  bulkApprovePayrollRecords,
+  bulkMarkPayrollRecordsPaid,
+  getPayrollBulkSelectionState,
+} from '../../services/payrollBulkActions';
 
 function phpFmt(val: number) {
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -142,6 +148,9 @@ export function RiderPayrollList({
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [bulkTransitionAction, setBulkTransitionAction] = useState<'approve' | 'pay' | null>(null);
+  const [bulkTransitioning, setBulkTransitioning] = useState(false);
+  const bulkTransitionRequestIdRef = useRef<string | null>(null);
 
   const handleSingleDelete = async () => {
     if (!recordToDelete) return;
@@ -293,6 +302,20 @@ export function RiderPayrollList({
 
   // Multi-select state
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
+  const selectedRecords = useMemo(
+    () => payrollRecords.filter((record) => selectedRecordIds.has(record.id)),
+    [payrollRecords, selectedRecordIds],
+  );
+  const bulkSelectionState = useMemo(
+    () => getPayrollBulkSelectionState(selectedRecords),
+    [selectedRecords],
+  );
+
+  useEffect(() => {
+    setSelectedRecordIds(new Set());
+    setBulkTransitionAction(null);
+    bulkTransitionRequestIdRef.current = null;
+  }, [cutoffFrom, cutoffTo, page, pageSize, debouncedSearch, statusFilter, zoneFilter]);
 
   // Search Debounce Effect
   useEffect(() => {
@@ -431,18 +454,78 @@ export function RiderPayrollList({
     }
   };
 
+  const openBulkTransitionConfirmation = (action: 'approve' | 'pay') => {
+    const eligible = action === 'approve'
+      ? bulkSelectionState.canApprove
+      : bulkSelectionState.canMarkPaid;
+    if (!eligible) return;
+    bulkTransitionRequestIdRef.current = globalThis.crypto.randomUUID();
+    setBulkTransitionAction(action);
+  };
+
+  const closeBulkTransitionConfirmation = () => {
+    if (bulkTransitioning) return;
+    setBulkTransitionAction(null);
+    bulkTransitionRequestIdRef.current = null;
+  };
+
+  const handleBulkTransition = async () => {
+    if (!bulkTransitionAction || selectedRecords.length === 0) return;
+    const requestId = bulkTransitionRequestIdRef.current ?? globalThis.crypto.randomUUID();
+    bulkTransitionRequestIdRef.current = requestId;
+    setBulkTransitioning(true);
+    try {
+      const input = {
+        records: selectedRecords,
+        cutoffStart: cutoffFrom,
+        cutoffEnd: cutoffTo,
+        requestId,
+      };
+      const result = bulkTransitionAction === 'approve'
+        ? await bulkApprovePayrollRecords(input)
+        : await bulkMarkPayrollRecordsPaid(input);
+
+      pushToast({
+        title: bulkTransitionAction === 'approve' ? 'Payroll records approved' : 'Payroll records marked Paid',
+        description: `${result.processed_count} payroll record(s) updated successfully.`,
+        tone: 'success',
+      });
+      setSelectedRecordIds(new Set());
+      setBulkTransitionAction(null);
+      bulkTransitionRequestIdRef.current = null;
+      await fetchRecords();
+      onStatusUpdated?.();
+    } catch (error: unknown) {
+      console.error('Payroll bulk transition failed:', error);
+      pushToast({
+        title: bulkTransitionAction === 'approve' ? 'Bulk approval failed' : 'Bulk payment failed',
+        description: error instanceof Error ? error.message : 'The selected payroll records were not changed.',
+        tone: 'error',
+      });
+    } finally {
+      setBulkTransitioning(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Bulk Actions Banner */}
       {selectedRecordIds.size > 0 && (
         <div className="p-3 px-4 rounded-xl border border-primary/30 bg-accent/50 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 animate-in slide-in-from-bottom-2 duration-200">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold">
-              {selectedRecordIds.size}
+          <div className="flex items-start gap-2">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold shrink-0">
+              {bulkSelectionState.count}
             </span>
-            <span className="text-xs font-semibold text-accent-foreground">
-              Riders selected for bulk actions
-            </span>
+            <div>
+              <span className="block text-xs font-semibold text-accent-foreground">
+                Payroll records selected for bulk actions
+              </span>
+              {bulkSelectionState.feedback && isAdminOrHr && (
+                <span className="block text-[10px] text-amber-700 mt-0.5">
+                  {bulkSelectionState.feedback}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -455,7 +538,7 @@ export function RiderPayrollList({
               {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
               {exporting ? 'Preparing export…' : 'Bulk Export'}
             </button>
-            {(role === 'payroll' || role === 'admin') ? (
+            {(role === 'payroll' || role === 'admin') && (
               <>
                 <button
                   onClick={handleSubmitForApproval}
@@ -481,21 +564,27 @@ export function RiderPayrollList({
                   Delete Selected ({selectedRecordIds.size})
                 </button>
               </>
-            ) : (
+            )}
+            {isAdminOrHr && (
               <>
                 <button
-                  disabled
-                  className="h-8 px-3 rounded-lg border border-border bg-white/50 text-subtle-text text-xs font-semibold cursor-not-allowed"
-                  title="Bulk approval is not yet available"
+                  type="button"
+                  onClick={() => openBulkTransitionConfirmation('approve')}
+                  disabled={!bulkSelectionState.canApprove || bulkTransitioning || submitting || deleting}
+                  className="h-8 px-3 rounded-lg border border-primary/30 bg-white hover:bg-primary/5 text-primary text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 inline-flex items-center gap-1.5"
+                  title={bulkSelectionState.canApprove ? 'Approve all selected Pending Review payroll records' : 'Select only Pending Review payroll records'}
                 >
-                  Bulk Approve — Not yet available
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Approve {bulkSelectionState.count} Payroll Record{bulkSelectionState.count === 1 ? '' : 's'}
                 </button>
                 <button
-                  disabled
-                  className="h-8 px-3 rounded-lg bg-primary/40 text-white text-xs font-semibold cursor-not-allowed"
-                  title="Bulk payment is not yet available"
+                  type="button"
+                  onClick={() => openBulkTransitionConfirmation('pay')}
+                  disabled={!bulkSelectionState.canMarkPaid || bulkTransitioning || submitting || deleting}
+                  className="h-8 px-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 inline-flex items-center gap-1.5"
+                  title={bulkSelectionState.canMarkPaid ? 'Mark all selected Approved payroll records as Paid' : 'Select only Approved payroll records'}
                 >
-                  Bulk Pay — Not yet available
+                  Mark {bulkSelectionState.count} Payroll Record{bulkSelectionState.count === 1 ? '' : 's'} as Paid
                 </button>
               </>
             )}
@@ -843,6 +932,94 @@ export function RiderPayrollList({
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal: Atomic Bulk Approval / Payment */}
+      <AnimatePresence>
+        {bulkTransitionAction && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeBulkTransitionConfirmation}
+              className="absolute inset-0 bg-foreground/55 backdrop-blur-sm"
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="bulk-payroll-transition-title"
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white border border-border rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
+                  bulkTransitionAction === 'pay'
+                    ? 'bg-amber-50 border-amber-200'
+                    : 'bg-primary/10 border-primary/20'
+                }`}>
+                  {bulkTransitionAction === 'pay'
+                    ? <AlertTriangle className="w-5 h-5 text-amber-700" />
+                    : <CheckCircle2 className="w-5 h-5 text-primary" />}
+                </div>
+                <div>
+                  <h3 id="bulk-payroll-transition-title" className="text-base font-bold text-foreground">
+                    {bulkTransitionAction === 'approve'
+                      ? `Approve ${selectedRecords.length} Payroll Record${selectedRecords.length === 1 ? '' : 's'}?`
+                      : `Mark ${selectedRecords.length} Payroll Record${selectedRecords.length === 1 ? '' : 's'} as Paid?`}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Cutoff: {cutoffLabel}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {bulkTransitionAction === 'approve' ? (
+                  <>
+                    All <strong className="text-foreground">{selectedRecords.length} Pending Review payroll record(s)</strong> will move to Approved in one transaction.
+                  </>
+                ) : (
+                  <>
+                    You are about to mark <strong className="text-foreground">{selectedRecords.length} approved payroll record(s) as Paid</strong>. Paid payroll is final and immutable, and cannot be recalculated from later parcel changes.
+                  </>
+                )}
+              </p>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={closeBulkTransitionConfirmation}
+                  disabled={bulkTransitioning}
+                  className="px-4 h-9 rounded-lg border border-border hover:bg-panel-bg text-xs font-semibold text-foreground transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkTransition()}
+                  disabled={bulkTransitioning}
+                  className={`px-5 h-9 rounded-lg text-xs font-bold text-white transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 ${
+                    bulkTransitionAction === 'pay'
+                      ? 'bg-amber-700 hover:bg-amber-800'
+                      : 'bg-primary hover:bg-primary-hover'
+                  }`}
+                >
+                  {bulkTransitioning ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Processing…
+                    </>
+                  ) : bulkTransitionAction === 'approve' ? (
+                    'Approve Selected Payroll'
+                  ) : (
+                    'Mark Selected as Paid'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Confirmation Modal: Single Record Delete */}
       <AnimatePresence>

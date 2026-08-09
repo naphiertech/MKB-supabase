@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState, useMemo, useCall
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { pushToast, type ToastTone } from '../hooks/useToast';
+import { getNotificationPresentation } from '../lib/notificationPresentation';
+import { playNotificationSound } from '../lib/notificationSound';
 import {
   getNotificationsForUser,
   markNotificationAsRead,
@@ -10,14 +12,24 @@ import {
   type UserRole,
   type NotificationPriority
 } from '../services/notificationService';
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  loadNotificationPreferences,
+  updateNotificationPreferences as persistNotificationPreferences,
+  type NotificationPreferences,
+} from '../services/notificationPreferenceService';
 
 interface NotificationContextType {
   notifications: NotificationRecord[];
   unreadCount: number;
   loading: boolean;
+  notificationPreferences: NotificationPreferences;
+  notificationPreferencesLoading: boolean;
+  notificationPreferencesError: string | null;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
+  saveNotificationPreferences: (preferences: NotificationPreferences) => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -43,6 +55,9 @@ function getPriorityToastConfig(priority?: NotificationPriority): { tone: ToastT
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const [notificationPreferencesLoading, setNotificationPreferencesLoading] = useState(true);
+  const [notificationPreferencesError, setNotificationPreferencesError] = useState<string | null>(null);
   const { session } = useAuth();
 
   const userRole = (session?.role as UserRole) || null;
@@ -51,6 +66,53 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Refs for subscription lifecycle & toast duplicate suppression
   const isInitialLoadRef = useRef<boolean>(true);
   const seenToastIdsRef = useRef<Set<string>>(new Set());
+  const notificationPreferencesRef = useRef<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const notificationPreferencesReadyRef = useRef(false);
+
+  useEffect(() => {
+    if (!userId) {
+      notificationPreferencesRef.current = DEFAULT_NOTIFICATION_PREFERENCES;
+      notificationPreferencesReadyRef.current = false;
+      setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+      setNotificationPreferencesLoading(false);
+      setNotificationPreferencesError(null);
+      return;
+    }
+
+    let isMounted = true;
+    notificationPreferencesReadyRef.current = false;
+    setNotificationPreferencesLoading(true);
+    setNotificationPreferencesError(null);
+
+    void loadNotificationPreferences(
+      userId,
+      typeof window !== 'undefined' ? window.localStorage : undefined,
+    ).then((record) => {
+      if (!isMounted) return;
+      const loaded: NotificationPreferences = {
+        toast_enabled: record.toast_enabled,
+        sound_enabled: record.sound_enabled,
+        violation_alerts: record.violation_alerts,
+        attendance_alerts: record.attendance_alerts,
+        payroll_updates: record.payroll_updates,
+        support_ticket_updates: record.support_ticket_updates,
+        system_updates: record.system_updates,
+      };
+      notificationPreferencesRef.current = loaded;
+      setNotificationPreferences(loaded);
+    }).catch((error: unknown) => {
+      if (!isMounted) return;
+      notificationPreferencesRef.current = DEFAULT_NOTIFICATION_PREFERENCES;
+      setNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+      setNotificationPreferencesError(error instanceof Error ? error.message : 'Unable to load notification preferences.');
+    }).finally(() => {
+      if (!isMounted) return;
+      notificationPreferencesReadyRef.current = true;
+      setNotificationPreferencesLoading(false);
+    });
+
+    return () => { isMounted = false; };
+  }, [userId]);
 
   // Refresh notifications list from Supabase
   const refreshNotifications = useCallback(async () => {
@@ -130,16 +192,22 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               return [newRow, ...prev].slice(0, 100);
             });
 
-            // Fire real-time in-app toast ONLY for new live inserts after initial load
+            // Presentation preferences never remove the persisted Notification Center row.
             if (!isInitialLoadRef.current && !seenToastIdsRef.current.has(newRow.id)) {
               seenToastIdsRef.current.add(newRow.id);
-              const toastConfig = getPriorityToastConfig(newRow.priority);
-              pushToast({
-                title: newRow.title || 'System Alert',
-                description: newRow.message,
-                tone: toastConfig.tone,
-                duration: toastConfig.duration
-              });
+              if (notificationPreferencesReadyRef.current) {
+                const presentation = getNotificationPresentation(newRow, notificationPreferencesRef.current);
+                if (presentation.showToast) {
+                  const toastConfig = getPriorityToastConfig(newRow.priority);
+                  pushToast({
+                    title: newRow.title || 'System Alert',
+                    description: newRow.message,
+                    tone: toastConfig.tone,
+                    duration: toastConfig.duration
+                  });
+                }
+                if (presentation.playSound) void playNotificationSound();
+              }
             }
           }
         }
@@ -189,6 +257,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [userRole, userId]);
 
+  const saveNotificationPreferences = useCallback(async (preferences: NotificationPreferences) => {
+    if (!userId) throw new Error('Sign in to save notification preferences.');
+    const record = await persistNotificationPreferences(userId, preferences);
+    const saved: NotificationPreferences = {
+      toast_enabled: record.toast_enabled,
+      sound_enabled: record.sound_enabled,
+      violation_alerts: record.violation_alerts,
+      attendance_alerts: record.attendance_alerts,
+      payroll_updates: record.payroll_updates,
+      support_ticket_updates: record.support_ticket_updates,
+      system_updates: record.system_updates,
+    };
+    notificationPreferencesRef.current = saved;
+    notificationPreferencesReadyRef.current = true;
+    setNotificationPreferences(saved);
+    setNotificationPreferencesError(null);
+  }, [userId]);
+
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.read).length,
     [notifications]
@@ -199,11 +285,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       notifications,
       unreadCount,
       loading,
+      notificationPreferences,
+      notificationPreferencesLoading,
+      notificationPreferencesError,
       markAsRead: handleMarkAsRead,
       markAllAsRead: handleMarkAllAsRead,
-      refreshNotifications
+      refreshNotifications,
+      saveNotificationPreferences,
     }),
-    [notifications, unreadCount, loading, handleMarkAsRead, handleMarkAllAsRead, refreshNotifications]
+    [notifications, unreadCount, loading, notificationPreferences, notificationPreferencesLoading, notificationPreferencesError, handleMarkAsRead, handleMarkAllAsRead, refreshNotifications, saveNotificationPreferences]
   );
 
   return (

@@ -594,6 +594,56 @@ export type Database = {
           },
         ]
       }
+      payroll_bulk_operations: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          cutoff_end: string
+          cutoff_start: string
+          id: string
+          operation: string
+          request_id: string
+          request_payload: Json
+          requested_by: string
+          result: Json | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          cutoff_end: string
+          cutoff_start: string
+          id?: string
+          operation: string
+          request_id: string
+          request_payload: Json
+          requested_by: string
+          result?: Json | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          cutoff_end?: string
+          cutoff_start?: string
+          id?: string
+          operation?: string
+          request_id?: string
+          request_payload?: Json
+          requested_by?: string
+          result?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_bulk_operations_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_delivery_lines: {
         Row: {
           applied_heavy_rate: number | null
@@ -1272,6 +1322,53 @@ export type Database = {
           },
         ]
       }
+      user_notification_preferences: {
+        Row: {
+          attendance_alerts: boolean
+          created_at: string
+          payroll_updates: boolean
+          sound_enabled: boolean
+          support_ticket_updates: boolean
+          system_updates: boolean
+          toast_enabled: boolean
+          updated_at: string
+          user_id: string
+          violation_alerts: boolean
+        }
+        Insert: {
+          attendance_alerts?: boolean
+          created_at?: string
+          payroll_updates?: boolean
+          sound_enabled?: boolean
+          support_ticket_updates?: boolean
+          system_updates?: boolean
+          toast_enabled?: boolean
+          updated_at?: string
+          user_id: string
+          violation_alerts?: boolean
+        }
+        Update: {
+          attendance_alerts?: boolean
+          created_at?: string
+          payroll_updates?: boolean
+          sound_enabled?: boolean
+          support_ticket_updates?: boolean
+          system_updates?: boolean
+          toast_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+          violation_alerts?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           contact: string | null
@@ -1639,6 +1736,24 @@ export type Database = {
             }
             Returns: string
           }
+      bulk_approve_payroll_records: {
+        Args: {
+          p_cutoff_end: string
+          p_cutoff_start: string
+          p_records: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      bulk_mark_payroll_records_paid: {
+        Args: {
+          p_cutoff_end: string
+          p_cutoff_start: string
+          p_records: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
       cache_rider_face_descriptor: {
         Args: { p_descriptor: Json; p_rider_id: string }
         Returns: undefined
@@ -1680,6 +1795,16 @@ export type Database = {
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      execute_payroll_bulk_transition: {
+        Args: {
+          p_cutoff_end: string
+          p_cutoff_start: string
+          p_operation: string
+          p_records: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
@@ -2440,6 +2565,10 @@ export type Database = {
           p_user_agent: string
         }
         Returns: Json
+      }
+      validate_finalized_payroll_snapshot: {
+        Args: { p_record_id: string }
+        Returns: string
       }
     }
     Enums: {

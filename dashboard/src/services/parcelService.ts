@@ -2,6 +2,10 @@ import { supabase } from '../lib/supabaseClient';
 import { logActivity } from '../lib/apiService';
 import { PayrollStatus } from '../types/payroll';
 import { dispatchNotificationSafe } from './notificationService';
+import {
+  bulkApprovePayrollRecords,
+  bulkMarkPayrollRecordsPaid,
+} from './payrollBulkActions';
 
 export interface ParcelLog {
   id: string;
@@ -874,10 +878,11 @@ export const updatePayrollRecordStatus = async (
   let cutoffStart = '';
   let cutoffEnd = '';
   let grossPay = 0;
+  let currentRecordVersion: { status: string; updated_at: string } | null = null;
   try {
     const { data: record, error: recordError } = await supabase
       .from('payroll_records')
-      .select('id, rider_id, cutoff_start, cutoff_end, total_parcels, standard_parcels, heavy_parcels, standard_earnings, heavy_earnings, gross_pay, rate_configuration_id, calculation_version, snapshot_finalized_at, status, riders(name)')
+      .select('id, rider_id, cutoff_start, cutoff_end, total_parcels, standard_parcels, heavy_parcels, standard_earnings, heavy_earnings, gross_pay, rate_configuration_id, calculation_version, snapshot_finalized_at, status, updated_at, riders(name)')
       .eq('id', recordId)
       .single();
 
@@ -890,9 +895,31 @@ export const updatePayrollRecordStatus = async (
     cutoffStart = record.cutoff_start;
     cutoffEnd = record.cutoff_end;
     grossPay = record.gross_pay || 0;
+    currentRecordVersion = { status: record.status, updated_at: record.updated_at };
   } catch (err) {
     console.error('Failed to validate payroll record before status update:', err);
     throw err;
+  }
+
+  // Approval and payment share the same authoritative, transactional database
+  // boundary as their bulk equivalents. A singleton request preserves the
+  // existing individual workflow without duplicating transition side effects.
+  if (
+    currentRecordVersion
+    && (normStatus === PayrollStatus.APPROVED || normStatus === PayrollStatus.PAID)
+  ) {
+    const transitionInput = {
+      records: [{ id: recordId, ...currentRecordVersion }],
+      cutoffStart,
+      cutoffEnd,
+      requestId: globalThis.crypto.randomUUID(),
+    };
+    if (normStatus === PayrollStatus.APPROVED) {
+      await bulkApprovePayrollRecords(transitionInput);
+    } else {
+      await bulkMarkPayrollRecordsPaid(transitionInput);
+    }
+    return;
   }
 
   const { error } = await supabase
