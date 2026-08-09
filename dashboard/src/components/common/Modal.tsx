@@ -34,6 +34,13 @@ export function Modal({
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const dismissibleRef = useRef(dismissible);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    dismissibleRef.current = dismissible;
+  }, [onClose, dismissible]);
 
   useEffect(() => {
     if (!open) return;
@@ -41,8 +48,8 @@ export function Modal({
     const previousOverflow = document.body.style.overflow;
 
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && dismissible) {
-        onClose();
+      if (e.key === 'Escape' && dismissibleRef.current) {
+        onCloseRef.current();
         return;
       }
 
@@ -72,7 +79,7 @@ export function Modal({
 
     window.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
-    window.requestAnimationFrame(() => {
+    const focusFrame = window.requestAnimationFrame(() => {
       const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
@@ -80,11 +87,12 @@ export function Modal({
     });
 
     return () => {
+      window.cancelAnimationFrame(focusFrame);
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = previousOverflow;
       openerRef.current?.focus();
     };
-  }, [open, onClose, dismissible]);
+  }, [open]);
   return (
     <AnimatePresence>
       {open && (

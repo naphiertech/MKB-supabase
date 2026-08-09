@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   MoreVertical,
   KeyRound,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { AppUser, UserRole, Zone } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
+import { calculateUserActionMenuPosition, type ActionMenuPosition } from '../../lib/userActionMenuPosition';
 import { Modal } from '../common/Modal';
 
 interface UsersTableProps {
@@ -81,6 +83,95 @@ const FALLBACK_ROLE_STYLE = {
   label: 'User'
 };
 
+function UserActionMenu({ anchor, label, onClose, children }: {
+  anchor: HTMLElement;
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const [position, setPosition] = useState<ActionMenuPosition>(() => calculateUserActionMenuPosition(
+    anchor.getBoundingClientRect(),
+    { width: 176, height: 144 },
+    { width: window.innerWidth, height: window.innerHeight }
+  ));
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useLayoutEffect(() => {
+    function updatePosition() {
+      const menuRect = menuRef.current?.getBoundingClientRect();
+      setPosition(calculateUserActionMenuPosition(
+        anchor.getBoundingClientRect(),
+        { width: menuRect?.width || 176, height: menuRect?.height || 144 },
+        { width: window.innerWidth, height: window.innerHeight }
+      ));
+    }
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchor]);
+
+  useEffect(() => {
+    const focusFrame = window.requestAnimationFrame(() => {
+      menuRef.current?.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus();
+    });
+    function handleMouseDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target) && !anchor.contains(target)) onCloseRef.current();
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        anchor.focus();
+        return;
+      }
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? []);
+      if (items.length === 0) return;
+      event.preventDefault();
+      const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+      const nextIndex = event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : event.key === 'ArrowDown'
+            ? (currentIndex + 1 + items.length) % items.length
+            : (currentIndex - 1 + items.length) % items.length;
+      items[nextIndex].focus();
+    }
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [anchor]);
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      role="menu"
+      aria-label={label}
+      data-placement={position.placement}
+      style={{ position: 'fixed', top: position.top, left: position.left, width: 176, zIndex: 2000 }}
+      className="bg-white border border-border rounded-md shadow-xl overflow-hidden"
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
+
 export function UsersTable({
   users,
   zones,
@@ -98,6 +189,7 @@ export function UsersTable({
   onToggleSuspension
 }: UsersTableProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [pendingAction, setPendingAction] = useState<{ type: 'reset' | 'suspend' | 'reactivate'; user: AppUser } | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -207,17 +299,27 @@ export function UsersTable({
                     <td className="py-2.5 px-4 relative" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpenMenu(openMenu === u.id ? null : u.id)
-                        }
+                        aria-label={`Open actions for ${u.name}`}
+                        aria-haspopup="menu"
+                        aria-expanded={openMenu === u.id}
+                        onClick={(event) => {
+                          if (openMenu === u.id) {
+                            setOpenMenu(null);
+                            setMenuAnchor(null);
+                          } else {
+                            setOpenMenu(u.id);
+                            setMenuAnchor(event.currentTarget);
+                          }
+                        }}
                         className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition cursor-pointer"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
-                      {openMenu === u.id && (
-                        <div className="absolute right-2 mt-1 w-44 bg-white border border-border rounded-md shadow-xl z-20 overflow-hidden">
+                      {openMenu === u.id && menuAnchor && (
+                        <UserActionMenu anchor={menuAnchor} label={`Actions for ${u.name}`} onClose={() => { setOpenMenu(null); setMenuAnchor(null); }}>
                           <button
                             type="button"
+                            role="menuitem"
                             onClick={() => {
                               onViewDetails?.(u);
                               setOpenMenu(null);
@@ -228,6 +330,7 @@ export function UsersTable({
                           </button>
                           <button
                             type="button"
+                            role="menuitem"
                             onClick={() => {
                               onEdit?.(u);
                               setOpenMenu(null);
@@ -238,6 +341,7 @@ export function UsersTable({
                           </button>
                           <button
                             type="button"
+                            role="menuitem"
                             onClick={() => { setActionError(null); setPendingAction({ type: 'reset', user: u }); setOpenMenu(null); }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent cursor-pointer"
                           >
@@ -245,6 +349,7 @@ export function UsersTable({
                           </button>
                           <button
                             type="button"
+                            role="menuitem"
                             disabled={u.id === currentUserId || (currentUserRole === 'hr' && u.role !== 'rider')}
                             title={u.id === currentUserId ? 'You cannot change your own account status' : undefined}
                             onClick={() => { setActionError(null); setPendingAction({ type: u.status === 'suspended' ? 'reactivate' : 'suspend', user: u }); setOpenMenu(null); }}
@@ -253,7 +358,7 @@ export function UsersTable({
                             {u.status === 'suspended' ? <RotateCcw className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
                             {u.status === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}
                           </button>
-                        </div>
+                        </UserActionMenu>
                       )}
                     </td>
                   </tr>

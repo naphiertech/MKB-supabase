@@ -13,6 +13,7 @@ import {
   validateOfflineRiderTrust,
   type OfflineRiderTrustFailure
 } from '../lib/offlineRiderTrust';
+import { logoutCurrentSessionLocally } from '../services/authSecurity';
 
 const STORAGE_KEY = "attenrider.session.v1";
 
@@ -533,12 +534,30 @@ export function useAuth() {
     });
   }, []);
 
+  const signOutLocally = useCallback(async () => {
+    try {
+      await logoutCurrentSessionLocally();
+    } catch (err) {
+      console.warn('Local sign-out warning:', err);
+    }
+    currentSession = null;
+    writeSession(null);
+    void clearOfflineRiderTrust();
+    emit();
+    pushToast({
+      title: 'Session ended',
+      description: 'This session was logged out from another signed-in device.',
+      tone: 'info'
+    });
+  }, []);
+
   const state = {
     session,
     isReady,
     user,
     signIn,
     signOut,
+    signOutLocally,
   };
 
   return state;

@@ -17,8 +17,104 @@ export async function completePasswordRecovery(password: string): Promise<void> 
   throwIfError(error);
 }
 
+export interface AuthSessionIdentity {
+  userId: string;
+  sessionId: string;
+}
+
+export interface SessionControlSignal {
+  userId: string;
+  excludedSessionId: string;
+}
+
+const SESSION_CONTROL_EVENT = 'logout_others';
+
+function sessionControlTopic(userId: string): string {
+  return `user:${userId}:session-control`;
+}
+
+export function shouldTerminateSession(signal: SessionControlSignal, current: AuthSessionIdentity): boolean {
+  return signal.userId === current.userId && signal.excludedSessionId !== current.sessionId;
+}
+
+export async function getCurrentAuthSessionIdentity(): Promise<AuthSessionIdentity> {
+  const { data, error } = await supabase.auth.getClaims();
+  throwIfError(error);
+  const userId = data?.claims?.sub;
+  const sessionId = data?.claims?.session_id;
+  if (typeof userId !== 'string' || typeof sessionId !== 'string') {
+    throw new Error('The current Auth session identity is unavailable. Sign in again and retry.');
+  }
+  return { userId, sessionId };
+}
+
+function waitForSubscription(channel: ReturnType<typeof supabase.channel>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('The session-control channel timed out.')), 8000);
+    channel.subscribe((status, error) => {
+      if (status === 'SUBSCRIBED') {
+        clearTimeout(timeout);
+        resolve();
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        clearTimeout(timeout);
+        reject(error ?? new Error('The session-control channel could not connect.'));
+      }
+    });
+  });
+}
+
+function createSessionControlChannel(identity: AuthSessionIdentity) {
+  return supabase.channel(sessionControlTopic(identity.userId), {
+    config: { private: true, broadcast: { ack: true, self: true } },
+  });
+}
+
+async function publishOtherSessionLogout(identity: AuthSessionIdentity): Promise<void> {
+  await supabase.realtime.setAuth();
+  const channel = createSessionControlChannel(identity);
+  try {
+    await waitForSubscription(channel);
+    const result = await channel.send({
+      type: 'broadcast',
+      event: SESSION_CONTROL_EVENT,
+      payload: { userId: identity.userId, excludedSessionId: identity.sessionId },
+    });
+    if (result !== 'ok') throw new Error('The immediate session-control signal was not acknowledged.');
+  } finally {
+    await supabase.removeChannel(channel);
+  }
+}
+
+export async function subscribeToOtherSessionLogout(
+  identity: AuthSessionIdentity,
+  onTerminate: () => void
+): Promise<() => void> {
+  await supabase.realtime.setAuth();
+  const channel = createSessionControlChannel(identity).on(
+    'broadcast',
+    { event: SESSION_CONTROL_EVENT },
+    (message) => {
+      const signal = message.payload as SessionControlSignal | undefined;
+      if (signal && shouldTerminateSession(signal, identity)) onTerminate();
+    }
+  );
+  await waitForSubscription(channel);
+  return () => { void supabase.removeChannel(channel); };
+}
+
 export async function logoutOtherSessions(): Promise<void> {
+  const identity = await getCurrentAuthSessionIdentity();
   const { error } = await supabase.auth.signOut({ scope: 'others' });
+  throwIfError(error);
+  try {
+    await publishOtherSessionLogout(identity);
+  } catch {
+    throw new Error('Other Auth sessions were revoked, but the immediate sign-out signal could not be delivered. They will close when their access token refreshes.');
+  }
+}
+
+export async function logoutCurrentSessionLocally(): Promise<void> {
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
   throwIfError(error);
 }
 

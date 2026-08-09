@@ -4,11 +4,15 @@ const mocks = vi.hoisted(() => ({
   resetPasswordForEmail: vi.fn(),
   updateUser: vi.fn(),
   signOut: vi.fn(),
+  getClaims: vi.fn(),
   enroll: vi.fn(),
   challengeAndVerify: vi.fn(),
   listFactors: vi.fn(),
   unenroll: vi.fn(),
   getAuthenticatorAssuranceLevel: vi.fn(),
+  realtimeSetAuth: vi.fn(),
+  channel: vi.fn(),
+  removeChannel: vi.fn(),
 }));
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -17,6 +21,7 @@ vi.mock('../lib/supabaseClient', () => ({
       resetPasswordForEmail: mocks.resetPasswordForEmail,
       updateUser: mocks.updateUser,
       signOut: mocks.signOut,
+      getClaims: mocks.getClaims,
       mfa: {
         enroll: mocks.enroll,
         challengeAndVerify: mocks.challengeAndVerify,
@@ -25,6 +30,9 @@ vi.mock('../lib/supabaseClient', () => ({
         getAuthenticatorAssuranceLevel: mocks.getAuthenticatorAssuranceLevel,
       },
     },
+    realtime: { setAuth: mocks.realtimeSetAuth },
+    channel: mocks.channel,
+    removeChannel: mocks.removeChannel,
   },
 }));
 
@@ -32,8 +40,11 @@ import {
   completePasswordRecovery,
   enrollTotpFactor,
   getMfaState,
+  logoutCurrentSessionLocally,
   logoutOtherSessions,
   requestPasswordRecovery,
+  shouldTerminateSession,
+  subscribeToOtherSessionLogout,
   unenrollTotpFactor,
   verifyTotpChallenge,
 } from './authSecurity';
@@ -58,9 +69,68 @@ describe('password recovery and session security', () => {
   });
 
   it('logs out other sessions while preserving the current session', async () => {
+    const handlers = new Map<string, (payload: unknown) => void>();
+    const channel = {
+      on: vi.fn((_type: string, options: { event: string }, handler: (payload: unknown) => void) => {
+        handlers.set(options.event, handler);
+        return channel;
+      }),
+      subscribe: vi.fn((callback: (status: string) => void) => {
+        callback('SUBSCRIBED');
+        return channel;
+      }),
+      send: vi.fn().mockResolvedValue('ok'),
+    };
+    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: 'user-a', session_id: 'session-a' } }, error: null });
+    mocks.realtimeSetAuth.mockResolvedValue(undefined);
+    mocks.channel.mockReturnValue(channel);
     mocks.signOut.mockResolvedValue({ error: null });
     await logoutOtherSessions();
     expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'others' });
+    expect(channel.send).toHaveBeenCalledWith({
+      type: 'broadcast',
+      event: 'logout_others',
+      payload: { userId: 'user-a', excludedSessionId: 'session-a' },
+    });
+    expect(mocks.signOut.mock.invocationCallOrder[0]).toBeLessThan(channel.send.mock.invocationCallOrder[0]);
+  });
+
+  it('terminates only another session belonging to the targeted user', () => {
+    const signal = { userId: 'user-a', excludedSessionId: 'session-a' };
+    expect(shouldTerminateSession(signal, { userId: 'user-a', sessionId: 'session-b' })).toBe(true);
+    expect(shouldTerminateSession(signal, { userId: 'user-a', sessionId: 'session-a' })).toBe(false);
+    expect(shouldTerminateSession(signal, { userId: 'user-b', sessionId: 'session-b' })).toBe(false);
+  });
+
+  it('delivers the immediate logout callback without requiring a refresh', async () => {
+    let broadcastHandler: ((payload: { payload?: unknown }) => void) | undefined;
+    const channel = {
+      on: vi.fn((_type: string, _options: unknown, handler: (payload: { payload?: unknown }) => void) => {
+        broadcastHandler = handler;
+        return channel;
+      }),
+      subscribe: vi.fn((callback: (status: string) => void) => {
+        callback('SUBSCRIBED');
+        return channel;
+      }),
+    };
+    mocks.realtimeSetAuth.mockResolvedValue(undefined);
+    mocks.channel.mockReturnValue(channel);
+    mocks.removeChannel.mockResolvedValue('ok');
+    const terminate = vi.fn();
+
+    const unsubscribe = await subscribeToOtherSessionLogout({ userId: 'user-a', sessionId: 'session-b' }, terminate);
+    broadcastHandler?.({ payload: { userId: 'user-a', excludedSessionId: 'session-a' } });
+    expect(terminate).toHaveBeenCalledOnce();
+    unsubscribe();
+    expect(mocks.removeChannel).toHaveBeenCalledWith(channel);
+  });
+
+  it('clears a remotely terminated browser locally without revoking the initiating session', async () => {
+    mocks.signOut.mockResolvedValue({ error: null });
+    await logoutCurrentSessionLocally();
+    expect(mocks.signOut).toHaveBeenCalledOnce();
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 });
 

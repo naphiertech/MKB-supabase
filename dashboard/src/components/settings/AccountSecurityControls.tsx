@@ -77,7 +77,7 @@ export function AccountSecurityControls() {
     try {
       await logoutOtherSessions();
       setSessionsOpen(false);
-      pushToast({ title: 'Other sessions revoked', description: 'This session remains signed in. Existing access tokens on other devices expire automatically.', tone: 'success' });
+      pushToast({ title: 'Other sessions logged out', description: 'Other open MKBRiderTrack sessions were told to close immediately. This session remains signed in.', tone: 'success' });
     } catch (err: unknown) {
       pushToast({ title: 'Session logout failed', description: err instanceof Error ? err.message : 'Please try again.', tone: 'error' });
     } finally { setBusy(false); }

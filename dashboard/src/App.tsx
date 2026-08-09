@@ -22,7 +22,7 @@ import { initSyncEngine, startSyncEngine, stopSyncEngine } from './lib/sync/Sync
 import { PAGE_TRANSITION_VARIANTS } from './lib/motion';
 import { PasswordRecovery } from './components/auth/PasswordRecovery';
 import { MfaChallenge } from './components/auth/MfaChallenge';
-import { getMfaState } from './services/authSecurity';
+import { getCurrentAuthSessionIdentity, getMfaState, subscribeToOtherSessionLogout } from './services/authSecurity';
 import { isPasswordRecoveryUrl } from './lib/authRecoveryRoute';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
@@ -81,7 +81,7 @@ export function App() {
     window.location.pathname !== '' && 
     window.location.pathname !== '/index.html';
 
-  const { session, isReady: isAuthReady, user, signOut } = useAuth();
+  const { session, isReady: isAuthReady, user, signOut, signOutLocally } = useAuth();
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => {
     if (typeof window === 'undefined') return false;
     return isPasswordRecoveryUrl(window.location);
@@ -157,6 +157,29 @@ export function App() {
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [session?.id, signOut]);
+
+  useEffect(() => {
+    if (!session?.id || isPasswordRecovery) return;
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+
+    void getCurrentAuthSessionIdentity()
+      .then((identity) => {
+        if (!active || identity.userId !== session.id) return undefined;
+        return subscribeToOtherSessionLogout(identity, () => void signOutLocally());
+      })
+      .then((cleanup) => {
+        if (!cleanup) return;
+        if (active) unsubscribe = cleanup;
+        else cleanup();
+      })
+      .catch((error) => console.error('Session-control subscription failed:', error));
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [isPasswordRecovery, session?.id, signOutLocally]);
 
   // Attach passive listeners, then activate replay only after rider identity is verified.
   useEffect(() => {
