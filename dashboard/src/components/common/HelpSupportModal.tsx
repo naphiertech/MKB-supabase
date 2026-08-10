@@ -105,24 +105,24 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute inset-y-0 right-0 w-full max-w-lg h-full bg-white border-l border-border shadow-2xl flex flex-col overflow-hidden z-10 font-[Geist,sans-serif]"
+            className="safe-drawer absolute inset-y-0 right-0 flex w-full max-w-lg flex-col overflow-hidden border-l border-border bg-white shadow-2xl z-10 font-[Geist,sans-serif]"
           >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-panel-bg">
-            <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-panel-bg px-4 py-3 sm:px-6 sm:py-4">
+            <div className="flex min-w-0 items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
                 <HelpCircle className="w-4.5 h-4.5 text-primary" />
               </div>
-              <div>
-                <h2 id="help-support-title" className="text-base font-bold text-foreground">Help & Support Center</h2>
-                <p className="text-[11px] text-muted-foreground font-mono">User guides, FAQs, and support ticket desk</p>
+              <div className="min-w-0">
+                <h2 id="help-support-title" className="truncate text-sm font-bold text-foreground sm:text-base">Help & Support Center</h2>
+                <p className="hidden truncate text-[11px] text-muted-foreground font-mono min-[360px]:block">User guides, FAQs, and support ticket desk</p>
               </div>
             </div>
             <button
               ref={closeButtonRef}
               onClick={onClose}
               aria-label="Close help and support"
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-border/50 transition cursor-pointer"
+              className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-border/50 hover:text-foreground cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -131,7 +131,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
           {/* Tabs & Content */}
           <div className="flex flex-col overflow-hidden flex-1">
             {/* Top Navigation Tabs Bar */}
-            <div className="flex px-6 py-2 bg-panel-bg border-b border-border gap-1 shrink-0" role="tablist" aria-label="Help sections">
+            <div className="table-scroll-region flex shrink-0 gap-1 border-b border-border bg-panel-bg px-4 py-2 sm:px-6" role="tablist" aria-label="Help sections" tabIndex={0}>
               {(['guide', 'faq', 'support'] as const).map((tab) => {
                 const active = activeTab === tab;
                 const label = tab === 'guide' ? 'User Guide' : tab === 'faq' ? 'FAQ' : 'Contact Support';
@@ -145,7 +145,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
                     id={`help-tab-${tab}`}
                     aria-selected={active}
                     aria-controls={`help-panel-${tab}`}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                    className={`flex shrink-0 items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
                       active
                         ? 'bg-white text-accent-foreground border border-border shadow-xs'
                         : 'text-muted-foreground hover:text-foreground hover:bg-white/50'
@@ -159,7 +159,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
             </div>
 
             {/* Scrollable Content Area */}
-            <div className="flex-1 p-6 overflow-y-auto bg-white">
+            <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-6">
               {/* Tab 1: User Guide */}
               {activeTab === 'guide' && (
                 <div id="help-panel-guide" role="tabpanel" aria-labelledby="help-tab-guide" className="space-y-6">

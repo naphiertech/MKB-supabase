@@ -77,7 +77,7 @@ export function DeviceResetModal({
           initial="initial"
           animate="animate"
           exit="exit"
-          className="bg-white border border-border rounded-2xl max-w-md w-full p-6 shadow-xl relative text-foreground font-[Geist,sans-serif]"
+          className="viewport-dialog relative w-full max-w-md rounded-xl border border-border bg-white p-4 text-foreground shadow-xl sm:rounded-2xl sm:p-6 font-[Geist,sans-serif]"
         >
           {/* Close button */}
           <button

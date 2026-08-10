@@ -545,11 +545,11 @@ export function PayrollDetailsModal({
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "tween", duration: 0.3, ease: "easeOut" }}
-        className="fixed top-0 bottom-0 right-0 h-full w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-[70vw] 2xl:max-w-[60vw] bg-white border-l border-border shadow-[0_0_50px_rgba(26,20,16,0.15)] flex flex-col z-[1201] font-[Geist,sans-serif]"
+        className="safe-drawer fixed top-0 bottom-0 right-0 flex w-full flex-col border-l border-border bg-white shadow-[0_0_50px_rgba(26,20,16,0.15)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-[70vw] 2xl:max-w-[60vw] z-[1201] font-[Geist,sans-serif]"
       >
         {/* Modal Header */}
-        <div className="px-5 py-3.5 border-b border-border flex items-center justify-between shrink-0 bg-panel-bg">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-panel-bg px-3 py-3 sm:px-5 sm:py-3.5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <h3 className="text-base font-bold text-foreground">
               Payroll Details
             </h3>

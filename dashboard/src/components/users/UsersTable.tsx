@@ -220,8 +220,8 @@ export function UsersTable({
 
   return (
     <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
-      <div className="overflow-x-auto ar-scroll">
-        <table className="w-full text-sm">
+      <div className="table-scroll-region ar-scroll" role="region" aria-label="User records" tabIndex={0}>
+        <table className="data-table-wide w-full text-sm">
           <thead>
             <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border bg-panel-bg">
               <th className="font-semibold py-3 px-4">User</th>

@@ -225,7 +225,7 @@ export function AttendanceDistributionChart({ logs = [] }: { logs?: AttendanceLo
 
   return (
     <ChartCard title="Attendance Status Breakdown" subtitle="Distribution across selected records" tone="green">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 h-[240px]">
+      <div className="flex min-h-[300px] flex-col items-center justify-between gap-4 sm:h-[240px] sm:min-h-0 sm:flex-row">
         <p className="sr-only">{distribution.map((item) => `${item.name}: ${item.value} records, ${item.pct}%`).join('; ')}</p>
         <div className="w-full sm:w-[55%] h-[200px] flex items-center justify-center relative">
           {shouldRender ? (

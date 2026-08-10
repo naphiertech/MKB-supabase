@@ -46,7 +46,7 @@ export function FaceCaptureModal({
     <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/60 backdrop-blur-sm" onClick={onCancel} />
       
-      <div role="dialog" aria-modal="true" aria-labelledby="face-enrollment-title" className="relative bg-white rounded-2xl border border-border shadow-2xl w-full max-w-sm p-5 z-[1310]">
+      <div role="dialog" aria-modal="true" aria-labelledby="face-enrollment-title" className="viewport-dialog relative z-[1310] w-full max-w-sm rounded-xl border border-border bg-white p-4 shadow-2xl sm:rounded-2xl sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div id="face-enrollment-title" className="text-sm font-semibold text-foreground">Face Enrollment</div>

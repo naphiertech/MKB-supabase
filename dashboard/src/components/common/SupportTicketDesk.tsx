@@ -334,7 +334,7 @@ export function SupportTicketDesk({ currentUser }: SupportTicketDeskProps) {
 
       {view === 'tickets' && !selectedTicket && (
         <div className="space-y-3">
-          <div className="grid grid-cols-[1fr_130px] gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_130px]">
             <label className="relative">
               <span className="sr-only">Search support tickets</span>
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

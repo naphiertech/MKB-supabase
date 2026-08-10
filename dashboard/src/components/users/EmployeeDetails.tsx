@@ -249,8 +249,8 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
   return (
     <div className="flex flex-col min-h-screen bg-panel-bg text-foreground font-[Geist,sans-serif]">
       {/* Top Header */}
-      <div className="sticky top-0 bg-panel-bg/90 backdrop-blur-md border-b border-border z-50 px-4 py-3 md:px-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="sticky top-16 z-40 flex flex-col items-stretch justify-between gap-3 border-b border-border bg-panel-bg/95 px-4 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -259,8 +259,8 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-foreground">
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold tracking-tight text-foreground sm:text-lg">
               Employee Profile Dashboard
             </h1>
             <p className="text-xs text-muted-foreground hidden sm:block">
@@ -269,12 +269,12 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
           </div>
         </div>
 
-        <div className="flex gap-2 shrink-0">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0">
           {isRider && (
             <button
               type="button"
               onClick={handleDownloadDTR}
-              className="px-3.5 h-9 rounded-md border border-border bg-white text-foreground hover:bg-panel-bg text-sm font-semibold transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-xs font-semibold text-foreground shadow-sm transition hover:bg-panel-bg sm:h-9 sm:px-3.5 sm:text-sm cursor-pointer"
             >
               <FileText className="w-4 h-4 text-primary" />
               Export DTR
@@ -283,7 +283,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
           <button
             type="button"
             onClick={handleExportPDF}
-            className="px-3.5 h-9 rounded-md border border-border bg-white text-foreground hover:bg-panel-bg text-sm font-semibold transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-white px-3 text-xs font-semibold text-foreground shadow-sm transition hover:bg-panel-bg sm:h-9 sm:px-3.5 sm:text-sm cursor-pointer"
           >
             <Download className="w-4 h-4 text-primary" />
             Export PDF
@@ -291,7 +291,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
           <button
             type="button"
             onClick={onEdit}
-            className="px-4 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary/90 text-white text-sm font-semibold focus:ring-2 focus:ring-primary/25 transition cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+            className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-hover active:bg-primary/90 focus:ring-2 focus:ring-primary/25 sm:col-auto sm:h-9 sm:text-sm cursor-pointer"
           >
             <Pencil className="w-4 h-4" />
             Edit Profile
@@ -340,7 +340,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                 </div>
                 <div className="flex justify-between items-center py-0.5">
                   <span>Email address</span>
-                  <span className="font-semibold text-foreground truncate max-w-[180px]">{user.email}</span>
+                  <span className="text-wrap-safe max-w-[65%] text-right font-semibold text-foreground">{user.email}</span>
                 </div>
                 <div className="flex justify-between items-center py-0.5">
                   <span>Phone Number</span>
@@ -493,7 +493,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
 
             {/* Tabs Navigation */}
             {isRider && (
-              <div className="flex overflow-x-auto border-b border-border gap-6 text-sm" role="tablist" aria-label="Rider details sections">
+          <div className="table-scroll-region flex gap-6 border-b border-border text-sm" role="tablist" aria-label="Rider details sections" tabIndex={0}>
                 <button
                   type="button"
                   onClick={() => setActiveTab('profile')}

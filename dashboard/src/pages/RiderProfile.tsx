@@ -218,7 +218,7 @@ export function RiderProfile({ userId, riderId, onBack }: RiderProfileProps) {
           <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono font-semibold">
             Courier · MKB Corporation
           </div>
-          <h1 className="text-2xl font-semibold text-foreground truncate mt-0.5">
+          <h1 className="mt-0.5 text-wrap-safe text-xl font-semibold leading-tight text-foreground sm:text-2xl">
             {rider.name}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-mono">
@@ -248,7 +248,7 @@ export function RiderProfile({ userId, riderId, onBack }: RiderProfileProps) {
                   <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono font-semibold">
                     Email Address
                   </div>
-                  <div className="mt-0.5 text-sm text-muted-foreground font-mono truncate">
+                  <div className="text-wrap-safe mt-0.5 text-sm text-muted-foreground font-mono">
                     {user?.email ?? '—'}
                   </div>
                 </div>

@@ -396,7 +396,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-accent text-primary text-[10.5px] font-bold tracking-wide uppercase">
                 <History className="w-3.5 h-3.5" />
                 Historical Archive
@@ -423,7 +423,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
 
       {/* SUMMARY STATS ROW */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 divide-y md:divide-y-0 md:divide-x divide-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 divide-y md:divide-y-0 md:divide-x divide-border">
           <div className="space-y-0.5">
             <span className="text-[10.5px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1.5">
               <Calendar className="w-3 h-3 text-primary" />
@@ -470,24 +470,24 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       <div className="bg-white border border-border rounded-xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           {/* View Mode Tabs */}
-          <div className="inline-flex rounded-lg border border-border bg-panel-bg p-0.5">
+          <div className="table-scroll-region flex w-full rounded-lg border border-border bg-panel-bg p-0.5 lg:w-auto" role="tablist" aria-label="Payroll history views" tabIndex={0}>
             <button
               onClick={() => setActiveTab('summaries')}
-              className={`h-8 px-3 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'summaries' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-10 sm:h-8 shrink-0 px-3 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'summaries' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Calendar className="w-3.5 h-3.5" />
               Cutoff Summaries ({cutoffGroups.length})
             </button>
             <button
               onClick={() => setActiveTab('records')}
-              className={`h-8 px-3 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'records' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-10 sm:h-8 shrink-0 px-3 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'records' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <FileText className="w-3.5 h-3.5" />
               Detailed Rider Records ({filteredRecords.length})
             </button>
             <button
               onClick={() => setActiveTab('compare')}
-              className={`h-8 px-3 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'compare' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`h-10 sm:h-8 shrink-0 px-3 rounded-md text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'compare' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <BarChart2 className="w-3.5 h-3.5" />
               Compare Cutoffs
@@ -682,8 +682,8 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       {/* TAB 2: DETAILED RIDER RECORDS VIEW */}
       {activeTab === 'records' && (
         <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="table-scroll-region" role="region" aria-label="Historical payroll records" tabIndex={0}>
+            <table className="data-table-extra-wide w-full text-left text-xs">
               <thead className="bg-panel-bg border-b border-border text-muted-foreground uppercase font-bold text-[10.5px] tracking-wider">
                 <tr>
                   <th className="p-3.5">Rider Info</th>
@@ -865,7 +865,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="w-full max-w-2xl bg-white h-full shadow-2xl overflow-y-auto flex flex-col border-l border-border"
+              className="safe-drawer flex w-full max-w-2xl flex-col overflow-y-auto border-l border-border bg-white shadow-2xl"
             >
               {/* Drawer Header */}
               <div className="p-5 border-b border-border bg-panel-bg flex items-center justify-between sticky top-0 z-10">
@@ -945,7 +945,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white border border-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+              className="viewport-dialog w-full max-w-lg space-y-4 rounded-xl border border-border bg-white p-4 shadow-2xl sm:rounded-2xl sm:p-6"
             >
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <div className="flex items-center gap-2">

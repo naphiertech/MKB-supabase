@@ -235,8 +235,8 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
 
       <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-xs" aria-labelledby="rate-history-heading">
         <div className="flex items-center gap-2 border-b border-border px-5 py-4"><History className="h-4 w-4 text-primary" /><h3 id="rate-history-heading" className="text-sm font-bold text-foreground">Configuration History</h3>{!canManage && <span className="ml-auto rounded-full border border-border bg-panel-bg px-2 py-0.5 text-[10px] font-bold text-muted-foreground">Read only</span>}</div>
-        <div className="overflow-x-auto">
-          <table className="min-w-[900px] w-full text-left text-xs">
+        <div className="table-scroll-region" role="region" aria-label="Parcel rate configuration history" tabIndex={0}>
+          <table className="data-table-wide w-full text-left text-xs">
             <thead className="bg-panel-bg text-[10px] uppercase tracking-wider text-muted-foreground"><tr>{['Effective period', 'Early', 'Regular', 'Late', 'Heavy', 'Threshold', 'Status', 'Reason', 'Actions'].map((heading) => <th key={heading} className="px-4 py-3 font-bold">{heading}</th>)}</tr></thead>
             <tbody className="divide-y divide-border">
               {sortedConfigurations.map((configuration) => {
@@ -283,7 +283,7 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-                className="fixed inset-y-0 right-0 z-[9991] flex h-full w-full flex-col bg-white border-l border-border shadow-2xl sm:w-[520px] md:w-[560px]"
+                className="safe-drawer fixed inset-y-0 right-0 z-[9991] flex w-full flex-col border-l border-border bg-white shadow-2xl sm:w-[520px] md:w-[560px]"
               >
                 {/* Sticky Header */}
                 <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-white px-5 py-4">

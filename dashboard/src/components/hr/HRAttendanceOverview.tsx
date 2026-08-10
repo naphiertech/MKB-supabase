@@ -182,8 +182,8 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="table-scroll-region" role="region" aria-label="HR attendance overview" tabIndex={0}>
+        <table className="data-table-wide w-full text-sm">
           <thead>
             <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border">
               <th className="font-semibold py-2.5 px-4">Rider</th>
@@ -252,7 +252,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
       {/* Clickable Attendance Details Modal */}
       {selectedLog && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
-          <div className="relative max-w-lg w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-5 space-y-4 animate-in zoom-in-95 duration-200">
+          <div className="viewport-dialog relative w-full max-w-lg space-y-4 rounded-xl bg-white p-4 shadow-2xl animate-in zoom-in-95 duration-200 sm:rounded-2xl sm:p-5">
             <div className="flex justify-between items-start pb-3 border-b border-border">
               <div className="flex items-center gap-3">
                 <img

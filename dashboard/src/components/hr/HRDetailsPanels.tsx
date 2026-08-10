@@ -123,13 +123,13 @@ function OnDutyHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider
       </div>
 
       {/* List */}
-      <div className="max-h-[300px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
+      <div className="table-scroll-region max-h-[300px] overflow-y-auto border border-border rounded-xl bg-white custom-scrollbar" role="region" aria-label="On-duty rider details" tabIndex={0}>
         {filteredLogs.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted-foreground">
             No riders clocked in on duty.
           </div>
         ) : (
-          <table className="w-full text-xs text-left">
+          <table className="data-table w-full text-xs text-left">
             <thead>
               <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>
@@ -205,13 +205,13 @@ function CompleteHRDetail({ logs }: { logs: AttendanceLog[] }) {
       </div>
 
       {/* List */}
-      <div className="max-h-[300px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
+      <div className="table-scroll-region max-h-[300px] overflow-y-auto border border-border rounded-xl bg-white custom-scrollbar" role="region" aria-label="Completed attendance details" tabIndex={0}>
         {filteredLogs.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted-foreground">
             No complete attendance entries found.
           </div>
         ) : (
-          <table className="w-full text-xs text-left">
+          <table className="data-table w-full text-xs text-left">
             <thead>
               <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>
@@ -282,13 +282,13 @@ function AbsentHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider
       </div>
 
       {/* List */}
-      <div className="max-h-[250px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
+      <div className="table-scroll-region max-h-[250px] overflow-y-auto border border-border rounded-xl bg-white custom-scrollbar" role="region" aria-label="Absent rider details" tabIndex={0}>
         {filteredLogs.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted-foreground">
             No absent riders tracked today.
           </div>
         ) : (
-          <table className="w-full text-xs text-left">
+          <table className="data-table w-full text-xs text-left">
             <thead>
               <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>
@@ -390,13 +390,13 @@ function PendingValidationHRDetail({ logs }: { logs: AttendanceLog[] }) {
       </div>
 
       {/* List */}
-      <div className="max-h-[250px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
+      <div className="table-scroll-region max-h-[250px] overflow-y-auto border border-border rounded-xl bg-white custom-scrollbar" role="region" aria-label="Pending attendance validations" tabIndex={0}>
         {filteredLogs.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted-foreground">
             No pending validations requiring review.
           </div>
         ) : (
-          <table className="w-full text-xs text-left">
+          <table className="data-table w-full text-xs text-left">
             <thead>
               <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>

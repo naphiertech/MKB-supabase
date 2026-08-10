@@ -101,11 +101,11 @@ interface ZonesTableDetailProps {
 
 function ZonesTableDetail({ zones, onFocusZone }: ZonesTableDetailProps) {
   return (
-    <div className="max-h-[300px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
+    <div className="table-scroll-region max-h-[300px] overflow-y-auto border border-border rounded-xl bg-white custom-scrollbar" role="region" aria-label="Zone details" tabIndex={0}>
       {zones.length === 0 ? (
         <div className="text-center py-12 text-xs text-muted-foreground">No zones match.</div>
       ) : (
-        <table className="w-full text-xs text-left">
+        <table className="data-table w-full text-xs text-left">
           <thead>
             <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
               <th className="px-4 py-2.5">Zone Name</th>
@@ -188,11 +188,11 @@ function RidersAssignedDetail({ riders, zones }: RidersAssignedDetailProps) {
         />
       </div>
 
-      <div className="max-h-[260px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
+      <div className="table-scroll-region max-h-[260px] overflow-y-auto border border-border rounded-xl bg-white custom-scrollbar" role="region" aria-label="Rider zone assignments" tabIndex={0}>
         {filteredRiders.length === 0 ? (
           <div className="text-center py-12 text-xs text-muted-foreground">No riders match your search.</div>
         ) : (
-          <table className="w-full text-xs text-left">
+          <table className="data-table w-full text-xs text-left">
             <thead>
               <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
                 <th className="px-4 py-2.5">Rider</th>
@@ -292,11 +292,11 @@ function ViolationsTodayDetail({ violations }: ViolationsTodayDetailProps) {
   };
 
   return (
-    <div className="max-h-[300px] overflow-y-auto pr-1 border border-border rounded-xl bg-white custom-scrollbar">
+    <div className="table-scroll-region max-h-[300px] overflow-y-auto border border-border rounded-xl bg-white custom-scrollbar" role="region" aria-label="Zone violations" tabIndex={0}>
       {violations.length === 0 ? (
         <div className="text-center py-12 text-xs text-muted-foreground">No violations tracked today.</div>
       ) : (
-        <table className="w-full text-xs text-left">
+        <table className="data-table w-full text-xs text-left">
           <thead>
             <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
               <th className="px-4 py-2.5">Rider</th>

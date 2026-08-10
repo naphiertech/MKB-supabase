@@ -54,8 +54,8 @@ export function AttendanceLogs({ logs, onViewAll }: AttendanceLogsProps) {
         </div>
       </div>
 
-      <div className="overflow-x-auto ar-scroll">
-        <table className="w-full text-sm">
+      <div className="table-scroll-region ar-scroll" role="region" aria-label="Recent attendance logs" tabIndex={0}>
+        <table className="data-table w-full text-sm">
           <thead>
             <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border bg-panel-bg">
               <th className="font-semibold py-2.5 px-4">Rider</th>

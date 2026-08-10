@@ -443,7 +443,7 @@ export function Attendance() {
         {/* Toolbar Controls Row */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           {/* Left Filters Section */}
-          <div className="flex flex-wrap items-end gap-3.5 flex-1">
+          <div className="flex w-full flex-wrap items-end gap-3.5 lg:flex-1">
             <FilterField label="From">
               <input
                 type="date"
@@ -516,7 +516,7 @@ export function Attendance() {
                   placeholder="Search by Rider Name or Rider ID"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="att-input w-64 md:w-72 min-w-[250px]"
+                  className="att-input w-full sm:w-64 md:w-72"
                   style={{ paddingLeft: '32px' }}
                 />
               </div>
@@ -524,11 +524,11 @@ export function Attendance() {
           </div>
 
           {/* Right Actions Section */}
-          <div className="flex items-end gap-2 shrink-0 flex-wrap pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
+          <div className="grid w-full grid-cols-2 items-end gap-2 border-t border-border pt-3 sm:flex sm:w-auto sm:flex-wrap lg:shrink-0 lg:border-t-0 lg:pt-0">
             {/* Export CSV Ghost */}
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 h-[34px] rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-panel-bg transition cursor-pointer"
+              className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-muted-foreground transition hover:bg-panel-bg hover:text-foreground sm:h-[34px] sm:w-auto cursor-pointer"
               title="Export CSV"
             >
               <Download className="w-3.5 h-3.5" /> CSV
@@ -537,7 +537,7 @@ export function Attendance() {
             {/* Export PDF Ghost */}
             <button
               onClick={handleExportPDF}
-              className="inline-flex items-center gap-1.5 px-3 h-[34px] rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-panel-bg transition cursor-pointer"
+              className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-muted-foreground transition hover:bg-panel-bg hover:text-foreground sm:h-[34px] sm:w-auto cursor-pointer"
               title="Export PDF"
             >
               <FileText className="w-3.5 h-3.5" /> PDF
@@ -546,7 +546,7 @@ export function Attendance() {
             {/* Import DTR Secondary Outline */}
             <button
               onClick={() => setImportModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 h-[34px] rounded-lg border border-border bg-white text-foreground hover:bg-panel-bg text-xs font-semibold shadow-2xs transition cursor-pointer"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-white px-3.5 text-xs font-semibold text-foreground shadow-2xs transition hover:bg-panel-bg sm:h-[34px] sm:w-auto cursor-pointer"
             >
               <Upload className="w-3.5 h-3.5 text-primary" />
               <span>Import DTR</span>
@@ -555,7 +555,7 @@ export function Attendance() {
             {/* Generate DTR Primary */}
             <button
               onClick={() => setDtrModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 h-[34px] rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm hover:shadow-md transition cursor-pointer"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white shadow-sm transition hover:bg-primary-hover hover:shadow-md sm:h-[34px] sm:w-auto cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Generate DTR</span>
@@ -566,6 +566,8 @@ export function Attendance() {
         <style>{`
           .att-input {
             height: 34px;
+            width: 100%;
+            min-width: 0;
             padding: 0 10px;
             background: var(--panel-bg);
             border: 1px solid var(--border);
@@ -575,6 +577,9 @@ export function Attendance() {
             outline: none;
             font-family: 'Geist Mono', monospace;
             transition: border-color 150ms ease, box-shadow 150ms ease;
+          }
+          @media (min-width: 640px) {
+            .att-input { width: auto; }
           }
           .att-input:focus {
             border-color: var(--primary);
@@ -619,7 +624,7 @@ export function Attendance() {
 
           return (
             <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4">
-              <div className="relative max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+              <div className="viewport-dialog relative w-full max-w-2xl space-y-5 rounded-xl bg-white p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200 sm:rounded-2xl sm:p-6">
                 <div className="flex justify-between items-center pb-3 border-b border-border">
                   <div>
                     <h3 className="text-base font-bold text-foreground">Generate Daily Time Record (DTR)</h3>
@@ -711,7 +716,7 @@ export function Attendance() {
       {/* DTR PDF Import Modal */}
       {importModalOpen && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4">
-          <div className="relative max-w-xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="viewport-dialog relative w-full max-w-xl space-y-5 rounded-xl bg-white p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200 sm:rounded-2xl sm:p-6">
             <div className="flex justify-between items-center pb-3 border-b border-border">
               <div>
                 <h3 className="text-base font-bold text-foreground">Import Attendance DTR (PDF)</h3>
@@ -829,7 +834,7 @@ export function Attendance() {
 
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex w-full flex-col gap-1 sm:w-auto">
       <label className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">{label}</label>
       {children}
     </div>

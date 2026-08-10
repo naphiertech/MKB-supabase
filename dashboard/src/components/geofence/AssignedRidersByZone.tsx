@@ -119,13 +119,13 @@ export function AssignedRidersByZone({
                 
               </button>
               {isOpen &&
-              <div className="overflow-x-auto">
+              <div className="table-scroll-region" role="region" aria-label={`${zone.name} assigned riders`} tabIndex={0}>
                   {zoneRiders.length === 0 ?
                 <div className="px-6 py-6 text-sm text-muted-foreground">
                       No riders assigned to this zone yet.
                     </div> :
 
-                <table className="w-full text-sm">
+                <table className="data-table w-full text-sm">
                       <thead>
                         <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground bg-panel-bg">
                           <th className="px-4 py-2 font-semibold">

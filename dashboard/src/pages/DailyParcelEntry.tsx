@@ -550,7 +550,7 @@ export function DailyParcelEntry() {
       initial="initial"
       animate="animate"
       exit="exit"
-      className="p-6 max-w-[1600px] mx-auto space-y-5 font-sans"
+      className="mx-auto max-w-[1600px] space-y-5 p-4 font-sans md:p-6 lg:p-7"
     >
       {/* Informational Header Card */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -797,8 +797,8 @@ export function DailyParcelEntry() {
           </div>
         ) : (
           <>
-          <div className="overflow-x-auto hidden lg:block">
-            <table className="w-full text-xs text-left border-collapse">
+          <div className="table-scroll-region hidden lg:block" role="region" aria-label="Daily parcel rider records" tabIndex={0}>
+            <table className="data-table-extra-wide w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="bg-panel-bg/60 border-b border-border text-[10.5px] uppercase tracking-wider text-muted-foreground font-bold">
                   <th className="px-4 py-3">Rider</th>
@@ -842,7 +842,7 @@ export function DailyParcelEntry() {
                     </div>
                     <StatusBadge status={row.attendanceStatus} />
                   </div>
-                  <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="grid grid-cols-2 min-[420px]:grid-cols-4 gap-2 text-center">
                     {[
                       ['Standard', row.deliveredParcels],
                       ['Heavy', row.heavyParcels],
@@ -898,8 +898,8 @@ export function DailyParcelEntry() {
           </button>
 
           {!absentCollapsed && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left border-collapse">
+            <div className="table-scroll-region" role="region" aria-label="Absent rider parcel status" tabIndex={0}>
+              <table className="data-table w-full text-xs text-left border-collapse">
                 <thead>
                   <tr className="bg-panel-bg/40 border-b border-border text-[10.5px] uppercase tracking-wider text-muted-foreground font-bold">
                     <th className="px-4 py-3">Rider</th>
@@ -962,7 +962,7 @@ export function DailyParcelEntry() {
                   animate={{ x: 0 }}
                   exit={{ x: '100%' }}
                   transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                  className="absolute inset-y-0 right-0 w-full max-w-md bg-white border-l border-border shadow-2xl flex flex-col font-sans z-[100000]"
+                  className="safe-drawer absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-border bg-white shadow-2xl font-sans z-[100000]"
                 >
                   {/* Drawer Header */}
                   <div className="p-5 border-b border-border flex items-center justify-between bg-panel-bg">

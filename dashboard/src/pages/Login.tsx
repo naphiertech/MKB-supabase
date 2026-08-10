@@ -124,7 +124,7 @@ export function Login() {
   }
   return (
     <motion.div 
-      className="min-h-screen w-full bg-white text-foreground font-[Geist,sans-serif] flex flex-col lg:flex-row"
+      className="flex min-h-screen w-full flex-col overflow-x-clip bg-white text-foreground lg:flex-row font-[Geist,sans-serif]"
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.3 }}
     >

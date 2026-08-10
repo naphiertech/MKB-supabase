@@ -384,8 +384,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
   return (
     <div className="flex flex-col min-h-screen bg-panel-bg text-foreground font-[Geist,sans-serif]">
       {/* Top sticky action header */}
-      <div className="sticky top-0 bg-panel-bg/90 backdrop-blur-md border-b border-border z-50 px-4 py-3 md:px-6 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="sticky top-16 z-40 flex flex-col items-stretch justify-between gap-3 border-b border-border bg-panel-bg/95 px-4 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onClose}
@@ -395,8 +395,8 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-foreground">
+          <div className="min-w-0">
+            <h1 className="text-wrap-safe text-base font-bold leading-tight tracking-tight text-foreground sm:text-lg">
               {mode === "edit"
                 ? `Edit User: ${form.firstName} ${form.lastName}`
                 : "Add New User"}
@@ -409,12 +409,12 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-2 items-center gap-2 sm:flex sm:w-auto">
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="px-4 h-9 rounded-md bg-white border border-border text-sm text-foreground hover:border-primary/30 transition disabled:opacity-50 cursor-pointer font-medium"
+            className="h-10 rounded-md border border-border bg-white px-4 text-sm font-medium text-foreground transition hover:border-primary/30 disabled:opacity-50 sm:h-9 cursor-pointer"
           >
             Cancel
           </button>
@@ -422,7 +422,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
             type="button"
             onClick={handleSubmit}
             disabled={submitting}
-            className="px-5 h-9 rounded-md bg-primary hover:bg-primary-hover active:bg-primary-hover text-white text-sm font-semibold focus:ring-2 focus:ring-primary/25 transition disabled:opacity-70 cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-hover active:bg-primary-hover focus:ring-2 focus:ring-primary/25 disabled:opacity-70 sm:h-9 sm:px-5 cursor-pointer"
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {submitting

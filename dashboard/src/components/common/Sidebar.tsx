@@ -193,7 +193,7 @@ export function Sidebar({
         transition={{ duration: mobile ? 0.3 : 0.4, ease: "easeOut" }}
         className={
           mobile
-            ? `relative flex w-72 max-w-[85vw] shrink-0 flex-col bg-white border-r border-border h-full shadow-2xl z-[1050]`
+            ? `safe-drawer relative flex w-[min(18rem,calc(100vw-2rem))] shrink-0 flex-col bg-white border-r border-border shadow-2xl z-[1050]`
             : `hidden md:flex ${showCollapsed ? 'w-[72px]' : 'w-64'} shrink-0 flex-col bg-white border-r border-border h-screen sticky top-0 transition-[width] duration-300 ease-in-out z-30`
         }
       >
