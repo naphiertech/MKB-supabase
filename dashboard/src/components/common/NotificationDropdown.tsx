@@ -186,11 +186,12 @@ export function NotificationDropdown({
           fixed left-2 right-2 top-[68px] z-50
           sm:absolute sm:left-auto sm:right-0 sm:top-[calc(100%+8px)]
           sm:w-[380px]
+          max-h-[calc(100dvh-5rem)]
           bg-white border border-border rounded-xl shadow-2xl overflow-hidden
         "
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 h-12 border-b border-border bg-[#FAF9F6]">
+        <div className="flex min-h-12 items-center justify-between gap-2 border-b border-border bg-[#FAF9F6] px-3 sm:px-4">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold text-foreground">
               Notifications
@@ -206,7 +207,7 @@ export function NotificationDropdown({
               <button
                 type="button"
                 onClick={onMarkAllAsRead}
-                className="text-xs font-semibold text-primary hover:text-accent-foreground transition px-2 py-1 rounded hover:bg-[#FFF4E5]"
+                className="whitespace-nowrap rounded px-2 py-1 text-[11px] font-semibold text-primary transition hover:bg-[#FFF4E5] hover:text-accent-foreground sm:text-xs"
               >
                 Mark all as read
               </button>
@@ -234,7 +235,7 @@ export function NotificationDropdown({
             </p>
           </div>
         ) : (
-          <ul className="max-h-[60vh] sm:max-h-[420px] overflow-y-auto divide-y divide-border">
+          <ul className="max-h-[calc(100dvh-8rem)] divide-y divide-border overflow-y-auto sm:max-h-[420px]">
             {notifications.map((n, index) => {
               const categoryConfig = n.category && CATEGORY_STYLES[n.category]
                 ? CATEGORY_STYLES[n.category]

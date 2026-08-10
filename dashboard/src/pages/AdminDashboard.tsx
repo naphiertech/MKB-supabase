@@ -166,7 +166,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                 Open full view →
               </button>
             </div>
-            <div className="h-[460px]">
+            <div className="h-[340px] sm:h-[400px] lg:h-[460px]">
               <LiveMonitoringMap
                 riders={riders}
                 zones={zonesList}

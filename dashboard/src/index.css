@@ -100,9 +100,57 @@
   * {
     @apply border-border outline-ring;
   }
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: "Geist", sans-serif;
+  }
+}
+
+/* Responsive layout primitives shared by dense dashboard surfaces. */
+.table-scroll-region {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.data-table {
+  min-width: 42rem;
+}
+
+.data-table-wide {
+  min-width: 60rem;
+}
+
+.data-table-extra-wide {
+  min-width: 72rem;
+}
+
+.viewport-dialog {
+  max-height: calc(100dvh - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.safe-drawer {
+  height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.text-wrap-safe {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+@media (min-width: 640px) {
+  .viewport-dialog {
+    max-height: calc(100dvh - 4rem);
   }
 }
 /* AttenRider — Leaflet light overrides (map canvas stays dark for tile legibility) */

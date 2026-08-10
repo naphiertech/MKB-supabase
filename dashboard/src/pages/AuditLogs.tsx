@@ -20,6 +20,89 @@ import { pushToast } from '../hooks/useToast';
 
 const PAGE_SIZE = 100;
 
+function formatLogTimestamp(value: string) {
+  return new Date(value).toLocaleString('en-PH', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+}
+
+function formatActionLabel(type: string) {
+  return type === 'unauthorized_device_access'
+    ? 'Unauthorized device'
+    : type.replace(/_/g, ' ');
+}
+
+function AuditEntryDetails({
+  log,
+  actorRole,
+  ip
+}: {
+  log: ActivityLog;
+  actorRole: string;
+  ip: string;
+}) {
+  const detailRows = [
+    ['IP Address', ip],
+    ['City', log.metadata?.city || 'N/A'],
+    ['Region', log.metadata?.region || 'N/A'],
+    ['Country', log.metadata?.country || 'N/A'],
+    ['ISP', log.metadata?.org || 'N/A']
+  ];
+
+  return (
+    <div className="grid grid-cols-1 gap-3 p-4 text-[11px] text-muted-foreground lg:grid-cols-3 lg:gap-5 lg:px-6">
+      <section className="space-y-2 lg:border-r lg:border-border/60 lg:pr-5">
+        <h3 className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-foreground">
+          <Globe className="h-3.5 w-3.5 text-primary" /> Network origin
+        </h3>
+        <dl className="space-y-1.5 rounded-lg border border-border bg-white p-3 font-mono">
+          {detailRows.map(([label, value]) => (
+            <div key={label} className="grid grid-cols-[auto_minmax(0,1fr)] gap-3">
+              <dt>{label}</dt>
+              <dd className="text-right font-semibold text-foreground text-wrap-safe">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="space-y-2 lg:border-r lg:border-border/60 lg:px-2 lg:pr-5">
+        <h3 className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-foreground">
+          <Laptop className="h-3.5 w-3.5 text-primary" /> Client environment
+        </h3>
+        <dl className="space-y-1.5 rounded-lg border border-border bg-white p-3">
+          <div className="flex items-start justify-between gap-3">
+            <dt>App role</dt>
+            <dd className="font-mono font-semibold uppercase text-foreground">{actorRole}</dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt>Event type</dt>
+            <dd className="max-w-[70%] text-right font-mono font-semibold text-foreground text-wrap-safe">{log.event_type}</dd>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <dt>Browser agent</dt>
+            <dd className="max-w-[70%] text-right font-semibold text-foreground text-wrap-safe">{navigator.userAgent.split(' ')[0]}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="min-w-0 space-y-2">
+        <h3 className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-foreground">
+          <Database className="h-3.5 w-3.5 text-primary" /> Evidence payload
+        </h3>
+        <div className="max-h-36 overflow-auto rounded-lg border border-border bg-white p-3 font-mono text-[10px] leading-relaxed">
+          <pre className="whitespace-pre-wrap break-words text-foreground">{JSON.stringify(log.metadata || {}, null, 2)}</pre>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function AuditLogs() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,80 +306,91 @@ export function AuditLogs() {
     return 'bg-gray-50 text-gray-700 border-gray-200/50';
   };
 
+  const getActionRailColor = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes('unauthorized') || t.includes('blocked') || t.includes('security') || t.includes('lock')) return 'bg-rose-500';
+    if (t.includes('login') || t.includes('auth')) return 'bg-purple-500';
+    if (t.includes('payroll') || t.includes('salary') || t.includes('payout')) return 'bg-blue-500';
+    if (t.includes('create') || t.includes('add') || t.includes('insert')) return 'bg-emerald-500';
+    if (t.includes('delete') || t.includes('remove') || t.includes('suspend')) return 'bg-red-500';
+    if (t.includes('update') || t.includes('modify') || t.includes('edit')) return 'bg-amber-500';
+    return 'bg-slate-400';
+  };
+
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-6">
+    <div className="space-y-5 p-4 md:p-6 lg:p-7">
       
       {/* Stats Widgets */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         
         {/* Total Events */}
-        <div className="bg-white border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4">
           <div>
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
               Total Log Entries
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-foreground">
+            <div className="mt-1 font-mono text-xl font-bold text-foreground sm:text-2xl">
               {loading ? '...' : stats.total}
             </div>
-            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+            <div className="mt-0.5 hidden text-[10px] text-muted-foreground font-mono sm:block">
               currently loaded
             </div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-panel-bg border border-border flex items-center justify-center">
+          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-panel-bg sm:flex">
             <Database className="w-5 h-5 text-primary" />
           </div>
         </div>
 
         {/* Login Events */}
-        <div className="bg-white border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4">
           <div>
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
               Login Events
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-purple-700">
+            <div className="mt-1 font-mono text-xl font-bold text-purple-700 sm:text-2xl">
               {loading ? '...' : stats.logins}
             </div>
-            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+            <div className="mt-0.5 hidden text-[10px] text-muted-foreground font-mono sm:block">
               biometric & manual checkins
             </div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center">
+          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-purple-100 bg-purple-50 sm:flex">
             <Lock className="w-5 h-5 text-purple-600" />
           </div>
         </div>
 
         {/* Payroll Actions */}
-        <div className="bg-white border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4">
           <div>
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
               Payroll Status Audits
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-blue-700">
+            <div className="mt-1 font-mono text-xl font-bold text-blue-700 sm:text-2xl">
               {loading ? '...' : stats.payrollUpdates}
             </div>
-            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+            <div className="mt-0.5 hidden text-[10px] text-muted-foreground font-mono sm:block">
               approvals and modifications
             </div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center">
+          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 sm:flex">
             <ShieldCheck className="w-5 h-5 text-blue-600" />
           </div>
         </div>
 
         {/* Admin operations */}
-        <div className="bg-white border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4">
           <div>
             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
               Admin Modifications
             </div>
-            <div className="mt-1 text-2xl font-bold font-mono text-primary">
+            <div className="mt-1 font-mono text-xl font-bold text-primary sm:text-2xl">
               {loading ? '...' : stats.adminEvents}
             </div>
-            <div className="text-[10px] text-primary/80 font-mono mt-0.5">
+            <div className="mt-0.5 hidden text-[10px] text-primary/80 font-mono sm:block">
               system settings edits
             </div>
           </div>
-          <div className="w-10 h-10 rounded-lg bg-accent border border-primary/25 flex items-center justify-center">
+          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-accent sm:flex">
             <Activity className="w-5 h-5 text-primary" />
           </div>
         </div>
@@ -312,7 +406,7 @@ export function AuditLogs() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search logs by description, user name, email, action..."
+              placeholder="Search audit logs…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full h-10 pl-9 pr-4 rounded-lg bg-panel-bg border border-border text-sm text-foreground placeholder-subtle-text outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition"
@@ -320,11 +414,11 @@ export function AuditLogs() {
           </div>
 
           {/* Refresh & Exporter */}
-          <div className="flex items-center gap-2 self-end lg:self-auto">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:self-end lg:self-auto">
             <button
               onClick={() => void loadLogs()}
               disabled={loading}
-              className="h-10 px-3 border border-border hover:border-primary/40 rounded-lg text-sm text-muted-foreground hover:text-foreground bg-white transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-50 sm:text-sm cursor-pointer"
               title="Reload logs from DB"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -332,7 +426,7 @@ export function AuditLogs() {
             </button>
             <button
               onClick={handleExportCSV}
-              className="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm cursor-pointer"
+              className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-hover sm:px-4 sm:text-sm cursor-pointer"
             >
               <Download className="w-4 h-4" />
               Export Logs (CSV)
@@ -342,16 +436,15 @@ export function AuditLogs() {
         </div>
 
         {/* Advanced dropdown filters */}
-        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-panel-bg">
+        <div className="grid grid-cols-2 gap-3 border-t border-panel-bg pt-3 lg:flex lg:flex-wrap lg:items-end">
           
           {/* Filter by Role */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Filter className="w-3.5 h-3.5 text-primary" />
-            <span>Role:</span>
+          <label className="order-1 flex min-w-0 flex-col gap-1.5 text-xs text-muted-foreground lg:order-none">
+            <span className="flex items-center gap-1.5 font-semibold"><Filter className="w-3.5 h-3.5 text-primary" />Role</span>
             <select
               value={roleFilter}
               onChange={e => setRoleFilter(e.target.value as 'all' | 'admin' | 'hr' | 'payroll' | 'rider')}
-              className="h-8 border border-border rounded bg-white text-xs px-2 outline-none focus:border-primary"
+              className="h-10 w-full rounded-lg border border-border bg-white px-2 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 lg:h-9 lg:w-auto"
             >
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
@@ -359,38 +452,37 @@ export function AuditLogs() {
               <option value="payroll">Payroll</option>
               <option value="rider">Rider</option>
             </select>
-          </div>
+          </label>
 
           {/* Filter by Type */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Event:</span>
+          <label className="order-3 col-span-2 flex min-w-0 flex-col gap-1.5 text-xs text-muted-foreground sm:col-span-1 lg:order-none">
+            <span className="font-semibold">Event type</span>
             <select
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              className="h-8 border border-border rounded bg-white text-xs px-2 outline-none focus:border-primary"
+              className="h-10 w-full min-w-0 rounded-lg border border-border bg-white px-2 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 lg:h-9 lg:w-auto lg:max-w-60"
             >
               <option value="all">All Events</option>
               {distinctEventTypes.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
-          </div>
+          </label>
 
           {/* Filter by Date range */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Calendar className="w-3.5 h-3.5 text-primary" />
-            <span>Time Range:</span>
+          <label className="order-2 flex min-w-0 flex-col gap-1.5 text-xs text-muted-foreground lg:order-none">
+            <span className="flex items-center gap-1.5 font-semibold"><Calendar className="w-3.5 h-3.5 text-primary" />Time range</span>
             <select
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value as 'all' | 'today' | '3days' | '7days')}
-              className="h-8 border border-border rounded bg-white text-xs px-2 outline-none focus:border-primary"
+              className="h-10 w-full rounded-lg border border-border bg-white px-2 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 lg:h-9 lg:w-auto"
             >
               <option value="all">All History</option>
               <option value="today">Today Only</option>
               <option value="3days">Last 3 Days</option>
               <option value="7days">Last 7 Days</option>
             </select>
-          </div>
+          </label>
 
         </div>
       </div>
@@ -421,23 +513,109 @@ export function AuditLogs() {
         )}
 
         {!loading && filteredLogs.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <>
+            <div className="divide-y divide-border lg:hidden" aria-label="Audit log records">
+              <div className="flex items-center justify-between gap-3 bg-panel-bg px-4 py-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Activity ledger</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{filteredLogs.length} visible</span>
+              </div>
+
+              {filteredLogs.map((log, index) => {
+                const isExpanded = expandedRow === log.id;
+                const actorName = log.users?.full_name || log.riders?.name || 'System / Automated';
+                const actorEmail = log.users?.email || log.riders?.mkb_id || 'automated@attenrider.system';
+                const actorRole = log.users?.role || (log.rider_id ? 'rider' : 'system');
+                const ip = log.metadata?.ip || 'Internal/Server';
+                const locString = log.metadata?.city
+                  ? `${log.metadata.city}, ${log.metadata.region || ''}, ${log.metadata.country || ''}`
+                  : 'System API';
+
+                return (
+                  <article key={log.id} className="group relative bg-white pl-5 pr-4 py-4">
+                    <span className={`absolute bottom-4 left-0 top-4 w-1 rounded-r-full ${getActionRailColor(log.event_type)}`} aria-hidden="true" />
+
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                          <span className="mr-2 text-primary/80">#{String(index + 1).padStart(2, '0')}</span>
+                          {formatLogTimestamp(log.created_at)}
+                        </div>
+                        <span className={`mt-2 inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${getActionColor(log.event_type)}`}>
+                          <span className="truncate">{formatActionLabel(log.event_type)}</span>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={isExpanded ? 'Collapse audit details' : 'Expand audit details'}
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleRow(log.id)}
+                        className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-panel-bg text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
+                      >
+                        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+
+                    <div className="mt-3 flex min-w-0 items-center gap-2.5">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/15 bg-accent/50">
+                        <UserIcon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-foreground text-wrap-safe">{actorName}</div>
+                        <div className="font-mono text-[10px] text-muted-foreground text-wrap-safe">{actorEmail}</div>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-[13px] leading-relaxed text-foreground text-wrap-safe">{log.description}</p>
+
+                    <div className="mt-3 grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-2 rounded-lg border border-border/70 bg-panel-bg/55 p-2.5 text-[10px]">
+                      <div className="min-w-0">
+                        <div className="font-bold uppercase tracking-wider text-muted-foreground">Origin</div>
+                        <div className="mt-0.5 truncate font-mono text-foreground" title={ip}>{ip}</div>
+                      </div>
+                      <div className="min-w-0 border-l border-border pl-2">
+                        <div className="font-bold uppercase tracking-wider text-muted-foreground">Location</div>
+                        <div className="mt-0.5 truncate text-foreground" title={locString}>{locString}</div>
+                      </div>
+                    </div>
+
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+                          className="-mx-4 mt-4 overflow-hidden border-t border-border bg-panel-bg/45"
+                        >
+                          <AuditEntryDetails log={log} actorRole={actorRole} ip={ip} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </article>
+                );
+              })}
+            </div>
+
+          <div className="table-scroll-region hidden lg:block" role="region" aria-label="Audit log records" tabIndex={0}>
+            <table className="w-full min-w-[66rem] border-collapse text-left text-xs">
               <thead className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                 <tr>
-                  <th className="px-5 py-3">Timestamp</th>
-                  <th className="px-5 py-3">Actor Profile</th>
-                  <th className="px-5 py-3">User Action</th>
-                  <th className="px-5 py-3">Description</th>
-                  <th className="px-5 py-3">IP / Location</th>
-                  <th className="px-5 py-3 text-center">Metadata</th>
+                  <th colSpan={6} className="p-0">
+                    <div className="grid grid-cols-[10.5rem_12rem_11rem_minmax(14rem,1fr)_13rem] gap-4 px-5 py-3">
+                      <span>Timestamp</span>
+                      <span>Actor profile</span>
+                      <span>Event</span>
+                      <span>Description</span>
+                      <span>Origin / evidence</span>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredLogs.map(log => {
                   const isExpanded = expandedRow === log.id;
                   const actorName = log.users?.full_name || log.riders?.name || 'System / Automated';
-                  const actorEmail = log.users?.email || 'automated@attenrider.system';
+                  const actorEmail = log.users?.email || log.riders?.mkb_id || 'automated@attenrider.system';
                   const actorRole = log.users?.role || (log.rider_id ? 'rider' : 'system');
                   
                   // Extract IP location details if present
@@ -462,19 +640,11 @@ export function AuditLogs() {
                             role="button"
                             tabIndex={0}
                             aria-expanded={isExpanded}
-                            className={`w-full grid grid-cols-1 md:grid-cols-6 items-center hover:bg-panel-bg/60 transition-colors cursor-pointer px-5 py-3.5 ${isExpanded ? 'bg-accent/20 font-semibold' : ''}`}
+                            className={`grid w-full grid-cols-[10.5rem_12rem_11rem_minmax(14rem,1fr)_13rem] items-center gap-4 px-5 py-3.5 transition-colors hover:bg-panel-bg/60 cursor-pointer ${isExpanded ? 'bg-accent/20 font-semibold' : ''}`}
                           >
                             {/* Timestamp */}
                             <div className="text-muted-foreground font-mono whitespace-nowrap">
-                              {new Date(log.created_at).toLocaleString('en-PH', {
-                                month: 'short',
-                                day: '2-digit',
-                                year: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true
-                              })}
+                              {formatLogTimestamp(log.created_at)}
                             </div>
 
                             {/* Actor Profile */}
@@ -484,10 +654,10 @@ export function AuditLogs() {
                                   <UserIcon className="w-4 h-4 text-primary" />
                                 </div>
                                 <div className="min-w-0">
-                                  <div className="font-semibold text-foreground truncate max-w-[120px]" title={actorName}>
+                                  <div className="truncate font-semibold text-foreground" title={actorName}>
                                     {actorName}
                                   </div>
-                                  <div className="text-[10px] text-muted-foreground truncate max-w-[120px] font-mono" title={actorEmail}>
+                                  <div className="truncate font-mono text-[10px] text-muted-foreground" title={actorEmail}>
                                     {actorEmail}
                                   </div>
                                 </div>
@@ -497,15 +667,15 @@ export function AuditLogs() {
                             {/* User Action */}
                             <div className="min-w-0 pr-2">
                               <span 
-                                title={log.event_type.replace(/_/g, ' ')}
+                                title={formatActionLabel(log.event_type)}
                                 className={`inline-block truncate max-w-full px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-wider border ${getActionColor(log.event_type)}`}
                               >
-                                {log.event_type === 'unauthorized_device_access' ? 'UNAUTHORIZED DEVICE' : log.event_type.replace(/_/g, ' ')}
+                                {formatActionLabel(log.event_type)}
                               </span>
                             </div>
 
                             {/* Description */}
-                            <div className="md:col-span-2 text-foreground truncate pr-4 min-w-0" title={log.description}>
+                            <div className="min-w-0 truncate pr-2 text-foreground" title={log.description}>
                               {log.description}
                             </div>
 
@@ -541,54 +711,7 @@ export function AuditLogs() {
                                 transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
                                 className="overflow-hidden border-t border-border bg-panel-bg/45"
                               >
-                                <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-5 text-[11px] text-muted-foreground">
-                                  
-                                  {/* Column A: Network & Origin Details */}
-                                  <div className="space-y-2 border-r border-border/60 pr-4">
-                                    <div className="font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
-                                      <Globe className="w-3.5 h-3.5 text-primary" /> Network Credentials
-                                    </div>
-                                    <div className="space-y-1 bg-white border border-border rounded-lg p-2.5 font-mono">
-                                      <div className="flex justify-between"><span className="text-muted-foreground">IP Address:</span><span className="text-foreground font-semibold">{ip}</span></div>
-                                      <div className="flex justify-between"><span className="text-muted-foreground">City:</span><span className="text-foreground font-semibold">{log.metadata?.city || 'N/A'}</span></div>
-                                      <div className="flex justify-between"><span className="text-muted-foreground">Region:</span><span className="text-foreground font-semibold">{log.metadata?.region || 'N/A'}</span></div>
-                                      <div className="flex justify-between"><span className="text-muted-foreground">Country:</span><span className="text-foreground font-semibold">{log.metadata?.country || 'N/A'}</span></div>
-                                      <div className="flex justify-between"><span className="text-muted-foreground">ISP:</span><span className="text-foreground font-semibold truncate max-w-[120px]" title={log.metadata?.org}>{log.metadata?.org || 'N/A'}</span></div>
-                                    </div>
-                                  </div>
-
-                                  {/* Column B: Device / Browser credentials */}
-                                  <div className="space-y-2 border-r border-border/60 px-2 md:px-4">
-                                    <div className="font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
-                                      <Laptop className="w-3.5 h-3.5 text-primary" /> Client Environment
-                                    </div>
-                                    <div className="space-y-1 bg-white border border-border rounded-lg p-2.5">
-                                      <div className="flex justify-between">
-                                        <span className="text-muted-foreground">App Role:</span>
-                                        <span className="text-foreground font-mono font-semibold uppercase">{actorRole}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Event Type:</span>
-                                        <span className="text-foreground font-mono font-semibold">{log.event_type}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Browser Agent:</span>
-                                        <span className="text-foreground font-semibold truncate max-w-[120px]" title={navigator.userAgent}>{navigator.userAgent.split(' ')[0]}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Column C: Custom event metadata JSON */}
-                                  <div className="space-y-2">
-                                    <div className="font-bold uppercase tracking-wider text-foreground flex items-center gap-1">
-                                      <Database className="w-3.5 h-3.5 text-primary" /> Metadata Parameters
-                                    </div>
-                                    <div className="bg-white border border-border rounded-lg p-2.5 font-mono overflow-x-auto max-h-[110px] text-[10px] leading-relaxed">
-                                      <pre className="text-foreground">{JSON.stringify(log.metadata || {}, null, 2)}</pre>
-                                    </div>
-                                  </div>
-
-                                </div>
+                                <AuditEntryDetails log={log} actorRole={actorRole} ip={ip} />
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -600,6 +723,7 @@ export function AuditLogs() {
               </tbody>
             </table>
           </div>
+          </>
         )}
         {!loading && hasMore && (
           <div className="border-t border-border p-3 text-center">

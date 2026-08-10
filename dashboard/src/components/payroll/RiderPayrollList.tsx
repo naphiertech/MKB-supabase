@@ -637,14 +637,14 @@ export function RiderPayrollList({
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
+          <div className="flex flex-wrap items-center justify-start gap-3 w-full md:w-auto md:justify-end md:gap-4">
             {/* Zone Filter */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 md:flex-none">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Zone:</span>
               <select
                 value={zoneFilter}
                 onChange={e => setZoneFilter(e.target.value)}
-                className="h-9 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer"
+                className="h-9 min-w-0 flex-1 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer md:flex-none"
               >
                 <option value="all">All Zones</option>
                 {allZones.map(z => (
@@ -654,13 +654,13 @@ export function RiderPayrollList({
             </div>
 
             {/* Status Filter */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 md:flex-none">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Status:</span>
               <select
                 ref={statusFilterRef}
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="h-9 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer font-mono text-[11px]"
+                className="h-9 min-w-0 flex-1 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer font-mono text-[11px] md:flex-none"
               >
                 <option value="all">All Statuses</option>
                 <option value="draft">Draft</option>
@@ -699,8 +699,8 @@ export function RiderPayrollList({
         )}
 
         {!loading && payrollRecords.length > 0 && (
-          <div className="overflow-x-auto max-h-[600px] overflow-y-auto relative">
-            <table className="w-full text-sm">
+          <div className="table-scroll-region relative max-h-[600px] overflow-y-auto" role="region" aria-label="Rider payroll records" tabIndex={0}>
+            <table className="data-table-extra-wide w-full text-sm">
               <thead className="bg-panel-bg border-b border-border sticky top-0 z-10 shadow-sm">
                 <tr className="text-left text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-semibold">
                   <th className="px-5 py-3 w-32 bg-panel-bg">
@@ -951,7 +951,7 @@ export function RiderPayrollList({
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white border border-border rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+              className="viewport-dialog relative z-10 w-full max-w-md space-y-4 rounded-xl border border-border bg-white p-4 text-left shadow-2xl sm:rounded-2xl sm:p-6"
             >
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
@@ -1039,7 +1039,7 @@ export function RiderPayrollList({
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white border border-border rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+              className="viewport-dialog relative z-10 w-full max-w-md space-y-4 rounded-xl border border-border bg-white p-4 text-left shadow-2xl sm:rounded-2xl sm:p-6"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
@@ -1104,7 +1104,7 @@ export function RiderPayrollList({
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white border border-border rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+              className="viewport-dialog relative z-10 w-full max-w-md space-y-4 rounded-xl border border-border bg-white p-4 text-left shadow-2xl sm:rounded-2xl sm:p-6"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">

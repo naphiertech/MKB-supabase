@@ -247,18 +247,18 @@ export function Topbar({
   const badge = ROLE_BADGE[role];
   return (
     <header className="sticky top-0 z-[1010] bg-white/90 backdrop-blur-md border-b border-border">
-      <div className="flex items-center gap-3 md:gap-6 px-4 md:px-7 h-16">
+      <div className="flex h-16 min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-4 md:gap-6 md:px-7">
         <button
           onClick={onMenuClick}
-          className="md:hidden text-muted-foreground hover:text-foreground p-1.5"
+          className="md:hidden inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-panel-bg hover:text-foreground"
           aria-label="Open menu">
           
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="min-w-0 flex items-center gap-3">
+        <div className="min-w-0 flex items-center gap-2 sm:gap-3">
           <div className="min-w-0">
-            <h1 className="text-foreground font-semibold text-lg md:text-xl tracking-tight truncate">
+            <h1 className="truncate text-base font-semibold tracking-tight text-foreground min-[360px]:text-lg md:text-xl">
               {title}
             </h1>
             <p className="hidden md:block text-xs text-muted-foreground truncate">
@@ -504,7 +504,7 @@ export function Topbar({
             whileTap={{ scale: 0.94 }}
             type="button"
             onClick={() => setIsOpen((v) => !v)}
-            className={`relative p-2 rounded-lg bg-white border transition cursor-pointer ${isOpen ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground hover:text-primary hover:border-primary/30'}`}
+            className={`relative inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg bg-white border transition cursor-pointer ${isOpen ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground hover:text-primary hover:border-primary/30'}`}
             aria-label="Notifications"
             aria-expanded={isOpen}
             aria-haspopup="dialog">

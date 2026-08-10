@@ -1,6 +1,6 @@
 export function LiveMonitoringSkeleton() {
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden">
+    <div className="flex h-[calc(100dvh-4rem)] min-h-[32rem] w-full overflow-hidden">
       <aside className="w-80 shrink-0 bg-white border-r border-border flex flex-col hidden sm:flex">
         <div className="p-3 border-b border-border flex items-center justify-between">
           <div className="w-20 h-4 rounded ar-shimmer" />

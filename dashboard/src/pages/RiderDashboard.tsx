@@ -876,12 +876,12 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         </header>
 
         {locationLoading && !hasVerifiedPosition ? (
-          <div className="h-[320px] bg-accent/40 rounded-xl border border-border animate-pulse flex flex-col items-center justify-center gap-3">
+          <div className="flex h-[280px] flex-col items-center justify-center gap-3 rounded-xl border border-border bg-accent/40 animate-pulse sm:h-[320px]">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-primary animate-bounce"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
             <span className="text-muted-foreground text-sm font-medium">Acquiring live GPS signal...</span>
           </div>
         ) : locationError && !hasVerifiedPosition ? (
-          <div className="h-[320px] rounded-xl border border-red-200 bg-red-50 flex flex-col items-center justify-center gap-3 px-6 text-center">
+          <div className="flex h-[280px] flex-col items-center justify-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 text-center sm:h-[320px] sm:px-6">
             <span className="text-sm font-semibold text-red-700">Live location unavailable</span>
             <span className="max-w-md text-xs text-red-600">
               No coordinates are being recorded. Enable location permission and precise GPS, then retry.

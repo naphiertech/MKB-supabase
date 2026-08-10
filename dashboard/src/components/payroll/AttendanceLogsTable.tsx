@@ -23,8 +23,8 @@ export function AttendanceLogsTable({
   violations,
 }: AttendanceLogsTableProps) {
   return (
-    <div className="overflow-x-auto border border-border rounded-xl bg-white shadow-sm">
-      <table className="w-full text-xs text-left border-collapse">
+    <div className="table-scroll-region border border-border rounded-xl bg-white shadow-sm" role="region" aria-label="Payroll attendance and parcel logs" tabIndex={0}>
+      <table className="data-table-extra-wide w-full text-xs text-left border-collapse">
         <thead>
           <tr className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
             <th className="px-4 py-2.5 font-semibold">Date</th>

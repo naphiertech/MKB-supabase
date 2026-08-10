@@ -115,7 +115,7 @@ export function ZoneMapPreview({
           {isEditing ? 'Interactive Draw' : 'Geofence View'}
         </div>
       </div>
-      <div className="relative h-[460px] lg:h-[520px] bg-[#0a0c12]">
+      <div className="relative h-[340px] sm:h-[420px] lg:h-[520px] bg-[#0a0c12]">
         <MapContainer
           center={pin ? [pin.lat, pin.lng] : ZAMBOANGA_CENTER}
           zoom={13}

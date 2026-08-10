@@ -152,12 +152,12 @@ export function RiderMonitoring({ userId, riderId, onBack }: RiderMonitoringProp
       </div>
 
       {locationLoading && !hasVerifiedPosition ? (
-        <div className="h-[500px] bg-panel-bg rounded-xl border border-border animate-pulse flex flex-col items-center justify-center gap-3">
+        <div className="flex h-[360px] flex-col items-center justify-center gap-3 rounded-xl border border-border bg-panel-bg animate-pulse sm:h-[500px]">
           <MapPin className="w-6 h-6 text-primary animate-bounce" />
           <span className="text-muted-foreground text-sm font-medium">Acquiring live GPS signal...</span>
         </div>
       ) : locationError && !hasVerifiedPosition ? (
-        <div className="h-[500px] rounded-xl border border-red-200 bg-red-50 flex flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="flex h-[360px] flex-col items-center justify-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 text-center sm:h-[500px] sm:px-6">
           <MapPin className="w-6 h-6 text-red-600" />
           <span className="text-sm font-semibold text-red-700">Live location unavailable</span>
           <span className="max-w-md text-xs text-red-600">

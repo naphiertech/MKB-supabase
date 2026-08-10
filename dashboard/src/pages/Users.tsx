@@ -478,11 +478,11 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                 )}
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0">
               <button
                 type="button"
                 onClick={handleExportExcel}
-                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md border border-border bg-white text-foreground hover:bg-panel-bg text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-primary/15 shadow-sm cursor-pointer"
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-border bg-white px-3 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-panel-bg focus:outline-none focus:ring-2 focus:ring-primary/15 sm:h-9 sm:px-3.5 sm:text-sm cursor-pointer"
               >
                 <Download className="w-4 h-4 text-primary" />
                 Export Excel
@@ -493,7 +493,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                   setEditing(null);
                   setView('form');
                 }}
-                className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-md bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-primary/25 shadow-sm cursor-pointer"
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/25 sm:h-9 sm:px-3.5 sm:text-sm cursor-pointer"
               >
                 <Plus className="w-4 h-4" /> Add Rider
               </button>
@@ -502,7 +502,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
 
           {/* Filters */}
           <div className="bg-white border border-border rounded-xl p-3 flex flex-wrap gap-2 items-center shadow-sm">
-            <div className="flex items-center gap-2 px-3 h-9 rounded-md bg-panel-bg border border-border flex-1 min-w-[220px] max-w-md focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 transition-shadow">
+            <div className="flex h-10 min-w-0 flex-1 basis-full items-center gap-2 rounded-md border border-border bg-panel-bg px-3 transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 sm:h-9 sm:basis-auto sm:min-w-[220px] sm:max-w-md">
               <Search className="w-4 h-4 text-muted-foreground" />
               <input
                 value={q}
@@ -638,14 +638,14 @@ function Segmented({
   options
 }: {value: string;onChange: (v: string) => void;options: {v: string;l: string;}[];}) {
   return (
-    <div className="inline-flex p-0.5 rounded-md bg-panel-bg border border-border">
+    <div className="table-scroll-region flex w-full rounded-md border border-border bg-panel-bg p-0.5 sm:inline-flex sm:w-auto" role="group" aria-label="Filter by role" tabIndex={0}>
       {options.map((o) =>
       <button
         key={o.v}
         type="button"
         onClick={() => onChange(o.v)}
         aria-pressed={value === o.v}
-        className={`px-2.5 h-8 rounded text-xs transition-colors ${value === o.v ? 'bg-white text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
+        className={`h-9 shrink-0 rounded px-2.5 text-xs transition-colors sm:h-8 ${value === o.v ? 'bg-white text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
         
           {o.l}
         </button>

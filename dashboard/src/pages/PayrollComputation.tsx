@@ -707,8 +707,8 @@ export function PayrollComputation() {
             )}
 
             {!loadingLogs && dayEntries.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="table-scroll-region" role="region" aria-label="Daily payroll computation" tabIndex={0}>
+                <table className="data-table-extra-wide w-full text-sm">
                   <thead className="bg-panel-bg border-b border-border">
                     <tr className="text-left text-[10.5px] uppercase tracking-wider text-muted-foreground font-bold">
                       <th className="px-5 py-3.5">Date</th>
@@ -854,7 +854,7 @@ export function PayrollComputation() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white border border-border rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+              className="viewport-dialog relative z-10 w-full max-w-md space-y-4 rounded-xl border border-border bg-white p-4 text-left shadow-2xl sm:rounded-2xl sm:p-6"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-accent border border-primary/30 flex items-center justify-center shrink-0">
@@ -917,7 +917,7 @@ export function PayrollComputation() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white border border-border rounded-2xl p-6 shadow-2xl z-10 space-y-4 text-left"
+              className="viewport-dialog relative z-10 w-full max-w-md space-y-4 rounded-xl border border-border bg-white p-4 text-left shadow-2xl sm:rounded-2xl sm:p-6"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center shrink-0">

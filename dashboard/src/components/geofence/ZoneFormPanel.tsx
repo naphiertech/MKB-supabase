@@ -76,7 +76,7 @@ export function ZoneFormPanel({
   };
 
   return (
-    <div className="bg-white border border-border rounded-xl shadow-sm flex flex-col h-[585px] lg:h-[645px] overflow-hidden">
+    <div className="flex h-[520px] flex-col overflow-hidden rounded-xl border border-border bg-white shadow-sm sm:h-[585px] lg:h-[645px]">
       {/* Header */}
       <div className="px-5 py-4 border-b border-border flex justify-between items-start flex-shrink-0">
         <div>

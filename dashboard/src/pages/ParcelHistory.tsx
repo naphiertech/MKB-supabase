@@ -269,10 +269,10 @@ export function ParcelHistory() {
       initial="initial"
       animate="animate"
       exit="exit"
-      className="p-6 max-w-[1600px] mx-auto space-y-5 font-sans"
+      className="mx-auto max-w-[1600px] space-y-5 p-4 font-sans md:p-6 lg:p-7"
     >
       {/* Informational Header Card */}
-      <div className="bg-white border border-border rounded-xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-border rounded-xl p-4 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="p-2.5 rounded-xl bg-accent border border-primary/20 text-primary shrink-0 mt-0.5">
             <FileSpreadsheet className="w-5 h-5" />
@@ -290,11 +290,11 @@ export function ParcelHistory() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+        <div className="flex w-full flex-wrap items-center gap-2 self-stretch xl:w-auto xl:shrink-0 xl:self-auto">
           {canReviewCorrections && <button
             type="button"
             onClick={() => setShowCorrectionsModal(true)}
-            className="px-3.5 py-2 rounded-lg bg-white border border-border hover:bg-panel-bg text-xs font-semibold text-foreground flex items-center gap-2 cursor-pointer shadow-xs transition"
+            className="min-h-10 px-3.5 py-2 rounded-lg bg-white border border-border hover:bg-panel-bg text-xs font-semibold text-foreground flex items-center justify-center gap-2 cursor-pointer shadow-xs transition sm:min-h-0"
           >
             <ShieldCheck className="w-4 h-4 text-primary" />
             <span>Correction Approvals</span>
@@ -304,7 +304,7 @@ export function ParcelHistory() {
               </span>
             )}
           </button>}
-          <div className="text-xs font-mono text-muted-foreground bg-panel-bg border border-border px-3.5 py-2 rounded-lg shadow-xs">
+          <div className="min-h-10 px-3.5 py-2 text-xs font-mono text-muted-foreground bg-panel-bg border border-border rounded-lg shadow-xs flex items-center sm:min-h-0">
             Total Manifest Logs: <strong className="text-foreground font-bold tabular-nums">{totalCount.toLocaleString()}</strong>
           </div>
         </div>
@@ -435,8 +435,8 @@ export function ParcelHistory() {
           </div>
         ) : (
           <>
-          <div className="overflow-x-auto hidden lg:block">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="table-scroll-region hidden lg:block" role="region" aria-label="Parcel history records" tabIndex={0}>
+            <table className="data-table-extra-wide w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-panel-bg border-b border-border text-muted-foreground font-semibold text-[11px] uppercase tracking-wider">
                   <th className="py-3 px-4">Shift Date</th>
@@ -516,7 +516,7 @@ export function ParcelHistory() {
                   </div>
                   <StatusBadge status={row.attendanceStatus} />
                 </div>
-                <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="grid grid-cols-2 min-[420px]:grid-cols-4 gap-2 text-center">
                   {[
                     ['Standard', row.deliveredParcels],
                     ['Heavy', row.heavyParcels],
@@ -588,7 +588,7 @@ export function ParcelHistory() {
                   animate={{ x: 0 }}
                   exit={{ x: '100%' }}
                   transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                  className="w-full max-w-md bg-white border-l border-border shadow-2xl flex flex-col font-sans z-[100000]"
+                  className="safe-drawer flex w-full max-w-md flex-col border-l border-border bg-white shadow-2xl font-sans z-[100000]"
                 >
                   <div className="p-5 border-b border-border flex items-center justify-between bg-panel-bg">
                     <div className="flex items-center gap-3">
@@ -1037,7 +1037,7 @@ export function ParcelHistory() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-white rounded-2xl border border-border shadow-2xl max-w-2xl w-full p-6 space-y-4 max-h-[85vh] flex flex-col font-sans z-[100001]"
+              className="viewport-dialog relative z-[100001] flex w-full max-w-2xl flex-col space-y-4 rounded-xl border border-border bg-white p-4 shadow-2xl sm:rounded-2xl sm:p-6 font-sans"
             >
               <div className="flex items-center justify-between pb-3 border-b border-border">
                 <div className="flex items-center gap-2.5">

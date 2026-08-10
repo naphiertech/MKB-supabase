@@ -341,7 +341,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
         </div>
 
         {/* Compact Progress Line & Action Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 pt-1">
           {/* Progress Indicator */}
           <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground">
             <span className="flex items-center gap-1.5 text-foreground font-bold">
@@ -355,12 +355,12 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
           </div>
 
           {/* Compact Inline Action Bar */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex min-w-0 w-full flex-wrap items-center gap-2 xl:w-auto xl:shrink-0 xl:justify-end">
             {role === 'payroll' ? (
               <>
                 <button
                   onClick={() => onNavigate?.('computation')}
-                  className="h-8 px-3 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="h-10 sm:h-8 px-3 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Calculator className="w-3.5 h-3.5" />
                   Continue Computation
@@ -369,14 +369,14 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
                 <button
                   onClick={handleInitializeFleet}
                   disabled={isInitializing}
-                  className="h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent hover:border-primary/30 transition text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  className="h-10 sm:h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent hover:border-primary/30 transition text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   {isInitializing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 text-primary" />}
                   Initialize Fleet
                 </button>
                 <button
                   onClick={() => onNavigate?.('reports')}
-                  className="h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent transition text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  className="h-10 sm:h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent transition text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-muted-foreground" />
                   Reports
@@ -386,7 +386,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
               <>
                 <button
                   onClick={handleReviewApprovals}
-                  className="h-8 px-3 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="h-10 sm:h-8 px-3 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <CheckSquare className="w-3.5 h-3.5" />
                   Review Approvals ({totals.pending})
@@ -394,7 +394,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
                 </button>
                 <button
                   onClick={() => onNavigate?.('reports')}
-                  className="h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent transition text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  className="h-10 sm:h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent transition text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <FileText className="w-3.5 h-3.5 text-muted-foreground" />
                   Reports

@@ -104,7 +104,7 @@ export function IdentityBanner({
             <Icon className="w-3.5 h-3.5 text-primary" />
             {text}
           </div>
-          <h1 className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight text-foreground truncate">
+          <h1 className="text-wrap-safe mt-1 text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
             {text}, <span className="text-primary">{firstName}</span>!
           </h1>
           <p className="mt-1 text-sm text-muted-foreground font-mono">{dateStr}</p>
@@ -116,7 +116,7 @@ export function IdentityBanner({
             <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono font-semibold">
               Zone
             </span>
-            <span className="text-foreground font-semibold">{zoneName}</span>
+            <span className="text-wrap-safe text-foreground font-semibold">{zoneName}</span>
           </span>
 
           <span

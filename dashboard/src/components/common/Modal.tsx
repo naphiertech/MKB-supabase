@@ -97,7 +97,7 @@ export function Modal({
     <AnimatePresence>
       {open && (
         <div
-          className="fixed inset-0 z-[1200] flex items-center justify-center px-4 py-8"
+          className="fixed inset-0 z-[1200] flex items-center justify-center p-2 sm:px-4 sm:py-8"
         >
           
           <motion.button
@@ -122,10 +122,10 @@ export function Modal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", duration: 0.4, bounce: 0 }}
-            className={`relative w-full ${SIZE[size]} bg-white border border-border rounded-2xl shadow-[0_30px_60px_-20px_rgba(26,20,16,0.25)] overflow-hidden`}>
+            className={`relative flex w-full ${SIZE[size]} max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-4rem)] flex-col bg-white border border-border rounded-xl sm:rounded-2xl shadow-[0_30px_60px_-20px_rgba(26,20,16,0.25)] overflow-hidden`}>
             
             {(title || dismissible) &&
-        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-border/70">
+        <div className="flex shrink-0 items-start justify-between gap-3 px-4 pt-4 pb-3 sm:px-5 sm:pt-5 border-b border-border/70">
             <div className="min-w-0">
               {title &&
             <h2
@@ -151,7 +151,7 @@ export function Modal({
           }
           </div>
         }
-          <div className="px-5 py-5">{children}</div>
+          <div className="min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5 sm:py-5">{children}</div>
         </motion.div>
       </div>
       )}

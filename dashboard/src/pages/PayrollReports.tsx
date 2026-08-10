@@ -258,6 +258,8 @@ export function PayrollReports() {
 
   const chartData = Object.values(riderParcelsMap).sort((a, b) => b.parcels - a.parcels).slice(0, 5);
   const maxParcels = Math.max(...chartData.map(d => d.parcels), 1);
+  const chartActiveRiders = chartData.filter(d => d.parcels > 0).length;
+  const chartLeader = chartData[0] ?? null;
 
   const toggleZone = (id: string) => {
     setSelectedZones(prev =>
@@ -620,7 +622,7 @@ export function PayrollReports() {
 
             <div className="space-y-4">
               {/* Range */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">From</div>
                   <input
@@ -825,63 +827,120 @@ export function PayrollReports() {
       {/* Bottom Chart Row */}
       <div className="w-full">
         {/* Parcels Delivered per Rider Chart */}
-        <div className="bg-white border border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
-              <Package className="w-4 h-4 text-primary" />
+        <div className="rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent ring-1 ring-primary/30">
+                <Package className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-foreground">Parcels Delivered per Rider</div>
+                <div className="font-mono text-[11px] text-muted-foreground">Visual comparison for this cutoff</div>
+              </div>
             </div>
-            <div>
-              <div className="text-sm font-semibold text-foreground">Parcels Delivered per Rider</div>
-              <div className="text-[11px] text-muted-foreground font-mono">Visual comparison for this cutoff</div>
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border bg-panel-bg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Top {chartData.length} · sorted by volume
             </div>
           </div>
 
           {loadingSummary ? (
-            <div className="h-48 flex items-end justify-around gap-4 px-4 py-2 border-b border-border animate-pulse">
+            <div className="space-y-4 rounded-xl border border-border bg-panel-bg/40 p-4 animate-pulse">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="w-12 bg-panel-bg rounded-t-md" style={{ height: `${20 + i * 15}%` }} />
+                <div key={i} className="space-y-2">
+                  <div className="h-3 w-32 rounded bg-border/70" />
+                  <div className="h-8 rounded-lg bg-border/50" style={{ width: `${92 - i * 11}%` }} />
+                </div>
               ))}
             </div>
           ) : chartData.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
-              No parcel data available for this range.
+            <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-panel-bg/30 px-5 text-center">
+              <Package className="h-7 w-7 text-subtle-text" />
+              <div className="text-xs font-semibold text-foreground">No parcel activity to compare</div>
+              <div className="max-w-sm text-[11px] text-muted-foreground">Adjust the cutoff dates or zone filters to include rider delivery records.</div>
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Bars container */}
-              <div className="h-56 flex items-end justify-around gap-4 px-4 pb-2 border-b border-border">
-                {chartData.map(d => {
-                  const heightPercent = maxParcels > 0 ? (d.parcels / maxParcels) * 100 : 0;
-                  const isLow = d.parcels > 0 && d.parcels < 60;
-                  const barColor = isLow ? 'bg-amber-500' : 'bg-primary hover:bg-primary-hover';
+              <div className="overflow-hidden rounded-xl border border-border bg-panel-bg/30">
+                <div className="hidden grid-cols-[12rem_minmax(0,1fr)_5rem] items-end gap-4 border-b border-border bg-white/70 px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground lg:grid">
+                  <span>Rider</span>
+                  <div className="flex justify-between font-mono font-medium normal-case tracking-normal">
+                    <span>0</span><span>25%</span><span>50%</span><span>75%</span><span>{maxParcels}</span>
+                  </div>
+                  <span className="text-right">Parcels</span>
+                </div>
 
-                  return (
-                    <div key={d.name} className="flex-1 flex flex-col items-center max-w-[80px] group">
-                      <div className="text-[11px] font-bold text-foreground mb-2 font-mono opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        {d.parcels}
-                      </div>
-                      <motion.div
-                        initial={{ height: 0 }}
-                        animate={{ height: `${Math.max(4, heightPercent)}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut' }}
-                        className={`w-full ${barColor} rounded-t-md transition-all duration-300 relative shadow-sm cursor-pointer group-hover:shadow-md`}
+                <div className="divide-y divide-border/80" role="list" aria-label="Rider parcel delivery comparison">
+                  {chartData.map((d, index) => {
+                    const widthPercent = d.parcels > 0 ? (d.parcels / maxParcels) * 100 : 0;
+                    const isLeader = index === 0 && d.parcels > 0;
+
+                    return (
+                      <div
+                        key={`${d.name}-${index}`}
+                        role="listitem"
+                        className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 px-3 py-3 transition-colors sm:px-4 lg:grid-cols-[12rem_minmax(0,1fr)_5rem] lg:items-center lg:gap-4 ${isLeader ? 'bg-accent/35' : 'bg-white/50 hover:bg-white'}`}
                       >
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-foreground font-mono group-hover:hidden block">
-                          {d.parcels}
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border font-mono text-[10px] font-bold ${isLeader ? 'border-primary/30 bg-primary text-white' : 'border-border bg-white text-muted-foreground'}`}>
+                            {String(index + 1).padStart(2, '0')}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="truncate text-xs font-semibold text-foreground" title={d.name}>{d.name}</div>
+                            <div className={`mt-0.5 text-[9px] font-bold uppercase tracking-wider ${d.parcels > 0 ? 'text-primary' : 'text-subtle-text'}`}>
+                              {isLeader ? 'Volume leader' : d.parcels > 0 ? `${Math.round(widthPercent)}% of leader` : 'No parcels recorded'}
+                            </div>
+                          </div>
                         </div>
-                      </motion.div>
-                    </div>
-                  );
-                })}
+
+                        <div
+                          role="meter"
+                          aria-label={`${d.name}: ${d.parcels} parcels delivered`}
+                          aria-valuemin={0}
+                          aria-valuemax={maxParcels}
+                          aria-valuenow={d.parcels}
+                          className="order-3 col-span-2 relative h-8 overflow-hidden rounded-lg border border-border bg-white shadow-inner lg:order-none lg:col-span-1"
+                        >
+                          <div className="pointer-events-none absolute inset-0 grid grid-cols-4 divide-x divide-border/60" aria-hidden="true">
+                            <span /><span /><span /><span />
+                          </div>
+                          {d.parcels > 0 ? (
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${widthPercent}%` }}
+                              transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1], delay: index * 0.06 }}
+                              className={`relative h-full min-w-2 rounded-r-md bg-primary ${isLeader ? '' : 'opacity-60'}`}
+                            >
+                              <span className="absolute inset-y-0 right-0 w-px bg-white/60" />
+                            </motion.div>
+                          ) : (
+                            <span className="absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-border bg-panel-bg" aria-hidden="true" />
+                          )}
+                        </div>
+
+                        <div className="text-right">
+                          <div className={`font-mono text-base font-black tabular-nums ${isLeader ? 'text-primary' : 'text-foreground'}`}>{d.parcels.toLocaleString()}</div>
+                          <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">pcs</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* X Axis Labels */}
-              <div className="flex justify-around gap-4 px-4">
-                {chartData.map(d => (
-                  <div key={d.name} className="flex-1 text-center text-[10.5px] font-semibold text-muted-foreground truncate max-w-[80px]" title={d.name}>
-                    {d.name.split(' ')[0]}
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div className="col-span-2 rounded-lg border border-primary/20 bg-accent/40 p-3 sm:col-span-1">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-primary">Highest volume</div>
+                  <div className="mt-1 truncate text-xs font-bold text-foreground" title={chartLeader?.name}>{chartLeader?.name || 'No rider'}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-panel-bg/50 p-3">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Leader output</div>
+                  <div className="mt-1 font-mono text-sm font-black text-foreground">{chartLeader?.parcels.toLocaleString() || 0} <span className="text-[9px] font-semibold text-muted-foreground">PCS</span></div>
+                </div>
+                <div className="rounded-lg border border-border bg-panel-bg/50 p-3">
+                  <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Riders with output</div>
+                  <div className="mt-1 font-mono text-sm font-black text-foreground">{chartActiveRiders}<span className="text-muted-foreground">/{chartData.length}</span></div>
+                </div>
               </div>
             </div>
           )}
@@ -902,8 +961,8 @@ export function PayrollReports() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+          <div className="table-scroll-region" role="region" aria-label="Payroll report history" tabIndex={0}>
+            <table className="data-table w-full text-xs">
               <thead className="bg-panel-bg border-b border-border text-[10px] uppercase font-bold text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 text-left">Period</th>

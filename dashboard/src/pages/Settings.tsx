@@ -392,7 +392,7 @@ export function Settings() {
         <form onSubmit={handleSubmit} className="flex flex-col bg-white">
           {/* Top Tab Bar & Actions Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border mb-5 bg-white z-10 shrink-0">
-            <div className="flex max-w-full gap-1 overflow-x-auto p-1 bg-panel-bg border border-border rounded-xl" role="tablist" aria-label="Settings sections">
+            <div className="table-scroll-region flex w-full sm:w-auto gap-1 p-1 bg-panel-bg border border-border rounded-xl" role="tablist" aria-label="Settings sections" tabIndex={0}>
               {(['Personal Detail', 'Security', 'Notification', ...(canViewParcelRates ? ['Payroll & Parcel Rates' as const] : [])] as TabType[]).map((tab) => {
                 const active = activeTab === tab;
                 return (
@@ -404,7 +404,7 @@ export function Settings() {
                     id={`settings-tab-${tab.replace(/\s+/g, '-').toLowerCase()}`}
                     aria-selected={active}
                     aria-controls={`settings-panel-${tab.replace(/\s+/g, '-').toLowerCase()}`}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                    className={`h-10 sm:h-8 shrink-0 px-3 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
                       active
                         ? 'bg-white text-foreground border border-border shadow-xs'
                         : 'text-muted-foreground hover:text-foreground hover:bg-white/50'
@@ -417,18 +417,18 @@ export function Settings() {
             </div>
 
             {/* Reset All & Save Action Controls */}
-            {activeTab !== 'Payroll & Parcel Rates' && <div className="flex items-center gap-2">
+            {activeTab !== 'Payroll & Parcel Rates' && <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
               <button
                 type="button"
                 onClick={handleResetAll}
-                className="px-3.5 py-1.5 border border-border bg-white hover:bg-panel-bg text-muted-foreground hover:text-foreground rounded-lg text-xs font-bold transition duration-200 cursor-pointer shadow-xs"
+                className="h-10 px-3.5 border border-border bg-white hover:bg-panel-bg text-muted-foreground hover:text-foreground rounded-lg text-xs font-bold transition duration-200 cursor-pointer shadow-xs sm:h-8"
               >
                 Reset All
               </button>
               <button
                 type="submit"
                 disabled={submitting || (activeTab === 'Notification' && notificationPreferencesLoading)}
-                className="px-4 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition duration-200 flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition duration-200 flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer sm:h-8"
               >
                 {submitting ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

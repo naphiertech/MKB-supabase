@@ -81,7 +81,7 @@ export function RiderTopNav({
   const queuedCount = syncStatus.pending + syncStatus.processing;
   return (
     <header className="sticky top-0 z-[1010] bg-white/90 backdrop-blur-md border-b border-border">
-      <div className="flex items-center gap-3 md:gap-6 px-4 md:px-7 h-16">
+      <div className="flex min-h-16 min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-4 md:gap-6 md:px-7">
         {/* Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-[#f59e0b] flex items-center justify-center shadow-sm">
@@ -98,10 +98,10 @@ export function RiderTopNav({
           </div>
         </div>
 
-        <div className="hidden md:block h-6 w-px bg-border" />
+        <div className="hidden lg:block h-6 w-px bg-border" />
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1 flex-1">
+        <nav className="hidden lg:flex items-center gap-1 flex-1">
           {ITEMS.map(({ key, label, icon: Icon }) => {
             const active = current === key;
             return (
@@ -129,7 +129,7 @@ export function RiderTopNav({
           })}
         </nav>
 
-        <div className="flex-1 md:hidden" />
+        <div className="flex-1 lg:hidden" />
 
         {(queuedCount > 0 || syncStatus.failed > 0) &&
         <button
@@ -138,7 +138,7 @@ export function RiderTopNav({
             if (syncStatus.failed > 0) setSyncDiagnosticsOpen(true);
           }}
           disabled={syncStatus.failed === 0}
-          className={`flex min-h-11 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
+          className={`flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold ${
             syncStatus.failed > 0
               ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
               : 'cursor-default border-amber-200 bg-amber-50 text-amber-700'
@@ -151,7 +151,7 @@ export function RiderTopNav({
           {syncStatus.failed > 0
             ? <TriangleAlert className="h-3.5 w-3.5" />
             : <RefreshCw className={`h-3.5 w-3.5 ${syncStatus.syncing ? 'animate-spin' : ''}`} />}
-          <span>{syncStatus.failed > 0 ? `${syncStatus.failed} failed` : `${queuedCount} pending`}</span>
+          <span className="hidden sm:inline">{syncStatus.failed > 0 ? `${syncStatus.failed} failed` : `${queuedCount} pending`}</span>
         </button>
         }
 
@@ -160,7 +160,7 @@ export function RiderTopNav({
           <button
             type="button"
             onClick={() => setNotifOpen((v) => !v)}
-            className={`relative p-2 rounded-lg bg-white border transition ${notifOpen ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground hover:text-primary hover:border-primary/30'}`}
+            className={`relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg bg-white border transition ${notifOpen ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground hover:text-primary hover:border-primary/30'}`}
             aria-label="Notifications"
             aria-expanded={notifOpen}
             aria-haspopup="dialog">
@@ -193,7 +193,7 @@ export function RiderTopNav({
         <button
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
-          className="md:hidden p-2 rounded-lg bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 transition"
+          className="lg:hidden inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 transition"
           aria-label="Toggle menu">
           
           {mobileOpen ?
@@ -204,7 +204,7 @@ export function RiderTopNav({
         </button>
 
         {/* User pill */}
-        <div className="hidden sm:flex items-center gap-2.5 pl-3 pr-1.5 py-1 rounded-full bg-panel-bg border border-border">
+        <div className="hidden lg:flex items-center gap-2.5 pl-3 pr-1.5 py-1 rounded-full bg-panel-bg border border-border">
           <div className="text-right leading-tight hidden lg:block">
             <div className="text-xs text-foreground font-semibold truncate max-w-[140px]">
               {user.name}
@@ -232,7 +232,7 @@ export function RiderTopNav({
 
       {/* Mobile drawer */}
       {mobileOpen &&
-      <div className="md:hidden border-t border-border bg-white px-4 py-3 space-y-1">
+      <div className="lg:hidden max-h-[calc(100dvh-4rem)] space-y-1 overflow-y-auto border-t border-border bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
           {ITEMS.map(({ key, label, icon: Icon }) => {
           const active = current === key;
           return (

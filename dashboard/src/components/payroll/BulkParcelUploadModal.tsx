@@ -312,7 +312,7 @@ export function BulkParcelUploadModal({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-6 lg:p-8">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6 lg:p-8">
           {/* Backdrop overlay */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -328,17 +328,17 @@ export function BulkParcelUploadModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="relative w-full max-w-[90vw] md:max-w-4xl lg:max-w-5xl max-h-[90vh] bg-white border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10"
+            className="relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl"
           >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-border flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-white px-4 py-3 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-accent border border-primary/30 flex items-center justify-center">
               <FileSpreadsheet className="w-5 h-5 text-primary" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-foreground">Smart Excel Bulk Importer</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Automate daily delivery parcel inputs for all 300+ riders</p>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold text-foreground sm:text-base">Smart Excel Bulk Importer</h3>
+              <p className="hidden truncate text-[11px] text-muted-foreground mt-0.5 min-[360px]:block">Automate daily delivery parcel inputs for all 300+ riders</p>
             </div>
           </div>
           <button
@@ -351,25 +351,25 @@ export function BulkParcelUploadModal({
 
 
         {/* Wizard Progress Steps Bar */}
-        <div className="px-6 py-3 bg-panel-bg border-b border-border flex items-center gap-6 text-xs font-semibold shrink-0">
-          <div className={`flex items-center gap-1.5 ${step === 1 ? 'text-primary' : 'text-muted-foreground'}`}>
+        <div className="table-scroll-region flex shrink-0 items-center gap-3 border-b border-border bg-panel-bg px-4 py-3 text-xs font-semibold sm:gap-6 sm:px-6" role="group" aria-label="Import progress" tabIndex={0}>
+          <div className={`flex shrink-0 items-center gap-1.5 ${step === 1 ? 'text-primary' : 'text-muted-foreground'}`}>
             <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 1 ? 'border-primary bg-primary text-white' : 'border-border bg-white'}`}>1</span>
             Upload Spreadsheet
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30" />
-          <div className={`flex items-center gap-1.5 ${step === 2 ? 'text-primary' : 'text-muted-foreground'}`}>
+          <div className={`flex shrink-0 items-center gap-1.5 ${step === 2 ? 'text-primary' : 'text-muted-foreground'}`}>
             <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 2 ? 'border-primary bg-primary text-white' : 'border-border bg-white'}`}>2</span>
             Map Columns
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/30" />
-          <div className={`flex items-center gap-1.5 ${step === 3 ? 'text-primary' : 'text-muted-foreground'}`}>
+          <div className={`flex shrink-0 items-center gap-1.5 ${step === 3 ? 'text-primary' : 'text-muted-foreground'}`}>
             <span className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] ${step === 3 ? 'border-primary bg-primary text-white' : 'border-border bg-white'}`}>3</span>
             Preview & Confirm
           </div>
         </div>
 
         {/* Step Content */}
-        <div className="flex-1 overflow-y-auto p-6 min-h-0 bg-white">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-white p-4 sm:p-6">
           
           {/* STEP 1: UPLOAD */}
           {step === 1 && (
@@ -529,7 +529,7 @@ export function BulkParcelUploadModal({
 
               {/* Scrollable Preview Grid */}
               <div className="flex-1 overflow-auto border border-border rounded-xl min-h-0 max-h-[300px]">
-                <table className="w-full text-[11px] text-left border-collapse">
+                <table className="data-table-wide w-full text-[11px] text-left border-collapse">
                   <thead className="bg-panel-bg border-b border-border sticky top-0 z-[10]">
                     <tr>
                       <th className="px-4 py-2.5 font-bold text-muted-foreground">Status</th>

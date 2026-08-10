@@ -71,7 +71,7 @@ export function SearchableRiderComboboxModal({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 md:pt-24 p-4">
+        <div className="fixed inset-0 z-[9999] flex items-start justify-center p-2 pt-3 sm:p-4 sm:pt-16 md:pt-24">
           <motion.div
             role="dialog"
             aria-modal="true"
@@ -88,7 +88,7 @@ export function SearchableRiderComboboxModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-            className="relative w-full max-w-xl bg-white border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col z-10 max-h-[80vh]"
+            className="relative z-10 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-border bg-white shadow-2xl sm:max-h-[calc(100dvh-5rem)] sm:rounded-2xl md:max-h-[calc(100dvh-7rem)]"
           >
             {/* Search Input Box */}
             <div className="px-4 py-3.5 border-b border-border flex items-center gap-3 bg-white sticky top-0 shrink-0">
