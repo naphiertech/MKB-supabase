@@ -11,6 +11,7 @@ describe('biometric performance telemetry', () => {
       now: () => number;
     }) => {
       start: (name: string) => () => number;
+      record: (name: string, durationMs: number, startedAt: number) => void;
       snapshot: () => unknown[];
     };
     const times = [10, 34];
@@ -26,12 +27,25 @@ describe('biometric performance telemetry', () => {
       'name',
       'startedAt',
     ]);
+
+    telemetry.record('biometric_preload_long_task_1', 68, 40);
+    expect(telemetry.snapshot()[1]).toEqual({
+      name: 'biometric_preload_long_task_1',
+      durationMs: 68,
+      startedAt: 40,
+    });
   });
 
   it('provides timing-only names for scanner samples and both attendance flows', async () => {
     const telemetryModule = await import('./biometricTelemetry') as typeof import('./biometricTelemetry') & {
       BIOMETRIC_TIMING_NAMES?: {
         preload: string;
+        dashboardInteractive: string;
+        preloadScheduled: string;
+        preloadStarted: string;
+        preloadComplete: string;
+        warmupTotal: string;
+        preloadLongTask: (taskNumber: number) => string;
         cameraRequest: string;
         cameraFirstUsableFrame: string;
         liveness: string;
@@ -50,6 +64,12 @@ describe('biometric performance telemetry', () => {
     expect(names).toBeDefined();
     expect([
       names?.preload,
+      names?.dashboardInteractive,
+      names?.preloadScheduled,
+      names?.preloadStarted,
+      names?.preloadComplete,
+      names?.warmupTotal,
+      names?.preloadLongTask(1),
       names?.cameraRequest,
       names?.cameraFirstUsableFrame,
       names?.liveness,
@@ -71,6 +91,12 @@ describe('biometric performance telemetry', () => {
       names?.userPerceivedTotal('time_out'),
     ]).toEqual([
       'biometric_preload',
+      'dashboard_interactive',
+      'biometric_preload_scheduled',
+      'biometric_preload_started',
+      'biometric_preload_complete',
+      'biometric_warmup',
+      'biometric_preload_long_task_1',
       'camera_request',
       'camera_first_usable_frame',
       'liveness_completion',

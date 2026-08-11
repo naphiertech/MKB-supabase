@@ -19,7 +19,16 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { setCachedDescriptor } from '../lib/descriptorCache';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
 import { preloadBiometrics, releaseBiometrics } from '../lib/faceAi';
-import { BIOMETRIC_TIMING_NAMES, biometricTelemetry } from '../lib/biometricTelemetry';
+import {
+  BIOMETRIC_TIMING_NAMES,
+  biometricTelemetry,
+  observeBiometricPreloadLongTasks,
+} from '../lib/biometricTelemetry';
+import {
+  biometricPreloadPriority,
+  scheduleBiometricPreload,
+  waitForBrowserIdle,
+} from '../lib/biometricPreloadScheduler';
 import { Modal } from '../components/common/Modal';
 import { FaceScanner } from '../components/attendance/FaceScanner';
 import { AttendanceButton, type AttendanceAction } from '../components/attendance/AttendanceButton';
@@ -289,10 +298,6 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
             setCachedDescriptor(dbRider.id, dbRider.face_descriptor, mappedRider.avatar);
           }
 
-          const resolvedZone = allZones.find(z => z.id === dbRider.zone_id) || allZones[0];
-          if (resolvedZone) {
-            setZone(resolvedZone);
-          }
         }
 
         if (attLog) {
@@ -359,25 +364,44 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
       console.error('Error loading rider dashboard data:', err);
       setLoading(false);
     }
-  }, [userId, riderId, allZones]);
+  }, [userId, riderId]);
 
   useEffect(() => {
     loadRiderAndZone();
   }, [loadRiderAndZone]);
 
+  useEffect(() => {
+    const resolvedZone = allZones.find((candidate) => candidate.id === rider?.zoneId) || allZones[0];
+    if (resolvedZone) setZone(resolvedZone);
+  }, [allZones, rider?.zoneId]);
+
   // Background Biometrics Pre-warming (decoupled from initial page render)
   useEffect(() => {
     if (loading) return;
 
-    // Delay compilation/preloading until 1.5s after the UI is fully loaded and interactive
-    const preloadingTimeout = setTimeout(() => {
-      console.log('[RiderDashboard] Dashboard interactive. Starting biometrics background pre-warming...');
-      preloadBiometrics().catch(err => {
-        console.warn('[RiderDashboard] Background biometrics preloading exception:', err);
-      });
-    }, 1500);
+    const observedAt = performance.now();
+    biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.dashboardInteractive, 0, observedAt);
+    biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadScheduled, 0, observedAt);
 
-    return () => clearTimeout(preloadingTimeout);
+    return scheduleBiometricPreload(async () => {
+      if (!biometricPreloadPriority.canContinueBackground()) return;
+
+      console.log('[RiderDashboard] Dashboard idle. Starting biometrics background pre-warming...');
+      biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadStarted, 0);
+      const stopLongTaskObserver = observeBiometricPreloadLongTasks();
+
+      try {
+        await preloadBiometrics({
+          beforeStage: () => waitForBrowserIdle(),
+          canContinue: biometricPreloadPriority.canContinueBackground,
+        });
+      } catch (err) {
+        console.warn('[RiderDashboard] Background biometrics preloading exception:', err);
+      } finally {
+        stopLongTaskObserver();
+        biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadComplete, 0);
+      }
+    });
   }, [loading]);
 
   // Tab Inactivity Geolocation/Biometrics Resource Cleanup

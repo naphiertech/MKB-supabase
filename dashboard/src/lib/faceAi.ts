@@ -341,6 +341,19 @@ export function verifyFaceIdentity(
 
 type FaceLandmarkerType = Awaited<ReturnType<typeof import('@mediapipe/tasks-vision')['FaceLandmarker']['createFromOptions']>>;
 
+export type BiometricPreloadStage =
+  | 'face_api_initialization'
+  | 'mediapipe_initialization'
+  | 'warmup_ssd'
+  | 'warmup_landmarks'
+  | 'warmup_descriptor'
+  | 'warmup_mediapipe';
+
+interface BiometricPreloadOptions {
+  beforeStage?: (stage: BiometricPreloadStage) => Promise<void> | void;
+  canContinue?: () => boolean;
+}
+
 let landmarkerPromise: Promise<FaceLandmarkerType> | null = null;
 let landmarkerInstance: FaceLandmarkerType | null = null;
 
@@ -428,7 +441,26 @@ export function calculateHeadRoll(landmarks: { x: number; y: number; z: number }
  * Compile every biometric inference stage using a synthetic, non-rider input.
  * No warmup descriptor is retained, compared, or persisted.
  */
-export async function warmUpModels(landmarker: FaceLandmarkerType | null) {
+export async function warmUpModels(
+  landmarker: FaceLandmarkerType | null,
+  {
+    beforeStage,
+    canContinue = () => true,
+  }: BiometricPreloadOptions = {},
+) {
+  const finishWarmup = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.warmupTotal);
+
+  const runStage = async (
+    stage: BiometricPreloadStage,
+    work: () => Promise<unknown> | unknown,
+  ): Promise<boolean> => {
+    if (!canContinue()) return false;
+    await beforeStage?.(stage);
+    if (!canContinue()) return false;
+    await work();
+    return true;
+  };
+
   try {
     console.log('[Face AI] Running dummy warmups to pre-compile shaders...');
     const canvas = document.createElement('canvas');
@@ -446,37 +478,54 @@ export async function warmUpModels(landmarker: FaceLandmarkerType | null) {
 
     const { faceapi } = getFaceAiGlobals();
     if (faceapi) {
-      const finishSsd = biometricTelemetry.start('ssd_detection');
-      await faceapi.detectSingleFace(
-        canvas,
-        new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_DETECTION_MIN_CONFIDENCE }),
-      );
-      finishSsd();
+      const ssdCompleted = await runStage('warmup_ssd', async () => {
+        const finishSsd = biometricTelemetry.start('ssd_detection');
+        await faceapi.detectSingleFace(
+          canvas,
+          new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_DETECTION_MIN_CONFIDENCE }),
+        );
+        finishSsd();
+      });
+      if (!ssdCompleted) return;
 
-      const finishLandmarks = biometricTelemetry.start('landmark_completion');
-      await faceapi.detectFaceLandmarks(canvas);
-      finishLandmarks();
+      const landmarksCompleted = await runStage('warmup_landmarks', async () => {
+        const finishLandmarks = biometricTelemetry.start('landmark_completion');
+        await faceapi.detectFaceLandmarks(canvas);
+        finishLandmarks();
+      });
+      if (!landmarksCompleted) return;
 
-      const finishDescriptor = biometricTelemetry.start('descriptor_completion');
-      await faceapi.computeFaceDescriptor(canvas);
-      finishDescriptor();
+      const descriptorCompleted = await runStage('warmup_descriptor', async () => {
+        const finishDescriptor = biometricTelemetry.start('descriptor_completion');
+        await faceapi.computeFaceDescriptor(canvas);
+        finishDescriptor();
+      });
+      if (!descriptorCompleted) return;
     }
 
     if (landmarker && typeof landmarker.detectForVideo === 'function') {
-      const finishMediaPipe = biometricTelemetry.start('warmup_mediapipe');
-      landmarker.detectForVideo(canvas, Date.now());
-      finishMediaPipe();
+      const mediaPipeCompleted = await runStage('warmup_mediapipe', () => {
+        const finishMediaPipe = biometricTelemetry.start('warmup_mediapipe');
+        landmarker.detectForVideo(canvas, Date.now());
+        finishMediaPipe();
+      });
+      if (!mediaPipeCompleted) return;
     }
     console.log('[Face AI] Biometric warmup successfully completed.');
   } catch (err) {
     console.warn('[Face AI] Warmup failed or was skipped:', err);
+  } finally {
+    finishWarmup();
   }
 }
 
 /**
  * Stage-loads scripts, downloads models, and warms up the engines.
  */
-export function preloadBiometrics(): Promise<void> {
+export function preloadBiometrics({
+  beforeStage,
+  canContinue = () => true,
+}: BiometricPreloadOptions = {}): Promise<void> {
   if (biometricsPreloadedPromise) {
     console.log('[Face AI] preloadBiometrics(): REUSING existing preloading promise.');
     return biometricsPreloadedPromise;
@@ -494,14 +543,18 @@ export function preloadBiometrics(): Promise<void> {
       }
 
       console.log('[Face AI] Pre-downloading AI models...');
-      // Parallel download and instantiation
-      const [landmarker] = await Promise.all([
-        loadMediaPipeLandmarker(),
-        loadFaceModels()
-      ]);
+      if (!canContinue()) return;
+      await beforeStage?.('face_api_initialization');
+      if (!canContinue()) return;
+      await loadFaceModels();
+
+      if (!canContinue()) return;
+      await beforeStage?.('mediapipe_initialization');
+      if (!canContinue()) return;
+      const landmarker = await loadMediaPipeLandmarker();
 
       // Warm up the models
-      await warmUpModels(landmarker);
+      await warmUpModels(landmarker, { beforeStage, canContinue });
     } catch (err) {
       console.warn('[Face AI] Preloading biometrics failed:', err);
       biometricsPreloadedPromise = null; // reset to allow retry

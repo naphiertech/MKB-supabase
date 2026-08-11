@@ -69,6 +69,59 @@ describe('biometric model lifecycle', () => {
     expect(landmarker.detectForVideo).toHaveBeenCalledTimes(1);
   });
 
+  it('offers an idle boundary before every expensive representative warmup stage', async () => {
+    const faceApi = installFaceApi();
+    const landmarker = { detectForVideo: vi.fn(() => ({ faceLandmarks: [] })) };
+    const module = await import('./faceAi') as typeof import('./faceAi') & {
+      warmUpModels: (
+        landmarker: never,
+        options: { beforeStage: (stage: string) => Promise<void> },
+      ) => Promise<void>;
+    };
+    const stages: string[] = [];
+
+    await module.warmUpModels(landmarker as never, {
+      beforeStage: async (stage) => { stages.push(stage); },
+    });
+
+    expect(stages).toEqual([
+      'warmup_ssd',
+      'warmup_landmarks',
+      'warmup_descriptor',
+      'warmup_mediapipe',
+    ]);
+    expect(faceApi.detectSingleFace).toHaveBeenCalledTimes(1);
+    expect(faceApi.detectFaceLandmarks).toHaveBeenCalledTimes(1);
+    expect(faceApi.computeFaceDescriptor).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops optional warmup before the next heavy stage when foreground scanning takes priority', async () => {
+    const faceApi = installFaceApi();
+    const landmarker = { detectForVideo: vi.fn(() => ({ faceLandmarks: [] })) };
+    const module = await import('./faceAi') as typeof import('./faceAi') & {
+      warmUpModels: (
+        landmarker: never,
+        options: {
+          beforeStage: (stage: string) => Promise<void>;
+          canContinue: () => boolean;
+        },
+      ) => Promise<void>;
+    };
+    let foregroundRequested = false;
+
+    await module.warmUpModels(landmarker as never, {
+      beforeStage: async (stage) => {
+        if (stage === 'warmup_landmarks') foregroundRequested = true;
+      },
+      canContinue: () => !foregroundRequested,
+    });
+
+    expect(faceApi.detectSingleFace).toHaveBeenCalledTimes(1);
+    expect(faceApi.detectFaceLandmarks).not.toHaveBeenCalled();
+    expect(faceApi.computeFaceDescriptor).not.toHaveBeenCalled();
+    expect(landmarker.detectForVideo).not.toHaveBeenCalled();
+  });
+
   it('keeps resident face-api weights loaded across transient release and reuse', async () => {
     const faceApi = installFaceApi();
     const module = await import('./faceAi');

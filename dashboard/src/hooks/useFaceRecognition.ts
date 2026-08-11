@@ -18,6 +18,7 @@ import {
   biometricTelemetry,
   logReferenceAvatarAvailability,
 } from '../lib/biometricTelemetry';
+import { biometricPreloadPriority } from '../lib/biometricPreloadScheduler';
 import {
   advanceFreshMatchState,
   isCurrentScanSession,
@@ -629,6 +630,7 @@ export function useFaceRecognition({
   }, [finishScannerDuration]);
 
   const start = useCallback(async () => {
+    biometricPreloadPriority.requestForeground();
     const sequenceStart = performance.now();
     console.log('[Face AI] start() triggered. Starting initialization sequence...');
     clearTimers();
