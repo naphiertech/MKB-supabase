@@ -727,6 +727,8 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          approved_by_email_snapshot: string | null
+          approved_by_name_snapshot: string | null
           calculation_version: number
           created_at: string
           cutoff_end: string
@@ -747,13 +749,21 @@ export type Database = {
           other_earnings: number | null
           paid_at: string | null
           paid_by: string | null
+          paid_by_email_snapshot: string | null
+          paid_by_name_snapshot: string | null
           processed_at: string | null
           rate_configuration_id: string | null
           rate_per_parcel: number
           regular_standard_rate_snapshot: number | null
           rejected_at: string | null
           rejected_by: string | null
+          rejected_by_email_snapshot: string | null
+          rejected_by_name_snapshot: string | null
           rejection_reason: string | null
+          returned_at: string | null
+          returned_by: string | null
+          returned_by_email_snapshot: string | null
+          returned_by_name_snapshot: string | null
           rider_id: string
           snapshot_finalized_at: string | null
           standard_earnings: number
@@ -761,12 +771,16 @@ export type Database = {
           status: Database["public"]["Enums"]["payroll_status"]
           submitted_at: string | null
           submitted_by: string | null
+          submitted_by_email_snapshot: string | null
+          submitted_by_name_snapshot: string | null
           total_parcels: number
           updated_at: string
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          approved_by_email_snapshot?: string | null
+          approved_by_name_snapshot?: string | null
           calculation_version?: number
           created_at?: string
           cutoff_end: string
@@ -787,13 +801,21 @@ export type Database = {
           other_earnings?: number | null
           paid_at?: string | null
           paid_by?: string | null
+          paid_by_email_snapshot?: string | null
+          paid_by_name_snapshot?: string | null
           processed_at?: string | null
           rate_configuration_id?: string | null
           rate_per_parcel?: number
           regular_standard_rate_snapshot?: number | null
           rejected_at?: string | null
           rejected_by?: string | null
+          rejected_by_email_snapshot?: string | null
+          rejected_by_name_snapshot?: string | null
           rejection_reason?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_by_email_snapshot?: string | null
+          returned_by_name_snapshot?: string | null
           rider_id: string
           snapshot_finalized_at?: string | null
           standard_earnings?: number
@@ -801,12 +823,16 @@ export type Database = {
           status?: Database["public"]["Enums"]["payroll_status"]
           submitted_at?: string | null
           submitted_by?: string | null
+          submitted_by_email_snapshot?: string | null
+          submitted_by_name_snapshot?: string | null
           total_parcels?: number
           updated_at?: string
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          approved_by_email_snapshot?: string | null
+          approved_by_name_snapshot?: string | null
           calculation_version?: number
           created_at?: string
           cutoff_end?: string
@@ -827,13 +853,21 @@ export type Database = {
           other_earnings?: number | null
           paid_at?: string | null
           paid_by?: string | null
+          paid_by_email_snapshot?: string | null
+          paid_by_name_snapshot?: string | null
           processed_at?: string | null
           rate_configuration_id?: string | null
           rate_per_parcel?: number
           regular_standard_rate_snapshot?: number | null
           rejected_at?: string | null
           rejected_by?: string | null
+          rejected_by_email_snapshot?: string | null
+          rejected_by_name_snapshot?: string | null
           rejection_reason?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          returned_by_email_snapshot?: string | null
+          returned_by_name_snapshot?: string | null
           rider_id?: string
           snapshot_finalized_at?: string | null
           standard_earnings?: number
@@ -841,6 +875,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["payroll_status"]
           submitted_at?: string | null
           submitted_by?: string | null
+          submitted_by_email_snapshot?: string | null
+          submitted_by_name_snapshot?: string | null
           total_parcels?: number
           updated_at?: string
         }
@@ -878,6 +914,13 @@ export type Database = {
             columns: ["rider_id"]
             isOneToOne: false
             referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_records_returned_by_fkey"
+            columns: ["returned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {

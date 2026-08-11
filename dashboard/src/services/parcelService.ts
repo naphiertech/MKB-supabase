@@ -705,10 +705,11 @@ export const getPaginatedPayrollRecords = async (params: PaginatedPayrollParams)
     .select(`
       *,
       riders!inner(id, name, mkb_id, avatar_url, zone_id, notes, zones(name)),
-      submitted_user:users!payroll_records_submitted_by_fkey(full_name),
-      approved_user:users!payroll_records_approved_by_fkey(full_name),
-      rejected_user:users!payroll_records_rejected_by_fkey(full_name),
-      paid_user:users!payroll_records_paid_by_fkey(full_name)
+      submitted_user:users!payroll_records_submitted_by_fkey(full_name, email),
+      approved_user:users!payroll_records_approved_by_fkey(full_name, email),
+      rejected_user:users!payroll_records_rejected_by_fkey(full_name, email),
+      returned_user:users!payroll_records_returned_by_fkey(full_name, email),
+      paid_user:users!payroll_records_paid_by_fkey(full_name, email)
     `, { count: 'exact' })
     .gte('cutoff_start', cutoffFrom)
     .lte('cutoff_start', cutoffTo);
@@ -872,14 +873,8 @@ export const updatePayrollRecordStatus = async (
       updatePayload.paid_at = new Date().toISOString();
       updatePayload.processed_at = new Date().toISOString(); // for backward compatibility
     } else if (normStatus === PayrollStatus.DRAFT) {
-      // Returned for revision
-      updatePayload.approved_by = null;
-      updatePayload.approved_at = null;
-      updatePayload.rejected_by = null;
-      updatePayload.rejected_at = null;
-      updatePayload.rejection_reason = null;
-      updatePayload.paid_by = null;
-      updatePayload.paid_at = null;
+      // Return attribution is captured authoritatively by the database trigger.
+      // Earlier actor UUIDs and snapshots remain historical evidence.
     }
   }
 
@@ -887,7 +882,6 @@ export const updatePayrollRecordStatus = async (
   let riderName = 'Rider';
   let cutoffStart = '';
   let cutoffEnd = '';
-  let grossPay = 0;
   let currentRecordVersion: { status: string; updated_at: string } | null = null;
   try {
     const { data: record, error: recordError } = await supabase
@@ -904,7 +898,6 @@ export const updatePayrollRecordStatus = async (
     riderName = (record.riders as any)?.name || 'Rider';
     cutoffStart = record.cutoff_start;
     cutoffEnd = record.cutoff_end;
-    grossPay = record.gross_pay || 0;
     currentRecordVersion = { status: record.status, updated_at: record.updated_at };
   } catch (err) {
     console.error('Failed to validate payroll record before status update:', err);
@@ -939,39 +932,10 @@ export const updatePayrollRecordStatus = async (
 
   if (error) throw error;
 
-  // 2. Write appropriate transition activity log
+  // The database trigger writes the authoritative submit/reject/return audit
+  // entry with the same actor snapshot as the payroll row. Approval/payment
+  // audit entries are written inside the atomic transition RPC.
   try {
-    let eventType = 'payroll_status_update';
-    let description = `Updated payroll status for ${riderName} (${cutoffStart} to ${cutoffEnd}) to ${normStatus}`;
-    
-    if (normStatus === PayrollStatus.PENDING) {
-      eventType = 'payroll_submit';
-      description = `Submitted payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) for approval - Net Pay: ₱${grossPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Pending Review)`;
-    } else if (normStatus === PayrollStatus.APPROVED) {
-      eventType = 'payroll_approve';
-      description = `Approved payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) - Net Pay: ₱${grossPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Approved)`;
-    } else if (normStatus === PayrollStatus.REJECTED) {
-      eventType = 'payroll_reject';
-      const reasonStr = auditData?.rejectionReason ? ` Reason: "${auditData.rejectionReason}"` : '';
-      description = `Rejected payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}).${reasonStr} (Status: Rejected)`;
-    } else if (normStatus === PayrollStatus.PAID) {
-      eventType = 'payroll_pay';
-      description = `Disbursed & Paid payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) - Net Pay: ₱${grossPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Paid)`;
-    } else if (normStatus === PayrollStatus.DRAFT) {
-      eventType = 'payroll_return';
-      description = `Returned payroll for ${riderName} (${cutoffStart} to ${cutoffEnd}) for revision (Status: Draft)`;
-    }
-
-    await logActivity({
-      userId: auditData?.userId || null,
-      eventType,
-      description,
-      metadata: {
-        record_id: recordId,
-        status: normStatus
-      }
-    });
-
     // Non-blocking notification dispatches for Payroll transitions
     const senderId = auditData?.userId || null;
     if (normStatus === PayrollStatus.PENDING) {
@@ -1065,19 +1029,8 @@ export const bulkSubmitPayrollForApproval = async (
 
   if (updateError) throw updateError;
 
-  // 4. Log activity for each record
-  for (const rec of records) {
-    const riderName = (rec.riders as any)?.name || 'Rider';
-    await logActivity({
-      userId,
-      eventType: 'payroll_submit',
-      description: `Submitted payroll for ${riderName} (${rec.cutoff_start} to ${rec.cutoff_end}) for approval - Net Pay: ₱${Number(rec.gross_pay || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Status: Pending Review)`,
-      metadata: {
-        record_id: rec.id,
-        status: PayrollStatus.PENDING
-      }
-    });
-  }
+  // The workflow trigger writes one authoritative audit event per row with
+  // the server-resolved actor snapshot.
 };
 
 

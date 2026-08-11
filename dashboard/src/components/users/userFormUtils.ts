@@ -1,3 +1,5 @@
+import { isSameEmail, isStaffRole, validateStaffEmail } from '../../services/staffProfilePolicy';
+
 export type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
 export type Shift = 'morning' | 'afternoon' | 'evening' | '';
 
@@ -86,7 +88,7 @@ export function compressBase64Image(
   });
 }
 
-export function validate(form: FormState, mode: 'create' | 'edit'): FormErrors {
+export function validate(form: FormState, mode: 'create' | 'edit', original?: FormState): FormErrors {
   const errors: FormErrors = {};
   if (!form.firstName.trim()) errors.firstName = 'First name is required.';
   if (!form.lastName.trim()) errors.lastName = 'Last name is required.';
@@ -95,14 +97,16 @@ export function validate(form: FormState, mode: 'create' | 'edit'): FormErrors {
     errors.email = 'Email is required.';
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
     errors.email = 'Invalid email format.';
-  } else if (form.role !== 'rider' && !/@mkb\.ph$/i.test(form.email.trim())) {
-    errors.email = 'Email must use the @mkb.ph domain.';
+  } else if (isStaffRole(form.role) && (mode === 'create' || !original || !isSameEmail(form.email, original.email))) {
+    const staffEmailError = validateStaffEmail(form.email);
+    if (staffEmailError) errors.email = staffEmailError;
   }
 
   const digits = form.contact.replace(/\D/g, '');
-  if (!digits) {
+  const shouldValidateContact = mode === 'create' || !original || form.contact !== original.contact || Boolean(original.contact.trim());
+  if (shouldValidateContact && !digits) {
     errors.contact = 'Contact number is required.';
-  } else if (digits.length !== 11) {
+  } else if (shouldValidateContact && digits.length !== 11) {
     errors.contact = 'Contact number must be 11 digits.';
   }
 
@@ -118,8 +122,10 @@ export function validate(form: FormState, mode: 'create' | 'edit'): FormErrors {
   if (!form.role) errors.role = 'Role is required.';
 
   // General payroll / employment fields (Required for all)
-  if (!form.employmentType) errors.employmentType = 'Employment type is required.';
-  if (!form.dateOfHire) errors.dateOfHire = 'Start date of hire is required.';
+  const shouldValidateEmploymentType = mode === 'create' || !original || form.employmentType !== original.employmentType || Boolean(original.employmentType);
+  const shouldValidateDateOfHire = mode === 'create' || !original || form.dateOfHire !== original.dateOfHire || Boolean(original.dateOfHire);
+  if (shouldValidateEmploymentType && !form.employmentType) errors.employmentType = 'Employment type is required.';
+  if (shouldValidateDateOfHire && !form.dateOfHire) errors.dateOfHire = 'Start date of hire is required.';
 
   if (form.role === 'rider') {
     if (!form.mkbRiderId.trim()) errors.mkbRiderId = 'MKB Rider ID is required.';

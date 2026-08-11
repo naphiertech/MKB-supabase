@@ -374,13 +374,12 @@ export const getUserContactInfo = async (userId: string): Promise<string> => {
 // Update user settings profile in users table
 export const updateUserSettingsProfile = async (
   userId: string,
-  input: { fullName: string; email: string; phone: string }
+  input: { fullName: string; phone: string }
 ): Promise<void> => {
   const { error } = await supabase
     .from('users')
     .update({
       full_name: input.fullName,
-      email: input.email.trim(),
       contact: input.phone.trim()
     })
     .eq('id', userId);
@@ -393,17 +392,90 @@ export const updateUserAuthCredentials = async (input: {
   email?: string;
   password?: string;
   fullName: string;
-}): Promise<void> => {
+}): Promise<AuthEmailState> => {
   const authUpdates: { email?: string; password?: string; data: { full_name: string } } = {
-    email: input.email,
     data: { full_name: input.fullName }
   };
+
+  if (input.email) {
+    authUpdates.email = input.email.trim();
+  }
 
   if (input.password) {
     authUpdates.password = input.password;
   }
 
-  const { error } = await supabase.auth.updateUser(authUpdates);
+  const { data, error } = await supabase.auth.updateUser(authUpdates);
+  if (error) throw error;
+  if (!data.user) throw new Error('The authenticated user could not be refreshed.');
+  return toAuthEmailState(data.user);
+};
+
+export interface AuthEmailState {
+  currentEmail: string;
+  pendingEmail: string | null;
+  emailVerified: boolean;
+}
+
+function toAuthEmailState(user: { email?: string | null; new_email?: string | null; email_confirmed_at?: string | null }): AuthEmailState {
+  return {
+    currentEmail: user.email || '',
+    pendingEmail: user.new_email || null,
+    emailVerified: Boolean(user.email_confirmed_at),
+  };
+}
+
+export const getCurrentAuthEmailState = async (): Promise<AuthEmailState> => {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  if (!data.user) throw new Error('The authenticated user could not be loaded.');
+  return toAuthEmailState(data.user);
+};
+
+export const STAFF_AVATAR_BUCKET = 'staff-avatars';
+export const MAX_STAFF_AVATAR_BYTES = 2 * 1024 * 1024;
+const STAFF_AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+export function validateStaffAvatarFile(file: Pick<File, 'type' | 'size'>): string | null {
+  if (!STAFF_AVATAR_MIME_TYPES.has(file.type)) return 'Profile photos must be JPG, PNG, or WebP images.';
+  if (file.size > MAX_STAFF_AVATAR_BYTES) return 'Profile photos must not exceed 2 MB.';
+  return null;
+}
+
+function staffAvatarPath(userId: string): string {
+  return `staff/${userId}/avatar`;
+}
+
+export const getStaffAvatarSignedUrl = async (userId: string): Promise<string | null> => {
+  const { data, error } = await supabase.storage
+    .from(STAFF_AVATAR_BUCKET)
+    .createSignedUrl(staffAvatarPath(userId), 3600);
+  if (error) {
+    if (/not found|object not found/i.test(error.message)) return null;
+    throw error;
+  }
+  return data?.signedUrl || null;
+};
+
+export const uploadStaffAvatar = async (userId: string, file: File): Promise<{ path: string; signedUrl: string }> => {
+  const validationError = validateStaffAvatarFile(file);
+  if (validationError) throw new Error(validationError);
+  const path = staffAvatarPath(userId);
+  const bucket = supabase.storage.from(STAFF_AVATAR_BUCKET);
+  const { error } = await bucket.upload(path, file, {
+    upsert: true,
+    contentType: file.type,
+    cacheControl: '3600',
+  });
+  if (error) throw error;
+  const { data, error: signedUrlError } = await bucket.createSignedUrl(path, 3600);
+  if (signedUrlError) throw signedUrlError;
+  if (!data?.signedUrl) throw new Error('The profile photo was uploaded but could not be displayed.');
+  return { path, signedUrl: data.signedUrl };
+};
+
+export const removeStaffAvatar = async (userId: string): Promise<void> => {
+  const { error } = await supabase.storage.from(STAFF_AVATAR_BUCKET).remove([staffAvatarPath(userId)]);
   if (error) throw error;
 };
 

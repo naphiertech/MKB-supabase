@@ -27,6 +27,7 @@ import { pushToast } from '../../hooks/useToast';
 import { getUserTrustedDevice, resetUserTrustedDevice } from '../../services/riderService';
 import { DeviceResetModal, type TrustedDeviceInfo } from './DeviceResetModal';
 import { RiderDocumentsTab } from './RiderDocumentsTab';
+import { getMissingStaffProfileFields, isStaffRole } from '../../services/staffProfilePolicy';
 
 function formatTimeString(dateStr: string | null): string {
   if (!dateStr) return '—';
@@ -45,6 +46,13 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
   const { session } = useAuth();
   const isRider = user.role === 'rider';
   const canViewDocuments = session?.role === 'admin' || session?.role === 'hr';
+  const missingStaffFields = isStaffRole(user.role)
+    ? getMissingStaffProfileFields({
+        contact: user.contact,
+        employmentType: user.employmentType,
+        dateOfHire: user.dateOfHire,
+      })
+    : [];
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [activeTab, setActiveTab] = useState<'profile' | 'attendance' | 'documents'>('profile');
@@ -301,6 +309,17 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
 
       {/* Main Grid Content */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-6">
+        {missingStaffFields.length > 0 && (
+          <section className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4" aria-label="Incomplete staff profile">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Profile incomplete</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                Missing: {missingStaffFields.join(', ')}. Enter only verified employee information; no placeholder values are required.
+              </p>
+            </div>
+          </section>
+        )}
         {user.employmentStatus === 'archived' && (
           <section className="mb-6 rounded-xl border border-slate-300 bg-slate-100 p-4" aria-label="Archived employment details">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -340,7 +359,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
 
               <h2 className="text-lg font-bold text-foreground">{user.name}</h2>
               <p className="text-xs text-muted-foreground capitalize mt-0.5 font-medium">
-                {user.role} &bull; {user.employmentType || 'Contractual'}
+                {user.role} &bull; {user.employmentType || 'Not Set'}
               </p>
 
               {/* Basic Quick Stats */}

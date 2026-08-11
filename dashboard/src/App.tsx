@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState, Component } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import { Sidebar, type PageKey } from './components/common/Sidebar';
 import { Topbar } from './components/common/Topbar';
 import { DashboardSkeleton } from './components/common/DashboardSkeleton';
@@ -89,6 +89,8 @@ export function App() {
   const [mfaChecking, setMfaChecking] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaSettledSessionId, setMfaSettledSessionId] = useState<string | null>(null);
+  const latestMfaRequest = useRef(0);
   const getInitialPage = (): PageKey => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#/', '').replace('#', '');
@@ -118,29 +120,56 @@ export function App() {
   const { riders: allRiders, zones: allZones } = useRiderZone();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
 
-  const refreshMfaGate = useCallback(async () => {
-    if (!session || isPasswordRecovery || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+  const refreshMfaGate = useCallback(async ({ blocking = false }: { blocking?: boolean } = {}) => {
+    const sessionId = session?.id ?? null;
+    const requestId = ++latestMfaRequest.current;
+    if (!sessionId || isPasswordRecovery || (typeof navigator !== 'undefined' && !navigator.onLine)) {
       setMfaRequired(false);
       setMfaChecking(false);
       setMfaError(null);
+      setMfaSettledSessionId(sessionId);
       return;
     }
-    setMfaChecking(true);
+    if (blocking) setMfaChecking(true);
     setMfaError(null);
     try {
       const state = await getMfaState();
+      if (requestId !== latestMfaRequest.current) return;
       setMfaRequired(state.requiresChallenge);
     } catch (error: unknown) {
+      if (requestId !== latestMfaRequest.current) return;
       setMfaRequired(false);
       setMfaError(error instanceof Error ? error.message : 'Unable to verify account security.');
     } finally {
-      setMfaChecking(false);
+      if (requestId === latestMfaRequest.current) {
+        setMfaSettledSessionId(sessionId);
+        setMfaChecking(false);
+      }
     }
-  }, [isPasswordRecovery, session]);
+  }, [isPasswordRecovery, session?.id]);
 
   useEffect(() => {
-    void refreshMfaGate();
-  }, [refreshMfaGate]);
+    if (!isAuthReady) return;
+    void refreshMfaGate({ blocking: true });
+  }, [isAuthReady, refreshMfaGate]);
+
+  useEffect(() => {
+    if (!isAuthReady || !session?.id || isPasswordRecovery) return;
+    const sessionId = session.id;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, authSession) => {
+      if (
+        !authSession?.user
+        || authSession.user.id !== sessionId
+        || !['SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED', 'MFA_CHALLENGE_VERIFIED'].includes(event)
+      ) return;
+      setTimeout(() => {
+        void refreshMfaGate();
+      }, 0);
+    });
+    return () => subscription.unsubscribe();
+  }, [isAuthReady, isPasswordRecovery, refreshMfaGate, session?.id]);
 
   useEffect(() => {
     if (!session?.id) return;
@@ -302,12 +331,12 @@ export function App() {
     }} /><Toaster position="top-right" reverseOrder={false} /></>;
   }
 
-  if (session && mfaChecking) {
+  if (session && (!isAuthReady || mfaSettledSessionId !== session.id || mfaChecking)) {
     return <div className="min-h-screen grid place-items-center bg-panel-bg text-sm text-muted-foreground">Verifying account security…</div>;
   }
 
   if (session && mfaError) {
-    return <div className="min-h-screen grid place-items-center bg-panel-bg p-6"><div className="max-w-sm rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm"><h1 className="font-semibold text-red-800">Security verification unavailable</h1><p className="mt-2 text-sm text-muted-foreground">{mfaError}</p><div className="mt-4 flex justify-center gap-2"><button type="button" onClick={() => void refreshMfaGate()} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white">Retry</button><button type="button" onClick={signOut} className="rounded-lg border border-border px-4 py-2 text-xs font-semibold">Sign out</button></div></div></div>;
+    return <div className="min-h-screen grid place-items-center bg-panel-bg p-6"><div className="max-w-sm rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm"><h1 className="font-semibold text-red-800">Security verification unavailable</h1><p className="mt-2 text-sm text-muted-foreground">{mfaError}</p><div className="mt-4 flex justify-center gap-2"><button type="button" onClick={() => void refreshMfaGate({ blocking: true })} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white">Retry</button><button type="button" onClick={signOut} className="rounded-lg border border-border px-4 py-2 text-xs font-semibold">Sign out</button></div></div></div>;
   }
 
   if (session && mfaRequired) {

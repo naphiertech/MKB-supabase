@@ -41,6 +41,7 @@ import { SelectedDayDetails } from "./SelectedDayDetails";
 import { AttendanceLogsTable } from "./AttendanceLogsTable";
 import { PayslipSlipCard } from "./PayslipSlipCard";
 import { useParcelLogsRealtimeVersion } from "../../hooks/useParcelLogsRealtimeVersion";
+import { PayrollActorIdentity } from "./PayrollActorIdentity";
 
 export interface PayrollRecordShape {
   id: string;
@@ -65,19 +66,32 @@ export interface PayrollRecordShape {
   late_remittance?: number;
   submitted_by?: string;
   submitted_at?: string;
+  submitted_by_name_snapshot?: string | null;
+  submitted_by_email_snapshot?: string | null;
   approved_by?: string;
   approved_at?: string;
+  approved_by_name_snapshot?: string | null;
+  approved_by_email_snapshot?: string | null;
   rejected_by?: string;
   rejected_at?: string;
+  rejected_by_name_snapshot?: string | null;
+  rejected_by_email_snapshot?: string | null;
   rejection_reason?: string;
+  returned_by?: string;
+  returned_at?: string;
+  returned_by_name_snapshot?: string | null;
+  returned_by_email_snapshot?: string | null;
   paid_by?: string;
   paid_at?: string;
+  paid_by_name_snapshot?: string | null;
+  paid_by_email_snapshot?: string | null;
   created_at?: string;
   updated_at?: string;
-  submitted_user?: { full_name: string } | null;
-  approved_user?: { full_name: string } | null;
-  rejected_user?: { full_name: string } | null;
-  paid_user?: { full_name: string } | null;
+  submitted_user?: { full_name: string; email?: string } | null;
+  approved_user?: { full_name: string; email?: string } | null;
+  rejected_user?: { full_name: string; email?: string } | null;
+  returned_user?: { full_name: string; email?: string } | null;
+  paid_user?: { full_name: string; email?: string } | null;
   riders: {
     id?: string;
     name: string;
@@ -729,8 +743,15 @@ export function PayrollDetailsModal({
                     }`} />
                     <div className="text-[11px] font-semibold text-foreground">Submitted for Review</div>
                     {record.submitted_at ? (
-                      <div className="text-[9.5px] text-muted-foreground">
-                        By {record.submitted_user?.full_name || 'Payroll Officer'} on {new Date(record.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      <div className="mt-0.5 text-[9.5px] text-muted-foreground">
+                        <PayrollActorIdentity
+                          snapshotName={record.submitted_by_name_snapshot}
+                          snapshotEmail={record.submitted_by_email_snapshot}
+                          currentName={record.submitted_user?.full_name}
+                          currentEmail={record.submitted_user?.email}
+                          legacyFallbackLabel="Payroll Officer"
+                        />
+                        <div className="mt-0.5">{new Date(record.submitted_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
                     ) : (
                       <div className="text-[9.5px] text-subtle-text italic">Awaiting submission</div>
@@ -748,17 +769,50 @@ export function PayrollDetailsModal({
                       {record.status === 'rejected' ? 'Rejected' : 'Approved by Management'}
                     </div>
                     {record.status === 'rejected' && record.rejected_at ? (
-                      <div className="text-[9.5px] text-rose-600">
-                        By {record.rejected_user?.full_name || 'Admin'} on {new Date(record.rejected_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      <div className="mt-0.5 text-[9.5px] text-rose-600">
+                        <PayrollActorIdentity
+                          snapshotName={record.rejected_by_name_snapshot}
+                          snapshotEmail={record.rejected_by_email_snapshot}
+                          currentName={record.rejected_user?.full_name}
+                          currentEmail={record.rejected_user?.email}
+                          legacyFallbackLabel="Admin / HR"
+                          tone="danger"
+                        />
+                        <div className="mt-0.5">{new Date(record.rejected_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
                     ) : record.approved_at ? (
-                      <div className="text-[9.5px] text-muted-foreground">
-                        By {record.approved_user?.full_name || 'Admin'} on {new Date(record.approved_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      <div className="mt-0.5 text-[9.5px] text-muted-foreground">
+                        <PayrollActorIdentity
+                          snapshotName={record.approved_by_name_snapshot}
+                          snapshotEmail={record.approved_by_email_snapshot}
+                          currentName={record.approved_user?.full_name}
+                          currentEmail={record.approved_user?.email}
+                          legacyFallbackLabel="Admin / HR"
+                        />
+                        <div className="mt-0.5">{new Date(record.approved_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
                     ) : (
                       <div className="text-[9.5px] text-subtle-text italic">Awaiting validation</div>
                     )}
                   </div>
+
+                  {/* Returned for Revision State */}
+                  {record.returned_at && (
+                    <div className="relative">
+                      <div className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full border border-amber-500 bg-amber-500" />
+                      <div className="text-[11px] font-semibold text-foreground">Returned for Revision</div>
+                      <div className="mt-0.5 text-[9.5px] text-muted-foreground">
+                        <PayrollActorIdentity
+                          snapshotName={record.returned_by_name_snapshot}
+                          snapshotEmail={record.returned_by_email_snapshot}
+                          currentName={record.returned_user?.full_name}
+                          currentEmail={record.returned_user?.email}
+                          legacyFallbackLabel="Admin / HR"
+                        />
+                        <div className="mt-0.5">{new Date(record.returned_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Paid State */}
                   <div className="relative">
@@ -767,8 +821,16 @@ export function PayrollDetailsModal({
                     }`} />
                     <div className="text-[11px] font-semibold text-foreground">Paid & Disbursed</div>
                     {record.paid_at ? (
-                      <div className="text-[9.5px] text-emerald-600">
-                        Disbursed on {new Date(record.paid_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      <div className="mt-0.5 text-[9.5px] text-emerald-600">
+                        <PayrollActorIdentity
+                          snapshotName={record.paid_by_name_snapshot}
+                          snapshotEmail={record.paid_by_email_snapshot}
+                          currentName={record.paid_user?.full_name}
+                          currentEmail={record.paid_user?.email}
+                          legacyFallbackLabel="Admin / HR"
+                          tone="success"
+                        />
+                        <div className="mt-0.5">{new Date(record.paid_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                       </div>
                     ) : (
                       <div className="text-[9.5px] text-subtle-text italic">Awaiting disbursal</div>
@@ -780,9 +842,15 @@ export function PayrollDetailsModal({
                 <div className="border-t border-border pt-3.5 space-y-1.5 text-[10.5px]">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Prepared By:</span>
-                    <span className="font-semibold text-foreground truncate max-w-[150px]">
-                      {record.submitted_user?.full_name || 'Payroll Officer'}
-                    </span>
+                    <div className="max-w-[170px] text-right text-[9.5px]">
+                      <PayrollActorIdentity
+                        snapshotName={record.submitted_by_name_snapshot}
+                        snapshotEmail={record.submitted_by_email_snapshot}
+                        currentName={record.submitted_user?.full_name}
+                        currentEmail={record.submitted_user?.email}
+                        legacyFallbackLabel="Payroll Officer"
+                      />
+                    </div>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Last Updated:</span>
@@ -867,9 +935,9 @@ export function PayrollDetailsModal({
                       <div className="text-xs text-rose-700 mt-1 italic">
                         "{record.rejection_reason}"
                       </div>
-                      {record.rejected_user?.full_name && (
+                      {(record.rejected_by_name_snapshot || record.rejected_user?.full_name) && (
                         <div className="text-[9px] text-rose-600 mt-1 font-semibold text-right">
-                          — Rejected by {record.rejected_user.full_name}
+                          — Rejected by {record.rejected_by_name_snapshot || record.rejected_user?.full_name}
                         </div>
                       )}
                     </div>

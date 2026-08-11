@@ -1,5 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { getUserContactInfo, updateUserSettingsProfile, updateUserAuthCredentials } from '../services/userService';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import {
+  getCurrentAuthEmailState,
+  getStaffAvatarSignedUrl,
+  getUserProfileById,
+  removeStaffAvatar,
+  updateUserSettingsProfile,
+  updateUserAuthCredentials,
+  uploadStaffAvatar,
+  validateStaffAvatarFile,
+} from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import { pushToast } from '../hooks/useToast';
 import { 
@@ -19,6 +28,8 @@ import { AccountSecurityControls } from '../components/settings/AccountSecurityC
 import { NotificationPreferencesPanel } from '../components/settings/NotificationPreferencesPanel';
 import { useNotificationContext } from '../context/NotificationContext';
 import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '../services/notificationPreferenceService';
+import { getMissingStaffProfileFields, isSameEmail, isStaffRole, validateStaffEmail } from '../services/staffProfilePolicy';
+import { StaffEmailStatus } from '../components/settings/StaffEmailStatus';
 
 type TabType = 'Personal Detail' | 'Security' | 'Notification' | 'Payroll & Parcel Rates';
 
@@ -41,7 +52,15 @@ export function Settings() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [currentEmail, setCurrentEmail] = useState('');
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
   const [phone, setPhone] = useState('');
+  const [employmentType, setEmploymentType] = useState<string | null>(null);
+  const [dateOfHire, setDateOfHire] = useState<string | null>(null);
+  const [employmentStatus, setEmploymentStatus] = useState<string | null>(null);
+  const [accountStatus, setAccountStatus] = useState<string | null>(null);
+  const [profileRole, setProfileRole] = useState<string | null>(null);
   const [preferredLanguage, setPreferredLanguage] = useState('English');
   const [country, setCountry] = useState('Philippines');
   const [province, setProvince] = useState('Zamboanga del Sur');
@@ -58,6 +77,8 @@ export function Settings() {
 
   // Profile photo state
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [removeAvatarRequested, setRemoveAvatarRequested] = useState(false);
 
   // Security states
   const [password, setPassword] = useState('');
@@ -73,6 +94,15 @@ export function Settings() {
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialPhoneRef = useRef('');
+
+  const isStaff = Boolean(session?.role && isStaffRole(session.role));
+  const missingStaffFields = useMemo(
+    () => isStaff
+      ? getMissingStaffProfileFields({ contact: phone, employmentType, dateOfHire })
+      : [],
+    [dateOfHire, employmentType, isStaff, phone],
+  );
 
   // CSC API Fetch Helpers
   const fetchCountries = async () => {
@@ -135,25 +165,44 @@ export function Settings() {
   const loadSettings = async () => {
     if (!user) return;
 
-    // Split name
-    const parts = (user.name || '').trim().split(/\s+/);
-    setFirstName(parts[0] || '');
-    setLastName(parts.slice(1).join(' ') || '');
-    setEmail(user.email || '');
-
     setPassword('');
     setConfirmPassword('');
     setErrors({});
+    setAvatarFile(null);
+    setRemoveAvatarRequested(false);
 
     const userId = user.id;
 
-    // Fetch phone number (contact) from users table
+    // Auth is canonical for login email; public.users supplies application profile fields.
     try {
-      const contactVal = await getUserContactInfo(userId);
-      setPhone(contactVal);
+      const [authEmailState, profile] = await Promise.all([
+        getCurrentAuthEmailState(),
+        getUserProfileById(userId),
+      ]);
+      const parts = (profile?.full_name || user.name || '').trim().split(/\s+/);
+      setFirstName(parts[0] || '');
+      setLastName(parts.slice(1).join(' ') || '');
+      setCurrentEmail(authEmailState.currentEmail);
+      setPendingEmail(authEmailState.pendingEmail);
+      setEmailVerified(authEmailState.emailVerified);
+      setEmail(authEmailState.currentEmail);
+      const contact = profile?.contact || '';
+      setPhone(contact);
+      initialPhoneRef.current = contact;
+      setEmploymentType(profile?.employment_type || null);
+      setDateOfHire(profile?.date_of_hire || null);
+      setEmploymentStatus(profile?.employment_status || null);
+      setAccountStatus(profile?.status || null);
+      setProfileRole(profile?.role || null);
     } catch (e) {
-      console.error('Failed to load contact info:', e);
+      console.error('Failed to load staff profile:', e);
+      const parts = (user.name || '').trim().split(/\s+/);
+      setFirstName(parts[0] || '');
+      setLastName(parts.slice(1).join(' ') || '');
+      setCurrentEmail(user.email || '');
+      setEmail(user.email || '');
       setPhone('');
+      initialPhoneRef.current = '';
     }
 
     // Load extra mocked fields from LocalStorage
@@ -166,7 +215,17 @@ export function Settings() {
     setProvince(savedProvince);
     setCity(savedCity);
 
-    setAvatarUrl(localStorage.getItem(`custom_avatar_${userId}`) || '');
+    const legacyAvatar = localStorage.getItem(`custom_avatar_${userId}`) || '';
+    if (isStaff) {
+      try {
+        setAvatarUrl((await getStaffAvatarSignedUrl(userId)) || legacyAvatar);
+      } catch (error) {
+        console.warn('Unable to load private staff profile photo:', error);
+        setAvatarUrl(legacyAvatar);
+      }
+    } else {
+      setAvatarUrl(legacyAvatar);
+    }
 
     // Cascading fetch to initialize country/state/city dropdown choices based on loaded values
     const countries = await fetchCountries();
@@ -196,6 +255,12 @@ export function Settings() {
   useEffect(() => {
     setNotificationDraft(notificationPreferences);
   }, [notificationPreferences]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarUrl.startsWith('blob:')) URL.revokeObjectURL(avatarUrl);
+    };
+  }, [avatarUrl]);
 
   const handleCountryChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const countryName = e.target.value;
@@ -233,10 +298,17 @@ export function Settings() {
     const errs: Record<string, string> = {};
     if (!firstName.trim()) errs.firstName = 'First name is required';
     if (!lastName.trim()) errs.lastName = 'Last name is required';
-    if (!email.trim()) {
+    if (isStaff && !isSameEmail(email, currentEmail)) {
+      const emailError = validateStaffEmail(email);
+      if (emailError) errs.email = emailError;
+    } else if (!email.trim()) {
       errs.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       errs.email = 'Invalid email format';
+    }
+    if (phone !== initialPhoneRef.current && phone.trim()) {
+      const digits = phone.replace(/\D/g, '');
+      if (digits.length !== 11) errs.phone = 'Contact number must be 11 digits';
     }
     if (password) {
       if (password.length < 8) {
@@ -280,19 +352,23 @@ export function Settings() {
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
       const userId = session.id;
 
-      // 1. Update Supabase Auth profile
-      await updateUserAuthCredentials({
-        email: email !== user?.email ? email.trim() : undefined,
+      // 1. Supabase Auth remains canonical. A changed email stays pending until confirmed.
+      const authEmailState = await updateUserAuthCredentials({
+        email: !isSameEmail(email, currentEmail) ? email.trim() : undefined,
         password: password || undefined,
         fullName
       });
+      setCurrentEmail(authEmailState.currentEmail);
+      setPendingEmail(authEmailState.pendingEmail);
+      setEmailVerified(authEmailState.emailVerified);
+      setEmail(authEmailState.currentEmail);
 
-      // 2. Synchronize with public.users table
+      // 2. Update profile fields only. Confirmed email synchronization is database-owned.
       await updateUserSettingsProfile(userId, {
         fullName,
-        email,
         phone
       });
+      initialPhoneRef.current = phone;
 
       // 3. Save mocked fields to localStorage
       localStorage.setItem(`lang_${userId}`, preferredLanguage);
@@ -301,21 +377,42 @@ export function Settings() {
       localStorage.setItem(`city_${userId}`, city);
       localStorage.setItem(`zip_${userId}`, zipCode);
 
-      if (avatarUrl) {
+      if (isStaff) {
+        if (removeAvatarRequested) {
+          await removeStaffAvatar(userId);
+          setAvatarUrl('');
+        } else if (avatarFile) {
+          const uploaded = await uploadStaffAvatar(userId, avatarFile);
+          setAvatarUrl(uploaded.signedUrl);
+        }
+        if (removeAvatarRequested || avatarFile) {
+          localStorage.removeItem(`custom_avatar_${userId}`);
+        }
+      } else if (avatarUrl) {
         localStorage.setItem(`custom_avatar_${userId}`, avatarUrl);
       } else {
         localStorage.removeItem(`custom_avatar_${userId}`);
       }
+      setAvatarFile(null);
+      setRemoveAvatarRequested(false);
 
       // Dispatch custom events to notify useAuth to update current session state
       window.dispatchEvent(new Event('avatar-updated'));
       window.dispatchEvent(new Event('profile-updated'));
 
-      pushToast({
-        title: 'Settings saved successfully',
-        description: 'Your profile and credentials have been updated.',
-        tone: 'success'
-      });
+      if (authEmailState.pendingEmail) {
+        pushToast({
+          title: 'Confirmation required',
+          description: `We sent a confirmation link to ${authEmailState.pendingEmail}. Your current login email will remain ${authEmailState.currentEmail} until the new address is confirmed.`,
+          tone: 'info',
+        });
+      } else {
+        pushToast({
+          title: 'Settings saved successfully',
+          description: 'Your profile and credentials have been updated.',
+          tone: 'success'
+        });
+      }
     } catch (err: unknown) {
       console.error('Failed to update credentials:', err);
       pushToast({
@@ -347,22 +444,23 @@ export function Settings() {
   };
 
   const processFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      pushToast({ title: 'Invalid file type', description: 'Please select an image file.', tone: 'error' });
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      pushToast({ title: 'File too large', description: 'Maximum file size is 2MB.', tone: 'error' });
+    const avatarError = validateStaffAvatarFile(file);
+    if (avatarError) {
+      pushToast({ title: 'Invalid profile photo', description: avatarError, tone: 'error' });
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setAvatarUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    if (isStaff) {
+      setAvatarFile(file);
+      setRemoveAvatarRequested(false);
+      setAvatarUrl(URL.createObjectURL(file));
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') setAvatarUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -452,6 +550,18 @@ export function Settings() {
                     <h3 className="text-sm font-bold text-foreground mb-0.5">Personal Detail</h3>
                     <p className="text-xs text-muted-foreground mb-4">Update your profile details to keep your account information up to date.</p>
 
+                    {missingStaffFields.length > 0 && (
+                      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3" role="status">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                        <div>
+                          <p className="text-xs font-bold text-amber-900">Profile incomplete</p>
+                          <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
+                            Missing: {missingStaffFields.join(', ')}. You can save unrelated security changes without inventing these values.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="settings-first-name" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
@@ -496,6 +606,7 @@ export function Settings() {
                           className="prof-input"
                         />
                         {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
+                        {isStaff && <p className="mt-1 text-[10px] text-muted-foreground">New staff email addresses currently use gmail.com. Existing legacy addresses remain valid until changed.</p>}
                       </div>
 
                       <div>
@@ -510,7 +621,14 @@ export function Settings() {
                           placeholder="Phone Number"
                           className="prof-input"
                         />
+                        {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone}</p>}
                       </div>
+
+                      {isStaff && (
+                        <div className="md:col-span-2">
+                          <StaffEmailStatus currentEmail={currentEmail} pendingEmail={pendingEmail} emailVerified={emailVerified} />
+                        </div>
+                      )}
 
                       <div className="md:col-span-2">
                         <label htmlFor="settings-language" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
@@ -643,6 +761,28 @@ export function Settings() {
                       </div>
                     </div>
                   </div>
+
+                  {isStaff && (
+                    <div className="grid grid-cols-1 gap-4 rounded-2xl border border-border bg-white p-5 shadow-xs sm:grid-cols-2">
+                      <div>
+                        <h3 className="text-sm font-bold text-foreground">Employment Information</h3>
+                        <dl className="mt-3 space-y-2 text-xs">
+                          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Role</dt><dd className="font-semibold capitalize">{profileRole || 'Not set'}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Employment type</dt><dd className="font-semibold capitalize">{employmentType || 'Not set'}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Hire / start date</dt><dd className="font-semibold">{dateOfHire || 'Not set'}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Employment status</dt><dd className="font-semibold capitalize">{employmentStatus || 'Not set'}</dd></div>
+                        </dl>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-foreground">Account</h3>
+                        <dl className="mt-3 space-y-2 text-xs">
+                          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Account status</dt><dd className="font-semibold capitalize">{accountStatus || 'Not set'}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Email</dt><dd className="font-semibold">{emailVerified ? 'Verified' : 'Verification pending'}</dd></div>
+                          <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Pending change</dt><dd className="text-wrap-safe text-right font-semibold">{pendingEmail || 'None'}</dd></div>
+                        </dl>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Column Profile Photo Upload */}
@@ -666,6 +806,8 @@ export function Settings() {
                             type="button"
                             onClick={() => {
                               setAvatarUrl('');
+                              setAvatarFile(null);
+                              setRemoveAvatarRequested(true);
                               pushToast({ title: 'Photo cleared', description: 'Click Save to discard the custom photo.', tone: 'info' });
                             }}
                             className="absolute bottom-1 right-1 p-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-full shadow-md transition-all duration-200 cursor-pointer"
@@ -694,7 +836,7 @@ export function Settings() {
                         type="file"
                         ref={fileInputRef}
                         onChange={handleFileChange}
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp"
                         className="hidden"
                       />
                       <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-primary mb-3 transition-colors duration-250">
@@ -703,7 +845,7 @@ export function Settings() {
                       <p className="text-xs text-foreground font-medium mb-1">
                         Drop your images here, or <span className="text-primary hover:underline font-bold">Click to browse</span>
                       </p>
-                      <p className="text-[10px] text-muted-foreground">Upload File, .PNG/.JPG format (Max 2MB)</p>
+                      <p className="text-[10px] text-muted-foreground">JPG, PNG, or WebP (Max 2 MB)</p>
                     </div>
                   </div>
                 </div>
@@ -736,6 +878,11 @@ export function Settings() {
                         className="prof-input"
                       />
                       {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
+                      {isStaff && (
+                        <div className="mt-3">
+                          <StaffEmailStatus currentEmail={currentEmail} pendingEmail={pendingEmail} emailVerified={emailVerified} />
+                        </div>
+                      )}
                     </div>
                   </div>
 

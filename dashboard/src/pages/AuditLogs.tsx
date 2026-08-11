@@ -38,6 +38,11 @@ function formatActionLabel(type: string) {
     : type.replace(/_/g, ' ');
 }
 
+function metadataText(log: ActivityLog, key: string): string | null {
+  const value = log.metadata?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 function AuditEntryDetails({
   log,
   actorRole,
@@ -522,8 +527,8 @@ export function AuditLogs() {
 
               {filteredLogs.map((log, index) => {
                 const isExpanded = expandedRow === log.id;
-                const actorName = log.users?.full_name || log.riders?.name || 'System / Automated';
-                const actorEmail = log.users?.email || log.riders?.mkb_id || 'automated@attenrider.system';
+                const actorName = metadataText(log, 'actor_name_snapshot') || log.users?.full_name || log.riders?.name || 'System / Automated';
+                const actorEmail = metadataText(log, 'actor_email_snapshot') || log.users?.email || log.riders?.mkb_id || 'automated@attenrider.system';
                 const actorRole = log.users?.role || (log.rider_id ? 'rider' : 'system');
                 const ip = log.metadata?.ip || 'Internal/Server';
                 const locString = log.metadata?.city
@@ -614,8 +619,8 @@ export function AuditLogs() {
               <tbody className="divide-y divide-border">
                 {filteredLogs.map(log => {
                   const isExpanded = expandedRow === log.id;
-                  const actorName = log.users?.full_name || log.riders?.name || 'System / Automated';
-                  const actorEmail = log.users?.email || log.riders?.mkb_id || 'automated@attenrider.system';
+                  const actorName = metadataText(log, 'actor_name_snapshot') || log.users?.full_name || log.riders?.name || 'System / Automated';
+                  const actorEmail = metadataText(log, 'actor_email_snapshot') || log.users?.email || log.riders?.mkb_id || 'automated@attenrider.system';
                   const actorRole = log.users?.role || (log.rider_id ? 'rider' : 'system');
                   
                   // Extract IP location details if present

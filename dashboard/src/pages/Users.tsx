@@ -38,8 +38,10 @@ import {
   updateRiderProfile,
   createRiderProfile,
   deleteRiderProfile,
-  createUserProfile
+  createUserProfile,
+  getStaffAvatarSignedUrl,
 } from '../services/userService';
+import { isStaffRole } from '../services/staffProfilePolicy';
 
 
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
@@ -99,7 +101,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
 
       if (dbUsers) {
         const nameById = new Map(dbUsers.map((user: { id: string; full_name: string }) => [user.id, user.full_name]));
-        const mapped: AppUser[] = dbUsers.map((u: {
+        const mapped: AppUser[] = await Promise.all(dbUsers.map(async (u: {
           id: string;
           full_name: string;
           email: string;
@@ -143,12 +145,20 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             status?: string | null;
           } | null;
         }) => {
+          let staffAvatar: string | null = null;
+          if (isStaffRole(u.role as UserRole)) {
+            try {
+              staffAvatar = await getStaffAvatarSignedUrl(u.id);
+            } catch (error) {
+              console.warn(`Unable to load staff profile photo for ${u.id}:`, error);
+            }
+          }
           const userObj: AppUser = {
             id: u.id,
             name: u.full_name,
             avatar: u.role === 'rider' && u.riders?.face_image_url
               ? u.riders.face_image_url
-              : `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.full_name)}`,
+              : staffAvatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.full_name)}`,
             email: u.email,
             role: u.role as UserRole,
             zoneId: u.riders?.zone_id || null,
@@ -185,7 +195,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             notes: u.notes || u.riders?.notes || ''
           };
           return userObj;
-        });
+        }));
         setUserList(mapped);
       }
     } catch (err) {

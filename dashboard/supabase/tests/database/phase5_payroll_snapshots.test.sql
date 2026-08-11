@@ -2,8 +2,8 @@ begin;
 
 -- Uses fixed test-only UUIDs and rolls back so the suite is repeatable on the
 -- existing development project without Supabase Branching.
-insert into auth.users (id, email) values
-  ('12000000-0000-4000-8000-000000000001', 'phase5-payroll@example.test');
+insert into auth.users (id, email, email_confirmed_at) values
+  ('12000000-0000-4000-8000-000000000001', 'phase5-payroll@example.test', clock_timestamp());
 
 insert into public.users (id, full_name, email, role) values
   ('12000000-0000-4000-8000-000000000001', 'Phase Five Payroll', 'phase5-payroll@example.test', 'payroll');

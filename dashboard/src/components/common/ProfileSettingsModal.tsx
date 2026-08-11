@@ -296,7 +296,7 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
       const userId = session.id;
 
       // 1. Update Supabase Auth profile
-      await updateUserAuthCredentials({
+      const authEmailState = await updateUserAuthCredentials({
         email: email !== user?.email ? email.trim() : undefined,
         password: password || undefined,
         fullName
@@ -305,7 +305,6 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
       // 2. Synchronize with public.users table
       await updateUserSettingsProfile(userId, {
         fullName,
-        email,
         phone
       });
 
@@ -327,7 +326,11 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
       window.dispatchEvent(new Event('avatar-updated'));
       window.dispatchEvent(new Event('profile-updated'));
 
-      pushToast({
+      pushToast(authEmailState.pendingEmail ? {
+        title: 'Confirmation required',
+        description: `We sent a confirmation link to ${authEmailState.pendingEmail}. Your current login email will remain ${authEmailState.currentEmail} until the new address is confirmed.`,
+        tone: 'info',
+      } : {
         title: 'Settings saved successfully',
         description: 'Your profile and credentials have been updated.',
         tone: 'success'

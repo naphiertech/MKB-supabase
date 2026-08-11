@@ -32,6 +32,7 @@ import {
   validate,
 } from "./userFormUtils";
 import { checkEmployeeDuplicates } from "../../services/userService";
+import { getMissingStaffProfileFields, isStaffRole } from "../../services/staffProfilePolicy";
 
 type UserWithExtensions = AppUser &
   Partial<{
@@ -133,6 +134,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
   const [showSummary, setShowSummary] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialFormRef = useRef<FormState | null>(null);
 
   const fieldRefs = useRef<
     Partial<Record<keyof FormState, HTMLElement | null>>
@@ -169,7 +171,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
         lName = nameParts.slice(2).join(" ");
       }
 
-      setForm({
+      const initialForm: FormState = {
         firstName: fName,
         middleName: mName,
         lastName: lName,
@@ -195,7 +197,9 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
         vehicleType: (user as UserWithExtensions).vehicleType ?? "",
         vehiclePlateNumber: (user as UserWithExtensions).vehiclePlateNumber ?? "",
         notes: (user as UserWithExtensions).notes ?? "",
-      });
+      };
+      initialFormRef.current = initialForm;
+      setForm(initialForm);
 
       // Auto-compile descriptor in background if missing for a rider
       if (
@@ -231,10 +235,12 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
         })();
       }
     } else {
-      setForm({
+      const initialForm: FormState = {
         ...EMPTY_FORM,
         role: currentUserRole === "hr" ? "rider" : "admin",
-      });
+      };
+      initialFormRef.current = initialForm;
+      setForm(initialForm);
     }
     setErrors({});
     setShowSummary(false);
@@ -243,6 +249,16 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
   }, [user, currentUserRole]);
 
   const isRider = form.role === "rider";
+  const missingStaffFields = useMemo(
+    () => isStaffRole(form.role)
+      ? getMissingStaffProfileFields({
+          contact: form.contact,
+          employmentType: form.employmentType,
+          dateOfHire: form.dateOfHire,
+        })
+      : [],
+    [form.contact, form.dateOfHire, form.employmentType, form.role],
+  );
 
 
 
@@ -269,7 +285,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
   };
 
   const handleSubmit = async () => {
-    const v = validate(form, mode);
+    const v = validate(form, mode, mode === "edit" ? initialFormRef.current ?? undefined : undefined);
     setErrors(v);
     if (Object.keys(v).length > 0) {
       setShowSummary(true);
@@ -440,6 +456,17 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
         <p className="text-xs font-medium text-muted-foreground">
           Required fields are marked with <span className="font-bold text-red-600">*</span>.
         </p>
+        {mode === "edit" && missingStaffFields.length > 0 && (
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4" role="status">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Profile incomplete</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                Missing: {missingStaffFields.join(", ")}. You may save unrelated valid changes now and complete these details when verified information is available.
+              </p>
+            </div>
+          </div>
+        )}
         {showSummary && errorList.length > 0 && (
           <div className="rounded-xl border border-primary/30 bg-accent p-4 flex items-start gap-3 shadow-sm">
             <AlertTriangle className="w-5 h-5 text-accent-foreground shrink-0" />
@@ -524,11 +551,18 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                   <input
                     value={form.email}
                     onChange={(e) => setField("email", e.target.value)}
-                    placeholder="name@mkb.ph"
+                    placeholder={isRider ? "name@example.com" : "name@gmail.com"}
                     className="ar-input"
                     autoComplete="off"
+                    readOnly={mode === "edit" && !isRider}
                     disabled={submitting}
+                    aria-describedby={mode === "edit" && !isRider ? "staff-email-edit-help" : undefined}
                   />
+                  {mode === "edit" && !isRider && (
+                    <p id="staff-email-edit-help" className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      Staff login email changes require confirmation and must be requested by the account owner in Settings.
+                    </p>
+                  )}
                 </Field>
                 <Field
                   label="Contact Number"

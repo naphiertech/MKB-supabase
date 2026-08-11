@@ -99,10 +99,10 @@ select throws_ok(
   'overlapping active rate periods are rejected'
 );
 
-insert into auth.users (id, email) values
-  ('11000000-0000-4000-8000-000000000001', 'phase2-admin@example.test'),
-  ('11000000-0000-4000-8000-000000000002', 'phase2-hr@example.test'),
-  ('11000000-0000-4000-8000-000000000003', 'phase2-payroll@example.test');
+insert into auth.users (id, email, email_confirmed_at) values
+  ('11000000-0000-4000-8000-000000000001', 'phase2-admin@example.test', clock_timestamp()),
+  ('11000000-0000-4000-8000-000000000002', 'phase2-hr@example.test', clock_timestamp()),
+  ('11000000-0000-4000-8000-000000000003', 'phase2-payroll@example.test', clock_timestamp());
 
 insert into public.riders (id, name, mkb_id, email) values
   ('21000000-0000-4000-8000-000000000001', 'Phase Two Rider', 'TEST-PHASE2-001', 'phase2-rider@example.test');
@@ -334,14 +334,35 @@ select throws_ok(
   'Admin cannot rewrite a submitted payroll snapshot'
 );
 select lives_ok(
-  $$update public.payroll_records
-      set status = 'approved',
-          approved_by = '11000000-0000-4000-8000-000000000001', approved_at = now()
+  $$do $transition$
+    declare
+      transition_payload jsonb;
+    begin
+      select jsonb_build_array(jsonb_build_object('id', id, 'updated_at', updated_at))
+      into transition_payload
+      from public.payroll_records
       where id = '81000000-0000-4000-8000-000000000001';
-    update public.payroll_records
-      set status = 'paid',
-          paid_by = '11000000-0000-4000-8000-000000000001', paid_at = now()
-      where id = '81000000-0000-4000-8000-000000000001'$$,
+
+      perform public.bulk_approve_payroll_records(
+        transition_payload,
+        date '2026-08-01',
+        date '2026-08-15',
+        '81000000-0000-4000-8000-000000000101'
+      );
+
+      select jsonb_build_array(jsonb_build_object('id', id, 'updated_at', updated_at))
+      into transition_payload
+      from public.payroll_records
+      where id = '81000000-0000-4000-8000-000000000001';
+
+      perform public.bulk_mark_payroll_records_paid(
+        transition_payload,
+        date '2026-08-01',
+        date '2026-08-15',
+        '81000000-0000-4000-8000-000000000102'
+      );
+    end
+  $transition$;$$,
   'Admin can complete the existing approval and payment workflow'
 );
 select throws_ok(

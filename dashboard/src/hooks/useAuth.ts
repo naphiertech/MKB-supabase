@@ -15,6 +15,8 @@ import {
 } from '../lib/offlineRiderTrust';
 import { logoutCurrentSessionLocally } from '../services/authSecurity';
 import { clearRiderSensitiveCache } from '../services/riderCacheService';
+import { getStaffAvatarSignedUrl } from '../services/userService';
+import { isStaffRole } from '../services/staffProfilePolicy';
 
 const STORAGE_KEY = "attenrider.session.v1";
 
@@ -71,6 +73,38 @@ function markAuthReady() {
   readinessListeners.forEach((listener) => listener(true));
 }
 
+async function reconcileCurrentSession(authUser: { id: string; email?: string | null }): Promise<void> {
+  if (!currentSession || currentSession.id !== authUser.id) return;
+
+  const { data: profile, error } = await supabase
+    .from('users')
+    .select('full_name, role, status, rider_id, employment_status')
+    .eq('id', authUser.id)
+    .single();
+
+  if (error || !profile || profile.status === 'suspended' || profile.employment_status === 'archived') return;
+
+  const next: Session = {
+    id: authUser.id,
+    email: authUser.email ?? currentSession.email,
+    fullName: profile.full_name,
+    role: profile.role as Role,
+    riderId: profile.rider_id || undefined,
+    employmentStatus: profile.employment_status as EmploymentStatus,
+  };
+  if (!currentSession || currentSession.id !== authUser.id) return;
+  if (
+    currentSession.email === next.email
+    && currentSession.fullName === next.fullName
+    && currentSession.role === next.role
+    && currentSession.riderId === next.riderId
+    && currentSession.employmentStatus === next.employmentStatus
+  ) return;
+  currentSession = next;
+  writeSession(next);
+  emit();
+}
+
 // Listen for profile updates to keep session synchronized with database in real-time
 if (typeof window !== "undefined") {
   window.addEventListener("profile-updated", async () => {
@@ -117,19 +151,33 @@ export function useAuth() {
       setCustomAvatar(null);
       return;
     }
-    setCustomAvatar(localStorage.getItem(`custom_avatar_${session.id}`));
-
-    const handleAvatarUpdate = () => {
-      setCustomAvatar(localStorage.getItem(`custom_avatar_${session.id}`));
+    let active = true;
+    const loadAvatar = async () => {
+      const legacyAvatar = localStorage.getItem(`custom_avatar_${session.id}`);
+      if (!isStaffRole(session.role)) {
+        if (active) setCustomAvatar(legacyAvatar);
+        return;
+      }
+      try {
+        const signedAvatar = await getStaffAvatarSignedUrl(session.id);
+        if (active) setCustomAvatar(signedAvatar || legacyAvatar);
+      } catch (error) {
+        console.warn('Unable to refresh private staff profile photo:', error);
+        if (active) setCustomAvatar(legacyAvatar);
+      }
     };
+
+    void loadAvatar();
+    const handleAvatarUpdate = () => void loadAvatar();
 
     window.addEventListener("avatar-updated", handleAvatarUpdate);
     window.addEventListener("storage", handleAvatarUpdate);
     return () => {
+      active = false;
       window.removeEventListener("avatar-updated", handleAvatarUpdate);
       window.removeEventListener("storage", handleAvatarUpdate);
     };
-  }, [session?.id]);
+  }, [session?.id, session?.role]);
 
   useEffect(() => {
     const listener = (s: Session | null) => setSession(s);
@@ -315,6 +363,12 @@ export function useAuth() {
           void clearOfflineRiderTrust();
           emit();
         }
+      } else if (event !== "INITIAL_SESSION") {
+        setTimeout(() => {
+          void reconcileCurrentSession(sbSession.user).catch((error) => {
+            console.error('Unable to reconcile authenticated profile:', error);
+          });
+        }, 0);
       }
     });
 

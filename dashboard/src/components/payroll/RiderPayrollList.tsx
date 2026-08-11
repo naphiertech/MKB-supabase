@@ -96,17 +96,30 @@ export interface PayrollRecordRow {
   late_remittance?: number;
   submitted_by?: string;
   submitted_at?: string;
+  submitted_by_name_snapshot?: string | null;
+  submitted_by_email_snapshot?: string | null;
   approved_by?: string;
   approved_at?: string;
+  approved_by_name_snapshot?: string | null;
+  approved_by_email_snapshot?: string | null;
   rejected_by?: string;
   rejected_at?: string;
+  rejected_by_name_snapshot?: string | null;
+  rejected_by_email_snapshot?: string | null;
   rejection_reason?: string;
+  returned_by?: string;
+  returned_at?: string;
+  returned_by_name_snapshot?: string | null;
+  returned_by_email_snapshot?: string | null;
   paid_by?: string;
   paid_at?: string;
-  submitted_user?: { full_name: string } | null;
-  approved_user?: { full_name: string } | null;
-  rejected_user?: { full_name: string } | null;
-  paid_user?: { full_name: string } | null;
+  paid_by_name_snapshot?: string | null;
+  paid_by_email_snapshot?: string | null;
+  submitted_user?: { full_name: string; email?: string } | null;
+  approved_user?: { full_name: string; email?: string } | null;
+  rejected_user?: { full_name: string; email?: string } | null;
+  returned_user?: { full_name: string; email?: string } | null;
+  paid_user?: { full_name: string; email?: string } | null;
   riders: {
     id?: string;
     name: string;
@@ -862,7 +875,10 @@ export function RiderPayrollList({
                         </td>
                         {isAdminOrHr && (
                           <td className="px-3 py-3 text-foreground text-xs truncate max-w-[120px] whitespace-nowrap">
-                            {r.submitted_user?.full_name || '—'}
+                            {r.submitted_by_name_snapshot || r.submitted_user?.full_name || '—'}
+                            {!r.submitted_by_name_snapshot && r.submitted_by && (
+                              <span className="ml-1 text-[9px] italic text-subtle-text">legacy</span>
+                            )}
                           </td>
                         )}
                         {isAdminOrHr && (

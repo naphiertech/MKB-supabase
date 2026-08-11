@@ -20,6 +20,7 @@ import { PayrollStatus } from '../types/payroll';
 import { exportCutoffSummaryCSV, exportParcelPayslipXLSX, exportParcelPayslipPDF, type PayslipDay, type PayslipSnapshotContext } from '../lib/exports/payrollExport';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { PageKey } from '../components/common/Sidebar';
+import { PayrollActorIdentity } from '../components/payroll/PayrollActorIdentity';
 
 export interface HistoricalRecord {
   id: string;
@@ -46,10 +47,27 @@ export interface HistoricalRecord {
   created_at: string;
   updated_at: string;
   processed_at: string | null;
+  submitted_by: string | null;
+  submitted_at: string | null;
+  submitted_by_name_snapshot: string | null;
+  submitted_by_email_snapshot: string | null;
+  approved_by: string | null;
   paid_at: string | null;
   approved_at: string | null;
+  approved_by_name_snapshot: string | null;
+  approved_by_email_snapshot: string | null;
+  rejected_by: string | null;
   rejected_at: string | null;
+  rejected_by_name_snapshot: string | null;
+  rejected_by_email_snapshot: string | null;
   rejection_reason: string | null;
+  returned_by: string | null;
+  returned_at: string | null;
+  returned_by_name_snapshot: string | null;
+  returned_by_email_snapshot: string | null;
+  paid_by: string | null;
+  paid_by_name_snapshot: string | null;
+  paid_by_email_snapshot: string | null;
   riders: {
     id: string;
     name: string;
@@ -58,10 +76,11 @@ export interface HistoricalRecord {
     zone_id: string | null;
     zones: { name: string } | null;
   };
-  submitted_user?: { full_name: string } | null;
-  approved_user?: { full_name: string } | null;
-  rejected_user?: { full_name: string } | null;
-  paid_user?: { full_name: string } | null;
+  submitted_user?: { full_name: string; email?: string } | null;
+  approved_user?: { full_name: string; email?: string } | null;
+  rejected_user?: { full_name: string; email?: string } | null;
+  returned_user?: { full_name: string; email?: string } | null;
+  paid_user?: { full_name: string; email?: string } | null;
   payroll_delivery_lines: Array<{
     date: string; standard_delivered: number; heavy_delivered: number; failed: number; returned: number;
     applied_standard_rate: number; applied_heavy_rate: number; standard_earnings: number; heavy_earnings: number;
@@ -165,10 +184,11 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
         .select(`
           *,
           riders!inner(id, name, mkb_id, avatar_url, zone_id, zones(name)),
-          submitted_user:users!payroll_records_submitted_by_fkey(full_name),
-          approved_user:users!payroll_records_approved_by_fkey(full_name),
-          rejected_user:users!payroll_records_rejected_by_fkey(full_name),
-          paid_user:users!payroll_records_paid_by_fkey(full_name)
+          submitted_user:users!payroll_records_submitted_by_fkey(full_name, email),
+          approved_user:users!payroll_records_approved_by_fkey(full_name, email),
+          rejected_user:users!payroll_records_rejected_by_fkey(full_name, email),
+          returned_user:users!payroll_records_returned_by_fkey(full_name, email),
+          paid_user:users!payroll_records_paid_by_fkey(full_name, email)
           ,payroll_delivery_lines(date, standard_delivered, heavy_delivered, failed, returned, applied_standard_rate, applied_heavy_rate, standard_earnings, heavy_earnings, gross_delivery_pay, rate_configuration_id, calculation_version)
         `)
         .order('cutoff_start', { ascending: false });
@@ -970,6 +990,82 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                 </div>
                 <div className="text-muted-foreground text-[11px]">
                   Cutoff: {selectedRiderRecord.cutoff_start} to {selectedRiderRecord.cutoff_end}
+                </div>
+              </div>
+
+              {/* Immutable workflow actor snapshots */}
+              <div className="rounded-xl border border-border bg-white p-3 text-[10px]">
+                <div className="mb-2 font-bold uppercase tracking-wider text-muted-foreground">
+                  Workflow Attribution
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {selectedRiderRecord.submitted_at && (
+                    <div>
+                      <div className="mb-1 font-bold text-foreground">Submitted</div>
+                      <PayrollActorIdentity
+                        snapshotName={selectedRiderRecord.submitted_by_name_snapshot}
+                        snapshotEmail={selectedRiderRecord.submitted_by_email_snapshot}
+                        currentName={selectedRiderRecord.submitted_user?.full_name}
+                        currentEmail={selectedRiderRecord.submitted_user?.email}
+                        legacyFallbackLabel="Payroll Officer"
+                      />
+                      <div className="mt-1 text-muted-foreground">{new Date(selectedRiderRecord.submitted_at).toLocaleString()}</div>
+                    </div>
+                  )}
+                  {selectedRiderRecord.approved_at && (
+                    <div>
+                      <div className="mb-1 font-bold text-foreground">Approved</div>
+                      <PayrollActorIdentity
+                        snapshotName={selectedRiderRecord.approved_by_name_snapshot}
+                        snapshotEmail={selectedRiderRecord.approved_by_email_snapshot}
+                        currentName={selectedRiderRecord.approved_user?.full_name}
+                        currentEmail={selectedRiderRecord.approved_user?.email}
+                        legacyFallbackLabel="Admin / HR"
+                      />
+                      <div className="mt-1 text-muted-foreground">{new Date(selectedRiderRecord.approved_at).toLocaleString()}</div>
+                    </div>
+                  )}
+                  {selectedRiderRecord.rejected_at && (
+                    <div>
+                      <div className="mb-1 font-bold text-rose-700">Rejected</div>
+                      <PayrollActorIdentity
+                        snapshotName={selectedRiderRecord.rejected_by_name_snapshot}
+                        snapshotEmail={selectedRiderRecord.rejected_by_email_snapshot}
+                        currentName={selectedRiderRecord.rejected_user?.full_name}
+                        currentEmail={selectedRiderRecord.rejected_user?.email}
+                        legacyFallbackLabel="Admin / HR"
+                        tone="danger"
+                      />
+                      <div className="mt-1 text-muted-foreground">{new Date(selectedRiderRecord.rejected_at).toLocaleString()}</div>
+                    </div>
+                  )}
+                  {selectedRiderRecord.returned_at && (
+                    <div>
+                      <div className="mb-1 font-bold text-amber-700">Returned for Revision</div>
+                      <PayrollActorIdentity
+                        snapshotName={selectedRiderRecord.returned_by_name_snapshot}
+                        snapshotEmail={selectedRiderRecord.returned_by_email_snapshot}
+                        currentName={selectedRiderRecord.returned_user?.full_name}
+                        currentEmail={selectedRiderRecord.returned_user?.email}
+                        legacyFallbackLabel="Admin / HR"
+                      />
+                      <div className="mt-1 text-muted-foreground">{new Date(selectedRiderRecord.returned_at).toLocaleString()}</div>
+                    </div>
+                  )}
+                  {selectedRiderRecord.paid_at && (
+                    <div>
+                      <div className="mb-1 font-bold text-emerald-700">Marked Paid</div>
+                      <PayrollActorIdentity
+                        snapshotName={selectedRiderRecord.paid_by_name_snapshot}
+                        snapshotEmail={selectedRiderRecord.paid_by_email_snapshot}
+                        currentName={selectedRiderRecord.paid_user?.full_name}
+                        currentEmail={selectedRiderRecord.paid_user?.email}
+                        legacyFallbackLabel="Admin / HR"
+                        tone="success"
+                      />
+                      <div className="mt-1 text-muted-foreground">{new Date(selectedRiderRecord.paid_at).toLocaleString()}</div>
+                    </div>
+                  )}
                 </div>
               </div>
 

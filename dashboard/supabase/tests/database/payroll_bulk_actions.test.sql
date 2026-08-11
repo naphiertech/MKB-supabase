@@ -16,11 +16,11 @@ select ok(not has_function_privilege('anon', 'public.bulk_mark_payroll_records_p
 select ok(not has_table_privilege('authenticated', 'public.payroll_bulk_operations', 'SELECT'), 'clients cannot read idempotency rows directly');
 select ok(not has_table_privilege('authenticated', 'public.payroll_bulk_operations', 'INSERT'), 'clients cannot create idempotency rows directly');
 
-insert into auth.users (id, email) values
-  ('a1000000-0000-4000-8000-000000000001', 'bulk-admin@example.test'),
-  ('a1000000-0000-4000-8000-000000000002', 'bulk-hr@example.test'),
-  ('a1000000-0000-4000-8000-000000000003', 'bulk-payroll@example.test'),
-  ('a1000000-0000-4000-8000-000000000004', 'bulk-rider@example.test');
+insert into auth.users (id, email, email_confirmed_at) values
+  ('a1000000-0000-4000-8000-000000000001', 'bulk-admin@example.test', clock_timestamp()),
+  ('a1000000-0000-4000-8000-000000000002', 'bulk-hr@example.test', clock_timestamp()),
+  ('a1000000-0000-4000-8000-000000000003', 'bulk-payroll@example.test', clock_timestamp()),
+  ('a1000000-0000-4000-8000-000000000004', 'bulk-rider@example.test', clock_timestamp());
 
 insert into public.users (id, full_name, email, role) values
   ('a1000000-0000-4000-8000-000000000001', 'Bulk Admin', 'bulk-admin@example.test', 'admin'),
