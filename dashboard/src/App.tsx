@@ -150,8 +150,8 @@ export function App() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${session.id}` },
         (payload) => {
-          const updated = payload.new as { status?: string };
-          if (updated.status === 'suspended') void signOut();
+          const updated = payload.new as { status?: string; employment_status?: string };
+          if (updated.status === 'suspended' || updated.employment_status === 'archived') void signOut();
         }
       )
       .subscribe();

@@ -23,6 +23,8 @@ import { toast } from 'react-hot-toast';
 import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 import { exportPDF } from '../lib/exports/reportExport';
 import { getCachedAvatar } from '../lib/avatarCache';
+import { isEmploymentActiveOnDate } from '../services/employmentLifecycle';
+import type { EmploymentStatus } from '../services/types';
 
 type QuickRange = 'today' | 'this_week' | 'this_cutoff' | 'this_month' | 'custom';
 
@@ -85,7 +87,16 @@ export function Attendance() {
   const [dtrModalOpen, setDtrModalOpen] = useState(false);
   const [dtrRiderId, setDtrRiderId] = useState('');
   const [dtrDateFrom, setDtrDateFrom] = useState<string>(sevenDaysAgo);
-  const [ridersList, setRidersList] = useState<{ id: string; name: string; mkb_id?: string; zone_id?: string; zoneName?: string }[]>([]);
+  const [ridersList, setRidersList] = useState<{
+    id: string;
+    name: string;
+    mkb_id?: string;
+    zone_id?: string;
+    zoneName?: string;
+    employmentStatus: EmploymentStatus;
+    archiveEffectiveDate: string | null;
+    restoredAt: string | null;
+  }[]>([]);
 
   // DTR Import states
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -100,7 +111,7 @@ export function Attendance() {
     getZones().then(setZonesList);
 
     // Fetch riders for DTR picker
-    getRidersLookup()
+    getRidersLookup({ scope: 'historical' })
       .then((data) => {
         setRidersList(
           data.map(
@@ -110,6 +121,9 @@ export function Attendance() {
               mkb_id?: string;
               zone_id?: string;
               zones?: { name: string } | { name: string }[] | null;
+              employmentStatus: EmploymentStatus;
+              archiveEffectiveDate: string | null;
+              restoredAt: string | null;
             }) => {
               const zName = Array.isArray(r.zones) ? r.zones[0]?.name : r.zones?.name;
               return {
@@ -117,7 +131,10 @@ export function Attendance() {
                 name: r.name,
                 mkb_id: r.mkb_id,
                 zone_id: r.zone_id || '',
-                zoneName: zName || 'Zamboanga City'
+                zoneName: zName || 'Zamboanga City',
+                employmentStatus: r.employmentStatus,
+                archiveEffectiveDate: r.archiveEffectiveDate,
+                restoredAt: r.restoredAt,
               };
             }
           )
@@ -150,6 +167,7 @@ export function Attendance() {
         // Only classify riders without Time In as Absent if the date/time is finalized (5:00 PM cutoff for today, or any past date)
         if (isAttendanceFinalized(dateStr, 17)) {
           ridersList.forEach((rider) => {
+            if (!isEmploymentActiveOnDate(rider, dateStr)) return;
             const key = `${rider.id}_${dateStr}`;
             if (!existingLogMap.has(key)) {
               synthesizedAbsentLogs.push({

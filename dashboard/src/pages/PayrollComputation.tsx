@@ -190,7 +190,7 @@ export function PayrollComputation() {
   useEffect(() => {
     const loadRiders = async () => {
       try {
-        const data = await getRidersLookup();
+        const data = await getRidersLookup({ scope: 'historical' });
         setRiders(data as unknown as RiderRow[]);
       } catch (error) {
         console.error('Error loading riders:', error);

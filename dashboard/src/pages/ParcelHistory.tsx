@@ -207,7 +207,7 @@ export function ParcelHistory() {
 
   // Load dropdown options
   useEffect(() => {
-    getRidersLookup()
+    getRidersLookup({ scope: 'historical' })
       .then(setRiders)
       .catch(err => console.error('Failed to fetch riders:', err));
     getZones()

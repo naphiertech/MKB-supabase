@@ -3,6 +3,7 @@ import { type AttendanceLog, type AttendanceStatus, type AttendancePresence, typ
 import { getCachedAvatar } from '../lib/avatarCache';
 import { createSyncOperationId, getStorageAdapter, type QueueEnqueueInput } from '../lib/storage';
 import { dispatchNotificationSafe } from './notificationService';
+import { getRiderWorkforceDirectory } from './workforceDirectoryService';
 
 // Helper to convert dynamic timestamps (timestamptz) back to HH:MM format in local timezone
 function toHHMM(dateStr: string | null): string | null {
@@ -65,12 +66,10 @@ export async function finalizeDailyAttendance(targetDate: string = getLocalDateS
       return 0;
     }
 
-    // 1. Fetch active riders
-    const { data: riders, error: riderErr } = await supabase
-      .from('riders')
-      .select('id, name');
-
-    if (riderErr || !riders || riders.length === 0) return 0;
+    // 1. Fetch riders employed on this business date. Archived employees must
+    // never receive synthesized absences after their effective archive date.
+    const riders = await getRiderWorkforceDirectory({ scope: 'employed_on_date', date: targetDate });
+    if (riders.length === 0) return 0;
 
     // 2. Fetch existing attendance records for targetDate
     const { data: existingLogs, error: logErr } = await supabase

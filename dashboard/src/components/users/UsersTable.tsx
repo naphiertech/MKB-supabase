@@ -11,7 +11,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Loader2,
-  RotateCcw
+  RotateCcw,
+  Archive,
+  History,
 } from 'lucide-react';
 import type { AppUser, UserRole, Zone } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
@@ -33,6 +35,8 @@ interface UsersTableProps {
   currentUserRole?: 'admin' | 'hr';
   onSendPasswordReset?: (user: AppUser) => Promise<void>;
   onToggleSuspension?: (user: AppUser, suspended: boolean) => Promise<void>;
+  onArchive?: (user: AppUser) => void;
+  onRestore?: (user: AppUser) => void;
 }
 
 const ROLE_STYLES: Record<
@@ -186,7 +190,9 @@ export function UsersTable({
   currentUserId,
   currentUserRole,
   onSendPasswordReset,
-  onToggleSuspension
+  onToggleSuspension,
+  onArchive,
+  onRestore,
 }: UsersTableProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -228,7 +234,9 @@ export function UsersTable({
               <th className="font-semibold py-3 px-4">Role</th>
               <th className="font-semibold py-3 px-4">Email</th>
               <th className="font-semibold py-3 px-4">Zone</th>
-              <th className="font-semibold py-3 px-4">Status</th>
+              <th className="font-semibold py-3 px-4">Employment</th>
+              <th className="font-semibold py-3 px-4">Account</th>
+              <th className="font-semibold py-3 px-4">Presence</th>
               <th className="font-semibold py-3 px-4">Last Login</th>
               <th className="font-semibold py-3 px-4 w-12" />
             </tr>
@@ -236,7 +244,7 @@ export function UsersTable({
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-muted-foreground italic text-xs">
+                <td colSpan={9} className="py-8 text-center text-muted-foreground italic text-xs">
                   No users found matching your filters.
                 </td>
               </tr>
@@ -244,11 +252,14 @@ export function UsersTable({
               users.map((u, idx) => {
                 const zone = zones.find((z) => z.id === u.zoneId);
                 const r = ROLE_STYLES[u.role] ?? FALLBACK_ROLE_STYLE;
+                const archived = u.employmentStatus === 'archived';
+                const canManageEmployment = u.id !== currentUserId &&
+                  (currentUserRole === 'admin' || (currentUserRole === 'hr' && u.role === 'rider'));
                 return (
                   <tr
                     key={u.id}
                     onClick={() => onViewDetails?.(u)}
-                    className={`border-b border-border/70 hover:bg-accent/40 cursor-pointer ${idx % 2 === 1 ? 'bg-panel-bg/40' : ''}`}
+                    className={`border-b border-border/70 hover:bg-accent/40 cursor-pointer ${idx % 2 === 1 ? 'bg-panel-bg/40' : ''} ${archived ? 'bg-slate-50/80 text-muted-foreground' : ''}`}
                   >
                     <td className="py-2.5 px-4">
                       <div className="flex items-center gap-2.5">
@@ -276,22 +287,30 @@ export function UsersTable({
                       {zone?.name ?? '—'}
                     </td>
                     <td className="py-2.5 px-4">
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${archived ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                        {archived ? 'Archived' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-4">
                       {u.status === 'suspended' ? (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                           Suspended
                         </span>
-                      ) : onlineUserIds.includes(u.id) ? (
+                      ) : (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           Active
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                          Offline
-                        </span>
                       )}
+                    </td>
+                    <td className="py-2.5 px-4">
+                      {u.role === 'rider' ? (
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                          <span className={`w-1.5 h-1.5 rounded-full ${onlineUserIds.includes(u.id) && !archived ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                          {archived ? 'Offline' : u.operationalStatus ? u.operationalStatus.charAt(0).toUpperCase() + u.operationalStatus.slice(1) : onlineUserIds.includes(u.id) ? 'Online' : 'Offline'}
+                        </span>
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
                     <td className="py-2.5 px-4 font-mono text-muted-foreground text-xs">
                       {u.lastLogin === 0 ? 'Never' : relativeTime(u.lastLogin, now)}
@@ -328,6 +347,32 @@ export function UsersTable({
                           >
                             <User className="w-3.5 h-3.5 text-primary" /> View Profile
                           </button>
+                          {archived ? (
+                            <>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  onViewDetails?.(u);
+                                  setOpenMenu(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent cursor-pointer"
+                              >
+                                <History className="w-3.5 h-3.5" /> View History
+                              </button>
+                              {canManageEmployment && <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  onRestore?.(u);
+                                  setOpenMenu(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" /> Restore Employment
+                              </button>}
+                            </>
+                          ) : <>
                           <button
                             type="button"
                             role="menuitem"
@@ -358,6 +403,18 @@ export function UsersTable({
                             {u.status === 'suspended' ? <RotateCcw className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
                             {u.status === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}
                           </button>
+                          {canManageEmployment && <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              onArchive?.(u);
+                              setOpenMenu(null);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-700 hover:bg-red-50 cursor-pointer"
+                          >
+                            <Archive className="w-3.5 h-3.5" /> Archive Employee
+                          </button>}
+                          </>}
                         </UserActionMenu>
                       )}
                     </td>

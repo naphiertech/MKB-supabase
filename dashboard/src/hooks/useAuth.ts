@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { type AppUser, type UserRole } from "../services/types";
+import { type AppUser, type EmploymentStatus, type UserRole } from "../services/types";
 import { pushToast } from "./useToast";
 import { fetchIpLocation, logActivity } from "../lib/apiService";
 import { getDeviceIdentifier } from "../lib/deviceFingerprint";
@@ -14,6 +14,7 @@ import {
   type OfflineRiderTrustFailure
 } from '../lib/offlineRiderTrust';
 import { logoutCurrentSessionLocally } from '../services/authSecurity';
+import { clearRiderSensitiveCache } from '../services/riderCacheService';
 
 const STORAGE_KEY = "attenrider.session.v1";
 
@@ -25,6 +26,7 @@ export interface Session {
   fullName: string;
   role: Role;
   riderId?: string;
+  employmentStatus: EmploymentStatus;
 }
 
 function readSession(): Session | null {
@@ -34,7 +36,7 @@ function readSession(): Session | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Session;
     if (!parsed?.id || !parsed?.role) return null;
-    return parsed;
+    return { ...parsed, employmentStatus: parsed.employmentStatus || 'active' };
   } catch {
     return null;
   }
@@ -76,7 +78,7 @@ if (typeof window !== "undefined") {
     try {
       const { data: profile, error } = await supabase
         .from("users")
-        .select("full_name, role, status, rider_id")
+        .select("full_name, role, status, rider_id, employment_status")
         .eq("id", currentSession.id)
         .single();
 
@@ -88,6 +90,7 @@ if (typeof window !== "undefined") {
           fullName: profile.full_name,
           role: profile.role as Role,
           riderId: profile.rider_id || undefined,
+          employmentStatus: profile.employment_status as EmploymentStatus,
         };
         currentSession = next;
         writeSession(next);
@@ -209,7 +212,7 @@ export function useAuth() {
         // Fetch latest profile status & details
         const { data: profile, error } = await supabase
           .from("users")
-          .select("full_name, role, status, rider_id")
+          .select("full_name, role, status, rider_id, employment_status")
           .eq("id", supabaseSession.user.id)
           .single();
 
@@ -221,7 +224,7 @@ export function useAuth() {
           return;
         }
 
-        if (profile.status === "suspended") {
+        if (profile.employment_status === 'archived' || profile.status === "suspended") {
           await supabase.auth.signOut();
           currentSession = null;
           writeSession(null);
@@ -279,6 +282,7 @@ export function useAuth() {
             fullName: profile.full_name,
             role: profile.role as Role,
             riderId: profile.rider_id || undefined,
+            employmentStatus: profile.employment_status as EmploymentStatus,
           };
           currentSession = next;
           writeSession(next);
@@ -331,6 +335,7 @@ export function useAuth() {
       role: session.role,
       zoneId: null,
       status: "active",
+      employmentStatus: session.employmentStatus,
       lastLogin: Date.now(),
     };
   }, [session, customAvatar]);
@@ -353,7 +358,7 @@ export function useAuth() {
 
         const { data: profile, error: profileError } = await supabase
           .from("users")
-          .select("full_name, role, status, rider_id")
+          .select("full_name, role, status, rider_id, employment_status")
           .eq("id", authData.user.id)
           .single();
 
@@ -364,6 +369,11 @@ export function useAuth() {
             ok: false,
             error: `User profile not found in database. (UUID: ${userId})`,
           };
+        }
+
+        if (profile.employment_status === 'archived') {
+          await supabase.auth.signOut();
+          return { ok: false, error: "This employment record is archived. Contact HR or Admin if this should be restored." };
         }
 
         if (profile.status === "suspended") {
@@ -479,6 +489,7 @@ export function useAuth() {
           fullName: profile.full_name,
           role: profile.role as Role,
           riderId: profile.rider_id || undefined,
+          employmentStatus: profile.employment_status as EmploymentStatus,
         };
 
         currentSession = next;
@@ -518,6 +529,7 @@ export function useAuth() {
   );
 
   const signOut = useCallback(async () => {
+    const endingSession = currentSession;
     try {
       await supabase.auth.signOut();
     } catch (err) {
@@ -526,6 +538,7 @@ export function useAuth() {
     currentSession = null;
     writeSession(null);
     void clearOfflineRiderTrust();
+    if (endingSession?.role === 'rider') void clearRiderSensitiveCache(endingSession.id, endingSession.riderId);
     emit();
     pushToast({
       title: "Signed out",
@@ -535,6 +548,7 @@ export function useAuth() {
   }, []);
 
   const signOutLocally = useCallback(async () => {
+    const endingSession = currentSession;
     try {
       await logoutCurrentSessionLocally();
     } catch (err) {
@@ -543,6 +557,7 @@ export function useAuth() {
     currentSession = null;
     writeSession(null);
     void clearOfflineRiderTrust();
+    if (endingSession?.role === 'rider') void clearRiderSensitiveCache(endingSession.id, endingSession.riderId);
     emit();
     pushToast({
       title: 'Session ended',

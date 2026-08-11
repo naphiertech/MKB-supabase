@@ -130,15 +130,16 @@ export function DailyParcelEntry() {
     }
   }, [selectedRiderDrawer, selectedDate]);
 
-  // Load dropdown options on mount
+  // Parcel entry is date-effective: former employees stay available only for
+  // work dates on which they were employed.
   useEffect(() => {
     getZones()
       .then(setZones)
       .catch(err => console.error('Failed to load zones:', err));
-    getRidersLookup()
+    getRidersLookup({ scope: 'employed_on_date', date: selectedDate })
       .then(setRiders)
       .catch(err => console.error('Failed to load riders:', err));
-  }, []);
+  }, [selectedDate]);
 
   // Dynamically filter riders based on parent Zone selection
   const filteredRiders = useMemo(() => {

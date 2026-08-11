@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabaseClient';
 import { dispatchNotificationSafe } from './notificationService';
 import { logActivity } from '../lib/apiService';
 import type { TrustedDeviceInfo } from '../components/users/DeviceResetModal';
+import { getRiderWorkforceDirectory, type WorkforceScope } from './workforceDirectoryService';
 
 export interface RiderPayrollRecord {
   id: string;
@@ -137,21 +138,8 @@ export const getRiderDashboardStats = async (
 };
 
 // Fetch simplified list of riders with their zones ordered by name
-export const getRidersLookup = async () => {
-  const { data, error } = await supabase
-    .from('riders')
-    .select('id, name, mkb_id, zone_id, zones(name)')
-    .order('name');
-
-  if (error) throw error;
-  return (data || []) as unknown as Array<{
-    id: string;
-    name: string;
-    mkb_id?: string;
-    zone_id?: string;
-    zones?: { name: string } | null;
-  }>;
-};
+export const getRidersLookup = async (options: { scope: WorkforceScope; date?: string }) =>
+  getRiderWorkforceDirectory(options);
 
 // Fetch violations for a specific rider within a month
 export const getRiderViolationsForMonth = async (riderId: string, startOfMonthStr: string) => {

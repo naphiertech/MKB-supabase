@@ -288,19 +288,36 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
             <Download className="w-4 h-4 text-primary" />
             Export PDF
           </button>
-          <button
+          {user.employmentStatus !== 'archived' && <button
             type="button"
             onClick={onEdit}
             className="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-hover active:bg-primary/90 focus:ring-2 focus:ring-primary/25 sm:col-auto sm:h-9 sm:text-sm cursor-pointer"
           >
             <Pencil className="w-4 h-4" />
             Edit Profile
-          </button>
+          </button>}
         </div>
       </div>
 
       {/* Main Grid Content */}
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-6">
+        {user.employmentStatus === 'archived' && (
+          <section className="mb-6 rounded-xl border border-slate-300 bg-slate-100 p-4" aria-label="Archived employment details">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <span className="inline-flex rounded-full border border-slate-400 bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-700">Archived</span>
+                <p className="mt-2 text-sm font-semibold text-slate-900">This employee is outside the active workforce. Historical records remain available.</p>
+              </div>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
+                <div><dt className="text-muted-foreground">Effective Date</dt><dd className="font-semibold">{user.archiveEffectiveDate || '—'}</dd></div>
+                <div><dt className="text-muted-foreground">Reason</dt><dd className="font-semibold">{user.archiveReason || '—'}</dd></div>
+                <div><dt className="text-muted-foreground">Archived By</dt><dd className="font-semibold">{user.archivedByName || 'Authorized staff'}</dd></div>
+                <div><dt className="text-muted-foreground">Archived At</dt><dd className="font-semibold">{user.archivedAt ? new Date(user.archivedAt).toLocaleString('en-PH') : '—'}</dd></div>
+                <div className="col-span-2 sm:col-span-2"><dt className="text-muted-foreground">Remarks</dt><dd className="font-semibold">{user.archiveRemarks || '—'}</dd></div>
+              </dl>
+            </div>
+          </section>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* Left Column: Avatar & Quick Info Panel */}

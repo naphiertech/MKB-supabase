@@ -52,7 +52,7 @@ export function Geofence() {
       try {
         const [z, r, v, a, vt] = await Promise.all([
           listZones(),
-          getAllRiders(),
+          getAllRiders({ scope: 'active' }),
           getViolations(),
           getAttendanceLogs(),
           totalViolationsToday()

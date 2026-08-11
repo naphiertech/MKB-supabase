@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { getRiderWorkforceDirectory } from './workforceDirectoryService';
 import { logActivity } from '../lib/apiService';
 import {
   type Zone,
@@ -100,6 +101,7 @@ export async function getZoneById(id: string): Promise<Zone | undefined> {
 }
 
 export async function ridersInZone(zoneId: string): Promise<Rider[]> {
+  const activeIds = new Set((await getRiderWorkforceDirectory({ scope: 'active' })).map((rider) => rider.id));
   const { data, error } = await supabase
     .from('riders')
     .select('*')
@@ -110,7 +112,7 @@ export async function ridersInZone(zoneId: string): Promise<Rider[]> {
     return [];
   }
 
-  return (data || []).map((row: DbRiderRow) => ({
+  return (data || []).filter((row: DbRiderRow) => activeIds.has(row.id)).map((row: DbRiderRow) => ({
     id: row.id,
     name: row.name,
     avatar: row.face_image_url || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
@@ -127,6 +129,7 @@ export async function ridersInZone(zoneId: string): Promise<Rider[]> {
 }
 
 export async function riderCountByZone(): Promise<Record<string, number>> {
+  const activeIds = new Set((await getRiderWorkforceDirectory({ scope: 'active' })).map((rider) => rider.id));
   const { data, error } = await supabase
     .from('riders')
     .select('id, zone_id');
@@ -140,6 +143,7 @@ export async function riderCountByZone(): Promise<Record<string, number>> {
 
   if (!error && data) {
     for (const r of data) {
+      if (!activeIds.has(r.id)) continue;
       if (r.zone_id && counts[r.zone_id] !== undefined) {
         counts[r.zone_id] += 1;
       }
@@ -262,6 +266,7 @@ export async function updateZone(id: string, patch: Partial<ZoneInput>): Promise
 
   // Handle rider list re-allocations
   if (patch.riderIds !== undefined) {
+    const activeIds = new Set((await getRiderWorkforceDirectory({ scope: 'active' })).map((rider) => rider.id));
     // Unassign riders currently in this zone who are not in the new patch.riderIds
     const { data: currentRiders, error: fetchRidersErr } = await supabase
       .from('riders')
@@ -270,6 +275,7 @@ export async function updateZone(id: string, patch: Partial<ZoneInput>): Promise
 
     if (!fetchRidersErr && currentRiders) {
       const ridersToUnassign = currentRiders
+        .filter((r: { id: string }) => activeIds.has(r.id))
         .map((r: { id: string }) => r.id)
         .filter((rId: string) => !patch.riderIds!.includes(rId));
 
@@ -327,11 +333,14 @@ export async function deleteZone(id: string): Promise<{
 
 export async function assignRidersToZone(zoneId: string | null, riderIds: string[]): Promise<void> {
   if (riderIds.length === 0) return;
+  const activeIds = new Set((await getRiderWorkforceDirectory({ scope: 'active' })).map((rider) => rider.id));
+  const eligibleRiderIds = riderIds.filter((riderId) => activeIds.has(riderId));
+  if (eligibleRiderIds.length === 0) return;
 
   const { error } = await supabase
     .from('riders')
     .update({ zone_id: zoneId })
-    .in('id', riderIds);
+    .in('id', eligibleRiderIds);
 
   if (error) {
     console.error('Error assigning riders to zone:', error);

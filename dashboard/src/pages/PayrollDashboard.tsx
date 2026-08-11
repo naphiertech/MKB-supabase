@@ -144,11 +144,13 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
         const records = await getPayrollRecords(cutoffFrom, cutoffTo);
         setAllCutoffRecords(records as unknown as PayrollRecordRow[]);
 
-        // Fetch active riders count
-        const { count } = await supabase
-          .from('riders')
-          .select('id', { count: 'exact', head: true });
-        setActiveRidersCount(count || 0);
+        // Count riders who were employed for at least one day in this cutoff.
+        const { data: eligibleRiders, error: eligibilityError } = await supabase.rpc('get_payroll_eligible_rider_ids', {
+          p_cutoff_start: cutoffFrom,
+          p_cutoff_end: cutoffTo,
+        });
+        if (eligibilityError) throw eligibilityError;
+        setActiveRidersCount(eligibleRiders?.length || 0);
 
         // Fetch distinct riders with parcel logs for cutoff
         const { data: logs } = await supabase

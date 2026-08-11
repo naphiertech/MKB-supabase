@@ -57,6 +57,7 @@ export function RiderProfile({ userId, riderId, onBack }: RiderProfileProps) {
               role: dbUser.role as UserRole,
               zoneId: null,
               status: dbUser.status as UserStatus,
+              employmentStatus: (dbUser.employment_status || 'active') as AppUser['employmentStatus'],
               lastLogin: dbUser.last_login ? new Date(dbUser.last_login).getTime() : 0
             });
           }

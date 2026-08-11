@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { getRiderWorkforceDirectory, type WorkforceScope } from './workforceDirectoryService';
 import {
   type Rider,
   type RiderStatus,
@@ -90,6 +91,7 @@ const mapViolation = (row: DbViolationRow): ViolationEvent => {
 };
 
 export async function getOnlineRiders(): Promise<Rider[]> {
+  const activeIds = new Set((await getRiderWorkforceDirectory({ scope: 'active' })).map((rider) => rider.id));
   const { data, error } = await supabase
     .from('riders')
     .select(`
@@ -117,7 +119,7 @@ export async function getOnlineRiders(): Promise<Rider[]> {
     return [];
   }
 
-  const riders = await Promise.all((data || []).map(async (row: DbRiderRow) => {
+  const riders = await Promise.all((data || []).filter((row: DbRiderRow) => activeIds.has(row.id)).map(async (row: DbRiderRow) => {
     let cached = getCachedAvatar(row.id);
     if (!cached) {
       const dbAvatar = await fetchRiderAvatar(row.id);
@@ -132,7 +134,8 @@ export async function getOnlineRiders(): Promise<Rider[]> {
   return riders;
 }
 
-export async function getAllRiders(): Promise<Rider[]> {
+export async function getAllRiders(options: { scope: WorkforceScope; date?: string }): Promise<Rider[]> {
+  const includedIds = new Set((await getRiderWorkforceDirectory(options)).map((rider) => rider.id));
   const { data, error } = await supabase
     .from('riders')
     .select(`
@@ -159,7 +162,7 @@ export async function getAllRiders(): Promise<Rider[]> {
     return [];
   }
 
-  const riders = await Promise.all((data || []).map(async (row: DbRiderRow) => {
+  const riders = await Promise.all((data || []).filter((row: DbRiderRow) => includedIds.has(row.id)).map(async (row: DbRiderRow) => {
     let cached = getCachedAvatar(row.id);
     if (!cached) {
       const dbAvatar = await fetchRiderAvatar(row.id);

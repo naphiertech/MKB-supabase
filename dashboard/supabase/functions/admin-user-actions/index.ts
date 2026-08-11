@@ -1,6 +1,10 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { accountActionState, authorizeAdminUserAction } from '../_shared/userActionPolicy.ts';
+import {
+  accountActionState,
+  authorizeAdminUserAction,
+  authorizeEmploymentLifecycleAction,
+} from '../_shared/userActionPolicy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,7 +29,14 @@ Deno.serve(async (request: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !anonKey || !serviceRoleKey) return json({ ok: false, error: 'Server configuration is incomplete.' }, 500);
 
-  let payload: { action?: unknown; userId?: unknown };
+  let payload: {
+    action?: unknown;
+    userId?: unknown;
+    reason?: unknown;
+    effectiveDate?: unknown;
+    remarks?: unknown;
+    requestId?: unknown;
+  };
   try {
     payload = await request.json();
   } catch {
@@ -33,9 +44,10 @@ Deno.serve(async (request: Request) => {
   }
   const action = payload.action;
   const userId = payload.userId;
-  if ((action !== 'suspend' && action !== 'reactivate') || typeof userId !== 'string' || !/^[0-9a-f-]{36}$/i.test(userId)) {
+  if (!['suspend', 'reactivate', 'archive', 'restore'].includes(String(action)) || typeof userId !== 'string' || !/^[0-9a-f-]{36}$/i.test(userId)) {
     return json({ ok: false, error: 'Invalid account action request.' }, 400);
   }
+  const validatedAction = action as 'suspend' | 'reactivate' | 'archive' | 'restore';
 
   const authClient = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: callerAuth, error: callerAuthError } = await authClient.auth.getUser(accessToken);
@@ -43,16 +55,51 @@ Deno.serve(async (request: Request) => {
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const [{ data: caller, error: callerError }, { data: target, error: targetError }] = await Promise.all([
-    adminClient.from('users').select('id, full_name, role, status').eq('id', callerAuth.user.id).single(),
-    adminClient.from('users').select('id, full_name, role, status').eq('id', userId).single(),
+    adminClient.from('users').select('id, full_name, role, status, employment_status').eq('id', callerAuth.user.id).single(),
+    adminClient.from('users').select('id, full_name, role, status, employment_status').eq('id', userId).single(),
   ]);
   if (callerError || !caller) return json({ ok: false, error: 'Caller profile was not found.' }, 403);
   if (targetError || !target) return json({ ok: false, error: 'Target user was not found.' }, 404);
 
-  const authorizationResult = authorizeAdminUserAction(caller.role, caller.id, target.id, target.role);
+  const isEmploymentAction = validatedAction === 'archive' || validatedAction === 'restore';
+  const authorizationResult = isEmploymentAction
+    ? authorizeEmploymentLifecycleAction(validatedAction as 'archive' | 'restore', caller.role, caller.id, target.id, target.role)
+    : authorizeAdminUserAction(validatedAction as 'suspend' | 'reactivate', caller.role, caller.id, target.id, target.role, target.employment_status);
   if (!authorizationResult.allowed) return json({ ok: false, error: authorizationResult.reason }, 403);
 
-  const { status: nextStatus, banDuration: nextBanDuration } = accountActionState(action);
+  if (isEmploymentAction) {
+    if (typeof payload.reason !== 'string' || typeof payload.requestId !== 'string' || !/^[0-9a-f-]{36}$/i.test(payload.requestId)) {
+      return json({ ok: false, error: 'A reason and valid request identifier are required.' }, 400);
+    }
+    if (validatedAction === 'archive' && (typeof payload.effectiveDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(payload.effectiveDate))) {
+      return json({ ok: false, error: 'A valid archive effective date is required.' }, 400);
+    }
+
+    const previousBanDuration = target.status === 'suspended' ? '876000h' : 'none';
+    if (validatedAction === 'archive') {
+      const { error: authUpdateError } = await adminClient.auth.admin.updateUserById(userId, { ban_duration: '876000h' });
+      if (authUpdateError) return json({ ok: false, error: authUpdateError.message }, 400);
+    }
+
+    const { data: transitionResult, error: transitionError } = await adminClient.rpc('transition_employee_lifecycle', {
+      p_actor_id: caller.id,
+      p_target_user_id: target.id,
+      p_action: validatedAction,
+      p_effective_date: validatedAction === 'archive' ? payload.effectiveDate : null,
+      p_reason: payload.reason,
+      p_remarks: typeof payload.remarks === 'string' ? payload.remarks : null,
+      p_request_id: payload.requestId,
+    });
+    if (transitionError) {
+      if (validatedAction === 'archive') {
+        await adminClient.auth.admin.updateUserById(userId, { ban_duration: previousBanDuration });
+      }
+      return json({ ok: false, error: transitionError.message }, transitionError.code === '42501' ? 403 : 400);
+    }
+    return json({ ok: true, result: transitionResult });
+  }
+
+  const { status: nextStatus, banDuration: nextBanDuration } = accountActionState(validatedAction as 'suspend' | 'reactivate');
   const previousStatus = target.status;
   const previousBanDuration = previousStatus === 'suspended' ? '876000h' : 'none';
 
@@ -67,8 +114,8 @@ Deno.serve(async (request: Request) => {
 
   const { error: auditError } = await adminClient.from('activity_logs').insert({
     user_id: caller.id,
-    event_type: action === 'suspend' ? 'user_suspended' : 'user_reactivated',
-    description: `${caller.full_name} ${action === 'suspend' ? 'suspended' : 'reactivated'} the account for "${target.full_name}".`,
+    event_type: validatedAction === 'suspend' ? 'user_suspended' : 'user_reactivated',
+    description: `${caller.full_name} ${validatedAction === 'suspend' ? 'suspended' : 'reactivated'} the account for "${target.full_name}".`,
     metadata: {
       target_user_id: target.id,
       target_role: target.role,

@@ -23,7 +23,7 @@ export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!session) return;
     setIsLoading(true);
     try {
-      const [rData, zData] = await Promise.all([getAllRiders(), getZones()]);
+      const [rData, zData] = await Promise.all([getAllRiders({ scope: 'active' }), getZones()]);
       setRiders(rData);
       setZones(zData);
     } catch (err) {

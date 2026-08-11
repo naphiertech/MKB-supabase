@@ -59,10 +59,10 @@ export function Reports() {
 
   // Load total riders from Supabase
   useEffect(() => {
-    getRidersLookup()
+    getRidersLookup({ scope: 'employed_on_date', date: dateTo })
       .then((data) => setTotalRidersCount(data.length))
       .catch((err) => console.error('Failed to load total riders from Supabase:', err));
-  }, []);
+  }, [dateTo]);
 
   // Load attendance logs
   useEffect(() => {

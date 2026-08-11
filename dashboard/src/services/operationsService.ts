@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { getRiderWorkforceDirectory } from './workforceDirectoryService';
 import { logActivity } from '../lib/apiService';
 import { getLocalDateString } from './attendanceService';
 import { syncPayrollRecordsFromParcelLogs, getCutoffRangeForDate } from './parcelService';
@@ -308,6 +309,9 @@ export async function getDailyParcelEntries(params: {
   const targetDate = params.date || getLocalDateString();
   validateParcelWorkDate(targetDate);
   const rateContext = await getParcelRateContextForDate(targetDate);
+  const eligibleRiderIds = new Set(
+    (await getRiderWorkforceDirectory({ scope: 'employed_on_date', date: targetDate })).map((rider) => rider.id),
+  );
 
   // 1. Fetch active riders
   let ridersQuery = supabase
@@ -324,7 +328,7 @@ export async function getDailyParcelEntries(params: {
     throw ridersError;
   }
 
-  const riderList = (ridersData || []) as unknown as Array<{
+  const riderList = ((ridersData || []) as unknown as Array<{
     id: string;
     name: string;
     mkb_id: string;
@@ -333,7 +337,7 @@ export async function getDailyParcelEntries(params: {
     zone_id: string | null;
     status: string;
     zones?: { name: string } | null;
-  }>;
+  }>).filter((rider) => eligibleRiderIds.has(rider.id));
 
   // 2. Fetch attendance summary for target date
   let attQuery = supabase

@@ -127,7 +127,7 @@ export function PayrollReports() {
   ]);
 
   useEffect(() => {
-    Promise.all([getAllRiders(), getZones()]).then(([r, z]) => {
+    Promise.all([getAllRiders({ scope: 'historical' }), getZones()]).then(([r, z]) => {
       setRidersList(r);
       setZonesList(z);
       if (r.length > 0) {

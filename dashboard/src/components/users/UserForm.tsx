@@ -327,6 +327,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
         role: form.role as UserRole,
         zoneId: form.role === "rider" ? form.zoneId || null : null,
         status: form.status,
+        employmentStatus: user?.employmentStatus ?? 'active',
         lastLogin: user?.lastLogin ?? 0,
         contact: form.contact,
         mkbRiderId: form.role === "rider" ? form.mkbRiderId : "",

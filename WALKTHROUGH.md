@@ -1,6 +1,6 @@
 # MKBRiderTrack Engineering Walkthrough & Codex Handoff
 
-This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent bug fixes, and deferred features as of **August 9, 2026**.
+This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent bug fixes, and deferred features as of **August 11, 2026**.
 
 This walkthrough is derived directly from the active repository source code, Supabase database migrations, test suites, and production build verification.
 
@@ -27,8 +27,8 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 
 | Role | Primary Responsibilities | Major Module Access | RLS Boundary |
 | :--- | :--- | :--- | :--- |
-| **Admin** | Broad administrative authority, rate settings, user management, audit review, and permitted override actions | All pages (Dashboard, Tracking & Zones, HR & Employees, Parcel Operations, Finance & Reports, Settings) | Broad administrative access, constrained by deployed RLS policies, workflow triggers, append-only audit protections, and immutable payroll rules |
-| **HR** | Attendance verification, employee onboarding, document verification, review moderation | Dashboard, Live Monitoring, Attendance, Employee Registry, Reviews, Audit Logs, Daily Parcel Entry, Parcel History, Payroll Checklist | Read/Write on HR, Employees, Attendance, Documents, Parcel Entry; Read-only on Rates |
+| **Admin** | Broad administrative authority, rate settings, user management, employment archiving/restoration, audit review, and permitted override actions | All pages (Dashboard, Tracking & Zones, HR & Employees, Parcel Operations, Finance & Reports, Settings) | Broad administrative access, constrained by deployed RLS policies, workflow triggers, append-only audit protections, employment-transition rules, and immutable payroll rules |
+| **HR** | Attendance verification, Rider onboarding and employment lifecycle management, document verification, review moderation | Dashboard, Live Monitoring, Attendance, Employee Registry, Reviews, Audit Logs, Daily Parcel Entry, Parcel History, Payroll Checklist | May Archive/Restore Rider employment and manage permitted Rider records; cannot manage Admin/HR/Payroll employment; Read-only on Rates |
 | **Payroll** | Salary computation, cutoff initialization, payslip generation, payroll exports, approval tracking | Dashboard, Salary Computation, Payroll Reports, Payroll History, Parcel History (Reference) | Read/Write on Payroll Records/Snapshots; Read-only on `parcel_logs`, Attendance, and Rates |
 | **Rider** | Selfie Time-In/Out, live location broadcast, offline queue, personal attendance & payslips | Rider Mobile App (Dashboard, Attendance Scanner, Monitoring/Geofence Status, Profile/Payslips) | Read/Write on own Attendance, Locations, Diagnostics; Read-only on own Payslips/Logs |
 
@@ -145,6 +145,8 @@ Camera
 - The unused broken OpenCV bootstrap and its uncalled preprocessing path were removed.
 - The face-api runtime/fallback is pinned to `0.22.2`; MediaPipe package and WASM runtime are aligned and pinned to `0.10.35`.
 - Face-api model assets live under versioned `/models/face-api-0.22.2/`. Vercel applies long-lived immutable caching to that versioned path so future model changes require a new path/version.
+- Rider Dashboard biometric preloading is mobile-friendly and interaction-aware. After the dashboard becomes interactive, preload waits for browser idle time, postpones pending work while the rider scrolls or interacts, and yields between expensive initialization and representative warmup stages. Time In/Out receives foreground priority and reuses the existing singleton model promises without creating concurrent model instances.
+- Zone-context hydration no longer restarts the complete Rider Dashboard cache/revalidation flow. Offline stale-while-revalidate behavior remains enabled, while the redundant identical startup revalidation was removed.
 - Timing-only telemetry covers preload, model initialization, camera request, first usable frame, liveness, warmup stages, recognition, match completion, and attendance persistence. Development builds expose:
 
 ```js
@@ -164,13 +166,15 @@ The completed audit found that the main constraint was cold-start and resource l
 - Descriptor comparison at the current rider count was effectively **under 1 ms**.
 - Normal repeated inference did not leak tensors; the defect was that release cleared the load promise without disposing face-api tensors, so a later reload doubled model memory.
 
-A real-device numeric post-fix first-face benchmark is still pending. Do not claim a measured post-fix speedup until camera/WebGL timings are captured on a real target device through the telemetry above.
+A real-device numeric post-fix first-face benchmark is still pending. Do not claim a measured numeric speedup until camera/WebGL timings are captured on a real target device through the telemetry above.
+
+Physical Android acceptance testing of the interaction-aware preload has passed. During background biometric initialization, Rider Dashboard scrolling, hamburger navigation, and Notifications remained responsive. The previous significant freezing was not reproduced; only minor occasional frame drops remained and were accepted as manageable. Time In and Time Out biometric verification were also acceptable on the tested Android device. This is a qualitative acceptance result, not a numeric performance benchmark.
 
 Intentional interaction timing remains part of the current flow: scanner startup waits about **220 ms**, liveness requires genuine user interaction with roughly a **1-second minimum**, the success state remains visible for about **1.2 seconds**, and three genuinely fresh descriptor samples add verification time because descriptor sampling remains throttled. These are not documented as bugs.
 
 ### Deferred Biometric Changes
 
-The following are not implemented: a Tiny Face Detector production switch, MediaPipe Web Worker migration, native TensorFlow Lite/native ML, Capacitor biometric migration, rider re-enrollment, and recognition-model replacement. Tiny remains only a future A/B candidate if measured real-device results still justify evaluating it.
+The following are not implemented: a Tiny Face Detector production switch, MediaPipe Web Worker migration, native TensorFlow Lite/native ML, Capacitor biometric migration, rider re-enrollment, and recognition-model replacement. Current Android acceptance results do not justify these changes. Reconsider them only if future device telemetry or a verified regression demonstrates a need.
 
 ---
 
@@ -404,7 +408,69 @@ The first batch of actions previously presented as **Soon / Not yet available** 
 
 ---
 
-## 12. Dashboard Skeleton Architecture
+## 12. Employee Archive and Restore Employment
+
+Employee Archive is an implemented employment-lifecycle workflow. It is not account deletion, and it does not add an `archived` value to either account access or Rider live status.
+
+### Three Separate States
+
+```text
+Account access:        users.status             = active | suspended
+Employment lifecycle: users.employment_status  = active | archived
+Rider live state:      riders.status            = active | idle | violation | offline
+```
+
+- An Archived employee must have a suspended account. An Archived Rider is operationally offline.
+- Account suspension by itself does not end employment.
+- Restore Employment returns employment to Active but deliberately leaves the account Suspended and the Rider Offline. Account reactivation is a separate, explicit privileged action.
+- The same `users`, Supabase Auth, and `riders` identities are retained throughout Archive and Restore. No replacement account or Rider row is created.
+
+### Authoritative Server-Side Lifecycle
+
+- `admin-user-actions` version 3 extends the existing privileged account-management Edge Function with `archive` and `restore` actions. It resolves the actor and target from server-side data and never trusts a client-supplied role.
+- `transition_employee_lifecycle()` is the database-authoritative transition RPC. Only `service_role` can execute it; normal authenticated and anonymous clients cannot forge lifecycle changes.
+- Requests use a stable request UUID. A retry returns the existing result without adding a duplicate `employee_archived` or `employee_restored` audit event.
+- Archive validates the approved reason, effective date, permissions, self-archive prohibition, last-active-Admin protection, and open attendance blocker. Future-dated Archive is intentionally unsupported in v1.
+- Archive bans Supabase Auth access, changes employment to Archived and account access to Suspended, sets a Rider Offline, resolves only applicable unresolved `boundary_exit` incidents, retains the zone assignment, appends an authoritative activity event, and sends the existing private `terminate_sessions` Realtime signal.
+- `manual_flag` and `idle_timeout` incidents are not auto-resolved. Attendance is never silently closed or given a fake Time Out.
+- If the database transition fails after the Auth ban, the Edge Function restores the target's previous Auth ban state.
+
+### Metadata and Database Enforcement
+
+`public.users` now stores `employment_status`, `archive_effective_date`, `archive_reason`, `archive_remarks`, `archived_at`, `archived_by`, `restored_at`, `restored_by`, and `restore_reason`. Constraints enforce required Archive metadata, the approved reasons, remarks for `Other`, and the Archived-implies-Suspended invariant. A partial unique index protects non-null `users.rider_id` links.
+
+Pinned-search-path helper functions provide explicit current, historical, and date-effective workforce scopes:
+
+- `is_user_currently_employed(user_id)`
+- `is_rider_employed_on(rider_id, business_date)`
+- `is_rider_operational_at(rider_id, event_time)`
+- `get_rider_workforce_directory()`
+- `get_payroll_eligible_rider_ids(cutoff_start, cutoff_end)`
+
+Database triggers and RLS policy checks independently reject archived or suspended Rider-originated attendance, GPS, operational self-update, and post-Archive parcel writes. This means a stale token or offline outbox cannot bypass employment state. Failed outbox operations remain in the existing diagnosable failed-operation flow; Archive does not delete the outbox to hide them.
+
+Historical attendance, locations, parcels and correction audits, payroll and immutable delivery lines, violations, documents and Storage files, support conversations, notifications, activity history, face descriptors, vehicle data, and identity data remain attached to the original employee. Authorized historical views use an explicit historical/date-effective scope rather than the active workforce query.
+
+### UI, Permissions, and Operational Scoping
+
+- Admin can Archive/Restore permitted employee accounts but cannot archive their own account. HR can Archive/Restore Riders only. Payroll and Rider roles have no lifecycle controls.
+- Users Registry / Employee Management defaults to Employment: Active and supports Archived and All views while preserving search, role, zone, and separate Account filters.
+- Table badges and columns distinguish Employment, Account Access, and Presence. Archived rows are visually muted and expose only View Profile, View History, and Restore Employment.
+- The Archive modal requires a reason and effective date, requires remarks for `Other`, explains the consequences and preserved history, and blocks submission when the Rider has an open attendance session.
+- Archived profiles remain readable to authorized staff and show effective date, reason, remarks, actor, and timestamp. Operational editing is hidden while existing historical Attendance and Documents access remains available; the dedicated historical Payroll, Parcel, Violation, Report, and Audit workspaces retain date-appropriate identity lookup.
+- Live Monitoring, active zone/assignment selectors, Daily Parcel Entry, active workforce counts, and normal global operational search exclude Archived employees. Historical pages still include them when the selected date requires it.
+- Payroll initialization is still intentional and is now date-effective. It may create Drafts only for Riders employed during the selected cutoff, then uses the existing hydration path. Pure payroll reads, existing Drafts, Submitted/Approved/Paid records, and immutable snapshots retain all prior invariants.
+
+Restore Employment preserves the last zone as context but does not record a separate database-level “zone confirmed” acknowledgment. Operations must confirm/change that assignment before explicitly reactivating the account. Formal rehire/employment-period tracking remains deferred.
+
+### Deployment and Verification
+
+- Local/deployed migration: `dashboard/supabase/migrations/20260811043036_employee_rider_archiving.sql` / remote migration `20260811043036 employee_rider_archiving`.
+- Edge Function: deployed `admin-user-actions` version 3 with JWT verification enabled.
+- No broad `supabase db push` was used, and no old production migration was rewritten or replayed.
+- Postflight production invariants: 10 users, 7 Riders, 0 archived employees, 0 open attendance sessions, 0 Paid payroll rows, and the unchanged empty Paid-payroll fingerprint `d41d8cd98f00b204e9800998ecf8427e`.
+
+## 13. Dashboard Skeleton Architecture
 
 `DashboardSkeleton.tsx` is modularized to prevent layout shifts and maintain exact visual synchronization with live pages:
 
@@ -427,11 +493,11 @@ The first batch of actions previously presented as **Soon / Not yet available** 
 
 ---
 
-## 13. Database Schema & RLS Summary
+## 14. Database Schema & RLS Summary
 
 The generated Supabase schema and repository migrations confirm the following application tables. This list excludes extension-owned/PostGIS metadata tables and should not be treated as an exhaustive inventory of every database relation:
 
-1. **`users`**: System user profiles (`id`, `full_name`, `role`, `email`, `created_at`).
+1. **`users`**: System user profiles and separate account/employment lifecycle state (`id`, `full_name`, `role`, `email`, `status`, `employment_status`, Archive/Restore metadata, `created_at`).
 2. **`riders`**: Fleet riders (`id`, `name`, `mkb_id`, `user_id`, `zone_id`, `face_descriptor`, `status`).
 3. **`attendance_logs`**: Time-In/Out logs (`id`, `rider_id`, `date`, `time_in`, `time_out`, `status`, `lat`, `lng`).
 4. **`rider_locations`**: Live GPS coordinates (`id`, `rider_id`, `latitude`, `longitude`, `speed`, `recorded_at`).
@@ -456,7 +522,7 @@ The generated Supabase schema and repository migrations confirm the following ap
 
 ---
 
-## 14. Safe Operational Reset State
+## 15. Safe Operational Reset State
 
 An operational test data reset was previously conducted on the staging database.
 
@@ -465,14 +531,15 @@ An operational test data reset was previously conducted on the staging database.
 
 ---
 
-## 15. Current Test & Build Verification
+## 16. Current Test & Build Verification
 
 Verification executed against active repository state:
 
 - **TypeScript Type-Check (`npm run typecheck`)**: **PASS (0 errors)**
 - **Violations Database Lifecycle/RLS Suite**: **PASS (27 / 27 transactional assertions)**
 - **Payroll Bulk Actions Database Suite**: **PASS (57 / 57 transactional assertions; latest completed batch result)**
-- **Automated Test Suite (`npm test`)**: **PASS (140 / 140 tests passed across 36 test files)**
+- **Employee Archive Database Lifecycle/RLS Suite**: **PASS (40 / 40 transactional assertions)**
+- **Automated Test Suite (`npm test`)**: **PASS (172 / 172 tests passed across 43 test files)**
 - **Account-Security Database Suite**: **PASS (14 / 14 transactional assertions)**
 - **Session-Control RLS Suite**: **PASS (5 / 5 transactional assertions)**
 - **ESLint Linting (`npm run lint`)**: **PASS (0 errors, 8 pre-existing warnings)**
@@ -485,10 +552,15 @@ Verification executed against active repository state:
 - Stale rider status is evaluated on a one-minute schedule after a two-minute freshness threshold, so the visible transition may take approximately **2–3 minutes**.
 - Reliable historical violation reconstruction requires historical zone-assignment data. Until that exists, delayed historical coordinates are retained without generating historical alerts.
 - Existing unrelated Supabase advisor findings remain outside the Violations stabilization scope and require a separate security-maintenance pass.
+- Individual WebGL, WASM, or model-initialization operations may still produce occasional non-interruptible frame drops on lower-powered Android devices. Current physical-device testing found these minor and manageable after interaction-aware scheduling.
+- A fully offline Archived Rider may not receive the immediate Realtime logout signal until reconnect or token refresh. Database triggers and RLS still reject new operational writes independently.
+- Future-dated Archive and formal rehire/employment-period history are intentionally not implemented in v1. Restore uses the existing identity and records the current Archive/Restore gap rather than creating a new employment period.
+- Restore retains the last assigned zone, but zone confirmation is currently an explicit operational step rather than a separately persisted database acknowledgment.
+- The current Supabase advisor scan still reports unrelated pre-existing findings, including the `v_attendance_summary` Security Definer view, mutable search paths on legacy functions, `spatial_ref_sys` without RLS, PostGIS in `public`, legacy callable Security Definer functions, unindexed foreign keys, and unused-index/policy performance notices. These were not broadened into this feature.
 
 ---
 
-## 16. Recently Resolved Issues
+## 17. Recently Resolved Issues
 
 1. **Payroll Deletion Resurrection Bug**: Resolved. Read queries (`getPayrollRecords`, `getPaginatedPayrollRecords`) made pure SELECT operations so deleted draft records stay deleted.
 2. **Payroll Re-Initialization Zero-Parcel Summary Bug**: Resolved. `initializeCutoffPayrollForFleet()` now explicitly calls `syncPayrollRecordsFromParcelLogs(..., { allowCreateMissing: false })` to hydrate newly created draft records with parcel aggregates and effective rates.
@@ -502,10 +574,12 @@ Verification executed against active repository state:
 10. **Notification Preferences**: Resolved. Preferences now persist per user in Supabase and control role-relevant toast/sound presentation without suppressing notification-history persistence.
 11. **Payroll Bulk Approval and Payment**: Resolved. Admin/HR bulk and individual approval/payment actions now share atomic, idempotent, row-locked server transitions with immutable-snapshot validation.
 12. **Biometric Cold-Start and Lifecycle Stabilization**: Resolved. Full representative warmup, mount-scoped camera ownership, resident face-api weights, stale-session cancellation, fresh-sample matching, versioned assets, and timing-only telemetry were added without changing models, descriptors, threshold, attendance, or geofence behavior.
+13. **Android Rider Dashboard Preload Freezing**: Resolved and physically accepted. Biometric preload now waits for browser idle time, yields between expensive stages, postpones pending work during rider interaction, and gives Time In/Out foreground priority. Android testing confirmed responsive scrolling, hamburger navigation, and Notifications during preload, with only manageable occasional frame drops.
+14. **Employee/Rider Archiving**: Implemented as a separate, server-authoritative employment lifecycle. Archive removes former employees from current operations and login while preserving all history; Restore keeps account access suspended until a separate Reactivate action.
 
 ---
 
-## 17. Deferred / Future Features (Explicitly Marked PLANNED / DEFERRED)
+## 18. Deferred / Future Features (Explicitly Marked PLANNED / DEFERRED)
 
 > [!CAUTION]
 > The following features have been discussed or planned for future releases, but **are NOT yet implemented in the codebase**. Future agents must not assume these exist.
@@ -533,11 +607,15 @@ Verification executed against active repository state:
    - Currently, mobile rider features run as responsive web app / PWA with foreground GPS.
 10. **Alternative Biometric Architecture** *(PLANNED / DEFERRED)*:
    - Tiny Face Detector production use, MediaPipe Web Workers, native TensorFlow Lite/native ML, Capacitor biometric migration, rider re-enrollment, and recognition-model replacement are not implemented.
-   - SSD MobileNet V1 remains authoritative. Tiny may be evaluated only as a future A/B candidate if measured real-device evidence justifies it.
+   - SSD MobileNet V1 remains authoritative. Current physical Android acceptance testing does not justify Tiny Face Detector or a MediaPipe Worker; evaluate alternatives only if future telemetry or a verified regression warrants it.
+11. **Formal Rehire / Employment Periods** *(PLANNED / DEFERRED)*:
+   - Restore Employment currently reuses the same employee identity and preserves the Archive/Restore gap. A separate `employment_periods` model and formal Rehire workflow are not implemented.
+12. **Future-Dated Employee Archive** *(PLANNED / DEFERRED)*:
+   - Archive effective dates are limited to today or earlier in v1. Scheduled future employment termination is not implemented.
 
 ---
 
-## 18. Current Handover State for Next IDE (Codex / Antigravity Handoff)
+## 19. Current Handover State for Next IDE (Codex / Antigravity Handoff)
 
 ### Essential Invariants for Future Developers & AI Agents
 
@@ -550,3 +628,5 @@ Verification executed against active repository state:
 7. **Preserve Biometric Compatibility**: SSD MobileNet V1 remains the production detector, stored face descriptors remain unchanged 128-D vectors, and the Euclidean match threshold remains exactly `0.45`. Do not switch to Tiny or another recognition architecture without measured real-device evidence and an explicitly approved migration plan.
 8. **Preserve Notification Persistence**: Notification preferences control toast/sound/category presentation, not whether notification rows and history are created. Critical and account notifications must remain visible.
 9. **Preserve Operational Rate Integrity**: Parcel rates are resolved based on work date and Time-In timestamp. The fixed heavy parcel rate (₱17/parcel) applies to parcels above 4 kg.
+10. **Keep Employment, Account, and Rider State Separate**: Employee Archive changes `users.employment_status`, forces account suspension, and leaves Rider live state Offline. Restore Employment must not automatically reactivate the account, create a new identity, synthesize history, or replay stale offline work.
+11. **Use Explicit Workforce Scopes**: Current operational selectors use Active/current workforce scope; historical pages use All/date-effective scope. Do not globally hide Archived identities or globally include them in new work.

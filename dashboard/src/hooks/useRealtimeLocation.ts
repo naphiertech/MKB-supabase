@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
 import { getLastKnownLocation } from '../services/monitoringService';
+import { getRiderWorkforceDirectory } from '../services/workforceDirectoryService';
 
 
 interface ZoneRow {
@@ -64,6 +65,11 @@ interface RiderUpdateRow {
   lng: number | null;
   speed: number | null;
   last_ping: string | null;
+}
+
+interface UserEmploymentUpdateRow {
+  rider_id: string | null;
+  employment_status: 'active' | 'archived';
 }
 
 const MAX_LIVE_LOCATION_AGE_MS = 2 * 60 * 1000;
@@ -128,7 +134,11 @@ export function useRealtimeLocation(): {
 
         if (active) setZoneState(mappedZones);
 
-        // 2. Fetch all riders
+        // 2. Fetch current workforce riders. Historical riders remain in their
+        // source tables but do not appear in live operational monitoring.
+        const activeRiderIds = new Set(
+          (await getRiderWorkforceDirectory({ scope: 'active' })).map((rider) => rider.id),
+        );
         const { data: rData } = await supabase
           .from('riders')
           .select(`
@@ -150,7 +160,7 @@ export function useRealtimeLocation(): {
             )
           `);
 
-        const mappedRiders = await Promise.all((rData || []).map(async (row: RiderRow) => {
+        const mappedRiders = await Promise.all((rData || []).filter((row: RiderRow) => activeRiderIds.has(row.id)).map(async (row: RiderRow) => {
           let cached = getCachedAvatar(row.id);
           if (!cached) {
             const dbAvatar = await fetchRiderAvatar(row.id);
@@ -276,6 +286,15 @@ export function useRealtimeLocation(): {
       );
     };
 
+    const handleEmploymentUpdate = (updatedUser: UserEmploymentUpdateRow) => {
+      if (!updatedUser.rider_id) return;
+      if (updatedUser.employment_status === 'archived') {
+        setRiderState((current) => current.filter((rider) => rider.id !== updatedUser.rider_id));
+        return;
+      }
+      void loadInitialData();
+    };
+
     // Event Handler: Prepend live violations inserted on backend
     const handleViolationInsert = (newViolation: ViolationRow) => {
       setRiderState((currentRiders) => {
@@ -355,6 +374,13 @@ export function useRealtimeLocation(): {
         { event: 'UPDATE', schema: 'public', table: 'riders' },
         (payload) => {
           handleRiderUpdate(payload.new as unknown as RiderUpdateRow);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'users' },
+        (payload) => {
+          handleEmploymentUpdate(payload.new as unknown as UserEmploymentUpdateRow);
         }
       )
       .subscribe();

@@ -10,7 +10,7 @@ import {
   Download
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
-import { type AppUser, type UserRole, type UserStatus, type Zone } from '../services/types';
+import { type AppUser, type EmploymentStatus, type UserRole, type UserStatus, type Zone } from '../services/types';
 import { logActivity } from '../lib/apiService';
 import { getZones } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
@@ -20,7 +20,16 @@ import { useAuth } from '../hooks/useAuth';
 import { clearCachedAvatar } from '../lib/avatarCache';
 import { exportXLSXFile } from '../lib/exports/excelHelper';
 import { toast } from 'react-hot-toast';
-import { requestStaffPasswordReset, setUserSuspension } from '../services/adminUserService';
+import {
+  archiveEmployee,
+  hasOpenAttendance,
+  requestStaffPasswordReset,
+  restoreEmployment,
+  setUserSuspension,
+} from '../services/adminUserService';
+import { EmploymentLifecycleModal } from '../components/users/EmploymentLifecycleModal';
+import type { ArchiveInput } from '../services/employmentLifecycle';
+import { createSyncOperationId } from '../lib/storage';
 import { recoveryRedirectUrl } from '../lib/authRecoveryRoute';
 import {
   getUsersAndRiders,
@@ -51,6 +60,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'active' | 'suspended'>(
     'all');
+  const [employmentFilter, setEmploymentFilter] = useState<'all' | EmploymentStatus>('active');
   const [view, setView] = useState<'list' | 'form' | 'details'>('list');
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [editing, setEditing] = useState<AppUser | null>(null);
@@ -58,6 +68,13 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+  const [lifecycleTarget, setLifecycleTarget] = useState<AppUser | null>(null);
+  const [lifecycleMode, setLifecycleMode] = useState<'archive' | 'restore'>('archive');
+  const [lifecycleRequestId, setLifecycleRequestId] = useState('');
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
+  const [attendanceCheckBusy, setAttendanceCheckBusy] = useState(false);
+  const [archiveBlockedByAttendance, setArchiveBlockedByAttendance] = useState(false);
 
   // Sync roleFilter for HR
   useEffect(() => {
@@ -69,7 +86,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
   // Reset pagination on filter changes
   useEffect(() => {
     setPage(1);
-  }, [q, roleFilter, statusFilter, zoneFilter]);
+  }, [q, roleFilter, statusFilter, employmentFilter, zoneFilter]);
 
   const loadData = async () => {
     try {
@@ -81,6 +98,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
       setZonesList(zList);
 
       if (dbUsers) {
+        const nameById = new Map(dbUsers.map((user: { id: string; full_name: string }) => [user.id, user.full_name]));
         const mapped: AppUser[] = dbUsers.map((u: {
           id: string;
           full_name: string;
@@ -93,6 +111,15 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           employment_type?: string | null;
           date_of_hire?: string | null;
           notes?: string | null;
+          employment_status?: string | null;
+          archive_effective_date?: string | null;
+          archive_reason?: string | null;
+          archive_remarks?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
+          restore_reason?: string | null;
           riders: {
             id?: string | null;
             face_image_url?: string | null;
@@ -113,6 +140,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             vehicle_type?: string | null;
             vehicle_plate_number?: string | null;
             notes?: string | null;
+            status?: string | null;
           } | null;
         }) => {
           const userObj: AppUser = {
@@ -125,6 +153,17 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             role: u.role as UserRole,
             zoneId: u.riders?.zone_id || null,
             status: u.status as UserStatus,
+            employmentStatus: (u.employment_status || 'active') as EmploymentStatus,
+            operationalStatus: u.role === 'rider' ? (u.riders?.status as AppUser['operationalStatus']) : null,
+            archiveEffectiveDate: u.archive_effective_date || null,
+            archiveReason: u.archive_reason || null,
+            archiveRemarks: u.archive_remarks || null,
+            archivedAt: u.archived_at || null,
+            archivedBy: u.archived_by || null,
+            archivedByName: u.archived_by ? nameById.get(u.archived_by) || null : null,
+            restoredAt: u.restored_at || null,
+            restoredBy: u.restored_by || null,
+            restoreReason: u.restore_reason || null,
             lastLogin: u.last_login ? new Date(u.last_login).getTime() : 0,
             contact: u.contact || u.riders?.contact || '',
             mkbRiderId: u.riders?.mkb_id || '',
@@ -161,11 +200,13 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
     loadData();
   }, []);
 
+  const activeWorkforce = userList.filter((user) => user.employmentStatus === 'active');
   const counts = {
-    admin: userList.filter((u) => u.role === 'admin').length,
-    hr: userList.filter((u) => u.role === 'hr').length,
-    rider: userList.filter((u) => u.role === 'rider').length,
-    payroll: userList.filter((u) => u.role === 'payroll').length
+    admin: activeWorkforce.filter((u) => u.role === 'admin').length,
+    hr: activeWorkforce.filter((u) => u.role === 'hr').length,
+    rider: activeWorkforce.filter((u) => u.role === 'rider').length,
+    payroll: activeWorkforce.filter((u) => u.role === 'payroll').length,
+    archived: userList.filter((u) => u.employmentStatus === 'archived').length,
   };
 
   const filtered = useMemo(
@@ -177,19 +218,14 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
       u.email.toLowerCase().includes(q.toLowerCase());
       const matchesRole = roleFilter === 'all' || u.role === roleFilter;
       
-      const isOnline = onlineUserIds.includes(u.id);
-      const liveStatus = u.status === 'suspended' ? 'suspended' : isOnline ? 'active' : 'offline';
-      
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && liveStatus === 'active') ||
-        (statusFilter === 'suspended' && liveStatus === 'suspended');
+      const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
+      const matchesEmployment = employmentFilter === 'all' || u.employmentStatus === employmentFilter;
 
       const matchesZone = zoneFilter === 'all' || u.zoneId === zoneFilter;
 
-      return matchesQ && matchesRole && matchesStatus && matchesZone;
+      return matchesQ && matchesRole && matchesStatus && matchesEmployment && matchesZone;
     }),
-    [q, roleFilter, statusFilter, zoneFilter, userList, onlineUserIds]
+    [q, roleFilter, statusFilter, employmentFilter, zoneFilter, userList]
   );
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
@@ -201,7 +237,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
 
   const handleExportExcel = async () => {
     try {
-      const headers = ['Name', 'Email', 'Role', 'Status', 'Contact', 'Zone'];
+      const headers = ['Name', 'Email', 'Role', 'Employment', 'Account', 'Contact', 'Zone'];
       
       const rows = filtered.map(u => {
         const zoneName = zonesList.find(z => z.id === u.zoneId)?.name || '—';
@@ -209,6 +245,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           u.name || '',
           u.email || '',
           u.role || '',
+          u.employmentStatus,
           u.status || '',
           u.contact || '',
           zoneName
@@ -249,7 +286,77 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
     }
   };
 
+  const openArchive = async (target: AppUser) => {
+    setLifecycleTarget(target);
+    setLifecycleMode('archive');
+    setLifecycleRequestId(createSyncOperationId());
+    setLifecycleError(null);
+    setArchiveBlockedByAttendance(false);
+    if (!target.riderId) return;
+    setAttendanceCheckBusy(true);
+    try {
+      setArchiveBlockedByAttendance(await hasOpenAttendance(target.riderId));
+    } catch (error: unknown) {
+      setLifecycleError(error instanceof Error ? error.message : 'Unable to verify open attendance.');
+      setArchiveBlockedByAttendance(true);
+    } finally {
+      setAttendanceCheckBusy(false);
+    }
+  };
+
+  const openRestore = (target: AppUser) => {
+    setLifecycleTarget(target);
+    setLifecycleMode('restore');
+    setLifecycleRequestId(createSyncOperationId());
+    setLifecycleError(null);
+    setArchiveBlockedByAttendance(false);
+  };
+
+  const closeLifecycleModal = () => {
+    if (lifecycleBusy) return;
+    setLifecycleTarget(null);
+    setLifecycleError(null);
+  };
+
+  const submitArchive = async (input: ArchiveInput) => {
+    if (!lifecycleTarget) return;
+    setLifecycleBusy(true);
+    setLifecycleError(null);
+    try {
+      await archiveEmployee(lifecycleTarget.id, {
+        reason: input.reason as Exclude<ArchiveInput['reason'], ''>,
+        effectiveDate: input.effectiveDate,
+        remarks: input.remarks,
+        requestId: lifecycleRequestId,
+      });
+      toast.success(`${lifecycleTarget.name} was archived. Historical records were preserved.`);
+      setLifecycleTarget(null);
+      await loadData();
+    } catch (error: unknown) {
+      setLifecycleError(error instanceof Error ? error.message : 'Unable to archive this employee.');
+    } finally {
+      setLifecycleBusy(false);
+    }
+  };
+
+  const submitRestore = async (reason: string) => {
+    if (!lifecycleTarget) return;
+    setLifecycleBusy(true);
+    setLifecycleError(null);
+    try {
+      await restoreEmployment(lifecycleTarget.id, { reason, requestId: lifecycleRequestId });
+      toast.success(`${lifecycleTarget.name}'s employment was restored. Account reactivation is still required.`);
+      setLifecycleTarget(null);
+      await loadData();
+    } catch (error: unknown) {
+      setLifecycleError(error instanceof Error ? error.message : 'Unable to restore this employment record.');
+    } finally {
+      setLifecycleBusy(false);
+    }
+  };
+
   return (
+    <>
     <AnimatePresence mode="wait">
       {view === 'form' ? (
         <motion.div
@@ -437,10 +544,10 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2.5 flex-wrap">
               <div className="text-2xl font-semibold text-foreground tracking-tight">
-                {currentUserRole === 'hr' ? counts.rider : userList.length}
+                {currentUserRole === 'hr' ? counts.rider : activeWorkforce.length}
               </div>
               <div className="text-sm text-muted-foreground">
-                {currentUserRole === 'hr' ? 'total riders' : 'total users'}
+                {currentUserRole === 'hr' ? 'active riders' : 'active employees'}
               </div>
               <div className="hidden md:flex items-center gap-1.5 ml-3">
                 {currentUserRole !== 'hr' ? (
@@ -553,20 +660,32 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             </select>
 
             <Segmented
+              label="Filter by employment lifecycle"
+              value={employmentFilter}
+              onChange={(v) => setEmploymentFilter(v as typeof employmentFilter)}
+              options={[
+                { v: 'active', l: 'Employment: Active' },
+                { v: 'archived', l: `Archived (${counts.archived})` },
+                { v: 'all', l: 'All Employment' },
+              ]}
+            />
+
+            <Segmented
+              label="Filter by account status"
               value={statusFilter}
               onChange={(v) => setStatusFilter(v as typeof statusFilter)}
               options={[
               {
                 v: 'all',
-                l: 'All Status'
+                l: 'All Accounts'
               },
               {
                 v: 'active',
-                l: 'Active'
+                l: 'Account: Active'
               },
               {
                 v: 'suspended',
-                l: 'Suspended'
+                l: 'Account: Suspended'
               }]
               } />
             
@@ -602,11 +721,27 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
               currentUserRole={currentUserRole === 'admin' || currentUserRole === 'hr' ? currentUserRole : undefined}
               onSendPasswordReset={handleSendPasswordReset}
               onToggleSuspension={handleToggleSuspension}
+              onArchive={openArchive}
+              onRestore={openRestore}
             />
           )}
         </motion.div>
       )}
     </AnimatePresence>
+    <EmploymentLifecycleModal
+      open={Boolean(lifecycleTarget)}
+      mode={lifecycleMode}
+      user={lifecycleTarget}
+      today={new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())}
+      checkingAttendance={attendanceCheckBusy}
+      hasOpenAttendance={archiveBlockedByAttendance}
+      busy={lifecycleBusy}
+      error={lifecycleError}
+      onClose={closeLifecycleModal}
+      onArchive={submitArchive}
+      onRestore={submitRestore}
+    />
+    </>
   );
 
 }
@@ -633,12 +768,13 @@ function RoleChip({
 
 }
 function Segmented({
+  label = 'Filter options',
   value,
   onChange,
   options
-}: {value: string;onChange: (v: string) => void;options: {v: string;l: string;}[];}) {
+}: {label?: string;value: string;onChange: (v: string) => void;options: {v: string;l: string;}[];}) {
   return (
-    <div className="table-scroll-region flex w-full rounded-md border border-border bg-panel-bg p-0.5 sm:inline-flex sm:w-auto" role="group" aria-label="Filter by role" tabIndex={0}>
+    <div className="table-scroll-region flex w-full rounded-md border border-border bg-panel-bg p-0.5 sm:inline-flex sm:w-auto" role="group" aria-label={label} tabIndex={0}>
       {options.map((o) =>
       <button
         key={o.v}

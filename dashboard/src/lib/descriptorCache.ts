@@ -69,3 +69,8 @@ export function setCachedDescriptor(riderId: string, descriptor: number[], avata
     console.warn('[DescriptorCache] Failed to save descriptor to LocalStorage:', err);
   }
 }
+
+export function clearCachedDescriptor(riderId: string): void {
+  if (!riderId || typeof localStorage === 'undefined') return;
+  localStorage.removeItem(`${CACHE_PREFIX}${riderId}`);
+}

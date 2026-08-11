@@ -102,11 +102,18 @@ describe('password recovery and session security', () => {
     expect(shouldTerminateSession(signal, { userId: 'user-b', sessionId: 'session-b' })).toBe(false);
   });
 
+  it('terminates every targeted session for an authoritative employment archive signal', () => {
+    const signal = { userId: 'user-a', terminateAll: true as const, reason: 'employee_archived' as const };
+    expect(shouldTerminateSession(signal, { userId: 'user-a', sessionId: 'session-a' })).toBe(true);
+    expect(shouldTerminateSession(signal, { userId: 'user-a', sessionId: 'session-b' })).toBe(true);
+    expect(shouldTerminateSession(signal, { userId: 'user-b', sessionId: 'session-a' })).toBe(false);
+  });
+
   it('delivers the immediate logout callback without requiring a refresh', async () => {
-    let broadcastHandler: ((payload: { payload?: unknown }) => void) | undefined;
+    const broadcastHandlers = new Map<string, (payload: { payload?: unknown }) => void>();
     const channel = {
-      on: vi.fn((_type: string, _options: unknown, handler: (payload: { payload?: unknown }) => void) => {
-        broadcastHandler = handler;
+      on: vi.fn((_type: string, options: { event: string }, handler: (payload: { payload?: unknown }) => void) => {
+        broadcastHandlers.set(options.event, handler);
         return channel;
       }),
       subscribe: vi.fn((callback: (status: string) => void) => {
@@ -120,8 +127,13 @@ describe('password recovery and session security', () => {
     const terminate = vi.fn();
 
     const unsubscribe = await subscribeToOtherSessionLogout({ userId: 'user-a', sessionId: 'session-b' }, terminate);
-    broadcastHandler?.({ payload: { userId: 'user-a', excludedSessionId: 'session-a' } });
+    broadcastHandlers.get('logout_others')?.({ payload: { userId: 'user-a', excludedSessionId: 'session-a' } });
     expect(terminate).toHaveBeenCalledOnce();
+
+    broadcastHandlers.get('terminate_sessions')?.({
+      payload: { userId: 'user-a', terminateAll: true, reason: 'employee_archived' },
+    });
+    expect(terminate).toHaveBeenCalledTimes(2);
     unsubscribe();
     expect(mocks.removeChannel).toHaveBeenCalledWith(channel);
   });

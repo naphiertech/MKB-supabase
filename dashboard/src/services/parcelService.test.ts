@@ -3,12 +3,13 @@ import { PayrollStatus } from '../types/payroll';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
+  rpc: vi.fn(),
   bulkApprove: vi.fn(),
   bulkPay: vi.fn(),
 }));
 
 vi.mock('../lib/supabaseClient', () => ({
-  supabase: { from: mocks.from },
+  supabase: { from: mocks.from, rpc: mocks.rpc },
 }));
 
 vi.mock('../lib/apiService', () => ({
@@ -76,6 +77,7 @@ const sampleLogs: ParcelLog[] = [
 
 beforeEach(() => {
   mocks.from.mockReset();
+  mocks.rpc.mockReset();
   mocks.bulkApprove.mockReset();
   mocks.bulkPay.mockReset();
 });
@@ -570,10 +572,13 @@ describe('payroll deletion & read purity tests', () => {
   });
 
   it('initializeCutoffPayrollForFleet creates missing fleet drafts and immediately hydrates them from parcel_logs', async () => {
+    mocks.rpc.mockResolvedValue({ data: [{ rider_id: 'rider-fleet-1' }], error: null });
     const ridersQuery = {
       select: vi.fn(),
+      in: vi.fn(),
     };
-    ridersQuery.select.mockResolvedValue({
+    ridersQuery.select.mockReturnValue(ridersQuery);
+    ridersQuery.in.mockResolvedValue({
       data: [{ id: 'rider-fleet-1', name: 'Fleet Rider' }],
       error: null,
     });
@@ -653,10 +658,13 @@ describe('payroll deletion & read purity tests', () => {
   });
 
   it('initializeCutoffPayrollForFleet fails cleanly if hydration encounters an error', async () => {
+    mocks.rpc.mockResolvedValue({ data: [{ rider_id: 'rider-fleet-1' }], error: null });
     const ridersQuery = {
       select: vi.fn(),
+      in: vi.fn(),
     };
-    ridersQuery.select.mockResolvedValue({
+    ridersQuery.select.mockReturnValue(ridersQuery);
+    ridersQuery.in.mockResolvedValue({
       data: [{ id: 'rider-fleet-1', name: 'Fleet Rider' }],
       error: null,
     });

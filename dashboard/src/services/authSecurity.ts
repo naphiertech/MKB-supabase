@@ -22,10 +22,18 @@ export interface AuthSessionIdentity {
   sessionId: string;
 }
 
-export interface SessionControlSignal {
+export interface OtherSessionLogoutSignal {
   userId: string;
   excludedSessionId: string;
 }
+
+export interface TerminateAllSessionsSignal {
+  userId: string;
+  terminateAll: true;
+  reason: 'employee_archived' | 'account_suspended';
+}
+
+export type SessionControlSignal = OtherSessionLogoutSignal | TerminateAllSessionsSignal;
 
 const SESSION_CONTROL_EVENT = 'logout_others';
 
@@ -34,7 +42,8 @@ function sessionControlTopic(userId: string): string {
 }
 
 export function shouldTerminateSession(signal: SessionControlSignal, current: AuthSessionIdentity): boolean {
-  return signal.userId === current.userId && signal.excludedSessionId !== current.sessionId;
+  if (signal.userId !== current.userId) return false;
+  return 'terminateAll' in signal ? signal.terminateAll : signal.excludedSessionId !== current.sessionId;
 }
 
 export async function getCurrentAuthSessionIdentity(): Promise<AuthSessionIdentity> {
@@ -93,6 +102,13 @@ export async function subscribeToOtherSessionLogout(
   const channel = createSessionControlChannel(identity).on(
     'broadcast',
     { event: SESSION_CONTROL_EVENT },
+    (message) => {
+      const signal = message.payload as SessionControlSignal | undefined;
+      if (signal && shouldTerminateSession(signal, identity)) onTerminate();
+    }
+  ).on(
+    'broadcast',
+    { event: 'terminate_sessions' },
     (message) => {
       const signal = message.payload as SessionControlSignal | undefined;
       if (signal && shouldTerminateSession(signal, identity)) onTerminate();

@@ -4,6 +4,8 @@ import { getUserProfileById } from './userService';
 import { getZones } from './geofenceService';
 import { getRouteForRider, computeRouteStats, type RoutePoint, type RouteStats } from './routeService';
 import { type RiderStatus, type Zone } from './types';
+import { clearCachedAvatar } from '../lib/avatarCache';
+import { clearCachedDescriptor } from '../lib/descriptorCache';
 
 export interface DBUserProfileRow {
   id: string;
@@ -13,6 +15,7 @@ export interface DBUserProfileRow {
   status: string;
   last_login?: string | number | null;
   rider_id?: string | null;
+  employment_status?: 'active' | 'archived';
 }
 
 export interface DBRiderRow {
@@ -242,6 +245,20 @@ export async function patchCachedAttendanceState(
 
 const MONITORING_CACHE_PREFIX = 'rider_monitoring_cache_';
 const PROFILE_CACHE_PREFIX = 'rider_profile_cache_';
+
+export async function clearRiderSensitiveCache(userId: string, riderId?: string): Promise<void> {
+  const storage = getStorageAdapter();
+  await Promise.all([
+    storage.removeItem(`${DASHBOARD_CACHE_PREFIX}${userId}`),
+    storage.removeItem(`${MONITORING_CACHE_PREFIX}${userId}`),
+    storage.removeItem(`${PROFILE_CACHE_PREFIX}${userId}`),
+  ]);
+  if (typeof localStorage !== 'undefined') localStorage.removeItem(`custom_avatar_${userId}`);
+  if (riderId) {
+    clearCachedAvatar(riderId);
+    clearCachedDescriptor(riderId);
+  }
+}
 
 export interface CachedMonitoringPayload {
   resolvedRiderId: string;

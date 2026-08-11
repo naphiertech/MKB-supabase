@@ -344,7 +344,10 @@ export const createUserProfile = async (userId: string, riderId: string | null, 
 export const getSearchIndexData = async () => {
   const [zonesRes, usersRes] = await Promise.all([
     supabase.from('zones').select('id, name'),
-    supabase.from('users').select('id, full_name, role, contact, riders(zone_id, mkb_id)')
+    supabase
+      .from('users')
+      .select('id, full_name, role, contact, employment_status, riders(zone_id, mkb_id)')
+      .eq('employment_status', 'active')
   ]);
 
   if (zonesRes.error) throw zonesRes.error;

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedDescriptor, setCachedDescriptor } from './descriptorCache';
+import { clearCachedDescriptor, getCachedDescriptor, setCachedDescriptor } from './descriptorCache';
 
 const descriptor = Array.from({ length: 128 }, (_, index) => index / 128);
 
@@ -42,5 +42,13 @@ describe('facial descriptor cache', () => {
 
     expect(setItem).toHaveBeenCalledTimes(2);
     expect(getCachedDescriptor('', 'avatar.jpg')).toEqual(descriptor);
+  });
+
+  it('clears the rider-owned descriptor without clearing unrelated riders', () => {
+    setCachedDescriptor('rider-1', descriptor, null);
+    setCachedDescriptor('rider-2', descriptor, null);
+    clearCachedDescriptor('rider-1');
+    expect(getCachedDescriptor('rider-1')).toBeNull();
+    expect(getCachedDescriptor('rider-2')).toEqual(descriptor);
   });
 });

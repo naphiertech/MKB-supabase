@@ -4,6 +4,7 @@ export type AttendancePresence = 'present' | 'absent' | 'on_leave';
 export type PunctualityStatus = 'on_time' | 'late' | 'none';
 export type UserRole = 'admin' | 'hr' | 'dispatcher' | 'rider' | 'payroll';
 export type UserStatus = 'active' | 'suspended';
+export type EmploymentStatus = 'active' | 'archived';
 export type ZoneStatus = 'active' | 'inactive';
 
 export interface Zone {
@@ -78,6 +79,17 @@ export interface AppUser {
   role: UserRole;
   zoneId: string | null;
   status: UserStatus;
+  employmentStatus: EmploymentStatus;
+  operationalStatus?: RiderStatus | null;
+  archiveEffectiveDate?: string | null;
+  archiveReason?: string | null;
+  archiveRemarks?: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  archivedByName?: string | null;
+  restoredAt?: string | null;
+  restoredBy?: string | null;
+  restoreReason?: string | null;
   lastLogin: number;
   contact?: string | null;
   mkbRiderId?: string | null;

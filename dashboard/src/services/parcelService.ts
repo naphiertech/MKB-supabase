@@ -345,10 +345,20 @@ export const initializeCutoffPayrollForFleet = async (
   cutoffTo: string,
   userId?: string
 ): Promise<{ initializedCount: number; totalRiders: number }> => {
-  // 1. Fetch all riders from database
+  // 1. Resolve date-effective employment eligibility authoritatively. This is
+  // the intentional creation path; pure payroll reads remain unchanged.
+  const { data: eligibleRows, error: eligibilityError } = await supabase.rpc('get_payroll_eligible_rider_ids', {
+    p_cutoff_start: cutoffFrom,
+    p_cutoff_end: cutoffTo,
+  });
+  if (eligibilityError) throw eligibilityError;
+  const eligibleIds = (eligibleRows || []).map((row: { rider_id: string }) => row.rider_id);
+  if (eligibleIds.length === 0) return { initializedCount: 0, totalRiders: 0 };
+
   const { data: riders, error: riderErr } = await supabase
     .from('riders')
-    .select('id, name');
+    .select('id, name')
+    .in('id', eligibleIds);
 
   if (riderErr) throw riderErr;
   if (!riders || riders.length === 0) {

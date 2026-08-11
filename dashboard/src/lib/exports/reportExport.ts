@@ -538,7 +538,7 @@ export async function generateReport(
   // Fetch live lists from database dynamically
   const [logsData, ridersData, zonesData, violationsData] = await Promise.all([
     getAttendanceLogs(),
-    getAllRiders(),
+    getAllRiders({ scope: 'historical' }),
     getZones(),
     getViolations()
   ]);
