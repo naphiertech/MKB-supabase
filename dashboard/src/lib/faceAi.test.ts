@@ -51,6 +51,7 @@ describe('biometric model lifecycle', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       fillStyle: '',
       fillRect: vi.fn(),
+      drawImage: vi.fn(),
       createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
     } as unknown as CanvasRenderingContext2D);
   });
@@ -87,5 +88,23 @@ describe('biometric model lifecycle', () => {
 
     expect(module.FACE_MATCH_THRESHOLD).toBe(0.45);
     expect(module.FACE_DESCRIPTOR_LENGTH).toBe(128);
+  });
+
+  it('marks the owned inference canvas for frequent pixel readback', async () => {
+    installFaceApi();
+    const module = await import('./faceAi');
+    const video = document.createElement('video');
+    Object.defineProperties(video, {
+      readyState: { configurable: true, value: 2 },
+      videoWidth: { configurable: true, value: 640 },
+      videoHeight: { configurable: true, value: 480 },
+    });
+
+    await module.detectFaceWithDetailsDownscaled(video);
+
+    expect(HTMLCanvasElement.prototype.getContext).toHaveBeenCalledWith(
+      '2d',
+      { willReadFrequently: true },
+    );
   });
 });

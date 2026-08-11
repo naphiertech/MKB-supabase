@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { ScanFace, CheckCircle2, XCircle, Camera } from 'lucide-react';
 import type { ScanPhase, BiometricDebugInfo } from '../../hooks/useFaceRecognition';
-import { biometricTelemetry } from '../../lib/biometricTelemetry';
+import { BIOMETRIC_TIMING_NAMES, biometricTelemetry } from '../../lib/biometricTelemetry';
 
 interface FaceScannerProps {
   phase: ScanPhase;
@@ -60,14 +60,14 @@ export function FaceScanner({
   useEffect(() => {
     let active = true;
     const video = activeVideoRef.current;
-    const finishCameraRequest = biometricTelemetry.start('camera_request');
+    const finishCameraRequest = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.cameraRequest);
     navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 400, facingMode: 'user' } })
       .then(stream => {
         finishCameraRequest();
         if (active) {
           webcamStreamRef.current = stream;
           if (video) {
-            finishFirstFrameRef.current = biometricTelemetry.start('camera_first_usable_frame');
+            finishFirstFrameRef.current = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.cameraFirstUsableFrame);
             video.srcObject = stream;
             if (video.readyState >= 2) markFirstUsableFrame();
             video.play().catch(err => console.warn('Webcam stream play suspended:', err));

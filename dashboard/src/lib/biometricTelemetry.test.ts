@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { vi } from 'vitest';
 
 describe('biometric performance telemetry', () => {
   it('records timing-only entries without accepting biometric payloads', async () => {
@@ -25,5 +26,85 @@ describe('biometric performance telemetry', () => {
       'name',
       'startedAt',
     ]);
+  });
+
+  it('provides timing-only names for scanner samples and both attendance flows', async () => {
+    const telemetryModule = await import('./biometricTelemetry') as typeof import('./biometricTelemetry') & {
+      BIOMETRIC_TIMING_NAMES?: {
+        preload: string;
+        cameraRequest: string;
+        cameraFirstUsableFrame: string;
+        liveness: string;
+        descriptorInference: (sampleNumber: number) => string;
+        descriptorMatch: (sampleNumber: number) => string;
+        matchComplete: string;
+        scannerTotal: string;
+        attendancePersistence: (action: 'time_in' | 'time_out') => string;
+        riderStatusPersistence: (action: 'time_in' | 'time_out') => string;
+        dashboardRefresh: (action: 'time_in' | 'time_out') => string;
+        userPerceivedTotal: (action: 'time_in' | 'time_out') => string;
+      };
+    };
+    const names = telemetryModule.BIOMETRIC_TIMING_NAMES;
+
+    expect(names).toBeDefined();
+    expect([
+      names?.preload,
+      names?.cameraRequest,
+      names?.cameraFirstUsableFrame,
+      names?.liveness,
+      names?.descriptorInference(1),
+      names?.descriptorInference(2),
+      names?.descriptorInference(3),
+      names?.descriptorMatch(1),
+      names?.descriptorMatch(2),
+      names?.descriptorMatch(3),
+      names?.matchComplete,
+      names?.scannerTotal,
+      names?.attendancePersistence('time_in'),
+      names?.riderStatusPersistence('time_in'),
+      names?.dashboardRefresh('time_in'),
+      names?.userPerceivedTotal('time_in'),
+      names?.attendancePersistence('time_out'),
+      names?.riderStatusPersistence('time_out'),
+      names?.dashboardRefresh('time_out'),
+      names?.userPerceivedTotal('time_out'),
+    ]).toEqual([
+      'biometric_preload',
+      'camera_request',
+      'camera_first_usable_frame',
+      'liveness_completion',
+      'descriptor_sample_1_inference',
+      'descriptor_sample_2_inference',
+      'descriptor_sample_3_inference',
+      'descriptor_sample_1_match',
+      'descriptor_sample_2_match',
+      'descriptor_sample_3_match',
+      'match_completion',
+      'scanner_total',
+      'time_in_attendance_persistence',
+      'time_in_rider_status_persistence',
+      'time_in_dashboard_refresh',
+      'time_in_total_user_perceived',
+      'time_out_attendance_persistence',
+      'time_out_rider_status_persistence',
+      'time_out_dashboard_refresh',
+      'time_out_total_user_perceived',
+    ]);
+  });
+
+  it('logs only whether a reference avatar exists, never its Base64 contents', async () => {
+    const telemetryModule = await import('./biometricTelemetry') as typeof import('./biometricTelemetry') & {
+      logReferenceAvatarAvailability?: (available: boolean) => void;
+    };
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+    const base64Avatar = 'data:image/jpeg;base64,private-photo-payload';
+
+    expect(telemetryModule.logReferenceAvatarAvailability).toBeTypeOf('function');
+    telemetryModule.logReferenceAvatarAvailability?.(Boolean(base64Avatar));
+
+    expect(debug).toHaveBeenCalledWith('[Face AI] Reference avatar available:', true);
+    expect(JSON.stringify(debug.mock.calls)).not.toContain(base64Avatar);
+    expect(JSON.stringify(debug.mock.calls)).not.toContain('data:image');
   });
 });

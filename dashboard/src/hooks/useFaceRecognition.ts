@@ -13,7 +13,11 @@ import {
   type FaceRecognitionData
 } from '../lib/faceAi';
 import { getCachedDescriptor, setCachedDescriptor } from '../lib/descriptorCache';
-import { biometricTelemetry } from '../lib/biometricTelemetry';
+import {
+  BIOMETRIC_TIMING_NAMES,
+  biometricTelemetry,
+  logReferenceAvatarAvailability,
+} from '../lib/biometricTelemetry';
 import {
   advanceFreshMatchState,
   isCurrentScanSession,
@@ -130,6 +134,12 @@ export function useFaceRecognition({
   const timers = useRef<number[]>([]);
   const isScanningActiveRef = useRef(false);
   const scanSessionIdRef = useRef(0);
+  const finishScannerDurationRef = useRef<(() => number) | null>(null);
+
+  const finishScannerDuration = useCallback(() => {
+    finishScannerDurationRef.current?.();
+    finishScannerDurationRef.current = null;
+  }, []);
 
   const clearTimers = useCallback(() => {
     isScanningActiveRef.current = false;
@@ -166,6 +176,7 @@ export function useFaceRecognition({
       lastSampleId: 0,
       matchCount: 0,
     };
+    finishScannerDurationRef.current = null;
     setDebugInfo({
       referenceLoaded: null,
       eyesOpen: false,
@@ -205,6 +216,7 @@ export function useFaceRecognition({
       window.setTimeout(
         () => {
           const ok = Math.random() <= simulatedSuccessRate;
+          finishScannerDuration();
           setPhase(ok ? 'matched' : 'failed');
           setResult({
             matched: ok,
@@ -215,7 +227,7 @@ export function useFaceRecognition({
         150 + simulatedDuration
       )
     );
-  }, []);
+  }, [finishScannerDuration]);
 
   /**
    * Real Facial Detection, Liveness Verification and Embedding Matching Loop
@@ -245,7 +257,7 @@ export function useFaceRecognition({
       activeReferenceAvatar.endsWith('.svg')
     );
 
-    console.log('[Face AI] Starting real scan. Reference avatar:', activeReferenceAvatar ? activeReferenceAvatar.slice(0, 100) + '...' : 'none');
+    logReferenceAvatarAvailability(Boolean(activeReferenceAvatar));
 
     let referenceDesc: Float32Array | null = null;
     let refLoaded = false;
@@ -265,7 +277,7 @@ export function useFaceRecognition({
         if (cachedArr && cachedArr.length === FACE_DESCRIPTOR_LENGTH) {
           referenceDesc = new Float32Array(cachedArr);
           refLoaded = true;
-          console.log('[Face AI] Reference descriptor loaded from local persistent cache for rider:', targetId);
+          console.debug('[Face AI] Reference descriptor loaded from local persistent cache.');
         } else if (!isCartoonPlaceholder && activeReferenceAvatar && navigator.onLine) {
           referenceDesc = await getDescriptorFromUrl(activeReferenceAvatar);
           if (!sessionIsCurrent()) return;
@@ -293,8 +305,8 @@ export function useFaceRecognition({
 
     // Priority 1: Throttle AI inferences to ~9 FPS (110ms interval) to keep UI smooth at 60 FPS
     const INFERENCE_INTERVAL_MS = 110;
-    const finishLiveness = biometricTelemetry.start('liveness_completion');
-    const finishMatch = biometricTelemetry.start('match_completion');
+    const finishLiveness = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.liveness);
+    const finishMatch = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.matchComplete);
     let livenessTimingCompleted = false;
 
     const tick = async () => {
@@ -394,10 +406,13 @@ export function useFaceRecognition({
           if (canRunDescriptorMatching) {
             lastDescriptorMatchTimeRef.current = now;
             // Priority 4: Call downscaled 320x320 offscreen canvas detector for ultra-fast inference
-            const finishRecognition = biometricTelemetry.start('recognition_inference');
+            const nextSampleId = descriptorSampleIdRef.current + 1;
+            const finishRecognition = biometricTelemetry.start(
+              BIOMETRIC_TIMING_NAMES.descriptorInference(nextSampleId),
+            );
             const detectedFaceData = await detectFaceWithDetailsDownscaled(video);
-            finishRecognition();
             if (!sessionIsCurrent()) return;
+            if (detectedFaceData) finishRecognition();
             cachedFaceDataRef.current = detectedFaceData;
             freshFaceData = detectedFaceData;
             if (freshFaceData) freshSampleId = ++descriptorSampleIdRef.current;
@@ -480,6 +495,7 @@ export function useFaceRecognition({
             if (isCartoonPlaceholder || !isValidDesc || !isFaceDataValid) {
               console.warn('[Face AI] Aborting verification due to invalid descriptors.');
               isScanningActiveRef.current = false;
+              finishScannerDuration();
               setPhase('failed');
               setProgress(1.0);
               setLivenessPrompt('Verification failed.');
@@ -497,7 +513,11 @@ export function useFaceRecognition({
               return;
             }
 
+            const finishDistanceMatch = biometricTelemetry.start(
+              BIOMETRIC_TIMING_NAMES.descriptorMatch(freshSampleId),
+            );
             const verify = verifyFaceIdentity(freshFaceData.descriptor, referenceDesc!, FACE_MATCH_THRESHOLD);
+            finishDistanceMatch();
             currentDistance = verify.distance;
 
             freshMatchStateRef.current = advanceFreshMatchState(freshMatchStateRef.current, {
@@ -513,6 +533,7 @@ export function useFaceRecognition({
             if (faceMatchedRef.current && livenessPassed) {
               isScanningActiveRef.current = false;
               finishMatch();
+              finishScannerDuration();
               setPhase('matched');
               setProgress(1.0);
               setLivenessPrompt('Verify complete!');
@@ -543,6 +564,7 @@ export function useFaceRecognition({
           } else {
             if (livenessPassed) {
               isScanningActiveRef.current = false;
+              finishScannerDuration();
               setPhase('matched');
               setProgress(1.0);
 
@@ -587,6 +609,7 @@ export function useFaceRecognition({
         scanLoopRef.current = window.requestAnimationFrame(tick);
       } else if (currentProgress >= 1.0) {
         isScanningActiveRef.current = false;
+        finishScannerDuration();
         setPhase('failed');
         setLivenessPrompt('Verification failed.');
         setResult({
@@ -603,12 +626,13 @@ export function useFaceRecognition({
     };
 
     scanLoopRef.current = window.requestAnimationFrame(tick);
-  }, []);
+  }, [finishScannerDuration]);
 
   const start = useCallback(async () => {
     const sequenceStart = performance.now();
     console.log('[Face AI] start() triggered. Starting initialization sequence...');
     clearTimers();
+    finishScannerDurationRef.current = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.scannerTotal);
     const sessionId = scanSessionIdRef.current;
     setResult(null);
     setProgress(0);
@@ -667,6 +691,7 @@ export function useFaceRecognition({
         console.warn('Face AI weights loading exception:', err);
         if (isVerificationMode) {
           setPhase('failed');
+          finishScannerDuration();
           setLivenessPrompt('Verification failed.');
           setResult({
             matched: false,
@@ -680,6 +705,7 @@ export function useFaceRecognition({
 
     if (isVerificationMode) {
       setPhase('failed');
+      finishScannerDuration();
       setLivenessPrompt('Verification failed.');
       setResult({
         matched: false,
@@ -692,7 +718,7 @@ export function useFaceRecognition({
     timers.current.push(
       window.setTimeout(() => startSimulatedScanning(), 450)
     );
-  }, [clearTimers, startRealScanning, startSimulatedScanning]);
+  }, [clearTimers, finishScannerDuration, startRealScanning, startSimulatedScanning]);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
 

@@ -3,7 +3,7 @@
  * Coordinates face-api.js (TensorFlow) and MediaPipe dynamically.
  */
 
-import { biometricTelemetry } from './biometricTelemetry';
+import { BIOMETRIC_TIMING_NAMES, biometricTelemetry } from './biometricTelemetry';
 
 export { createBiometricTelemetry } from './biometricTelemetry';
 
@@ -258,7 +258,7 @@ export async function detectFaceWithDetailsDownscaled(
     offscreenCanvas.height = 320;
   }
 
-  const ctx = offscreenCanvas.getContext('2d');
+  const ctx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
 
   ctx.drawImage(video, 0, 0, 320, 320);
@@ -484,7 +484,7 @@ export function preloadBiometrics(): Promise<void> {
 
   console.log('[Face AI] preloadBiometrics(): NO cached promise. Initiating preloader...');
   biometricsPreloadedPromise = (async () => {
-    const finishPreload = biometricTelemetry.start('biometric_preload');
+    const finishPreload = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.preload);
     try {
       console.log('[Face AI] Pre-loading scripts...');
       const active = await ensureScriptsLoaded();

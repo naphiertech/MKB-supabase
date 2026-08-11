@@ -19,7 +19,7 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { setCachedDescriptor } from '../lib/descriptorCache';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
 import { preloadBiometrics, releaseBiometrics } from '../lib/faceAi';
-import { biometricTelemetry } from '../lib/biometricTelemetry';
+import { BIOMETRIC_TIMING_NAMES, biometricTelemetry } from '../lib/biometricTelemetry';
 import { Modal } from '../components/common/Modal';
 import { FaceScanner } from '../components/attendance/FaceScanner';
 import { AttendanceButton, type AttendanceAction } from '../components/attendance/AttendanceButton';
@@ -224,6 +224,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
   };
   const [scanOpen, setScanOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
+  const finishUserPerceivedTimingRef = useRef<(() => number) | null>(null);
 
   const { phase, progress, result, start, reset, videoRef, canvasRef, livenessPrompt, debugInfo } = useFaceRecognition({
     riderId: actualRiderId,
@@ -231,7 +232,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
     referenceDescriptor: rider?.faceDescriptor,
     onDescriptorCalculated: async (descriptor) => {
       if (!actualRiderId) return;
-      console.log('[RiderDashboard] Fallback calculated face descriptor. Saving to database...', actualRiderId);
+      console.debug('[RiderDashboard] Saving fallback face descriptor to database.');
       try {
         await cacheRiderFaceDescriptor(actualRiderId, descriptor);
         setCachedDescriptor(actualRiderId, descriptor, rider?.avatar);
@@ -599,6 +600,10 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
     }
     setPendingAction(next);
     reset();
+    const telemetryAction = next === 'time-in' ? 'time_in' : 'time_out';
+    finishUserPerceivedTimingRef.current = biometricTelemetry.start(
+      BIOMETRIC_TIMING_NAMES.userPerceivedTotal(telemetryAction),
+    );
     setScanOpen(true);
     window.setTimeout(start, 220);
   }
@@ -628,7 +633,9 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         retryLocation();
         return;
       }
-      const finishAttendancePersistence = biometricTelemetry.start('attendance_persistence');
+      const finishAttendancePersistence = biometricTelemetry.start(
+        BIOMETRIC_TIMING_NAMES.attendancePersistence('time_in'),
+      );
       recordTimeIn(currentRiderId).then(async (newLog) => {
         finishAttendancePersistence();
         if (!newLog) {
@@ -641,11 +648,16 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         }
 
         // Immediately sync initial active status & location to DB
+        const finishStatusPersistence = biometricTelemetry.start(
+          BIOMETRIC_TIMING_NAMES.riderStatusPersistence('time_in'),
+        );
         try {
           await updateRiderStatus(currentRiderId, 'active', currentVerifiedPosition.lat, currentVerifiedPosition.lng);
           await logRiderLocation(currentRiderId, currentVerifiedPosition.lat, currentVerifiedPosition.lng, 'active');
         } catch (err) {
           console.error('[RiderDashboard] Failed to push initial time-in coordinates:', err);
+        } finally {
+          finishStatusPersistence();
         }
 
         if (!navigator.onLine) {
@@ -661,7 +673,16 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         }
 
         // Reconstruct attendance state directly from database single source of truth
-        await loadRiderAndZone();
+        const finishDashboardRefresh = biometricTelemetry.start(
+          BIOMETRIC_TIMING_NAMES.dashboardRefresh('time_in'),
+        );
+        try {
+          await loadRiderAndZone();
+        } finally {
+          finishDashboardRefresh();
+        }
+        finishUserPerceivedTimingRef.current?.();
+        finishUserPerceivedTimingRef.current = null;
 
         setEvents((prev) => [
           {
@@ -699,7 +720,9 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         return;
       }
 
-      const finishAttendancePersistence = biometricTelemetry.start('attendance_persistence');
+      const finishAttendancePersistence = biometricTelemetry.start(
+        BIOMETRIC_TIMING_NAMES.attendancePersistence('time_out'),
+      );
       recordTimeOut(activeLogId, {
         riderId: currentRiderId,
         date: getLocalDateString(),
@@ -718,6 +741,9 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         }
 
         // Transition status to offline in DB while preserving last valid position
+        const finishStatusPersistence = biometricTelemetry.start(
+          BIOMETRIC_TIMING_NAMES.riderStatusPersistence('time_out'),
+        );
         try {
           await updateRiderStatus(
             currentRiderId,
@@ -727,6 +753,8 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
           );
         } catch (err) {
           console.error('[RiderDashboard] Failed to update offline status:', err);
+        } finally {
+          finishStatusPersistence();
         }
 
         if (!navigator.onLine) {
@@ -742,7 +770,16 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         }
 
         // Reconstruct attendance state directly from database single source of truth
-        await loadRiderAndZone();
+        const finishDashboardRefresh = biometricTelemetry.start(
+          BIOMETRIC_TIMING_NAMES.dashboardRefresh('time_out'),
+        );
+        try {
+          await loadRiderAndZone();
+        } finally {
+          finishDashboardRefresh();
+        }
+        finishUserPerceivedTimingRef.current?.();
+        finishUserPerceivedTimingRef.current = null;
 
         setEvents((prev) => [
           {

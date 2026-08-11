@@ -5,6 +5,28 @@
 
 const CACHE_PREFIX = 'mkb_face_desc_v1_';
 
+interface CachedDescriptorPayload {
+  avatarUrl: string;
+  descriptor: number[];
+  ts: number;
+}
+
+function descriptorsMatch(left: unknown, right: number[]): boolean {
+  return Array.isArray(left)
+    && left.length === right.length
+    && left.every((value, index) => value === right[index]);
+}
+
+function cacheEntryMatches(raw: string | null, descriptor: number[], avatarUrl: string): boolean {
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw) as Partial<CachedDescriptorPayload>;
+    return parsed.avatarUrl === avatarUrl && descriptorsMatch(parsed.descriptor, descriptor);
+  } catch {
+    return false;
+  }
+}
+
 export function getCachedDescriptor(riderId: string, avatarUrl?: string | null): number[] | null {
   if (!riderId && !avatarUrl) return null;
   try {
@@ -26,18 +48,23 @@ export function getCachedDescriptor(riderId: string, avatarUrl?: string | null):
 export function setCachedDescriptor(riderId: string, descriptor: number[], avatarUrl?: string | null): void {
   if ((!riderId && !avatarUrl) || !descriptor || descriptor.length !== 128) return;
   try {
+    const normalizedAvatarUrl = avatarUrl || '';
     const payload = {
-      avatarUrl: avatarUrl || '',
+      avatarUrl: normalizedAvatarUrl,
       descriptor,
       ts: Date.now()
     };
-    if (riderId) {
-      localStorage.setItem(`${CACHE_PREFIX}${riderId}`, JSON.stringify(payload));
+
+    const keys = [riderId, avatarUrl && avatarUrl !== riderId ? avatarUrl : null]
+      .filter(Boolean) as string[];
+    const serializedPayload = JSON.stringify(payload);
+
+    for (const key of keys) {
+      const storageKey = `${CACHE_PREFIX}${key}`;
+      if (!cacheEntryMatches(localStorage.getItem(storageKey), descriptor, normalizedAvatarUrl)) {
+        localStorage.setItem(storageKey, serializedPayload);
+      }
     }
-    if (avatarUrl && avatarUrl !== riderId) {
-      localStorage.setItem(`${CACHE_PREFIX}${avatarUrl}`, JSON.stringify(payload));
-    }
-    console.log(`[DescriptorCache] Saved 128D facial descriptor to LocalStorage for key ${riderId || avatarUrl}.`);
   } catch (err) {
     console.warn('[DescriptorCache] Failed to save descriptor to LocalStorage:', err);
   }
