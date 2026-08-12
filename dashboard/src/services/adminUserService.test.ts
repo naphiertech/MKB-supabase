@@ -10,13 +10,14 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../lib/supabaseClient', () => ({ supabase: { functions: { invoke: mocks.invoke }, from: mocks.from } }));
 vi.mock('./authSecurity', () => ({ requestPasswordRecovery: mocks.requestPasswordRecovery }));
 vi.mock('../lib/apiService', () => ({ logActivity: mocks.logActivity }));
+vi.mock('../lib/storage', () => ({ createSyncOperationId: () => '10000000-0000-4000-8000-000000000009' }));
 
 import {
   archiveEmployee,
   hasOpenAttendance,
   requestStaffPasswordReset,
   restoreEmployment,
-  setUserSuspension,
+  setUserAccountAccess,
 } from './adminUserService';
 
 beforeEach(() => vi.clearAllMocks());
@@ -30,12 +31,14 @@ describe('staff account actions', () => {
     expect(mocks.logActivity).toHaveBeenCalledWith(expect.objectContaining({ eventType: 'password_reset_requested' }));
   });
 
-  it('uses the protected server function for suspension and reactivation', async () => {
+  it('uses Rider restriction actions while preserving staff suspension actions', async () => {
     mocks.invoke.mockResolvedValue({ data: { ok: true }, error: null });
-    await setUserSuspension('user-1', true);
-    await setUserSuspension('user-1', false);
-    expect(mocks.invoke).toHaveBeenNthCalledWith(1, 'admin-user-actions', { body: { action: 'suspend', userId: 'user-1' } });
-    expect(mocks.invoke).toHaveBeenNthCalledWith(2, 'admin-user-actions', { body: { action: 'reactivate', userId: 'user-1' } });
+    await setUserAccountAccess('rider-1', 'rider', true);
+    await setUserAccountAccess('rider-1', 'rider', false);
+    await setUserAccountAccess('staff-1', 'payroll', true);
+    expect(mocks.invoke).toHaveBeenNthCalledWith(1, 'admin-user-actions', { body: { action: 'restrict', userId: 'rider-1', requestId: '10000000-0000-4000-8000-000000000009' } });
+    expect(mocks.invoke).toHaveBeenNthCalledWith(2, 'admin-user-actions', { body: { action: 'restore_access', userId: 'rider-1', requestId: '10000000-0000-4000-8000-000000000009' } });
+    expect(mocks.invoke).toHaveBeenNthCalledWith(3, 'admin-user-actions', { body: { action: 'suspend', userId: 'staff-1' } });
   });
 
   it('sends stable archive and restore requests to the privileged function', async () => {

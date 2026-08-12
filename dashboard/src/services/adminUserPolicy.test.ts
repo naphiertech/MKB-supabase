@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { accountActionState, authorizeAdminUserAction } from '../../supabase/functions/_shared/userActionPolicy';
+import { accountActionState, authorizeAdminUserAction, authorizeRiderAccessAction } from '../../supabase/functions/_shared/userActionPolicy';
 
 describe('server account-action authorization', () => {
-  it('allows Admin to manage another user and HR to manage riders', () => {
+  it('allows Admin to manage another staff user and HR to restrict riders', () => {
     expect(authorizeAdminUserAction('suspend', 'admin', 'admin-1', 'user-1', 'payroll')).toEqual({ allowed: true });
-    expect(authorizeAdminUserAction('suspend', 'hr', 'hr-1', 'rider-user', 'rider')).toEqual({ allowed: true });
+    expect(authorizeRiderAccessAction('restrict', 'hr', 'hr-1', 'rider-user', 'rider')).toEqual({ allowed: true });
   });
 
   it('rejects anonymous, HR non-rider targets, and self-suspension', () => {

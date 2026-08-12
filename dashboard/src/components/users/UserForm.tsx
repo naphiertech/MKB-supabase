@@ -787,7 +787,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Account Status" required>
                     <div className={`h-9 rounded-md border px-3 inline-flex items-center text-xs capitalize font-bold ${form.status === 'suspended' ? 'bg-red-50 border-red-500/40 text-red-700' : 'bg-emerald-50 border-emerald-500/40 text-emerald-700'}`}>{form.status}</div>
-                    <p className="mt-1.5 text-[10px] text-muted-foreground">Use the employee list account action to suspend or reactivate an existing account.</p>
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">Use the employee list account action to restrict or restore Rider access, or suspend or reactivate staff access.</p>
                   </Field>
 
                   {currentUserRole !== "hr" && (
@@ -1181,7 +1181,7 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 <div className="grid grid-cols-1 gap-4">
                   <Field label="Account Status" required>
                     <div className={`h-9 rounded-md border px-3 inline-flex items-center text-xs capitalize font-bold ${form.status === 'suspended' ? 'bg-red-50 border-red-500/40 text-red-700' : 'bg-emerald-50 border-emerald-500/40 text-emerald-700'}`}>{form.status}</div>
-                    <p className="mt-1.5 text-[10px] text-muted-foreground">Use the employee list account action to suspend or reactivate an existing account.</p>
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">Use the employee list account action to restrict or restore Rider access, or suspend or reactivate staff access.</p>
                   </Field>
 
                   {currentUserRole !== "hr" && (

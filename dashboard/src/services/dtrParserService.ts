@@ -320,7 +320,6 @@ export async function saveImportedLogs(logs: ParsedDTRLog[]): Promise<{ count: n
       date: log.date,
       time_in: timeInIso,
       time_out: timeOutIso,
-      hours: log.hours,
       status: log.status,
       source: 'manual',
       events: []

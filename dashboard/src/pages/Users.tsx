@@ -25,7 +25,7 @@ import {
   hasOpenAttendance,
   requestStaffPasswordReset,
   restoreEmployment,
-  setUserSuspension,
+  setUserAccountAccess,
 } from '../services/adminUserService';
 import { EmploymentLifecycleModal } from '../components/users/EmploymentLifecycleModal';
 import type { ArchiveInput } from '../services/employmentLifecycle';
@@ -287,11 +287,17 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
 
   const handleToggleSuspension = async (target: AppUser, suspended: boolean) => {
     try {
-      await setUserSuspension(target.id, suspended);
+      await setUserAccountAccess(target.id, target.role, suspended);
       await loadData();
-      toast.success(`${target.name} was ${suspended ? 'suspended' : 'reactivated'}.`);
+      const verb = target.role === 'rider'
+        ? suspended ? 'restricted' : 'restored to full access'
+        : suspended ? 'suspended' : 'reactivated';
+      toast.success(`${target.name} was ${verb}.`);
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : `Unable to ${suspended ? 'suspend' : 'reactivate'} this account.`);
+      const action = target.role === 'rider'
+        ? suspended ? 'restrict' : 'restore full access to'
+        : suspended ? 'suspend' : 'reactivate';
+      toast.error(error instanceof Error ? error.message : `Unable to ${action} this account.`);
       throw error;
     }
   };
@@ -355,7 +361,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
     setLifecycleError(null);
     try {
       await restoreEmployment(lifecycleTarget.id, { reason, requestId: lifecycleRequestId });
-      toast.success(`${lifecycleTarget.name}'s employment was restored. Account reactivation is still required.`);
+      toast.success(`${lifecycleTarget.name}'s employment was restored. Full account access must still be restored separately.`);
       setLifecycleTarget(null);
       await loadData();
     } catch (error: unknown) {
@@ -695,7 +701,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
               },
               {
                 v: 'suspended',
-                l: 'Account: Suspended'
+                l: 'Account: Restricted / Suspended'
               }]
               } />
             

@@ -295,7 +295,7 @@ export function UsersTable({
                       {u.status === 'suspended' ? (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
                           <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                          Suspended
+                          {u.role === 'rider' ? 'Restricted' : 'Suspended'}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
@@ -401,7 +401,9 @@ export function UsersTable({
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent cursor-pointer disabled:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {u.status === 'suspended' ? <RotateCcw className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
-                            {u.status === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}
+                            {u.role === 'rider'
+                              ? u.status === 'suspended' ? 'Restore Full Access' : 'Restrict Account'
+                              : u.status === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}
                           </button>
                           {canManageEmployment && <button
                             type="button"
@@ -412,7 +414,7 @@ export function UsersTable({
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-700 hover:bg-red-50 cursor-pointer"
                           >
-                            <Archive className="w-3.5 h-3.5" /> Archive Employee
+                            <Archive className="w-3.5 h-3.5" /> Archive Employment
                           </button>}
                           </>}
                         </UserActionMenu>
@@ -501,22 +503,36 @@ export function UsersTable({
         open={Boolean(pendingAction)}
         onClose={() => !actionBusy && setPendingAction(null)}
         dismissible={!actionBusy}
-        title={pendingAction?.type === 'reset' ? 'Send password reset?' : pendingAction?.type === 'suspend' ? 'Suspend this account?' : 'Reactivate this account?'}
+        title={pendingAction?.type === 'reset'
+          ? 'Send password reset?'
+          : pendingAction?.user.role === 'rider'
+            ? pendingAction?.type === 'suspend' ? 'Restrict this account?' : 'Restore full access?'
+            : pendingAction?.type === 'suspend' ? 'Suspend this account?' : 'Reactivate this account?'}
         subtitle={pendingAction?.user.name}
       >
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             {pendingAction?.type === 'reset'
               ? `A secure recovery link will be emailed to ${pendingAction.user.email}. No password will be displayed or generated here.`
-              : pendingAction?.type === 'suspend'
-                ? 'The user will be blocked from signing in. Employee, attendance, parcel, payroll, and audit records will be preserved.'
-                : 'The user will be allowed to sign in again. Existing employee and operational records are unchanged.'}
+              : pendingAction?.user.role === 'rider'
+                ? pendingAction?.type === 'suspend'
+                  ? 'The Rider can still sign in, but attendance, operational GPS, offline replay, workforce changes, and protected payroll downloads will be blocked. Existing records are preserved.'
+                  : 'The Rider will regain attendance, operational GPS, workforce, and protected payroll access. Existing records are unchanged.'
+                : pendingAction?.type === 'suspend'
+                  ? 'The user will be blocked from signing in. Employee, attendance, parcel, payroll, and audit records will be preserved.'
+                  : 'The user will be allowed to sign in again. Existing employee and operational records are unchanged.'}
           </p>
           {actionError && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{actionError}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" disabled={actionBusy} onClick={() => setPendingAction(null)} className="rounded-lg border border-border px-4 py-2 text-xs font-semibold disabled:opacity-60">Cancel</button>
             <button type="button" disabled={actionBusy} onClick={() => void confirmAction()} className={`rounded-lg px-4 py-2 text-xs font-semibold text-white disabled:opacity-60 ${pendingAction?.type === 'suspend' ? 'bg-red-600' : 'bg-primary'}`}>
-              {actionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : pendingAction?.type === 'reset' ? 'Send recovery link' : pendingAction?.type === 'suspend' ? 'Suspend account' : 'Reactivate account'}
+              {actionBusy
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : pendingAction?.type === 'reset'
+                  ? 'Send recovery link'
+                  : pendingAction?.user.role === 'rider'
+                    ? pendingAction?.type === 'suspend' ? 'Restrict account' : 'Restore full access'
+                    : pendingAction?.type === 'suspend' ? 'Suspend account' : 'Reactivate account'}
             </button>
           </div>
         </div>

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   enqueue: vi.fn(),
-  from: vi.fn()
+  from: vi.fn(),
+  getRiderWorkforceDirectory: vi.fn()
 }));
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -17,8 +18,11 @@ vi.mock('../lib/storage', () => ({
 vi.mock('./notificationService', () => ({
   dispatchNotificationSafe: vi.fn()
 }));
+vi.mock('./workforceDirectoryService', () => ({
+  getRiderWorkforceDirectory: mocks.getRiderWorkforceDirectory
+}));
 
-import { buildTimeOutQueueOperation, getRiderAttendanceInDateRange, recordTimeIn } from './attendanceService';
+import { buildTimeOutQueueOperation, finalizeDailyAttendance, getRiderAttendanceInDateRange, recordTimeIn } from './attendanceService';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -114,5 +118,31 @@ describe('Payroll attendance lookup', () => {
     expect(mocks.from).toHaveBeenCalledOnce();
     expect(mocks.from).toHaveBeenCalledWith('v_attendance_summary');
     expect(viewQuery.eq).toHaveBeenCalledWith('rider_id', 'rider-1');
+  });
+});
+
+describe('Auto-absence finalization', () => {
+  it('uses date-effective employment eligibility and omits generated hours from inserts', async () => {
+    mocks.getRiderWorkforceDirectory.mockResolvedValue([{ id: 'rider-1' }]);
+    const existingQuery = {
+      select: vi.fn(),
+      eq: vi.fn()
+    };
+    existingQuery.select.mockReturnValue(existingQuery);
+    existingQuery.eq.mockResolvedValue({ data: [], error: null });
+    const insertQuery = { insert: vi.fn().mockResolvedValue({ error: null }) };
+    mocks.from
+      .mockReturnValueOnce(existingQuery)
+      .mockReturnValueOnce(insertQuery);
+
+    await expect(finalizeDailyAttendance('2026-08-01')).resolves.toBe(1);
+
+    expect(mocks.getRiderWorkforceDirectory).toHaveBeenCalledWith({
+      scope: 'employed_on_date',
+      date: '2026-08-01'
+    });
+    const [records] = insertQuery.insert.mock.calls[0];
+    expect(records).toEqual([expect.objectContaining({ rider_id: 'rider-1', status: 'absent' })]);
+    expect(records[0]).not.toHaveProperty('hours');
   });
 });

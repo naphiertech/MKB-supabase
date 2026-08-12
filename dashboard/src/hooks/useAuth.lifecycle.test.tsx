@@ -43,6 +43,7 @@ const storedSession = {
   email: 'legacy@mkb.ph',
   fullName: 'Legacy Admin',
   role: 'admin',
+  accountStatus: 'active',
   employmentStatus: 'active',
 };
 
@@ -140,5 +141,12 @@ describe('authenticated session reconciliation lifecycle', () => {
     });
     expect(container.textContent).toBe('confirmed@gmail.comconfirmed@gmail.com');
     expect(renders).toBe(rendersAfterMount + 2);
+  });
+
+  it('allows restricted Riders to log in while archived Riders and suspended staff remain blocked', async () => {
+    const { isProfileLoginBlocked } = await import('./useAuth');
+    expect(isProfileLoginBlocked({ role: 'rider', status: 'suspended', employment_status: 'active' })).toBe(false);
+    expect(isProfileLoginBlocked({ role: 'rider', status: 'suspended', employment_status: 'archived' })).toBe(true);
+    expect(isProfileLoginBlocked({ role: 'payroll', status: 'suspended', employment_status: 'active' })).toBe(true);
   });
 });

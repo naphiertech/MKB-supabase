@@ -17,6 +17,7 @@ import { pushToast } from '../hooks/useToast';
 interface RiderProfileProps {
   userId: string;
   riderId: string;
+  restricted: boolean;
   onBack: () => void;
 }
 
@@ -25,7 +26,7 @@ const MAP_TILE = {
   attribution: '&copy; OpenStreetMap &copy; CARTO'
 };
 
-export function RiderProfile({ userId, riderId, onBack }: RiderProfileProps) {
+export function RiderProfile({ userId, riderId, restricted, onBack }: RiderProfileProps) {
   const [rider, setRider] = useState<Rider | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
@@ -125,7 +126,7 @@ export function RiderProfile({ userId, riderId, onBack }: RiderProfileProps) {
   }, [userId, riderId]);
 
   const handleSavePhone = async () => {
-    if (!rider) return;
+    if (!rider || restricted) return;
     try {
       setIsSavingPhone(true);
       await updateRiderContact(rider.id, phoneInput);
@@ -299,8 +300,9 @@ export function RiderProfile({ userId, riderId, onBack }: RiderProfileProps) {
                       </span>
                       <button
                         onClick={() => setIsEditingPhone(true)}
-                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition cursor-pointer"
-                        title="Edit Phone"
+                        disabled={restricted}
+                        className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-accent transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                        title={restricted ? 'Profile changes are disabled while account access is restricted' : 'Edit Phone'}
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>

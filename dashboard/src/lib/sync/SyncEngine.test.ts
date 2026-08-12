@@ -4,6 +4,7 @@ import {
   SyncEngine,
   buildLocationRecord,
   isAttendanceEventTimestampValid,
+  isPermanentSyncFailure,
   type SyncEngineOptions,
   type SyncIdentity
 } from './SyncEngine';
@@ -144,6 +145,14 @@ function engineOptions(storage: StorageAdapter): SyncEngineOptions {
 }
 
 describe('SyncEngine recovery and replay guarantees', () => {
+  it('classifies permanent PostgREST 400 and authorization errors without retrying', () => {
+    expect(isPermanentSyncFailure({ code: '428C9', status: 400 })).toBe(true);
+    expect(isPermanentSyncFailure({ code: '42501', message: 'restricted' })).toBe(true);
+    expect(isPermanentSyncFailure({ code: 'PGRST100', status: 400 })).toBe(true);
+    expect(isPermanentSyncFailure({ code: 'PGRST000' })).toBe(false);
+    expect(isPermanentSyncFailure({ status: 429 })).toBe(false);
+  });
+
   it('does not replay queued work before authenticated rider identity is supplied', async () => {
     const pending = queueItem('TIME_IN', {
       payload: { rider_id: 'rider-1', date: '2026-08-04' }
@@ -260,6 +269,24 @@ describe('SyncEngine recovery and replay guarantees', () => {
       retryCount: MAX_SYNC_RETRIES,
       failedAt: '2026-08-04T10:00:00.000Z',
       lastError: 'database unavailable'
+    });
+  });
+
+  it('quarantines a permanent database rejection after one attempt', async () => {
+    const item = queueItem('TIME_IN');
+    const storage = new MemoryStorageAdapter([item]);
+    const engine = new RecordingSyncEngine(engineOptions(storage));
+    engine.failWith = Object.assign(new Error('restricted'), { code: '42501', status: 403 });
+
+    await engine.start(identity);
+
+    const [failed] = await storage.getQueue();
+    expect(engine.replayAttempts).toHaveLength(1);
+    expect(failed).toMatchObject({
+      status: 'failed',
+      retryCount: MAX_SYNC_RETRIES,
+      failedAt: '2026-08-04T10:00:00.000Z',
+      lastError: 'restricted'
     });
   });
 

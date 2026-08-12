@@ -49,6 +49,7 @@ import { AnimatePresence } from 'framer-motion';
 interface RiderDashboardProps {
   userId: string;
   riderId: string;
+  restricted: boolean;
 }
 
 function nowHHMM(d: Date = new Date()) {
@@ -115,7 +116,7 @@ interface PayrollRecord {
   } | null;
 }
 
-export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
+export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardProps) {
   const { zones: allZones } = useRiderZone();
   const [actualRiderId, setActualRiderId] = useState<string>(riderId);
   const [rider, setRider] = useState<(Rider & { faceDescriptor?: number[] | null }) | null>(null);
@@ -177,7 +178,12 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
 
   // Load Rider's Payroll Records
   useEffect(() => {
-    if (!actualRiderId) return;
+    if (!actualRiderId || restricted) {
+      setMyPayrollRecords([]);
+      setSelectedRecord(null);
+      setIsPayslipOpen(false);
+      return;
+    }
     const loadPayroll = async () => {
       try {
         const data = await getRiderPayrollHistory(actualRiderId);
@@ -187,7 +193,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
       }
     };
     loadPayroll();
-  }, [actualRiderId]);
+  }, [actualRiderId, restricted]);
 
   const handleViolationsClick = async () => {
     setActiveStatModal('violations');
@@ -240,7 +246,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
     referenceAvatar: rider?.avatar,
     referenceDescriptor: rider?.faceDescriptor,
     onDescriptorCalculated: async (descriptor) => {
-      if (!actualRiderId) return;
+      if (!actualRiderId || restricted) return;
       console.debug('[RiderDashboard] Saving fallback face descriptor to database.');
       try {
         await cacheRiderFaceDescriptor(actualRiderId, descriptor);
@@ -452,10 +458,10 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
     retry: retryLocation
   } = useGeolocation({
     initial: anchor,
-    enabled: true
+    enabled: !restricted
   });
   const verifiedPosition = hasVerifiedPosition ? position : null;
-  const canTimeIn = canStartRiderAttendance('time-in', verifiedPosition);
+  const canTimeIn = !restricted && canStartRiderAttendance('time-in', verifiedPosition);
 
   const isOnline = !!timeIn && !timeOut;
 
@@ -581,7 +587,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
 
   // Background Geolocation Synchronization Loop
   useEffect(() => {
-    if (loading || locationLoading || !hasVerifiedPosition || !timeIn || timeOut || !actualRiderId) return;
+    if (restricted || loading || locationLoading || !hasVerifiedPosition || !timeIn || timeOut || !actualRiderId) return;
 
     const syncLocation = async () => {
       const currentRiderId = actualRiderIdRef.current;
@@ -606,12 +612,20 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
     // Setup stable 30s interval
     const id = setInterval(syncLocation, 30000);
     return () => clearInterval(id);
-  }, [timeIn, timeOut, loading, locationLoading, hasVerifiedPosition, actualRiderId]);
+  }, [timeIn, timeOut, loading, locationLoading, hasVerifiedPosition, actualRiderId, restricted]);
 
   const onlineStatus =
     timeIn && !timeOut ? 'online' : 'offline';
 
   function openScan(next: 'time-in' | 'time-out') {
+    if (restricted) {
+      pushToast({
+        title: 'Account restricted',
+        description: 'Attendance and operational location actions are disabled until full access is restored.',
+        tone: 'error'
+      });
+      return;
+    }
     const currentPosition = hasVerifiedPositionRef.current ? positionRef.current : null;
     if (!canStartRiderAttendance(next, currentPosition)) {
       pushToast({
@@ -634,6 +648,10 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
 
   useEffect(() => {
     if (phase !== 'matched' || !result?.matched) return;
+    if (restricted) {
+      setScanOpen(false);
+      return;
+    }
     const currentRider = riderRef.current;
     const currentRiderId = actualRiderIdRef.current;
     const currentPendingAction = pendingActionRef.current;
@@ -832,7 +850,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
     }
     const t = window.setTimeout(() => setScanOpen(false), 1200);
     return () => window.clearTimeout(t);
-  }, [phase, result, loadRiderAndZone, retryLocation, userId]);
+  }, [phase, result, loadRiderAndZone, retryLocation, restricted, userId]);
 
   const duration =
     timeIn && !timeOut ?
@@ -867,6 +885,12 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
         date={today}
         onlineStatus={onlineStatus} />
 
+      {restricted && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span className="font-semibold">Restricted account.</span> You can sign in and review your profile, but attendance, operational GPS, workforce changes, offline replay, and payroll downloads are disabled until full access is restored.
+        </div>
+      )}
+
       {/* 2. Time-In/Out hero panel */}
       <section className="rounded-2xl border border-border bg-white p-6 sm:p-8 shadow-sm">
         <div className="text-center mb-5">
@@ -886,7 +910,7 @@ export function RiderDashboard({ userId, riderId }: RiderDashboardProps) {
 
         <AttendanceButton
           action={action}
-          disabled={action === 'time-in' && !canTimeIn}
+          disabled={restricted || (action === 'time-in' && !canTimeIn)}
           onClick={() =>
             openScan(action === 'time-out' ? 'time-out' : 'time-in')
           } />

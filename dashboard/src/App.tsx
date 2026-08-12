@@ -180,12 +180,16 @@ export function App() {
         { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${session.id}` },
         (payload) => {
           const updated = payload.new as { status?: string; employment_status?: string };
-          if (updated.status === 'suspended' || updated.employment_status === 'archived') void signOut();
+          if (updated.employment_status === 'archived' || (updated.status === 'suspended' && session.role !== 'rider')) {
+            void signOut();
+          } else {
+            window.dispatchEvent(new Event('profile-updated'));
+          }
         }
       )
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [session?.id, signOut]);
+  }, [session?.id, session?.role, signOut]);
 
   useEffect(() => {
     if (!session?.id || isPasswordRecovery) return;
@@ -403,7 +407,7 @@ export function App() {
                 exit="exit"
                 className="h-full"
               >
-                {riderPage === 'dashboard' && <RiderDashboard userId={user.id} riderId={riderId} />}
+                {riderPage === 'dashboard' && <RiderDashboard userId={user.id} riderId={riderId} restricted={user.status === 'suspended'} />}
                 {riderPage === 'attendance' &&
                   <RiderAttendance userId={user.id} riderId={riderId} onBack={() => setRiderPage('dashboard')} />
                 }
@@ -411,12 +415,14 @@ export function App() {
                   <RiderMonitoring
                     userId={user.id}
                     riderId={riderId}
+                    restricted={user.status === 'suspended'}
                     onBack={() => setRiderPage('dashboard')} />
                 }
                 {riderPage === 'profile' &&
                   <RiderProfile
                     userId={user.id}
                     riderId={riderId}
+                    restricted={user.status === 'suspended'}
                     onBack={() => setRiderPage('dashboard')} />
                 }
             </motion.div>

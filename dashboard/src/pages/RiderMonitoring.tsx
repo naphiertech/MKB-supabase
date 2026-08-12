@@ -20,10 +20,11 @@ import { fetchRiderMonitoringWithSWR, type CachedMonitoringPayload } from '../se
 interface RiderMonitoringProps {
   userId: string;
   riderId: string;
+  restricted: boolean;
   onBack: () => void;
 }
 
-export function RiderMonitoring({ userId, riderId, onBack }: RiderMonitoringProps) {
+export function RiderMonitoring({ userId, riderId, restricted, onBack }: RiderMonitoringProps) {
   const [rider, setRider] = useState<Rider | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,7 +115,7 @@ export function RiderMonitoring({ userId, riderId, onBack }: RiderMonitoringProp
     retry: retryLocation
   } = useGeolocation({
     initial: anchor,
-    enabled: true
+    enabled: !restricted
   });
 
   const distance = useMemo(() => {
@@ -150,6 +151,12 @@ export function RiderMonitoring({ userId, riderId, onBack }: RiderMonitoringProp
         <MapPin className="w-4 h-4 text-primary" />
         <h1 className="text-foreground font-semibold text-lg">My Location</h1>
       </div>
+
+      {restricted && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Operational GPS is disabled while this account is restricted.
+        </div>
+      )}
 
       {locationLoading && !hasVerifiedPosition ? (
         <div className="flex h-[360px] flex-col items-center justify-center gap-3 rounded-xl border border-border bg-panel-bg animate-pulse sm:h-[500px]">

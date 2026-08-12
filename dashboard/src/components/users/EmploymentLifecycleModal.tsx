@@ -142,8 +142,8 @@ export function EmploymentLifecycleModal({
         ) : (
           <>
             <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-900">
-              Restore keeps the account suspended and the Rider offline. An authorized user must confirm
-              the zone and explicitly reactivate account access before operations resume. Existing identity,
+              Restore keeps the Rider account restricted and offline. An authorized user must confirm
+              the zone and explicitly restore full account access before operations resume. Existing identity,
               facial enrollment, documents, and history are preserved.
             </div>
             <label className="block text-xs font-semibold text-foreground" htmlFor="restore-reason">
@@ -174,7 +174,7 @@ export function EmploymentLifecycleModal({
             className={`inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${mode === 'archive' ? 'bg-red-600 hover:bg-red-700' : 'bg-primary hover:bg-primary-hover'}`}
           >
             {mode === 'archive' ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
-            {checkingAttendance ? 'Checking attendance…' : busy ? 'Saving…' : mode === 'archive' ? 'Archive Employee' : 'Restore Employment'}
+            {checkingAttendance ? 'Checking attendance…' : busy ? 'Saving…' : mode === 'archive' ? 'Archive Employment' : 'Restore Employment'}
           </button>
         </div>
       </div>

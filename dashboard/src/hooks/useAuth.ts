@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { type AppUser, type EmploymentStatus, type UserRole } from "../services/types";
+import { type AppUser, type EmploymentStatus, type UserRole, type UserStatus } from "../services/types";
 import { pushToast } from "./useToast";
 import { fetchIpLocation, logActivity } from "../lib/apiService";
 import { getDeviceIdentifier } from "../lib/deviceFingerprint";
@@ -28,7 +28,17 @@ export interface Session {
   fullName: string;
   role: Role;
   riderId?: string;
+  accountStatus: UserStatus;
   employmentStatus: EmploymentStatus;
+}
+
+export function isProfileLoginBlocked(profile: {
+  role: string;
+  status: string;
+  employment_status: string;
+}): boolean {
+  return profile.employment_status === 'archived'
+    || (profile.status === 'suspended' && profile.role !== 'rider');
 }
 
 function readSession(): Session | null {
@@ -38,7 +48,11 @@ function readSession(): Session | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Session;
     if (!parsed?.id || !parsed?.role) return null;
-    return { ...parsed, employmentStatus: parsed.employmentStatus || 'active' };
+    return {
+      ...parsed,
+      accountStatus: parsed.accountStatus || 'active',
+      employmentStatus: parsed.employmentStatus || 'active'
+    };
   } catch {
     return null;
   }
@@ -82,7 +96,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
     .eq('id', authUser.id)
     .single();
 
-  if (error || !profile || profile.status === 'suspended' || profile.employment_status === 'archived') return;
+  if (error || !profile || isProfileLoginBlocked(profile)) return;
 
   const next: Session = {
     id: authUser.id,
@@ -90,6 +104,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
     fullName: profile.full_name,
     role: profile.role as Role,
     riderId: profile.rider_id || undefined,
+    accountStatus: profile.status as UserStatus,
     employmentStatus: profile.employment_status as EmploymentStatus,
   };
   if (!currentSession || currentSession.id !== authUser.id) return;
@@ -98,6 +113,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
     && currentSession.fullName === next.fullName
     && currentSession.role === next.role
     && currentSession.riderId === next.riderId
+    && currentSession.accountStatus === next.accountStatus
     && currentSession.employmentStatus === next.employmentStatus
   ) return;
   currentSession = next;
@@ -124,6 +140,7 @@ if (typeof window !== "undefined") {
           fullName: profile.full_name,
           role: profile.role as Role,
           riderId: profile.rider_id || undefined,
+          accountStatus: profile.status as UserStatus,
           employmentStatus: profile.employment_status as EmploymentStatus,
         };
         currentSession = next;
@@ -272,7 +289,7 @@ export function useAuth() {
           return;
         }
 
-        if (profile.employment_status === 'archived' || profile.status === "suspended") {
+        if (isProfileLoginBlocked(profile)) {
           await supabase.auth.signOut();
           currentSession = null;
           writeSession(null);
@@ -330,6 +347,7 @@ export function useAuth() {
             fullName: profile.full_name,
             role: profile.role as Role,
             riderId: profile.rider_id || undefined,
+            accountStatus: profile.status as UserStatus,
             employmentStatus: profile.employment_status as EmploymentStatus,
           };
           currentSession = next;
@@ -388,7 +406,7 @@ export function useAuth() {
       email: session.email,
       role: session.role,
       zoneId: null,
-      status: "active",
+      status: session.accountStatus,
       employmentStatus: session.employmentStatus,
       lastLogin: Date.now(),
     };
@@ -430,7 +448,7 @@ export function useAuth() {
           return { ok: false, error: "This employment record is archived. Contact HR or Admin if this should be restored." };
         }
 
-        if (profile.status === "suspended") {
+        if (profile.status === "suspended" && profile.role !== 'rider') {
           await supabase.auth.signOut();
           return { ok: false, error: "This account is suspended." };
         }
@@ -543,6 +561,7 @@ export function useAuth() {
           fullName: profile.full_name,
           role: profile.role as Role,
           riderId: profile.rider_id || undefined,
+          accountStatus: profile.status as UserStatus,
           employmentStatus: profile.employment_status as EmploymentStatus,
         };
 

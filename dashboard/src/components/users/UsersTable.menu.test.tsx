@@ -60,8 +60,8 @@ describe('employee action menu', () => {
       'View Profile',
       'Edit User',
       'Send Password Reset',
-      'Suspend Account',
-      'Archive Employee',
+      'Restrict Account',
+      'Archive Employment',
     ]);
 
     const reset = Array.from(menu?.querySelectorAll('button') ?? []).find((button) => button.textContent?.includes('Send Password Reset'));

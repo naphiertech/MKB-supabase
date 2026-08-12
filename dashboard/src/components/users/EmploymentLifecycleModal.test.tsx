@@ -63,7 +63,7 @@ describe('employment lifecycle modal', () => {
       reason.value = 'Other';
       reason.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    const submit = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('Archive Employee'))!;
+    const submit = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('Archive Employment'))!;
     await act(async () => { submit.click(); });
     expect(document.body.textContent).toContain('Remarks are required');
     expect(onArchive).not.toHaveBeenCalled();
@@ -84,14 +84,14 @@ describe('employment lifecycle modal', () => {
   it('blocks Archive when an open attendance session exists', () => {
     const { onArchive } = renderModal({ hasOpenAttendance: true });
     expect(document.body.textContent).toContain('Resolve the attendance record before archiving');
-    const submit = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('Archive Employee'))!;
+    const submit = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.includes('Archive Employment'))!;
     expect(submit.disabled).toBe(true);
     expect(onArchive).not.toHaveBeenCalled();
   });
 
-  it('explains that Restore keeps account access suspended', () => {
+  it('explains that Restore keeps Rider access restricted', () => {
     renderModal({ mode: 'restore', user: { ...rider, employmentStatus: 'archived', status: 'suspended' } });
-    expect(document.body.textContent).toContain('keeps the account suspended');
-    expect(document.body.textContent).toContain('explicitly reactivate account access');
+    expect(document.body.textContent).toContain('keeps the Rider account restricted');
+    expect(document.body.textContent).toContain('restore full account access');
   });
 });

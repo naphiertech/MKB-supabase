@@ -64,6 +64,32 @@ interface LocationPayload {
 
 class PermanentSyncError extends Error {}
 
+type SupabaseLikeError = {
+  code?: unknown;
+  status?: unknown;
+  statusCode?: unknown;
+};
+
+export function isPermanentSyncFailure(error: unknown): boolean {
+  if (error instanceof PermanentSyncError) return true;
+  if (!error || typeof error !== 'object') return false;
+
+  const candidate = error as SupabaseLikeError;
+  const status = typeof candidate.status === 'number'
+    ? candidate.status
+    : typeof candidate.statusCode === 'number'
+      ? candidate.statusCode
+      : null;
+  if (status !== null && status >= 400 && status < 500 && ![408, 425, 429].includes(status)) {
+    return true;
+  }
+
+  const code = typeof candidate.code === 'string' ? candidate.code.toUpperCase() : '';
+  if (code === 'PGRST000' || code === '40001' || code === '40P01') return false;
+  return /^PGRST\d+$/.test(code)
+    || /^(22|23|28|42)[0-9A-Z]{3}$/.test(code);
+}
+
 function isDuplicateError(error: { code?: string; message?: string }): boolean {
   const message = error.message || '';
   return error.code === '23505' || message.includes('unique constraint') || message.includes('duplicate key');
@@ -407,7 +433,7 @@ export class SyncEngine {
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      if (err instanceof PermanentSyncError) {
+      if (isPermanentSyncFailure(err)) {
         await this.markPermanentFailure(item, errorMessage);
         return true;
       }

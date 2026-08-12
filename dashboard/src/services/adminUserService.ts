@@ -2,6 +2,7 @@ import { logActivity } from '../lib/apiService';
 import { supabase } from '../lib/supabaseClient';
 import { requestPasswordRecovery } from './authSecurity';
 import type { ArchiveReason } from './employmentLifecycle';
+import { createSyncOperationId } from '../lib/storage';
 
 export interface PasswordResetTarget {
   id: string;
@@ -18,10 +19,12 @@ export async function requestStaffPasswordReset(target: PasswordResetTarget, red
   });
 }
 
-export async function setUserSuspension(userId: string, suspended: boolean): Promise<void> {
-  const action = suspended ? 'suspend' : 'reactivate';
+export async function setUserAccountAccess(userId: string, role: string, suspended: boolean): Promise<void> {
+  const action = role === 'rider'
+    ? suspended ? 'restrict' : 'restore_access'
+    : suspended ? 'suspend' : 'reactivate';
   const { data, error } = await supabase.functions.invoke('admin-user-actions', {
-    body: { action, userId },
+    body: { action, userId, ...(role === 'rider' ? { requestId: createSyncOperationId() } : {}) },
   });
   if (error) throw new Error(error.message || `Unable to ${action} this account.`);
   if (!data?.ok) throw new Error(data?.error || `Unable to ${action} this account.`);

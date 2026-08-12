@@ -172,6 +172,7 @@ export function PayrollDetailsModal({
   indexLabel,
 }: PayrollDetailsModalProps) {
   const { user } = useAuth();
+  const canExportPayroll = role !== 'rider' || user?.status !== 'suspended';
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<PayrollMetrics | null>(null);
   const [dayEntries, setDayEntries] = useState<ParcelLog[]>([]);
@@ -453,6 +454,10 @@ export function PayrollDetailsModal({
   };
 
   const handleExportPDF = () => {
+    if (!canExportPayroll) {
+      pushToast({ title: 'Account restricted', description: 'Payroll downloads are disabled until full access is restored.', tone: 'error' });
+      return;
+    }
     if (!isExportReady) {
       pushToast({
         title: "Rate requires review",
@@ -494,6 +499,10 @@ export function PayrollDetailsModal({
   };
 
   const handleExportExcel = async () => {
+    if (!canExportPayroll) {
+      pushToast({ title: 'Account restricted', description: 'Payroll downloads are disabled until full access is restored.', tone: 'error' });
+      return;
+    }
     if (!isExportReady) {
       pushToast({
         title: "Rate requires review",
@@ -1037,7 +1046,7 @@ export function PayrollDetailsModal({
                   <div className="flex gap-2 pt-2 border-t border-border/50">
                     <button
                       onClick={handleExportPDF}
-                      disabled={!isExportReady}
+                      disabled={!isExportReady || !canExportPayroll}
                       className="flex-1 h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
                       <Printer className="w-3.5 h-3.5 text-primary" />
@@ -1046,7 +1055,7 @@ export function PayrollDetailsModal({
 
                     <button
                       onClick={handleExportExcel}
-                      disabled={!isExportReady}
+                      disabled={!isExportReady || !canExportPayroll}
                       className="flex-1 h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -1054,8 +1063,9 @@ export function PayrollDetailsModal({
                     </button>
 
                     <button
-                      disabled={!isExportReady}
+                      disabled={!isExportReady || !canExportPayroll}
                       onClick={() => {
+                        if (!canExportPayroll) return;
                         try {
                           exportParcelCSV(
                             riderName,
@@ -1097,7 +1107,7 @@ export function PayrollDetailsModal({
                 <div className="space-y-2">
                   <button
                     onClick={handleExportPDF}
-                    disabled={!isExportReady}
+                    disabled={!isExportReady || !canExportPayroll}
                     className="w-full h-9 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <Download className="w-3.5 h-3.5" />
@@ -1106,7 +1116,7 @@ export function PayrollDetailsModal({
 
                   <button
                     onClick={handleExportExcel}
-                    disabled={!isExportReady}
+                    disabled={!isExportReady || !canExportPayroll}
                     className="w-full h-9 border border-border bg-white hover:bg-panel-bg text-foreground rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />

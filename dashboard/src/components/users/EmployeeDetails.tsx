@@ -353,7 +353,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                   className={`absolute bottom-2 right-2 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${
                     user.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
                   }`} 
-                  title={user.status === 'active' ? 'Active Account' : 'Suspended Account'} 
+                  title={user.status === 'active' ? 'Active Account' : user.role === 'rider' ? 'Restricted Account' : 'Suspended Account'}
                 />
               </div>
 

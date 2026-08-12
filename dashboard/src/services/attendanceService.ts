@@ -91,7 +91,6 @@ export async function finalizeDailyAttendance(targetDate: string = getLocalDateS
       date: targetDate,
       time_in: null,
       time_out: null,
-      hours: 0,
       status: 'absent',
       source: 'system',
       notes: 'Auto-generated absent record by system cutoff'
