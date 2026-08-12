@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import type { Database } from '../types/supabase';
+import { getSelectedHubId } from '../lib/hubWorkspaceState';
 
 export type SupportTicketCategory = Database['public']['Enums']['support_ticket_category'];
 export type SupportTicketStatus = Database['public']['Enums']['support_ticket_status'];
@@ -87,10 +88,13 @@ export function validateSupportReply(message: string): string | null {
 }
 
 export async function getSupportTickets(): Promise<SupportTicket[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('support_tickets')
     .select(TICKET_SELECT)
     .order('updated_at', { ascending: false });
+  const hubId = getSelectedHubId();
+  if (hubId) query = query.or(`hub_id.is.null,hub_id.eq.${hubId}`);
+  const { data, error } = await query;
 
   if (error) throw error;
   return (data ?? []) as unknown as SupportTicket[];
@@ -114,11 +118,13 @@ export async function createSupportTicket(
   const errors = validateSupportTicketDraft(draft);
   if (Object.keys(errors).length > 0) throw new Error('Review the required ticket details.');
 
+  const hubId = getSelectedHubId();
   const payload = {
     id,
     subject: draft.subject.trim(),
     category: draft.category,
     description: draft.description.trim(),
+    ...(hubId ? { hub_id: hubId } : {}),
   };
 
   const { data, error } = await supabase
@@ -186,12 +192,18 @@ export function subscribeToSupportTickets(
   onChange: () => void,
   onStatus?: (status: string) => void,
 ): () => void {
+  const selectedHubId = getSelectedHubId();
+  const handleTicketChange = (payload?: { new?: { hub_id?: string | null }; old?: { hub_id?: string | null } }) => {
+    if (!payload) { onChange(); return; }
+    const hubId = payload.new?.hub_id ?? payload.old?.hub_id ?? null;
+    if (!selectedHubId || !hubId || hubId === selectedHubId) onChange();
+  };
   const channel = supabase
     .channel(`support-tickets-${requestId()}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'support_tickets' },
-      onChange,
+      handleTicketChange,
     )
     .on(
       'postgres_changes',

@@ -3,6 +3,7 @@ import { getAllRiders } from '../services/monitoringService';
 import { getZones } from '../services/geofenceService';
 import type { Rider, Zone } from '../services/types';
 import { useAuth } from '../hooks/useAuth';
+import { useHub } from './HubContext';
 
 interface RiderZoneContextType {
   riders: Rider[];
@@ -15,12 +16,13 @@ const RiderZoneContext = createContext<RiderZoneContextType | undefined>(undefin
 
 export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session } = useAuth();
+  const { isReady: hubReady, workspaceKey } = useHub();
   const [riders, setRiders] = useState<Rider[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!session) return;
+    if (!session || !hubReady) return;
     setIsLoading(true);
     try {
       const [rData, zData] = await Promise.all([getAllRiders({ scope: 'active' }), getZones()]);
@@ -31,16 +33,16 @@ export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } finally {
       setIsLoading(false);
     }
-  }, [session]);
+  }, [hubReady, session]);
 
   useEffect(() => {
-    if (session?.id) {
+    if (session?.id && hubReady) {
       fetchData();
     } else {
       setRiders([]);
       setZones([]);
     }
-  }, [session?.id, fetchData]);
+  }, [session?.id, hubReady, workspaceKey, fetchData]);
 
   const value = useMemo(() => ({
     riders,

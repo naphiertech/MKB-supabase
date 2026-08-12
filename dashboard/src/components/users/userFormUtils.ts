@@ -1,4 +1,5 @@
 import { isSameEmail, isStaffRole, validateStaffEmail } from '../../services/staffProfilePolicy';
+import type { Zone } from '../../services/types';
 
 export type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
 export type Shift = 'morning' | 'afternoon' | 'evening' | '';
@@ -13,7 +14,10 @@ export interface FormState {
   role: EditableRole;
   status: 'active' | 'suspended';
   mkbRiderId: string;
+  hubId: string;
   zoneId: string; // '' means Unassigned
+  hubAccessScope: 'global' | 'assigned';
+  hubIds: string[];
   shift: Shift;
   faceImage: string | null;
   faceDescriptor: number[] | null;
@@ -36,6 +40,34 @@ export type FormErrors = Partial<Record<keyof FormState, string>>;
 export function generateMkbId() {
   const n = Math.floor(1000 + Math.random() * 9000);
   return `MKB-${n}`;
+}
+
+export function resolveInitialRiderHubId(input: {
+  existingHubId?: string | null;
+  selectedWorkspaceHubId?: string | null;
+  canSelectAll: boolean;
+  activeAuthorizedHubIds: string[];
+}): string {
+  const authorized = new Set(input.activeAuthorizedHubIds);
+  if (input.existingHubId && authorized.has(input.existingHubId)) return input.existingHubId;
+  if (input.selectedWorkspaceHubId && authorized.has(input.selectedWorkspaceHubId)) {
+    return input.selectedWorkspaceHubId;
+  }
+  if (!input.canSelectAll && input.activeAuthorizedHubIds.length === 1) {
+    return input.activeAuthorizedHubIds[0];
+  }
+  return '';
+}
+
+export function filterZonesForRiderHub(
+  zones: Zone[],
+  hubId: string,
+  currentZoneId = '',
+): Zone[] {
+  if (!hubId) return [];
+  return zones.filter(
+    (zone) => zone.hubId === hubId && (zone.status === 'active' || zone.id === currentZoneId),
+  );
 }
 
 export function compressBase64Image(
@@ -120,6 +152,9 @@ export function validate(form: FormState, mode: 'create' | 'edit', original?: Fo
   }
 
   if (!form.role) errors.role = 'Role is required.';
+  if (isStaffRole(form.role) && form.hubAccessScope === 'assigned' && form.hubIds.length === 0) {
+    errors.hubIds = 'Select at least one authorized hub.';
+  }
 
   // General payroll / employment fields (Required for all)
   const shouldValidateEmploymentType = mode === 'create' || !original || form.employmentType !== original.employmentType || Boolean(original.employmentType);
@@ -129,6 +164,7 @@ export function validate(form: FormState, mode: 'create' | 'edit', original?: Fo
 
   if (form.role === 'rider') {
     if (!form.mkbRiderId.trim()) errors.mkbRiderId = 'MKB Rider ID is required.';
+    if (!form.hubId) errors.hubId = 'Assigned hub is required.';
     if (!form.zoneId) errors.zoneId = 'Assigned zone is required.';
     if (!form.faceImage) errors.faceImage = 'Face registration is required.';
     if (!form.province) errors.province = 'Province is required.';

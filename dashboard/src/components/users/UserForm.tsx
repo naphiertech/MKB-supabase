@@ -14,6 +14,7 @@ import {
 import type { AppUser, UserRole, Zone } from "../../services/types";
 import { pushToast } from "../../hooks/useToast";
 import { useAuth } from "../../hooks/useAuth";
+import { useHub } from "../../context/HubContext";
 import { PROVINCES, PHILIPPINES_LOCATIONS } from "../../lib/phLocations";
 import {
   ensureScriptsLoaded,
@@ -29,10 +30,13 @@ import {
   type FormErrors,
   generateMkbId,
   compressBase64Image,
+  filterZonesForRiderHub,
+  resolveInitialRiderHubId,
   validate,
 } from "./userFormUtils";
 import { checkEmployeeDuplicates } from "../../services/userService";
 import { getMissingStaffProfileFields, isStaffRole } from "../../services/staffProfilePolicy";
+import type { Hub } from "../../services/hubService";
 
 type UserWithExtensions = AppUser &
   Partial<{
@@ -58,6 +62,7 @@ type UserWithExtensions = AppUser &
 interface UserFormProps {
   user?: AppUser | null;
   zones: Zone[];
+  hubs: Hub[];
   onClose: () => void;
   onSaved?: (
     user: AppUser & {
@@ -104,7 +109,10 @@ const EMPTY_FORM: FormState = {
   role: "admin",
   status: "active",
   mkbRiderId: "",
+  hubId: "",
   zoneId: "",
+  hubAccessScope: "global",
+  hubIds: [],
   shift: "",
   faceImage: null,
   faceDescriptor: null,
@@ -122,8 +130,9 @@ const EMPTY_FORM: FormState = {
   notes: "",
 };
 
-export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
+export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps) {
   const { session } = useAuth();
+  const { selectedHubId, canSelectAll } = useHub();
   const currentUserRole = session?.role;
   const mode: "create" | "edit" = user ? "edit" : "create";
 
@@ -135,6 +144,11 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
   const [cameraOpen, setCameraOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialFormRef = useRef<FormState | null>(null);
+  const activeAuthorizedHubs = useMemo(() => hubs.filter((hub) => hub.active), [hubs]);
+  const activeAuthorizedHubIds = useMemo(
+    () => activeAuthorizedHubs.map((hub) => hub.id),
+    [activeAuthorizedHubs],
+  );
 
   const fieldRefs = useRef<
     Partial<Record<keyof FormState, HTMLElement | null>>
@@ -181,7 +195,15 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
         role: safeRole,
         status: user.status,
         mkbRiderId: (user as UserWithExtensions).mkbRiderId ?? "",
+        hubId: resolveInitialRiderHubId({
+          existingHubId: user.hubId,
+          selectedWorkspaceHubId: selectedHubId,
+          canSelectAll,
+          activeAuthorizedHubIds,
+        }),
         zoneId: user.zoneId ?? "",
+        hubAccessScope: user.hubAccessScope ?? "assigned",
+        hubIds: user.authorizedHubIds ?? [],
         shift: (user as UserWithExtensions).shift ?? "",
         faceImage: faceImg,
         faceDescriptor: faceDesc,
@@ -238,6 +260,12 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
       const initialForm: FormState = {
         ...EMPTY_FORM,
         role: currentUserRole === "hr" ? "rider" : "admin",
+        hubAccessScope: currentUserRole === "hr" ? "assigned" : "global",
+        hubId: resolveInitialRiderHubId({
+          selectedWorkspaceHubId: selectedHubId,
+          canSelectAll,
+          activeAuthorizedHubIds,
+        }),
       };
       initialFormRef.current = initialForm;
       setForm(initialForm);
@@ -246,9 +274,14 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
     setShowSummary(false);
     setShowPassword(false);
     setSubmitting(false);
-  }, [user, currentUserRole]);
+  }, [activeAuthorizedHubIds, canSelectAll, currentUserRole, selectedHubId, user]);
 
   const isRider = form.role === "rider";
+  const riderHubLocked = !canSelectAll;
+  const riderZones = useMemo(
+    () => filterZonesForRiderHub(zones, form.hubId, form.zoneId),
+    [form.hubId, form.zoneId, zones],
+  );
   const missingStaffFields = useMemo(
     () => isStaffRole(form.role)
       ? getMissingStaffProfileFields({
@@ -282,6 +315,17 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
     if (errors[key]) {
       setErrors((e) => ({ ...e, [key]: undefined }));
     }
+  };
+
+  const setRiderHub = (hubId: string) => {
+    setForm((current) => ({
+      ...current,
+      hubId,
+      zoneId: current.zoneId && zones.some(
+        (zone) => zone.id === current.zoneId && zone.hubId === hubId,
+      ) ? current.zoneId : "",
+    }));
+    setErrors((current) => ({ ...current, hubId: undefined, zoneId: undefined }));
   };
 
   const handleSubmit = async () => {
@@ -342,6 +386,9 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
           `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fullName || "new")}&backgroundColor=fff1e0`,
         role: form.role as UserRole,
         zoneId: form.role === "rider" ? form.zoneId || null : null,
+        hubId: form.role === "rider" ? form.hubId || null : null,
+        hubAccessScope: form.role === "rider" ? "assigned" : form.hubAccessScope,
+        authorizedHubIds: form.role === "rider" ? [] : form.hubIds,
         status: form.status,
         employmentStatus: user?.employmentStatus ?? 'active',
         lastLogin: user?.lastLogin ?? 0,
@@ -813,6 +860,36 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                       </select>
                     </Field>
                   )}
+
+                  {currentUserRole === "admin" && isStaffRole(form.role) && (
+                    <Field label="Hub access" required error={errors.hubIds} innerRef={(el) => (fieldRefs.current.hubIds = el)}>
+                      <div className="space-y-3 rounded-lg border border-border bg-panel-bg p-3">
+                        <label className="flex items-center gap-2 text-xs font-medium">
+                          <input type="radio" checked={form.hubAccessScope === 'global'} onChange={() => setField('hubAccessScope', 'global')} disabled={submitting} />
+                          Global access (All Hubs and any specific hub)
+                        </label>
+                        <label className="flex items-center gap-2 text-xs font-medium">
+                          <input type="radio" checked={form.hubAccessScope === 'assigned'} onChange={() => setField('hubAccessScope', 'assigned')} disabled={submitting} />
+                          Assigned hubs only
+                        </label>
+                        {form.hubAccessScope === 'assigned' && (
+                          <div className="grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
+                            {hubs.length === 0 ? <p className="text-xs text-muted-foreground">Create a hub before assigning local staff.</p> : hubs.map((hub) => (
+                              <label key={hub.id} className="flex items-center gap-2 text-xs">
+                                <input
+                                  type="checkbox"
+                                  checked={form.hubIds.includes(hub.id)}
+                                  onChange={(event) => setField('hubIds', event.target.checked ? [...form.hubIds, hub.id] : form.hubIds.filter((id) => id !== hub.id))}
+                                  disabled={submitting}
+                                />
+                                {hub.name}{hub.active ? '' : ' (Inactive)'}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Field>
+                  )}
                 </div>
 
                 <Field
@@ -1110,6 +1187,37 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                 </Field>
 
                 <Field
+                  label="Assigned Hub"
+                  required
+                  controlId="assigned-hub"
+                  error={errors.hubId}
+                  innerRef={(el) => (fieldRefs.current.hubId = el)}
+                >
+                  <select
+                    id="assigned-hub"
+                    value={form.hubId}
+                    onChange={(event) => setRiderHub(event.target.value)}
+                    className="ar-input"
+                    disabled={submitting || riderHubLocked}
+                  >
+                    <option value="">Select a hub</option>
+                    {activeAuthorizedHubs.map((hub) => (
+                      <option key={hub.id} value={hub.id}>{hub.name}</option>
+                    ))}
+                  </select>
+                  {riderHubLocked && form.hubId && (
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">
+                      This Rider is locked to your assigned hub.
+                    </p>
+                  )}
+                  {activeAuthorizedHubs.length === 0 && (
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">
+                      No active authorized hubs are available.
+                    </p>
+                  )}
+                </Field>
+
+                <Field
                   label="Assigned Geofence Zone"
                   required
                   error={errors.zoneId}
@@ -1119,14 +1227,10 @@ export function UserForm({ user, zones, onClose, onSaved }: UserFormProps) {
                     value={form.zoneId}
                     onChange={(e) => setField("zoneId", e.target.value)}
                     className="ar-input"
-                    disabled={submitting}
+                    disabled={submitting || !form.hubId}
                   >
-                    <option value="">Unassigned</option>
-                    {zones
-                      .filter(
-                        (z) => z.status === "active" || z.id === form.zoneId,
-                      )
-                      .map((z) => (
+                    <option value="">{form.hubId ? "Select a zone" : "Select a hub first"}</option>
+                    {riderZones.map((z) => (
                         <option key={z.id} value={z.id}>
                           {z.name}
                         </option>

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { validate, type FormState } from './userFormUtils';
+import * as formUtils from './userFormUtils';
+import type { FormState } from './userFormUtils';
+import type { Zone } from '../../services/types';
+
+const { validate } = formUtils;
 
 const validRider: FormState = {
   firstName: 'Juan', middleName: '', lastName: 'Rider', email: 'juan@example.com', contact: '09123456789', tempPassword: 'password1', role: 'rider', status: 'active',
-  mkbRiderId: 'MKB-1000', zoneId: 'zone-1', shift: '', faceImage: 'data:image/jpeg;base64,ok', faceDescriptor: null,
+  mkbRiderId: 'MKB-1000', hubId: 'hub-1', zoneId: 'zone-1', hubAccessScope: 'assigned', hubIds: [], shift: '', faceImage: 'data:image/jpeg;base64,ok', faceDescriptor: null,
   province: 'Zamboanga del Sur', city: 'Zamboanga City', barangay: 'Tetuan', zipCode: '7000', streetAddress: 'Main Street',
   emergencyContactName: 'Maria Rider', emergencyContactPhone: '09987654321', employmentType: 'full-time', dateOfHire: '2026-01-01',
   vehicleType: 'motorcycle', vehiclePlateNumber: 'ABC 1234', notes: '',
@@ -13,6 +17,7 @@ const validStaff: FormState = {
   ...validRider,
   email: 'new.staff@gmail.com',
   role: 'hr',
+  hubIds: ['hub-1'],
   mkbRiderId: '',
   zoneId: '',
   faceImage: null,
@@ -33,8 +38,9 @@ describe('employee required-field validation', () => {
   });
 
   it('returns inline errors for required rider custom controls', () => {
-    const errors = validate({ ...validRider, employmentType: '', zoneId: '', faceImage: null }, 'create');
+    const errors = validate({ ...validRider, employmentType: '', hubId: '', zoneId: '', faceImage: null }, 'create');
     expect(errors.employmentType).toContain('required');
+    expect(errors.hubId).toContain('required');
     expect(errors.zoneId).toContain('required');
     expect(errors.faceImage).toContain('required');
   });
@@ -103,5 +109,50 @@ describe('employee required-field validation', () => {
     expect(errors.contact).toContain('required');
     expect(errors.employmentType).toContain('required');
     expect(errors.dateOfHire).toContain('required');
+  });
+});
+
+describe('Rider hub assignment controls', () => {
+  it('preselects the current workspace for global users and the assigned hub for local HR', () => {
+    const resolveInitialRiderHubId = (formUtils as typeof formUtils & {
+      resolveInitialRiderHubId?: (input: {
+        existingHubId?: string | null;
+        selectedWorkspaceHubId?: string | null;
+        canSelectAll: boolean;
+        activeAuthorizedHubIds: string[];
+      }) => string;
+    }).resolveInitialRiderHubId;
+
+    expect(typeof resolveInitialRiderHubId).toBe('function');
+    expect(resolveInitialRiderHubId?.({
+      selectedWorkspaceHubId: 'hub-2',
+      canSelectAll: true,
+      activeAuthorizedHubIds: ['hub-1', 'hub-2'],
+    })).toBe('hub-2');
+    expect(resolveInitialRiderHubId?.({
+      selectedWorkspaceHubId: null,
+      canSelectAll: false,
+      activeAuthorizedHubIds: ['hub-1'],
+    })).toBe('hub-1');
+    expect(resolveInitialRiderHubId?.({
+      selectedWorkspaceHubId: null,
+      canSelectAll: true,
+      activeAuthorizedHubIds: ['hub-1', 'hub-2'],
+    })).toBe('');
+  });
+
+  it('shows only active zones under the selected hub while retaining the current edit zone', () => {
+    const filterZonesForRiderHub = (formUtils as typeof formUtils & {
+      filterZonesForRiderHub?: (zones: Zone[], hubId: string, currentZoneId?: string) => Zone[];
+    }).filterZonesForRiderHub;
+    const zones = [
+      { id: 'zone-a', hubId: 'hub-1', name: 'A', center: [0, 0], radius: 1, color: '#000', status: 'active' },
+      { id: 'zone-b', hubId: 'hub-2', name: 'B', center: [0, 0], radius: 1, color: '#000', status: 'active' },
+      { id: 'zone-c', hubId: 'hub-1', name: 'C', center: [0, 0], radius: 1, color: '#000', status: 'inactive' },
+    ] satisfies Zone[];
+
+    expect(typeof filterZonesForRiderHub).toBe('function');
+    expect(filterZonesForRiderHub?.(zones, 'hub-1').map((zone) => zone.id)).toEqual(['zone-a']);
+    expect(filterZonesForRiderHub?.(zones, 'hub-1', 'zone-c').map((zone) => zone.id)).toEqual(['zone-a', 'zone-c']);
   });
 });

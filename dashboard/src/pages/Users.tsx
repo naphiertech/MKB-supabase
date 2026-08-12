@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, ComponentType } from 'react';
+import { useCallback, useMemo, useState, useEffect, ComponentType } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Plus,
@@ -12,7 +12,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import { type AppUser, type EmploymentStatus, type UserRole, type UserStatus, type Zone } from '../services/types';
 import { logActivity } from '../lib/apiService';
-import { getZones } from '../services/geofenceService';
+import { getZones, getZonesForHubs } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
 import { UserForm } from '../components/users/UserForm';
 import { EmployeeDetails } from '../components/users/EmployeeDetails';
@@ -42,6 +42,8 @@ import {
   getStaffAvatarSignedUrl,
 } from '../services/userService';
 import { isStaffRole } from '../services/staffProfilePolicy';
+import { setUserHubAccess } from '../services/hubService';
+import { useHub } from '../context/HubContext';
 
 
 type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
@@ -52,10 +54,12 @@ interface UsersProps {
 
 export function Users({ onlineUserIds = [] }: UsersProps) {
   const { session } = useAuth();
+  const { hubs, workspaceKey } = useHub();
   const currentUserRole = session?.role;
 
   const [userList, setUserList] = useState<AppUser[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [riderFormZones, setRiderFormZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | EditableRole>('all');
@@ -90,14 +94,20 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
     setPage(1);
   }, [q, roleFilter, statusFilter, employmentFilter, zoneFilter]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [zList, dbUsers] = await Promise.all([
-        getZones(),
+      const workspaceZonesPromise = getZones();
+      const authorizedZonesPromise = workspaceKey === 'all'
+        ? workspaceZonesPromise
+        : getZonesForHubs(hubs.filter((hub) => hub.active).map((hub) => hub.id));
+      const [zList, authorizedZones, dbUsers] = await Promise.all([
+        workspaceZonesPromise,
+        authorizedZonesPromise,
         getUsersAndRiders()
       ]);
 
       setZonesList(zList);
+      setRiderFormZones(authorizedZones);
 
       if (dbUsers) {
         const nameById = new Map(dbUsers.map((user: { id: string; full_name: string }) => [user.id, user.full_name]));
@@ -114,6 +124,8 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           date_of_hire?: string | null;
           notes?: string | null;
           employment_status?: string | null;
+          hub_access_scope?: 'global' | 'assigned';
+          user_hub_access?: { hub_id: string }[];
           archive_effective_date?: string | null;
           archive_reason?: string | null;
           archive_remarks?: string | null;
@@ -124,6 +136,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           restore_reason?: string | null;
           riders: {
             id?: string | null;
+            hub_id?: string | null;
             face_image_url?: string | null;
             zone_id?: string | null;
             contact?: string | null;
@@ -162,6 +175,9 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             email: u.email,
             role: u.role as UserRole,
             zoneId: u.riders?.zone_id || null,
+            hubId: u.riders?.hub_id || null,
+            hubAccessScope: u.hub_access_scope || 'assigned',
+            authorizedHubIds: u.user_hub_access?.map((access) => access.hub_id) || [],
             status: u.status as UserStatus,
             employmentStatus: (u.employment_status || 'active') as EmploymentStatus,
             operationalStatus: u.role === 'rider' ? (u.riders?.status as AppUser['operationalStatus']) : null,
@@ -204,11 +220,11 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [hubs, workspaceKey]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const activeWorkforce = userList.filter((user) => user.employmentStatus === 'active');
   const counts = {
@@ -385,7 +401,8 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
         >
           <UserForm
             user={editing}
-            zones={zonesList}
+            zones={riderFormZones}
+            hubs={hubs}
             onClose={() => {
               setView('list');
               setEditing(null);
@@ -417,6 +434,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                     await updateRiderProfile(riderId, {
                       name: savedUser.name,
                       contact: savedUser.contact,
+                      hubId: savedUser.hubId,
                       zoneId: savedUser.zoneId,
                       faceImage: savedUser.faceImage,
                       faceDescriptor: savedUser.faceDescriptor,
@@ -435,6 +453,8 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                     });
                     clearCachedAvatar(riderId);
                   }
+                } else if (currentUserRole === 'admin') {
+                  await setUserHubAccess(savedUser.id, savedUser.hubAccessScope || 'assigned', savedUser.authorizedHubIds || []);
                 }
               } else {
                 // mode === 'create'
@@ -447,6 +467,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                       email: savedUser.email,
                       mkbRiderId: savedUser.mkbRiderId || undefined,
                       contact: savedUser.contact,
+                      hubId: savedUser.hubId,
                       zoneId: savedUser.zoneId,
                       faceImage: savedUser.faceImage,
                       faceDescriptor: savedUser.faceDescriptor,
@@ -500,8 +521,13 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
                     status: savedUser.status || 'active',
                     employmentType: savedUser.employmentType,
                     dateOfHire: savedUser.dateOfHire,
-                    notes: savedUser.notes
+                    notes: savedUser.notes,
+                    hubAccessScope: savedUser.hubAccessScope
                   });
+
+                  if (savedUser.role !== 'rider' && currentUserRole === 'admin') {
+                    await setUserHubAccess(authUser.id, savedUser.hubAccessScope || 'assigned', savedUser.authorizedHubIds || []);
+                  }
 
                   logActivity({
                     eventType: 'user_created',

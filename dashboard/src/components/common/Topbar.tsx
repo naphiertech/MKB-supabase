@@ -7,6 +7,8 @@ import type { Notification } from '../../hooks/useNotifications';
 import { toast } from 'react-hot-toast';
 import { getSearchIndexData } from '../../services/userService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+import { HubSelector } from './HubSelector';
+import { useHub } from '../../context/HubContext';
 const TITLES: Record<
   PageKey,
   {
@@ -69,10 +71,14 @@ const TITLES: Record<
   payroll_history: {
     title: 'Payroll History',
     subtitle: 'Read-only archive of historical payroll cutoffs & payslips'
+  },
+  hubs: {
+    title: 'Hub Management',
+    subtitle: 'Manage hubs and zone assignments'
   }
 };
 const ALLOWED_PAGES_BY_ROLE: Record<TopbarRole, PageKey[]> = {
-  admin: ['dashboard', 'monitoring', 'geofence', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
+  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
   hr: ['dashboard', 'monitoring', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
   payroll: ['dashboard', 'computation', 'reports', 'settings']
 };
@@ -138,6 +144,7 @@ export function Topbar({
   role = 'admin',
   onNavigate
 }: TopbarProps) {
+  const { workspaceKey } = useHub();
   const isOnline = useNetworkStatus();
   const [now, setNow] = useState(() => new Date());
   const [isOpen, setIsOpen] = useState(false);
@@ -146,6 +153,13 @@ export function Topbar({
   const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [hasLoadedData, setHasLoadedData] = useState(false);
+
+  useEffect(() => {
+    setHasLoadedData(false);
+    setRiders([]);
+    setZones([]);
+    setSearchQuery('');
+  }, [workspaceKey]);
 
   const SCREENS = useMemo(() => {
     const allowed = ALLOWED_PAGES_BY_ROLE[role] || [];
@@ -274,6 +288,8 @@ export function Topbar({
         </div>
 
         <div className="flex-1" />
+
+        <HubSelector />
 
         {/* Search */}
         <div className="relative">

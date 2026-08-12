@@ -8,38 +8,41 @@ select plan(27);
 
 select is(
   (select count(*)::integer from pg_policies where schemaname = 'public' and tablename = 'violations'),
-  4,
-  'violations has one explicit policy for each supported access path'
+  5,
+  'violations has its supported access policies plus the restrictive hub guard'
 );
 select is(
   (select count(*)::integer from pg_policies where schemaname = 'public' and tablename = 'violations' and roles = array['authenticated']::name[]),
-  4,
+  5,
   'all violations policies target authenticated users explicitly'
 );
 select is(has_table_privilege('anon', 'public.violations', 'select'), false, 'anon has no violations table access');
 
+insert into public.hubs (id, name) values
+  ('90000000-0000-4000-8000-000000000001', 'Geofence Test Hub');
+
 insert into public.zones (
-  id, name, zone_type, lat, lng, radius, polygon_coordinates, status
+  id, hub_id, name, zone_type, lat, lng, radius, polygon_coordinates, status
 ) values
   (
-    '91000000-0000-4000-8000-000000000001', 'Geofence Circle Test', 'circle',
+    '91000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000001', 'Geofence Circle Test', 'circle',
     6.9214, 122.0790, 500, null, 'active'
   ),
   (
-    '91000000-0000-4000-8000-000000000002', 'Geofence Polygon Test', 'polygon',
+    '91000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000001', 'Geofence Polygon Test', 'polygon',
     null, null, null,
     '[[6.9200,122.0780],[6.9230,122.0780],[6.9230,122.0810],[6.9200,122.0810]]'::jsonb,
     'active'
   );
 
-insert into public.riders (id, name, mkb_id, email, zone_id, status) values
-  ('92000000-0000-4000-8000-000000000001', 'Circle Rider', 'TEST-GEO-001', 'geo-circle@example.test', '91000000-0000-4000-8000-000000000001', 'idle'),
-  ('92000000-0000-4000-8000-000000000002', 'Polygon Rider', 'TEST-GEO-002', 'geo-polygon@example.test', '91000000-0000-4000-8000-000000000002', 'idle'),
-  ('92000000-0000-4000-8000-000000000003', 'No Zone Rider', 'TEST-GEO-003', 'geo-no-zone@example.test', null, 'idle'),
-  ('92000000-0000-4000-8000-000000000004', 'No Attendance Rider', 'TEST-GEO-004', 'geo-no-attendance@example.test', '91000000-0000-4000-8000-000000000001', 'offline'),
-  ('92000000-0000-4000-8000-000000000005', 'Replay Rider', 'TEST-GEO-005', 'geo-replay@example.test', '91000000-0000-4000-8000-000000000001', 'idle'),
-  ('92000000-0000-4000-8000-000000000006', 'Overnight Rider', 'TEST-GEO-006', 'geo-overnight@example.test', '91000000-0000-4000-8000-000000000001', 'idle'),
-  ('92000000-0000-4000-8000-000000000007', 'Stale Rider', 'TEST-GEO-007', 'geo-stale@example.test', '91000000-0000-4000-8000-000000000001', 'active');
+insert into public.riders (id, hub_id, name, mkb_id, email, zone_id, status) values
+  ('92000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000001', 'Circle Rider', 'TEST-GEO-001', 'geo-circle@example.test', '91000000-0000-4000-8000-000000000001', 'idle'),
+  ('92000000-0000-4000-8000-000000000002', '90000000-0000-4000-8000-000000000001', 'Polygon Rider', 'TEST-GEO-002', 'geo-polygon@example.test', '91000000-0000-4000-8000-000000000002', 'idle'),
+  ('92000000-0000-4000-8000-000000000003', '90000000-0000-4000-8000-000000000001', 'No Zone Rider', 'TEST-GEO-003', 'geo-no-zone@example.test', null, 'idle'),
+  ('92000000-0000-4000-8000-000000000004', '90000000-0000-4000-8000-000000000001', 'No Attendance Rider', 'TEST-GEO-004', 'geo-no-attendance@example.test', '91000000-0000-4000-8000-000000000001', 'offline'),
+  ('92000000-0000-4000-8000-000000000005', '90000000-0000-4000-8000-000000000001', 'Replay Rider', 'TEST-GEO-005', 'geo-replay@example.test', '91000000-0000-4000-8000-000000000001', 'idle'),
+  ('92000000-0000-4000-8000-000000000006', '90000000-0000-4000-8000-000000000001', 'Overnight Rider', 'TEST-GEO-006', 'geo-overnight@example.test', '91000000-0000-4000-8000-000000000001', 'idle'),
+  ('92000000-0000-4000-8000-000000000007', '90000000-0000-4000-8000-000000000001', 'Stale Rider', 'TEST-GEO-007', 'geo-stale@example.test', '91000000-0000-4000-8000-000000000001', 'active');
 
 insert into public.attendance_logs (id, rider_id, date, time_in, status, source) values
   ('93000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000001', (now() at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),

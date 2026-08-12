@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import type { Database } from '../types/supabase';
+import { getSelectedHubId } from '../lib/hubWorkspaceState';
 
 export type UserRole = Database['public']['Enums']['user_role'];
 export type NotificationType = Database['public']['Enums']['notification_type'];
@@ -22,6 +23,7 @@ export interface NotificationRecord {
   read: boolean;
   target_roles: UserRole[];
   created_at: string;
+  hub_id?: string | null;
 }
 
 export interface NotificationRow {
@@ -134,12 +136,16 @@ export const createNotificationAlert = async (input: {
  * Automatic incident notifications are intentionally excluded.
  */
 export const getFlaggedViolationIds = async (): Promise<Set<string>> => {
-  const { data, error } = await supabase
+  let query = supabase
     .from('notifications')
     .select('violation_id')
     .eq('type', 'violation')
     .contains('metadata', { manual_flag: true })
     .not('violation_id', 'is', null);
+
+  const hubId = getSelectedHubId();
+  if (hubId) query = query.or(`hub_id.is.null,hub_id.eq.${hubId}`);
+  const { data, error } = await query;
 
   if (error) throw error;
   return new Set((data ?? []).map((n: { violation_id: string | null }) => n.violation_id).filter((id): id is string => Boolean(id)));
@@ -170,6 +176,9 @@ export async function getNotificationsForUser(options: {
   } else {
     query = query.contains('target_roles', [options.userRole]);
   }
+
+  const hubId = getSelectedHubId();
+  if (hubId) query = query.or(`hub_id.is.null,hub_id.eq.${hubId}`);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -203,6 +212,9 @@ export async function markAllNotificationsAsRead(userRole: UserRole, userId?: st
   } else {
     query = query.contains('target_roles', [userRole]);
   }
+
+  const hubId = getSelectedHubId();
+  if (hubId) query = query.or(`hub_id.is.null,hub_id.eq.${hubId}`);
 
   const { error } = await query;
   if (error) throw error;

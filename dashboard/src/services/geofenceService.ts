@@ -8,6 +8,7 @@ import {
   type RiderStatus
 } from './types';
 import { randomZoneColor } from '../lib/geofenceUtils';
+import { getSelectedHubId } from '../lib/hubWorkspaceState';
 
 export interface ZoneInput {
   name: string;
@@ -23,6 +24,7 @@ export interface ZoneInput {
 
 interface DbZoneRow {
   id: string;
+  hub_id: string | null;
   name: string;
   lat: number | null;
   lng: number | null;
@@ -61,6 +63,7 @@ const mapZone = (row: DbZoneRow): Zone => {
 
   return {
     id: row.id,
+    hubId: row.hub_id,
     name: row.name,
     center,
     radius: row.radius || 0,
@@ -82,6 +85,21 @@ export async function getZones(): Promise<Zone[]> {
     return [];
   }
 
+  return (data || []).map(mapZone);
+}
+
+export async function getZonesForHubs(hubIds: string[]): Promise<Zone[]> {
+  if (hubIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('zones')
+    .select('*')
+    .in('hub_id', hubIds)
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching authorized hub zones from Supabase:', error);
+    return [];
+  }
   return (data || []).map(mapZone);
 }
 
@@ -198,10 +216,13 @@ export async function totalViolationsToday(): Promise<number> {
 }
 
 export async function createZone(input: ZoneInput): Promise<Zone> {
+  const hubId = getSelectedHubId();
+  if (!hubId) throw new Error('Select a specific hub before creating a zone.');
   const { data, error } = await supabase
     .from('zones')
     .insert({
       name: input.name.trim() || 'Untitled Zone',
+      hub_id: hubId,
       lat: input.lat,
       lng: input.lng,
       radius: input.radius,
@@ -337,9 +358,16 @@ export async function assignRidersToZone(zoneId: string | null, riderIds: string
   const eligibleRiderIds = riderIds.filter((riderId) => activeIds.has(riderId));
   if (eligibleRiderIds.length === 0) return;
 
+  const targetZone = zoneId
+    ? await supabase.from('zones').select('hub_id').eq('id', zoneId).single()
+    : null;
+  if (targetZone?.error) throw targetZone.error;
   const { error } = await supabase
     .from('riders')
-    .update({ zone_id: zoneId })
+    .update({
+      zone_id: zoneId,
+      ...(targetZone ? { hub_id: targetZone.data.hub_id } : {}),
+    })
     .in('id', eligibleRiderIds);
 
   if (error) {

@@ -11,14 +11,14 @@ select has_column('public', 'payroll_records', 'approved_by_email_snapshot', 'ap
 select has_column('public', 'payroll_records', 'paid_by_email_snapshot', 'payment email snapshot column exists');
 
 insert into auth.users (id, email, email_confirmed_at) values
-  ('f2000000-0000-4000-8000-000000000001', 'naphiera@gmail.com', clock_timestamp()),
+  ('f2000000-0000-4000-8000-000000000001', 'snapshot-admin@example.test', clock_timestamp()),
   ('f2000000-0000-4000-8000-000000000002', 'new-admin@example.test', clock_timestamp()),
   ('f2000000-0000-4000-8000-000000000003', 'payroll@example.test', clock_timestamp()),
   ('f2000000-0000-4000-8000-000000000004', 'hr@example.test', clock_timestamp()),
   ('f2000000-0000-4000-8000-000000000005', 'unconfirmed@example.test', null);
 
 insert into public.users (id, full_name, email, role) values
-  ('f2000000-0000-4000-8000-000000000001', 'Renata Cruz', 'naphiera@gmail.com', 'admin'),
+  ('f2000000-0000-4000-8000-000000000001', 'Renata Cruz', 'snapshot-admin@example.test', 'admin'),
   ('f2000000-0000-4000-8000-000000000002', 'Second Admin', 'new-admin@example.test', 'admin'),
   ('f2000000-0000-4000-8000-000000000003', 'Payroll Officer', 'payroll@example.test', 'payroll'),
   ('f2000000-0000-4000-8000-000000000004', 'HR Reviewer', 'hr@example.test', 'hr'),
@@ -94,15 +94,15 @@ select lives_ok(
 );
 select is((select approved_by from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'f2000000-0000-4000-8000-000000000001'::uuid, 'approval stores the authoritative actor UUID');
 select is((select approved_by_name_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'Renata Cruz', 'approval stores the actor name snapshot');
-select is((select approved_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'naphiera@gmail.com', 'approval stores the confirmed email snapshot');
-select is((select metadata->>'actor_email_snapshot' from public.activity_logs where metadata->>'request_id' = 'f5000000-0000-4000-8000-000000000001'), 'naphiera@gmail.com', 'approval audit metadata stores the same email snapshot');
+select is((select approved_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'snapshot-admin@example.test', 'approval stores the confirmed email snapshot');
+select is((select metadata->>'actor_email_snapshot' from public.activity_logs where metadata->>'request_id' = 'f5000000-0000-4000-8000-000000000001'), 'snapshot-admin@example.test', 'approval audit metadata stores the same email snapshot');
 
 reset role;
 update auth.users
 set email = 'naphier.tech@gmail.com', email_confirmed_at = clock_timestamp()
 where id = 'f2000000-0000-4000-8000-000000000001';
 update public.users set full_name = 'Renata Cruz Updated' where id = 'f2000000-0000-4000-8000-000000000001';
-select is((select approved_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'naphiera@gmail.com', 'later profile/Auth email changes do not rewrite approval history');
+select is((select approved_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'snapshot-admin@example.test', 'later profile/Auth email changes do not rewrite approval history');
 select is((select approved_by from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'f2000000-0000-4000-8000-000000000001'::uuid, 'later identity changes do not rewrite the actor UUID');
 
 set local role authenticated;

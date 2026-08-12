@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { isEmploymentActiveOnDate } from './employmentLifecycle';
 import type { EmploymentStatus } from './types';
+import { getSelectedHubId } from '../lib/hubWorkspaceState';
 
 export type WorkforceScope = 'active' | 'historical' | 'employed_on_date';
 
@@ -13,6 +14,7 @@ export interface WorkforceDirectoryEntry {
   employmentStatus: EmploymentStatus;
   archiveEffectiveDate: string | null;
   restoredAt: string | null;
+  hubId: string;
 }
 
 interface WorkforceDirectoryRow {
@@ -24,6 +26,7 @@ interface WorkforceDirectoryRow {
   employment_status: EmploymentStatus;
   archive_effective_date: string | null;
   restored_at: string | null;
+  hub_id: string;
 }
 
 export async function getRiderWorkforceDirectory(options: {
@@ -36,7 +39,9 @@ export async function getRiderWorkforceDirectory(options: {
   const { data, error } = await supabase.rpc('get_rider_workforce_directory');
   if (error) throw error;
 
+  const selectedHubId = getSelectedHubId();
   return ((data || []) as WorkforceDirectoryRow[])
+    .filter((row) => !selectedHubId || row.hub_id === selectedHubId)
     .map((row) => ({
       id: row.id,
       name: row.name,
@@ -46,6 +51,7 @@ export async function getRiderWorkforceDirectory(options: {
       employmentStatus: row.employment_status,
       archiveEffectiveDate: row.archive_effective_date,
       restoredAt: row.restored_at,
+      hubId: row.hub_id,
     }))
     .filter((row) => {
       if (options.scope === 'historical') return true;

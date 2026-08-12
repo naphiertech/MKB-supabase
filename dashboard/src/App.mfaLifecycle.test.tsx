@@ -59,6 +59,7 @@ vi.mock('./lib/supabaseClient', () => {
   };
 });
 vi.mock('./context/RiderZoneContext', () => ({ useRiderZone: () => ({ riders: [], zones: [] }) }));
+vi.mock('./context/HubContext', () => ({ useHub: () => ({ isReady: true, workspaceKey: 'all' }) }));
 vi.mock('./hooks/useNotifications', () => ({
   useNotifications: () => ({ notifications: [], unreadCount: 0, markAsRead: vi.fn(), markAllAsRead: vi.fn() }),
 }));

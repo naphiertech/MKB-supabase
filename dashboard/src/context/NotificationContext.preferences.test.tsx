@@ -24,6 +24,10 @@ vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({ session: { id: 'user-1', role: 'admin' } }),
 }));
 
+vi.mock('./HubContext', () => ({
+  useHub: () => ({ selectedHubId: null, workspaceKey: 'all', isReady: true }),
+}));
+
 vi.mock('../lib/supabaseClient', () => ({
   supabase: { channel: mocks.channel, removeChannel: mocks.removeChannel },
 }));

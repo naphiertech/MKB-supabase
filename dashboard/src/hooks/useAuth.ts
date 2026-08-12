@@ -30,6 +30,7 @@ export interface Session {
   riderId?: string;
   accountStatus: UserStatus;
   employmentStatus: EmploymentStatus;
+  hubAccessScope: 'global' | 'assigned';
 }
 
 export function isProfileLoginBlocked(profile: {
@@ -51,7 +52,8 @@ function readSession(): Session | null {
     return {
       ...parsed,
       accountStatus: parsed.accountStatus || 'active',
-      employmentStatus: parsed.employmentStatus || 'active'
+      employmentStatus: parsed.employmentStatus || 'active',
+      hubAccessScope: parsed.hubAccessScope || 'assigned'
     };
   } catch {
     return null;
@@ -92,7 +94,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
 
   const { data: profile, error } = await supabase
     .from('users')
-    .select('full_name, role, status, rider_id, employment_status')
+    .select('full_name, role, status, rider_id, employment_status, hub_access_scope')
     .eq('id', authUser.id)
     .single();
 
@@ -106,6 +108,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
     riderId: profile.rider_id || undefined,
     accountStatus: profile.status as UserStatus,
     employmentStatus: profile.employment_status as EmploymentStatus,
+    hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
   };
   if (!currentSession || currentSession.id !== authUser.id) return;
   if (
@@ -115,6 +118,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
     && currentSession.riderId === next.riderId
     && currentSession.accountStatus === next.accountStatus
     && currentSession.employmentStatus === next.employmentStatus
+    && currentSession.hubAccessScope === next.hubAccessScope
   ) return;
   currentSession = next;
   writeSession(next);
@@ -128,7 +132,7 @@ if (typeof window !== "undefined") {
     try {
       const { data: profile, error } = await supabase
         .from("users")
-        .select("full_name, role, status, rider_id, employment_status")
+        .select("full_name, role, status, rider_id, employment_status, hub_access_scope")
         .eq("id", currentSession.id)
         .single();
 
@@ -142,6 +146,7 @@ if (typeof window !== "undefined") {
           riderId: profile.rider_id || undefined,
           accountStatus: profile.status as UserStatus,
           employmentStatus: profile.employment_status as EmploymentStatus,
+          hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
         };
         currentSession = next;
         writeSession(next);
@@ -277,7 +282,7 @@ export function useAuth() {
         // Fetch latest profile status & details
         const { data: profile, error } = await supabase
           .from("users")
-          .select("full_name, role, status, rider_id, employment_status")
+          .select("full_name, role, status, rider_id, employment_status, hub_access_scope")
           .eq("id", supabaseSession.user.id)
           .single();
 
@@ -349,6 +354,7 @@ export function useAuth() {
             riderId: profile.rider_id || undefined,
             accountStatus: profile.status as UserStatus,
             employmentStatus: profile.employment_status as EmploymentStatus,
+            hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
           };
           currentSession = next;
           writeSession(next);
@@ -430,7 +436,7 @@ export function useAuth() {
 
         const { data: profile, error: profileError } = await supabase
           .from("users")
-          .select("full_name, role, status, rider_id, employment_status")
+          .select("full_name, role, status, rider_id, employment_status, hub_access_scope")
           .eq("id", authData.user.id)
           .single();
 
@@ -563,6 +569,7 @@ export function useAuth() {
           riderId: profile.rider_id || undefined,
           accountStatus: profile.status as UserStatus,
           employmentStatus: profile.employment_status as EmploymentStatus,
+          hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
         };
 
         currentSession = next;

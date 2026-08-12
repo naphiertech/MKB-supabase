@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { FACE_MATCH_THRESHOLD, verifyFaceIdentity } from '../lib/faceAi';
+import { getSelectedHubId } from '../lib/hubWorkspaceState';
 
 export interface EmployeeDuplicateCheckParams {
   mkbRiderId?: string;
@@ -159,11 +160,13 @@ export interface UserProfileUpdateInput {
   employmentType?: string | null;
   dateOfHire?: string | null;
   notes?: string | null;
+  hubAccessScope?: 'global' | 'assigned';
 }
 
 export interface RiderProfileInput {
   name: string;
   contact?: string | null;
+  hubId?: string | null;
   zoneId?: string | null;
   faceImage?: string | null;
   faceDescriptor?: number[] | null;
@@ -187,11 +190,17 @@ export interface RiderProfileInput {
 export const getUsersAndRiders = async () => {
   const { data, error } = await supabase
     .from('users')
-    .select('*, riders(*)')
+    .select('*, riders(*), user_hub_access!user_hub_access_user_id_fkey(hub_id)')
     .order('full_name', { ascending: true });
 
   if (error) throw error;
-  return data;
+  const selectedHubId = getSelectedHubId();
+  if (!selectedHubId) return data;
+  return data.filter((user) => {
+    if (user.role === 'rider') return user.riders?.hub_id === selectedHubId;
+    if (user.role === 'admin' || user.hub_access_scope === 'global') return true;
+    return user.user_hub_access?.some((access: { hub_id: string }) => access.hub_id === selectedHubId);
+  });
 };
 
 // Update user table profile details
@@ -245,12 +254,15 @@ function formatPostgresError(error: { code?: string; message?: string; details?:
 
 // Update rider profile details
 export const updateRiderProfile = async (riderId: string, input: RiderProfileInput) => {
+  if (!input.hubId) throw new Error('An assigned hub is required for every Rider.');
+  if (!input.zoneId) throw new Error('A hub-scoped zone is required for every Rider.');
   const { error } = await supabase
     .from('riders')
     .update({
       name: input.name,
       contact: input.contact || null,
-      zone_id: input.zoneId || null,
+      hub_id: input.hubId,
+      zone_id: input.zoneId,
       shift: null,
       face_registered: !!input.faceImage,
       face_image_url: input.faceImage || null,
@@ -276,6 +288,8 @@ export const updateRiderProfile = async (riderId: string, input: RiderProfileInp
 
 // Create a new rider record in public.riders
 export const createRiderProfile = async (input: RiderProfileInput): Promise<string> => {
+  if (!input.hubId) throw new Error('An assigned hub is required for every Rider.');
+  if (!input.zoneId) throw new Error('A hub-scoped zone is required for every Rider.');
   const { data, error } = await supabase
     .from('riders')
     .insert({
@@ -283,7 +297,8 @@ export const createRiderProfile = async (input: RiderProfileInput): Promise<stri
       mkb_id: input.mkbRiderId || `MKB-${Math.floor(1000 + Math.random() * 9000)}`,
       email: input.email,
       contact: input.contact || null,
-      zone_id: input.zoneId || null,
+      zone_id: input.zoneId,
+      hub_id: input.hubId,
       shift: null,
       status: 'offline',
       face_registered: !!input.faceImage,
@@ -334,7 +349,8 @@ export const createUserProfile = async (userId: string, riderId: string | null, 
       status: input.status || 'active',
       employment_type: input.employmentType || null,
       date_of_hire: input.dateOfHire || null,
-      notes: input.notes || null
+      notes: input.notes || null,
+      hub_access_scope: input.role === 'rider' ? 'assigned' : input.hubAccessScope || 'global'
     });
 
   if (error) throw formatPostgresError(error);
@@ -346,16 +362,23 @@ export const getSearchIndexData = async () => {
     supabase.from('zones').select('id, name'),
     supabase
       .from('users')
-      .select('id, full_name, role, contact, employment_status, riders(zone_id, mkb_id)')
+      .select('id, full_name, role, contact, employment_status, riders(zone_id, mkb_id, hub_id)')
       .eq('employment_status', 'active')
   ]);
 
   if (zonesRes.error) throw zonesRes.error;
   if (usersRes.error) throw usersRes.error;
 
+  const selectedHubId = getSelectedHubId();
+  const users = selectedHubId
+    ? (usersRes.data || []).filter((user) => {
+        const rider = Array.isArray(user.riders) ? user.riders[0] : user.riders;
+        return user.role !== 'rider' || rider?.hub_id === selectedHubId;
+      })
+    : usersRes.data || [];
   return {
     zones: zonesRes.data || [],
-    users: usersRes.data || []
+    users
   };
 };
 
@@ -447,9 +470,16 @@ function staffAvatarPath(userId: string): string {
 }
 
 export const getStaffAvatarSignedUrl = async (userId: string): Promise<string | null> => {
-  const { data, error } = await supabase.storage
-    .from(STAFF_AVATAR_BUCKET)
-    .createSignedUrl(staffAvatarPath(userId), 3600);
+  const bucket = supabase.storage.from(STAFF_AVATAR_BUCKET);
+  const folder = `staff/${userId}`;
+  const { data: objects, error: listError } = await bucket.list(folder, {
+    limit: 1,
+    search: 'avatar',
+  });
+  if (listError) throw listError;
+  if (!objects?.some((object) => object.name === 'avatar')) return null;
+
+  const { data, error } = await bucket.createSignedUrl(staffAvatarPath(userId), 3600);
   if (error) {
     if (/not found|object not found/i.test(error.message)) return null;
     throw error;
