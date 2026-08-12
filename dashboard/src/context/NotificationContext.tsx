@@ -18,6 +18,7 @@ import {
   updateNotificationPreferences as persistNotificationPreferences,
   type NotificationPreferences,
 } from '../services/notificationPreferenceService';
+import { AttendanceRealtimeContext } from './attendanceRealtimeContext';
 
 interface NotificationContextType {
   notifications: NotificationRecord[];
@@ -58,6 +59,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [notificationPreferencesLoading, setNotificationPreferencesLoading] = useState(true);
   const [notificationPreferencesError, setNotificationPreferencesError] = useState<string | null>(null);
+  const [attendanceInvalidationVersion, setAttendanceInvalidationVersion] = useState(0);
   const { session } = useAuth();
 
   const userRole = (session?.role as UserRole) || null;
@@ -68,6 +70,26 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const seenToastIdsRef = useRef<Set<string>>(new Set());
   const notificationPreferencesRef = useRef<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const notificationPreferencesReadyRef = useRef(false);
+  const seenRealtimeEventsRef = useRef<Set<string>>(new Set());
+  const notificationRequestIdRef = useRef(0);
+
+  const shouldHandleRealtimeEvent = useCallback((table: string, payload: {
+    commit_timestamp?: string;
+    eventType?: string;
+    new?: { id?: string };
+    old?: { id?: string };
+  }): boolean => {
+    const rowId = payload.new?.id || payload.old?.id || 'unknown';
+    const key = `${table}:${payload.eventType || 'unknown'}:${rowId}:${payload.commit_timestamp || 'unknown'}`;
+    const seen = seenRealtimeEventsRef.current;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    if (seen.size > 200) {
+      const oldest = seen.values().next().value;
+      if (oldest) seen.delete(oldest);
+    }
+    return true;
+  }, []);
 
   useEffect(() => {
     if (!userId) {
@@ -116,6 +138,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Refresh notifications list from Supabase
   const refreshNotifications = useCallback(async () => {
+    const requestId = ++notificationRequestIdRef.current;
     if (!userRole) {
       setNotifications([]);
       setLoading(false);
@@ -128,11 +151,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         userRole,
         limit: 100
       });
-      setNotifications(data);
+      if (requestId === notificationRequestIdRef.current) {
+        setNotifications(data);
+      }
     } catch (err) {
       console.warn('[NotificationContext] Failed to fetch notifications:', err);
     } finally {
-      setLoading(false);
+      if (requestId === notificationRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [userRole, userId]);
 
@@ -146,16 +173,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     let isMounted = true;
     isInitialLoadRef.current = true;
+    seenRealtimeEventsRef.current.clear();
 
     // Load initial 100 notifications
     async function initLoad() {
+      const requestId = ++notificationRequestIdRef.current;
       try {
         const data = await getNotificationsForUser({
           userId: userId || undefined,
           userRole,
           limit: 100
         });
-        if (isMounted) {
+        if (isMounted && requestId === notificationRequestIdRef.current) {
           setNotifications(data);
           // Mark initial items as seen to suppress toasts
           data.forEach(item => seenToastIdsRef.current.add(item.id));
@@ -163,18 +192,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       } catch (err) {
         console.warn('[NotificationContext] Initial load failed:', err);
       } finally {
-        if (isMounted) {
+        if (isMounted && requestId === notificationRequestIdRef.current) {
           setLoading(false);
-          isInitialLoadRef.current = false;
         }
+        if (isMounted) isInitialLoadRef.current = false;
       }
     }
 
     initLoad();
 
     // Initialize SINGLE Realtime channel subscription for the application lifetime
-    const channelName = `realtime-global-notifications-${userId || userRole}`;
-    const channel = supabase
+    const channelName = `realtime-authoritative-sync-${userId || userRole}`;
+    let channel = supabase
       .channel(channelName)
       .on(
         'postgres_changes',
@@ -186,11 +215,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const isDirectTarget = userId && newRow.recipient_id === userId;
           const isRoleTarget = !newRow.recipient_id && newRow.target_roles?.includes(userRole);
 
-          if (isDirectTarget || isRoleTarget) {
-            setNotifications(prev => {
-              if (prev.some(n => n.id === newRow.id)) return prev;
-              return [newRow, ...prev].slice(0, 100);
-            });
+          if ((isDirectTarget || isRoleTarget) && shouldHandleRealtimeEvent('notifications', payload)) {
+            void refreshNotifications();
 
             // Presentation preferences never remove the persisted Notification Center row.
             if (!isInitialLoadRef.current && !seenToastIdsRef.current.has(newRow.id)) {
@@ -220,21 +246,51 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const isDirectTarget = userId && updatedRow.recipient_id === userId;
           const isRoleTarget = !updatedRow.recipient_id && updatedRow.target_roles?.includes(userRole);
 
-          if (isDirectTarget || isRoleTarget) {
-            setNotifications(prev =>
-              prev.map(n => (n.id === updatedRow.id ? { ...n, ...updatedRow } : n))
-            );
+          if ((isDirectTarget || isRoleTarget) && shouldHandleRealtimeEvent('notifications', payload)) {
+            void refreshNotifications();
           }
         }
-      )
-      .subscribe();
+      );
+
+    if (userRole === 'admin' || userRole === 'hr') {
+      channel = channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance_logs' },
+        (payload) => {
+          if (shouldHandleRealtimeEvent('attendance_logs', payload)) {
+            setAttendanceInvalidationVersion(version => version + 1);
+          }
+        }
+      );
+    }
+
+    let hasSubscribed = false;
+    let wasDisconnected = false;
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        if (hasSubscribed && wasDisconnected) {
+          seenRealtimeEventsRef.current.clear();
+          void refreshNotifications();
+          if (userRole === 'admin' || userRole === 'hr') {
+            setAttendanceInvalidationVersion(version => version + 1);
+          }
+        }
+        hasSubscribed = true;
+        wasDisconnected = false;
+        return;
+      }
+
+      if (hasSubscribed && (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED')) {
+        wasDisconnected = true;
+      }
+    });
 
     // Clean up channel subscription on unmount or user switch
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, [userRole, userId]);
+  }, [refreshNotifications, shouldHandleRealtimeEvent, userRole, userId]);
 
   // Mark single notification read
   const handleMarkAsRead = useCallback(async (id: string) => {
@@ -297,9 +353,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   return (
-    <NotificationContext.Provider value={value}>
-      {children}
-    </NotificationContext.Provider>
+    <AttendanceRealtimeContext.Provider value={attendanceInvalidationVersion}>
+      <NotificationContext.Provider value={value}>
+        {children}
+      </NotificationContext.Provider>
+    </AttendanceRealtimeContext.Provider>
   );
 };
 

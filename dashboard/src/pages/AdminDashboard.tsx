@@ -22,6 +22,7 @@ import {
   markViolationRead,
 } from "../services/monitoringService";
 import { StatDetailsPanel } from "../components/dashboard/StatDetailsPanels";
+import { useAttendanceRealtimeVersion } from "../context/attendanceRealtimeContext";
 
 interface AdminDashboardProps {
   onNavigate: (page: "monitoring" | "attendance") => void;
@@ -35,11 +36,19 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const violationCount = riders.filter((r) => r.status === "violation").length;
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
+  const attendanceRealtimeVersion = useAttendanceRealtimeVersion();
 
   useEffect(() => {
     getZones().then(setZonesList);
-    getAttendanceLogs().then(setAttendanceList);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void getAttendanceLogs().then((logs) => {
+      if (active) setAttendanceList(logs);
+    });
+    return () => { active = false; };
+  }, [attendanceRealtimeVersion]);
 
   const today = getLocalDateString();
   const todayLogs = attendanceList.filter((l) => l.date === today);

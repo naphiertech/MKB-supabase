@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act } from 'react';
+import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_NOTIFICATION_PREFERENCES } from '../services/notificationPreferenceService';
@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   pushToast: vi.fn(),
   removeChannel: vi.fn(),
   updatePreferences: vi.fn(),
+  attendanceQuery: vi.fn(),
+  dashboardQuery: vi.fn(),
 }));
 
 vi.mock('../hooks/useAuth', () => ({
@@ -49,6 +51,7 @@ vi.mock('../services/notificationPreferenceService', async () => {
   };
 });
 
+import { useAttendanceRealtimeVersion } from './attendanceRealtimeContext';
 import { NotificationProvider, useNotificationContext } from './NotificationContext';
 
 const notification: NotificationRecord = {
@@ -79,14 +82,24 @@ async function flush(): Promise<void> {
 describe('NotificationProvider preferences', () => {
   let container: HTMLDivElement;
   let root: Root;
-  let insertHandler: ((payload: { new: NotificationRecord }) => void) | undefined;
+  let handlers: Map<string, (payload: RealtimeTestPayload) => void>;
+  let subscribeStatusHandler: ((status: string) => void) | undefined;
   let context: ReturnType<typeof useNotificationContext> | undefined;
+
+  interface RealtimeTestPayload {
+    commit_timestamp?: string;
+    eventType?: 'INSERT' | 'UPDATE' | 'DELETE';
+    new: NotificationRecord | { id: string; time_in?: string | null; time_out?: string | null };
+    old?: { id?: string };
+  }
 
   beforeEach(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    handlers = new Map();
+    subscribeStatusHandler = undefined;
     mocks.getNotifications.mockResolvedValue([]);
     mocks.loadPreferences.mockResolvedValue({
       user_id: 'user-1',
@@ -98,11 +111,14 @@ describe('NotificationProvider preferences', () => {
       updated_at: '2026-08-09T11:00:00Z',
     });
     const channel = {
-      on: vi.fn((_kind: string, filter: { event: string }, handler: (payload: { new: NotificationRecord }) => void) => {
-        if (filter.event === 'INSERT') insertHandler = handler;
+      on: vi.fn((_kind: string, filter: { event: string; table: string }, handler: (payload: RealtimeTestPayload) => void) => {
+        handlers.set(`${filter.table}:${filter.event}`, handler);
         return channel;
       }),
-      subscribe: vi.fn(() => channel),
+      subscribe: vi.fn((handler?: (status: string) => void) => {
+        subscribeStatusHandler = handler;
+        return channel;
+      }),
     };
     mocks.channel.mockReturnValue(channel);
   });
@@ -119,18 +135,33 @@ describe('NotificationProvider preferences', () => {
     return <div>{context.notifications.length}</div>;
   }
 
+  function AuthoritativeQueryConsumers() {
+    const attendanceInvalidationVersion = useAttendanceRealtimeVersion();
+
+    useEffect(() => {
+      mocks.attendanceQuery();
+      mocks.dashboardQuery();
+    }, [attendanceInvalidationVersion]);
+
+    return null;
+  }
+
   it('keeps suppressed notifications in history while using one existing Realtime channel', async () => {
+    mocks.getNotifications
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([notification]);
     const pollingSpy = vi.spyOn(window, 'setInterval');
     act(() => root.render(<NotificationProvider><Consumer /></NotificationProvider>));
     await flush();
 
-    act(() => insertHandler?.({ new: notification }));
+    act(() => handlers.get('notifications:INSERT')?.({ new: notification }));
+    await flush();
     expect(context?.notifications).toContainEqual(notification);
     expect(mocks.pushToast).not.toHaveBeenCalled();
     expect(mocks.playSound).not.toHaveBeenCalled();
     expect(mocks.loadPreferences).toHaveBeenCalledTimes(1);
     expect(mocks.channel).toHaveBeenCalledTimes(1);
-    expect(mocks.channel.mock.calls[0]?.[0]).toBe('realtime-global-notifications-user-1');
+    expect(mocks.channel.mock.calls[0]?.[0]).toBe('realtime-authoritative-sync-user-1');
     expect(pollingSpy).not.toHaveBeenCalled();
     pollingSpy.mockRestore();
   });
@@ -147,11 +178,135 @@ describe('NotificationProvider preferences', () => {
     await flush();
 
     await act(async () => { await context?.saveNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES); });
-    act(() => insertHandler?.({ new: { ...notification, id: 'notification-2' } }));
+    act(() => handlers.get('notifications:INSERT')?.({ new: { ...notification, id: 'notification-2' } }));
+    await flush();
 
     expect(context?.notificationPreferences).toEqual(DEFAULT_NOTIFICATION_PREFERENCES);
     expect(mocks.pushToast).toHaveBeenCalledTimes(1);
     expect(mocks.playSound).toHaveBeenCalledTimes(1);
     expect(mocks.channel).toHaveBeenCalledTimes(1);
+  });
+
+  it('invalidates authoritative attendance and dashboard queries for Time In and Time Out exactly once', async () => {
+    act(() => root.render(
+      <NotificationProvider>
+        <Consumer />
+        <AuthoritativeQueryConsumers />
+      </NotificationProvider>
+    ));
+    await flush();
+
+    const attendanceHandler = handlers.get('attendance_logs:*');
+    expect(attendanceHandler).toBeDefined();
+    expect(mocks.attendanceQuery).toHaveBeenCalledTimes(1);
+    expect(mocks.dashboardQuery).toHaveBeenCalledTimes(1);
+
+    const timeInPayload: RealtimeTestPayload = {
+      commit_timestamp: '2026-08-12T04:00:00Z',
+      eventType: 'INSERT',
+      new: { id: 'attendance-1', time_in: '2026-08-12T04:00:00Z', time_out: null },
+    };
+    act(() => attendanceHandler?.(timeInPayload));
+    await flush();
+    expect(mocks.attendanceQuery).toHaveBeenCalledTimes(2);
+    expect(mocks.dashboardQuery).toHaveBeenCalledTimes(2);
+
+    act(() => attendanceHandler?.(timeInPayload));
+    await flush();
+    expect(mocks.attendanceQuery).toHaveBeenCalledTimes(2);
+    expect(mocks.dashboardQuery).toHaveBeenCalledTimes(2);
+
+    act(() => attendanceHandler?.({
+      commit_timestamp: '2026-08-12T12:00:00Z',
+      eventType: 'UPDATE',
+      new: { id: 'attendance-1', time_in: '2026-08-12T04:00:00Z', time_out: '2026-08-12T12:00:00Z' },
+    }));
+    await flush();
+    expect(mocks.attendanceQuery).toHaveBeenCalledTimes(3);
+    expect(mocks.dashboardQuery).toHaveBeenCalledTimes(3);
+  });
+
+  it('refetches the authoritative notification list for the badge and list without duplicate handling', async () => {
+    mocks.getNotifications
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([notification]);
+
+    act(() => root.render(<NotificationProvider><Consumer /></NotificationProvider>));
+    await flush();
+
+    const payload: RealtimeTestPayload = {
+      commit_timestamp: notification.created_at,
+      eventType: 'INSERT',
+      new: notification,
+    };
+    act(() => handlers.get('notifications:INSERT')?.(payload));
+    await flush();
+
+    expect(mocks.getNotifications).toHaveBeenCalledTimes(2);
+    expect(context?.notifications).toEqual([notification]);
+
+    act(() => handlers.get('notifications:INSERT')?.(payload));
+    await flush();
+    expect(mocks.getNotifications).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not let a slower initial notification query overwrite a newer Realtime refetch', async () => {
+    let resolveInitial: (records: NotificationRecord[]) => void = () => undefined;
+    let resolveRealtime: (records: NotificationRecord[]) => void = () => undefined;
+    mocks.getNotifications
+      .mockReturnValueOnce(new Promise(resolve => { resolveInitial = resolve; }))
+      .mockReturnValueOnce(new Promise(resolve => { resolveRealtime = resolve; }));
+
+    act(() => root.render(<NotificationProvider><Consumer /></NotificationProvider>));
+    await flush();
+
+    act(() => handlers.get('notifications:INSERT')?.({
+      commit_timestamp: notification.created_at,
+      eventType: 'INSERT',
+      new: notification,
+    }));
+    await act(async () => { resolveRealtime([notification]); });
+    expect(context?.notifications).toEqual([notification]);
+
+    await act(async () => { resolveInitial([]); });
+    expect(context?.notifications).toEqual([notification]);
+  });
+
+  it('resynchronizes authoritative data after a temporary Realtime disconnect', async () => {
+    act(() => root.render(
+      <NotificationProvider>
+        <Consumer />
+        <AuthoritativeQueryConsumers />
+      </NotificationProvider>
+    ));
+    await flush();
+
+    expect(subscribeStatusHandler).toBeDefined();
+    act(() => subscribeStatusHandler?.('SUBSCRIBED'));
+    await flush();
+    expect(mocks.getNotifications).toHaveBeenCalledTimes(1);
+    expect(mocks.attendanceQuery).toHaveBeenCalledTimes(1);
+
+    act(() => subscribeStatusHandler?.('CHANNEL_ERROR'));
+    act(() => subscribeStatusHandler?.('SUBSCRIBED'));
+    await flush();
+
+    expect(mocks.getNotifications).toHaveBeenCalledTimes(2);
+    expect(mocks.attendanceQuery).toHaveBeenCalledTimes(2);
+    expect(mocks.dashboardQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('cleans up one channel and creates only one replacement on remount', async () => {
+    act(() => root.render(<NotificationProvider><Consumer /></NotificationProvider>));
+    await flush();
+    expect(mocks.channel).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+    expect(mocks.removeChannel).toHaveBeenCalledTimes(1);
+
+    root = createRoot(container);
+    act(() => root.render(<NotificationProvider><Consumer /></NotificationProvider>));
+    await flush();
+    expect(mocks.channel).toHaveBeenCalledTimes(2);
   });
 });

@@ -25,6 +25,7 @@ import { exportPDF } from '../lib/exports/reportExport';
 import { getCachedAvatar } from '../lib/avatarCache';
 import { isEmploymentActiveOnDate } from '../services/employmentLifecycle';
 import type { EmploymentStatus } from '../services/types';
+import { useAttendanceRealtimeVersion } from '../context/attendanceRealtimeContext';
 
 type QuickRange = 'today' | 'this_week' | 'this_cutoff' | 'this_month' | 'custom';
 
@@ -105,9 +106,9 @@ export function Attendance() {
   const [isParsing, setIsParsing] = useState(false);
   const [parsedLogs, setParsedLogs] = useState<ParsedDTRLog[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const attendanceRealtimeVersion = useAttendanceRealtimeVersion();
 
   useEffect(() => {
-    getAttendanceLogs().then(setAttendanceList);
     getZones().then(setZonesList);
 
     // Fetch riders for DTR picker
@@ -145,6 +146,14 @@ export function Attendance() {
         toast.error('Failed to load riders list');
       });
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void getAttendanceLogs().then((logs) => {
+      if (active) setAttendanceList(logs);
+    });
+    return () => { active = false; };
+  }, [attendanceRealtimeVersion]);
 
   const fullAttendanceList = useMemo(() => {
     if (ridersList.length === 0) return attendanceList;

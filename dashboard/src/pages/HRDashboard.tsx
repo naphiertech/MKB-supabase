@@ -11,6 +11,7 @@ import { RiderStatusGrid } from '../components/hr/RiderStatusGrid';
 import { HRViolationSummary } from '../components/hr/HRViolationSummary';
 import { HRDetailsPanel } from '../components/hr/HRDetailsPanels';
 import { NeedsAttention } from '../components/hr/NeedsAttention';
+import { useAttendanceRealtimeVersion } from '../context/attendanceRealtimeContext';
 
 interface HRDashboardProps {
   onNavigate: (page: 'monitoring' | 'attendance' | 'reports', params?: Record<string, string>) => void;
@@ -27,12 +28,21 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
   const [activeSummaryPanel, setActiveSummaryPanel] = useState<'on_duty' | 'complete' | 'absent' | 'pending' | null>(null);
+  const attendanceRealtimeVersion = useAttendanceRealtimeVersion();
 
   useEffect(() => {
-    getHrTodayKpis().then(setKpis);
     getZones().then(setZonesList);
-    getAttendanceLogs().then(setAttendanceList);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([getHrTodayKpis(), getAttendanceLogs()]).then(([nextKpis, logs]) => {
+      if (!active) return;
+      setKpis(nextKpis);
+      setAttendanceList(logs);
+    });
+    return () => { active = false; };
+  }, [attendanceRealtimeVersion]);
 
   const today = getLocalDateString();
   const todayLogs = attendanceList.filter((l) => l.date === today);
