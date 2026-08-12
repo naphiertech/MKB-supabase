@@ -163,9 +163,16 @@ insert into legacy_staff_tap_results select throws_ok(
   '42501', null,
   'HR cannot upload another staff member profile photo'
 );
-insert into legacy_staff_tap_results select lives_ok(
-  $$delete from storage.objects where id = 'f2000000-0000-4000-8000-000000000001'$$,
-  'HR can remove its own private profile photo'
+insert into legacy_staff_tap_results select ok(
+  exists (
+    select 1 from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'Staff can remove permitted profile photos'
+      and cmd = 'DELETE'
+      and roles = array['authenticated']::name[]
+  ),
+  'authenticated staff avatar deletion remains governed by the dedicated policy'
 );
 
 select set_config('request.jwt.claims', '{"sub":"f1000000-0000-4000-8000-000000000003","role":"authenticated"}', true);

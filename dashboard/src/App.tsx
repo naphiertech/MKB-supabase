@@ -13,6 +13,7 @@ import { RiderTopNav, type RiderPageKey } from './components/rider/RiderTopNav';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabaseClient';
 import { useRiderZone } from './context/RiderZoneContext';
+import { useHub } from './context/HubContext';
 
 import { useNotifications } from './hooks/useNotifications';
 import { Toaster } from 'react-hot-toast';
@@ -40,6 +41,7 @@ const DailyParcelEntry = lazy(() => import('./pages/DailyParcelEntry').then((mod
 const ParcelHistory = lazy(() => import('./pages/ParcelHistory').then((module) => ({ default: module.ParcelHistory })));
 const PayrollHistory = lazy(() => import('./pages/PayrollHistory').then((module) => ({ default: module.PayrollHistory })));
 const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })));
+const HubManagement = lazy(() => import('./pages/HubManagement').then((module) => ({ default: module.HubManagement })));
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
   state: { hasError: boolean; error: unknown } = { hasError: false, error: null };
   static getDerivedStateFromError(error: unknown) {
@@ -82,6 +84,7 @@ export function App() {
     window.location.pathname !== '/index.html';
 
   const { session, isReady: isAuthReady, user, signOut, signOutLocally } = useAuth();
+  const { isReady: isHubReady, workspaceKey } = useHub();
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => {
     if (typeof window === 'undefined') return false;
     return isPasswordRecoveryUrl(window.location);
@@ -339,6 +342,10 @@ export function App() {
     return <div className="min-h-screen grid place-items-center bg-panel-bg text-sm text-muted-foreground">Verifying account security…</div>;
   }
 
+  if (session && session.role !== 'rider' && !isHubReady) {
+    return <div className="min-h-screen grid place-items-center bg-panel-bg text-sm text-muted-foreground">Loading hub workspace…</div>;
+  }
+
   if (session && mfaError) {
     return <div className="min-h-screen grid place-items-center bg-panel-bg p-6"><div className="max-w-sm rounded-xl border border-red-200 bg-white p-6 text-center shadow-sm"><h1 className="font-semibold text-red-800">Security verification unavailable</h1><p className="mt-2 text-sm text-muted-foreground">{mfaError}</p><div className="mt-4 flex justify-center gap-2"><button type="button" onClick={() => void refreshMfaGate({ blocking: true })} className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white">Retry</button><button type="button" onClick={signOut} className="rounded-lg border border-border px-4 py-2 text-xs font-semibold">Sign out</button></div></div></div>;
   }
@@ -443,6 +450,7 @@ export function App() {
         'dashboard',
         'monitoring',
         'geofence',
+        'hubs',
         'attendance',
         'reports',
         'users',
@@ -524,7 +532,7 @@ export function App() {
           <AnimatePresence mode="wait">
             <Suspense fallback={<DashboardSkeleton page={safePage} role={dashRole} />}>
               <motion.div
-                key={safePage}
+                key={`${safePage}:${workspaceKey}`}
                 variants={pageVariants}
                 initial="initial"
                 animate="animate"
@@ -540,6 +548,7 @@ export function App() {
                     }
                     {safePage === 'monitoring' && <LiveMonitoring />}
                     {safePage === 'geofence' && <Geofence />}
+                    {safePage === 'hubs' && <HubManagement />}
                     {safePage === 'attendance' && <Attendance />}
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}

@@ -81,6 +81,13 @@ Deno.serve(async (request: Request) => {
       : authorizeAdminUserAction(validatedAction as 'suspend' | 'reactivate', caller.role, caller.id, target.id, target.role, target.employment_status);
   if (!authorizationResult.allowed) return json({ ok: false, error: authorizationResult.reason }, 403);
 
+  const { data: canManageTargetHub, error: hubAuthorizationError } = await adminClient.rpc('actor_can_manage_user_hub', {
+    p_actor_id: caller.id,
+    p_target_user_id: target.id,
+  });
+  if (hubAuthorizationError) return json({ ok: false, error: hubAuthorizationError.message }, 500);
+  if (!canManageTargetHub) return json({ ok: false, error: 'You are not authorized to manage users in this hub.' }, 403);
+
   if (isEmploymentAction) {
     if (typeof payload.reason !== 'string' || typeof payload.requestId !== 'string' || !/^[0-9a-f-]{36}$/i.test(payload.requestId)) {
       return json({ ok: false, error: 'A reason and valid request identifier are required.' }, 400);

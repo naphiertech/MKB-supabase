@@ -122,7 +122,7 @@ select is((select status::text from public.payroll_records where id='c1000000-00
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
 select throws_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='rider_denied'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000004')$$,
-  'P0001', null, 'Rider cannot approve payroll'
+  '42501', null, 'Rider cannot approve payroll'
 );
 reset role;
 select is((select status::text from public.payroll_records where id='c1000000-0000-4000-8000-000000000007'), 'pending', 'Rider approval attempt leaves payroll unchanged');

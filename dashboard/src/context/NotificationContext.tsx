@@ -19,6 +19,7 @@ import {
   type NotificationPreferences,
 } from '../services/notificationPreferenceService';
 import { AttendanceRealtimeContext } from './attendanceRealtimeContext';
+import { useHub } from './HubContext';
 
 interface NotificationContextType {
   notifications: NotificationRecord[];
@@ -61,6 +62,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [notificationPreferencesError, setNotificationPreferencesError] = useState<string | null>(null);
   const [attendanceInvalidationVersion, setAttendanceInvalidationVersion] = useState(0);
   const { session } = useAuth();
+  const { selectedHubId, workspaceKey, isReady: hubReady } = useHub();
 
   const userRole = (session?.role as UserRole) || null;
   const userId = session?.id || null;
@@ -139,7 +141,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Refresh notifications list from Supabase
   const refreshNotifications = useCallback(async () => {
     const requestId = ++notificationRequestIdRef.current;
-    if (!userRole) {
+    if (!userRole || !hubReady) {
       setNotifications([]);
       setLoading(false);
       return;
@@ -161,11 +163,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setLoading(false);
       }
     }
-  }, [userRole, userId]);
+  }, [hubReady, userRole, userId]);
 
   // Initial load & Single Supabase Realtime channel subscription
   useEffect(() => {
-    if (!userRole) {
+    if (!userRole || !hubReady) {
       setNotifications([]);
       setLoading(false);
       return;
@@ -209,7 +211,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
         (payload) => {
-          const newRow = payload.new as NotificationRecord;
+          const newRow = payload.new as NotificationRecord & { hub_id?: string | null };
+          if (selectedHubId && newRow.hub_id && newRow.hub_id !== selectedHubId) return;
 
           // Check if payload targets current user directly OR matches user role
           const isDirectTarget = userId && newRow.recipient_id === userId;
@@ -242,7 +245,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'notifications' },
         (payload) => {
-          const updatedRow = payload.new as NotificationRecord;
+          const updatedRow = payload.new as NotificationRecord & { hub_id?: string | null };
+          if (selectedHubId && updatedRow.hub_id && updatedRow.hub_id !== selectedHubId) return;
           const isDirectTarget = userId && updatedRow.recipient_id === userId;
           const isRoleTarget = !updatedRow.recipient_id && updatedRow.target_roles?.includes(userRole);
 
@@ -257,7 +261,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         'postgres_changes',
         { event: '*', schema: 'public', table: 'attendance_logs' },
         (payload) => {
-          if (shouldHandleRealtimeEvent('attendance_logs', payload)) {
+          const row = (payload.new || payload.old) as { hub_id?: string | null };
+          if ((!selectedHubId || row.hub_id === selectedHubId) && shouldHandleRealtimeEvent('attendance_logs', payload)) {
             setAttendanceInvalidationVersion(version => version + 1);
           }
         }
@@ -290,7 +295,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, [refreshNotifications, shouldHandleRealtimeEvent, userRole, userId]);
+  }, [hubReady, refreshNotifications, selectedHubId, shouldHandleRealtimeEvent, userRole, userId, workspaceKey]);
 
   // Mark single notification read
   const handleMarkAsRead = useCallback(async (id: string) => {

@@ -12,7 +12,8 @@ import {
   Star,
   BookOpen,
   PackageCheck,
-  History
+  History,
+  Building2
 } from 'lucide-react';
 
 export type PageKey =
@@ -29,7 +30,8 @@ export type PageKey =
   | 'audit_logs'
   | 'daily_parcels'
   | 'parcel_history'
-  | 'payroll_history';
+  | 'payroll_history'
+  | 'hubs';
 
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 
@@ -70,7 +72,8 @@ export const ADMIN_ITEMS: SidebarItem[] = [
     icon: MapPin,
     items: [
       { key: 'monitoring', label: 'Live Monitoring', icon: Activity },
-      { key: 'geofence', label: 'Geofence / Zones', icon: Target }
+      { key: 'geofence', label: 'Geofence / Zones', icon: Target },
+      { key: 'hubs', label: 'Hub Management', icon: Building2 }
     ]
   },
   {

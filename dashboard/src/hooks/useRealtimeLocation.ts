@@ -4,10 +4,12 @@ import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
 import { getLastKnownLocation } from '../services/monitoringService';
 import { getRiderWorkforceDirectory } from '../services/workforceDirectoryService';
+import { useHub } from '../context/HubContext';
 
 
 interface ZoneRow {
   id: string;
+  hub_id: string | null;
   name: string;
   lat: number | null;
   lng: number | null;
@@ -20,6 +22,7 @@ interface ZoneRow {
 
 interface RiderRow {
   id: string;
+  hub_id: string;
   name: string;
   face_image_url?: string | null;
   avatar_url: string | null;
@@ -46,6 +49,7 @@ interface ViolationRow {
   riders: { name: string } | null;
   resolved: boolean;
   resolved_at: string | null;
+  hub_id: string;
 }
 
 interface LocationRow {
@@ -55,10 +59,12 @@ interface LocationRow {
   speed: number | null;
   status: string | null;
   recorded_at: string;
+  hub_id: string;
 }
 
 interface RiderUpdateRow {
   id: string;
+  hub_id: string;
   zone_id: string | null;
   status: Rider['status'];
   lat: number | null;
@@ -88,6 +94,7 @@ export function useRealtimeLocation(): {
   markLocalViolationRead: (id: string) => void;
   markAllLocalViolationsRead: () => void;
 } {
+  const { selectedHubId, workspaceKey, isReady: hubReady } = useHub();
   const [riderState, setRiderState] = useState<Rider[]>([]);
   const [violationState, setViolationState] = useState<ViolationEvent[]>([]);
   const [zoneState, setZoneState] = useState<Zone[]>([]);
@@ -99,6 +106,7 @@ export function useRealtimeLocation(): {
   }, [zoneState]);
 
   useEffect(() => {
+    if (!hubReady) return;
     let active = true;
 
     // Load initial zones, active riders, and violations from Supabase
@@ -122,6 +130,7 @@ export function useRealtimeLocation(): {
           
           return {
             id: row.id,
+            hubId: row.hub_id,
             name: row.name,
             center,
             radius: row.radius || 0,
@@ -143,6 +152,7 @@ export function useRealtimeLocation(): {
           .from('riders')
           .select(`
             id,
+            hub_id,
             name,
             avatar_url,
             zone_id,
@@ -188,6 +198,7 @@ export function useRealtimeLocation(): {
 
           return {
             id: row.id,
+            hubId: row.hub_id,
             name: row.name,
             avatar: cached || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
             zoneId: row.zone_id,
@@ -352,28 +363,32 @@ export function useRealtimeLocation(): {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'rider_locations' },
         (payload) => {
-          handleLocationInsert(payload.new as unknown as LocationRow);
+          const row = payload.new as unknown as LocationRow;
+          if (!selectedHubId || row.hub_id === selectedHubId) handleLocationInsert(row);
         }
       )
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'violations' },
         (payload) => {
-          handleViolationInsert(payload.new as unknown as ViolationRow);
+          const row = payload.new as unknown as ViolationRow;
+          if (!selectedHubId || row.hub_id === selectedHubId) handleViolationInsert(row);
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'violations' },
         (payload) => {
-          handleViolationUpdate(payload.new as unknown as ViolationRow);
+          const row = payload.new as unknown as ViolationRow;
+          if (!selectedHubId || row.hub_id === selectedHubId) handleViolationUpdate(row);
         }
       )
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'riders' },
         (payload) => {
-          handleRiderUpdate(payload.new as unknown as RiderUpdateRow);
+          const row = payload.new as unknown as RiderUpdateRow;
+          if (!selectedHubId || row.hub_id === selectedHubId) handleRiderUpdate(row);
         }
       )
       .on(
@@ -389,7 +404,7 @@ export function useRealtimeLocation(): {
       active = false;
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [hubReady, selectedHubId, workspaceKey]);
 
   const markLocalViolationRead = useCallback((id: string) => {
     setViolationState((prevVs) =>

@@ -9,6 +9,7 @@ export type ZoneStatus = 'active' | 'inactive';
 
 export interface Zone {
   id: string;
+  hubId?: string | null;
   name: string;
   center: [number, number]; // [lat, lng]
   radius: number; // meters
@@ -20,6 +21,7 @@ export interface Zone {
 
 export interface Rider {
   id: string;
+  hubId?: string | null;
   name: string;
   avatar: string;
   zoneId: string | null;
@@ -78,6 +80,9 @@ export interface AppUser {
   email: string;
   role: UserRole;
   zoneId: string | null;
+  hubId?: string | null;
+  hubAccessScope?: 'global' | 'assigned';
+  authorizedHubIds?: string[];
   status: UserStatus;
   employmentStatus: EmploymentStatus;
   operationalStatus?: RiderStatus | null;

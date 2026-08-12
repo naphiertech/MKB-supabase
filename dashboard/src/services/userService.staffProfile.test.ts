@@ -20,6 +20,19 @@ import * as userService from './userService';
 beforeEach(() => vi.clearAllMocks());
 
 describe('legacy staff profile and email state', () => {
+  it('embeds hub memberships through the membership user_id foreign key', async () => {
+    const query = { select: vi.fn(), order: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.order.mockResolvedValue({ data: [], error: null });
+    mocks.from.mockReturnValue(query);
+
+    await userService.getUsersAndRiders();
+
+    expect(query.select).toHaveBeenCalledWith(
+      '*, riders(*), user_hub_access!user_hub_access_user_id_fkey(hub_id)',
+    );
+  });
+
   it('returns the current and pending email after requesting a confirmed Auth change', async () => {
     mocks.updateUser.mockResolvedValue({
       data: {
@@ -114,6 +127,21 @@ describe('legacy staff profile and email state', () => {
 
     expect(storage.upload).toHaveBeenNthCalledWith(1, 'staff/staff-1/avatar', first, expect.objectContaining({ upsert: true }));
     expect(storage.upload).toHaveBeenNthCalledWith(2, 'staff/staff-1/avatar', replacement, expect.objectContaining({ upsert: true }));
+  });
+
+  it('does not request a signed URL when the staff avatar object is absent', async () => {
+    const storage = {
+      list: vi.fn().mockResolvedValue({ data: [], error: null }),
+      createSignedUrl: vi.fn(),
+    };
+    mocks.storageFrom.mockReturnValue(storage);
+
+    await expect(userService.getStaffAvatarSignedUrl('staff-1')).resolves.toBeNull();
+    expect(storage.list).toHaveBeenCalledWith('staff/staff-1', {
+      limit: 1,
+      search: 'avatar',
+    });
+    expect(storage.createSignedUrl).not.toHaveBeenCalled();
   });
 
   it('removes only the deterministic avatar object', async () => {

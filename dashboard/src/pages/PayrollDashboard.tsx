@@ -150,7 +150,17 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
           p_cutoff_end: cutoffTo,
         });
         if (eligibilityError) throw eligibilityError;
-        setActiveRidersCount(eligibleRiders?.length || 0);
+        const eligibleIds = (eligibleRiders || []).map((row: { rider_id: string }) => row.rider_id);
+        if (eligibleIds.length === 0) {
+          setActiveRidersCount(0);
+        } else {
+          const { count, error: riderCountError } = await supabase
+            .from('riders')
+            .select('*', { count: 'exact', head: true })
+            .in('id', eligibleIds);
+          if (riderCountError) throw riderCountError;
+          setActiveRidersCount(count || 0);
+        }
 
         // Fetch distinct riders with parcel logs for cutoff
         const { data: logs } = await supabase
