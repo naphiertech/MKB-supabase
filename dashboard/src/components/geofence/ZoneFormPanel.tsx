@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, Search, X, Undo, Trash2 } from 'lucide-react';
 import type { Rider } from '../../services/types';
+import type { Hub } from '../../services/hubService';
 
 interface ZoneFormPanelProps {
   zoneName: string;
@@ -12,8 +13,12 @@ interface ZoneFormPanelProps {
   selectedRiders: string[];
   setSelectedRiders: (ids: string[] | ((prev: string[]) => string[])) => void;
   riders: Rider[];
+  hubs: Hub[];
+  selectedHubId: string;
+  setSelectedHubId: (hubId: string) => void;
   pin: { lat: number; lng: number } | null;
   errors: {
+    hub?: string;
     zoneName?: string;
     pin?: string;
     polygon?: string;
@@ -51,6 +56,9 @@ export function ZoneFormPanel({
   selectedRiders,
   setSelectedRiders,
   riders,
+  hubs,
+  selectedHubId,
+  setSelectedHubId,
   pin,
   errors,
   onSave,
@@ -186,6 +194,36 @@ export function ZoneFormPanel({
                 ? '👉 Click the map to add more corners (4, 5, or more) to shape your custom geofence.' 
                 : '👉 Click on the left map to add corners of your custom shape geofence.'}
             </p>
+          </div>
+        )}
+
+        {!isEditMode && (
+          <div>
+            <label htmlFor="zone-assigned-hub" className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase block mb-1.5 font-mono">
+              Assigned Hub <span className="text-red-600">*</span>
+            </label>
+            <select
+              id="zone-assigned-hub"
+              value={selectedHubId}
+              onChange={(event) => setSelectedHubId(event.target.value)}
+              className={`w-full px-3 py-2 rounded-lg border bg-panel-bg text-xs outline-none transition-all ${
+                errors.hub
+                  ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500/10'
+                  : 'border-border focus:border-primary focus:ring-1 focus:ring-primary/10'
+              }`}
+              required
+            >
+              <option value="">Select a hub</option>
+              {hubs.map((hub) => (
+                <option key={hub.id} value={hub.id}>{hub.name}</option>
+              ))}
+            </select>
+            {errors.hub && (
+              <p className="text-[11px] text-red-600 mt-1 font-medium">{errors.hub}</p>
+            )}
+            {hubs.length === 0 && (
+              <p className="text-[11px] text-muted-foreground mt-1">No active authorized hubs are available.</p>
+            )}
           </div>
         )}
 
@@ -381,7 +419,7 @@ export function ZoneFormPanel({
                   ))}
                 {riders.filter((r) => r.name.toLowerCase().includes(riderSearch.toLowerCase()) || r.riderCode.toLowerCase().includes(riderSearch.toLowerCase())).length === 0 && (
                   <div className="text-center py-4 text-xs text-[#888]">
-                    No riders match search.
+                    {!isEditMode && !selectedHubId ? 'Select a hub first.' : 'No riders match search.'}
                   </div>
                 )}
               </div>

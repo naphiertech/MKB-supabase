@@ -18,6 +18,7 @@ const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes cooldown per rider per violation
 
 interface DbRiderRow {
   id: string;
+  hub_id: string | null;
   name: string;
   face_image_url?: string | null;
   avatar_url: string | null;
@@ -59,6 +60,7 @@ interface DbZoneRow {
 const mapRider = (row: DbRiderRow, cachedAvatar?: string | null): Rider => {
   return {
     id: row.id,
+    hubId: row.hub_id,
     name: row.name,
     avatar: cachedAvatar || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
     zoneId: row.zone_id,
@@ -96,6 +98,7 @@ export async function getOnlineRiders(): Promise<Rider[]> {
     .from('riders')
     .select(`
       id,
+      hub_id,
       name,
       avatar_url,
       zone_id,
@@ -140,6 +143,7 @@ export async function getAllRiders(options: { scope: WorkforceScope; date?: stri
     .from('riders')
     .select(`
       id,
+      hub_id,
       name,
       avatar_url,
       zone_id,

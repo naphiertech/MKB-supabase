@@ -6,6 +6,14 @@ vi.mock('../lib/supabaseClient', () => ({
   supabase: { from: mocks.from },
 }));
 
+vi.mock('../lib/apiService', () => ({
+  logActivity: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('../lib/hubWorkspaceState', () => ({
+  getSelectedHubId: vi.fn(() => 'hub-workspace'),
+}));
+
 import * as geofenceService from './geofenceService';
 
 beforeEach(() => vi.clearAllMocks());
@@ -25,5 +33,44 @@ describe('authorized hub zone loading', () => {
     await getZonesForHubs?.(['hub-1', 'hub-2']);
 
     expect(query.in).toHaveBeenCalledWith('hub_id', ['hub-1', 'hub-2']);
+  });
+});
+
+describe('hub-scoped zone creation', () => {
+  it('persists the explicitly selected form hub instead of deriving it from the workspace', async () => {
+    const query = { insert: vi.fn(), select: vi.fn(), single: vi.fn() };
+    query.insert.mockReturnValue(query);
+    query.select.mockReturnValue(query);
+    query.single.mockResolvedValue({
+      data: {
+        id: 'zone-1',
+        hub_id: 'hub-form',
+        name: 'Zone 1',
+        lat: 7,
+        lng: 122,
+        radius: 500,
+        color: '#db6c00',
+        status: 'active',
+        zone_type: 'circle',
+        polygon_coordinates: null,
+      },
+      error: null,
+    });
+    mocks.from.mockReturnValue(query);
+
+    await geofenceService.createZone({
+      hubId: 'hub-form',
+      name: 'Zone 1',
+      lat: 7,
+      lng: 122,
+      radius: 500,
+      color: '#db6c00',
+      status: 'active',
+      riderIds: [],
+      zone_type: 'circle',
+      polygon_coordinates: null,
+    });
+
+    expect(query.insert).toHaveBeenCalledWith(expect.objectContaining({ hub_id: 'hub-form' }));
   });
 });
