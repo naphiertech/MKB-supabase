@@ -20,8 +20,15 @@ import { ZoneFormPanel } from '../components/geofence/ZoneFormPanel';
 import { AssignedRidersByZone } from '../components/geofence/AssignedRidersByZone';
 import { pushToast } from '../hooks/useToast';
 import { GeofenceDetailsPanel } from '../components/geofence/GeofenceDetailsPanels';
+import { useHub } from '../context/HubContext';
+import {
+  filterRidersForZoneHub,
+  getZoneSaveErrorMessage,
+  resolveInitialZoneHubId,
+} from '../components/geofence/zoneFormUtils';
 
 export function Geofence() {
+  const { hubs, selectedHubId, isReady: hubReady, workspaceKey } = useHub();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const refresh = () => setRefreshTrigger((n) => n + 1);
 
@@ -38,16 +45,18 @@ export function Geofence() {
   const [editPin, setEditPin] = useState<{ lat: number; lng: number } | null>(null);
   const [editRadius, setEditRadius] = useState(1000);
   const [editStatus, setEditStatus] = useState<'active' | 'inactive'>('active');
+  const [editHubId, setEditHubId] = useState('');
   const [selectedRiders, setSelectedRiders] = useState<string[]>([]);
   const [editZoneType, setEditZoneType] = useState<'circle' | 'polygon'>('circle');
   const [editPolygonCoords, setEditPolygonCoords] = useState<[number, number][]>([]);
   const [editColor, setEditColor] = useState('#db6c00');
-  const [errors, setErrors] = useState<{ zoneName?: string; pin?: string; polygon?: string }>({});
+  const [errors, setErrors] = useState<{ hub?: string; zoneName?: string; pin?: string; polygon?: string }>({});
   const [openGroupIds, setOpenGroupIds] = useState<Set<string>>(new Set());
   const [activeSummaryModal, setActiveSummaryModal] = useState<'total_zones' | 'active_zones' | 'riders_assigned' | 'violations_today' | null>(null);
 
   // Load all live database records asynchronously on mount and refresh triggers
   useEffect(() => {
+    if (!hubReady) return;
     async function loadData() {
       try {
         const [z, r, v, a, vt] = await Promise.all([
@@ -66,8 +75,14 @@ export function Geofence() {
         console.error('Failed to load geofence page data:', err);
       }
     }
-    loadData();
-  }, [refreshTrigger]);
+    void loadData();
+  }, [hubReady, refreshTrigger, workspaceKey]);
+
+  const activeAuthorizedHubs = useMemo(() => hubs.filter((hub) => hub.active), [hubs]);
+  const activeAuthorizedHubIds = useMemo(
+    () => activeAuthorizedHubs.map((hub) => hub.id),
+    [activeAuthorizedHubs],
+  );
 
   // Auto-open the group of the first zone when they finish loading
   const autoOpenedRef = useRef(false);
@@ -122,6 +137,7 @@ export function Geofence() {
     setEditPin(null);
     setEditRadius(1000);
     setEditStatus('active');
+    setEditHubId(resolveInitialZoneHubId(selectedHubId, activeAuthorizedHubIds));
     setSelectedRiders([]);
     setEditZoneType('circle');
     setEditPolygonCoords([]);
@@ -148,6 +164,7 @@ export function Geofence() {
     );
     setEditRadius(zoneToEdit.radius || 1000);
     setEditStatus(zoneToEdit.status ?? 'active');
+    setEditHubId(zoneToEdit.hubId ?? '');
     setEditZoneType(zoneToEdit.zone_type || 'circle');
     setEditPolygonCoords(zoneToEdit.polygon_coordinates || []);
     setEditColor(zoneToEdit.color || '#db6c00');
@@ -175,8 +192,23 @@ export function Geofence() {
     }
   };
 
+  const assignableRiders = useMemo(() => {
+    if (editingZoneId && !editHubId) return ridersList;
+    return filterRidersForZoneHub(ridersList, editHubId);
+  }, [editHubId, editingZoneId, ridersList]);
+
+  function handleHubChange(hubId: string) {
+    setEditHubId(hubId);
+    setSelectedRiders([]);
+    setErrors((current) => ({ ...current, hub: undefined }));
+  }
+
   async function handleSaveInline() {
-    const newErrors: { zoneName?: string; pin?: string; polygon?: string } = {};
+    const newErrors: { hub?: string; zoneName?: string; pin?: string; polygon?: string } = {};
+
+    if (!editingZoneId && !activeAuthorizedHubIds.includes(editHubId)) {
+      newErrors.hub = 'Assigned hub is required.';
+    }
 
     if (!editZoneName.trim()) {
       newErrors.zoneName = 'Zone name is required';
@@ -232,7 +264,7 @@ export function Geofence() {
           tone: 'success'
         });
       } else {
-        const zone = await createZone(input);
+        const zone = await createZone({ ...input, hubId: editHubId });
         setActiveZoneId(zone.id);
         pushToast({
           title: 'Zone created',
@@ -246,6 +278,7 @@ export function Geofence() {
     } catch (err) {
       pushToast({
         title: 'Error saving zone',
+        description: getZoneSaveErrorMessage(err),
         tone: 'error'
       });
     }
@@ -330,7 +363,10 @@ export function Geofence() {
               setStatus={setEditStatus}
               selectedRiders={selectedRiders}
               setSelectedRiders={setSelectedRiders}
-              riders={ridersList}
+              riders={assignableRiders}
+              hubs={activeAuthorizedHubs}
+              selectedHubId={editHubId}
+              setSelectedHubId={handleHubChange}
               pin={editPin}
               errors={errors}
               onSave={handleSaveInline}

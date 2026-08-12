@@ -8,7 +8,6 @@ import {
   type RiderStatus
 } from './types';
 import { randomZoneColor } from '../lib/geofenceUtils';
-import { getSelectedHubId } from '../lib/hubWorkspaceState';
 
 export interface ZoneInput {
   name: string;
@@ -20,6 +19,10 @@ export interface ZoneInput {
   zone_type: 'circle' | 'polygon';
   polygon_coordinates?: [number, number][] | null;
   color?: string;
+}
+
+export interface CreateZoneInput extends ZoneInput {
+  hubId: string;
 }
 
 interface DbZoneRow {
@@ -215,14 +218,13 @@ export async function totalViolationsToday(): Promise<number> {
   return count || 0;
 }
 
-export async function createZone(input: ZoneInput): Promise<Zone> {
-  const hubId = getSelectedHubId();
-  if (!hubId) throw new Error('Select a specific hub before creating a zone.');
+export async function createZone(input: CreateZoneInput): Promise<Zone> {
+  if (!input.hubId) throw new Error('Assigned hub is required.');
   const { data, error } = await supabase
     .from('zones')
     .insert({
       name: input.name.trim() || 'Untitled Zone',
-      hub_id: hubId,
+      hub_id: input.hubId,
       lat: input.lat,
       lng: input.lng,
       radius: input.radius,
@@ -234,10 +236,11 @@ export async function createZone(input: ZoneInput): Promise<Zone> {
     .select()
     .single();
 
-  if (error || !data) {
+  if (error) {
     console.error('Error creating zone:', error);
     throw error;
   }
+  if (!data) throw new Error('The database did not return the created zone.');
 
   const newZone = mapZone(data);
 
