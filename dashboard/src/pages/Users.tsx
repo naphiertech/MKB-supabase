@@ -580,7 +580,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -12, scale: 0.995 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="p-4 md:p-6 lg:p-7 space-y-5"
+          className="dashboard-page space-y-5"
         >
           {/* Header */}
           <div className="flex items-center justify-between gap-4 flex-wrap">

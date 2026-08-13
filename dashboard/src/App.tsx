@@ -389,7 +389,7 @@ export function App() {
     const zone = allZones.find((z) => z.id === rider.zoneId);
     const zoneName = zone?.name || 'Zamboanga City';
     return (
-      <div className="rider-shell min-h-screen w-full bg-panel-bg text-foreground font-[Geist,sans-serif] flex flex-col">
+      <div className="rider-shell min-h-screen bg-panel-bg text-foreground font-[Geist,sans-serif] flex flex-col">
         <RiderTopNav
           current={riderPage}
           onNavigate={setRiderPage}
@@ -404,7 +404,7 @@ export function App() {
           onMarkAllAsRead={markAllAsRead}
           onSignOut={signOut} />
 
-        <main className="flex-1 min-w-0">
+        <main className="flex min-w-0 flex-1">
           <AnimatePresence mode="wait">
             <motion.div
                 key={riderPage}
@@ -498,7 +498,7 @@ export function App() {
 
 
   return (
-    <div className="min-h-screen w-full bg-panel-bg text-foreground font-[Geist,sans-serif] flex">
+    <div className="min-h-screen bg-panel-bg text-foreground font-[Geist,sans-serif] flex">
       <Sidebar
         current={safePage}
         onNavigate={handleNavigate}
@@ -528,7 +528,7 @@ export function App() {
           onMenuClick={() => setMobileNavOpen(true)}
           onNavigate={handleNavigate} />
 
-        <main className="flex-1 min-w-0">
+        <main className="flex min-w-0 flex-1">
           <AnimatePresence mode="wait">
             <Suspense fallback={<DashboardSkeleton page={safePage} role={dashRole} />}>
               <motion.div
@@ -537,7 +537,7 @@ export function App() {
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="h-full"
+                className="dashboard-workspace h-full"
               >
                 {safePage === 'settings' && <Settings />}
                 {role === 'admin' &&

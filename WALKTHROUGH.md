@@ -1,6 +1,6 @@
 # MKBRiderTrack Engineering Walkthrough & Codex Handoff
 
-This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent bug fixes, and deferred features as of **August 11, 2026**.
+This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent bug fixes, and deferred features as of **August 13, 2026**.
 
 This walkthrough is derived directly from the active repository source code, Supabase database migrations, test suites, and production build verification.
 
@@ -33,7 +33,7 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 | **Rider** | Selfie Time-In/Out, live location broadcast, offline queue, personal attendance & payslips | Rider Mobile App (Dashboard, Attendance Scanner, Monitoring/Geofence Status, Profile/Payslips) | Read/Write on own Attendance, Locations, Diagnostics; Read-only on own Payslips/Logs |
 
 > [!IMPORTANT]
-> **Multi-Hub HR/Payroll Architecture** (e.g. 4 regional hubs, local vs main HR/Payroll scoping) is **PLANNED / DEFERRED**. Currently, the system uses a single organization-wide role model (**Admin**, **HR**, **Payroll**, **Rider**).
+> **Multi-Hub workspace support is implemented.** Admin is always global; HR and Payroll staff may have global or explicitly assigned hub access; Riders derive their hub from `riders.hub_id`. The global Hub selector and database RLS boundaries must remain aligned. See Section 18 for the current implementation and the latest UI-only work.
 
 ---
 
@@ -43,7 +43,7 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 
 #### 1. Admin Role (`ADMIN_ITEMS`)
 - **Dashboard** (`key: 'dashboard'`)
-- **Tracking & Zones** *(Collapsible)*: Live Monitoring (`monitoring`), Geofence / Zones (`geofence`)
+- **Tracking & Zones** *(Collapsible)*: Live Monitoring (`monitoring`), Geofence / Zones (`geofence`), Hub Management (`hubs`)
 - **HR & Employees** *(Collapsible)*: Attendance logs (`attendance`), Users Registry (`users`), Courier Reviews (`reviews`), Audit Logs (`audit_logs`)
 - **Parcel Operations** *(Collapsible)*: Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`)
 - **Finance & Reports** *(Collapsible)*: Payroll Checklist (`payroll`), Payroll History (`payroll_history`), Insights & Reports (`reports`)
@@ -62,6 +62,13 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 
 #### 4. Rider Role Navigation (`src/components/rider/RiderTopNav.tsx`)
 - Mobile Navigation Bar: Dashboard (`dashboard`), Attendance (`attendance`), Live Map (`monitoring`), Profile & Payslips (`profile`)
+
+### Global Hub Workspace Selector
+
+- `HubProvider` loads the hubs visible to the authenticated user and owns the selected workspace.
+- Admin and globally scoped HR/Payroll staff can select **All Hubs** or one accessible hub. Assigned-scope staff are constrained to their authorized hubs. Riders do not use the staff workspace selector.
+- The selected workspace is persisted per user in `localStorage`, exposed through `HubContext`, and included in the route workspace key so affected screens refresh when the hub changes.
+- Realtime location, violations, notifications, workforce directories, employee management, support tickets, payroll views, geofence data, and other hub-aware dashboard queries respect the active hub workspace in addition to server-enforced RLS.
 
 ---
 
@@ -89,6 +96,7 @@ src/pages/
 ├── DailyParcelEntry.tsx     # Daily delivery logs entry, heavy parcel counts, & rate context
 ├── Geofence.tsx             # Geofence boundary setup, map canvas, & rider zone assignments
 ├── HRDashboard.tsx          # HR metrics, rider status grid, & violation summary
+├── HubManagement.tsx       # Admin hub lifecycle, counts, and zone-to-hub assignments
 ├── LiveMonitoring.tsx       # Real-time rider location tracking map & live activity ticker
 ├── Login.tsx                # Secure authentication portal with demo login shortcuts
 ├── NotFound.tsx             # 404 Error page
@@ -257,7 +265,7 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
    - Approval/payment activity logs and notifications are created inside the authoritative transaction. Paid remains immutable under the existing payroll workflow trigger and finalized payroll continues to use stored `payroll_delivery_lines`, never live `parcel_logs` recalculation.
    - Payroll Bulk Export remains a separate read-only action and cannot approve, pay, or otherwise mutate payroll.
 
-The Payroll Bulk Actions batch passed **57 / 57 database assertions** and **130 / 130 application tests** at the time that batch was completed. The current repository-wide application count is recorded in Section 15.
+The Payroll Bulk Actions batch passed **57 / 57 database assertions** and **130 / 130 application tests** at the time that batch was completed. The current repository-wide application count is recorded in Section 16.
 
 ---
 
@@ -497,28 +505,32 @@ Restore Employment preserves the last zone as context but does not record a sepa
 
 The generated Supabase schema and repository migrations confirm the following application tables. This list excludes extension-owned/PostGIS metadata tables and should not be treated as an exhaustive inventory of every database relation:
 
-1. **`users`**: System user profiles and separate account/employment lifecycle state (`id`, `full_name`, `role`, `email`, `status`, `employment_status`, Archive/Restore metadata, `created_at`).
-2. **`riders`**: Fleet riders (`id`, `name`, `mkb_id`, `user_id`, `zone_id`, `face_descriptor`, `status`).
-3. **`attendance_logs`**: Time-In/Out logs (`id`, `rider_id`, `date`, `time_in`, `time_out`, `status`, `lat`, `lng`).
-4. **`rider_locations`**: Live GPS coordinates (`id`, `rider_id`, `latitude`, `longitude`, `speed`, `recorded_at`).
-5. **`zones`**: Geofence polygon zones (`id`, `name`, `coordinates`, `color`).
-6. **`parcel_logs`**: Daily parcel counts & earnings (`id`, `rider_id`, `date`, `parcels`, `heavy_parcels`, `rate`, `heavy_rate`, `standard_earnings`, `heavy_earnings`, `daily_gross`, `rate_configuration_id`).
-7. **`parcel_log_audit`**: Append-only audit history of parcel log edits.
-8. **`parcel_correction_requests`**: Rider/HR correction requests (`id`, `parcel_log_id`, `requested_delivered`, `requested_heavy`, `status`).
-9. **`parcel_rate_configurations`**: Effective-dated rates (`id`, `effective_from`, `effective_until`, `early_standard_rate`, `regular_standard_rate`, `late_standard_rate`, `heavy_parcel_rate`, `heavy_threshold_kg`).
-10. **`parcel_rate_configuration_audit`**: Audit trail for rate configuration changes.
-11. **`payroll_records`**: Derived payroll summaries (`id`, `rider_id`, `cutoff_start`, `cutoff_end`, `total_parcels`, `gross_pay`, `status`).
-12. **`payroll_delivery_lines`**: Immutable daily delivery line snapshots for submitted/approved/paid payroll.
-13. **`rider_documents`**: Employee document metadata (`id`, `rider_id`, `document_type`, `file_path`, `verification_status`).
-14. **`notifications`**: System notifications (`id`, `target_role`, `title`, `message`, `read`).
-15. **`activity_logs`**: System event audit trail (`id`, `event_type`, `description`, `metadata`, `created_at`).
-16. **`reviews`**: Courier review and moderation records.
-17. **`user_devices`**: Registered user-device and device-validation records.
-18. **`violations`**: Rider incident records for `boundary_exit`, `idle_timeout`, and `manual_flag`, with independent read and resolution state.
-19. **`support_tickets`**: RLS-isolated support requests with Open, In Progress, and Resolved lifecycle state.
-20. **`support_ticket_messages`**: Append-only ticket conversation history.
-21. **`user_notification_preferences`**: One Supabase-backed notification-presentation preference row per user.
-22. **`payroll_bulk_operations`**: Server-only idempotency and completed-result records for atomic payroll bulk transitions.
+1. **`users`**: System user profiles and separate account/employment lifecycle state (`id`, `full_name`, `role`, `email`, `status`, `employment_status`, `hub_access_scope`, Archive/Restore metadata, `created_at`).
+2. **`hubs`**: Admin-managed operational hubs (`id`, `name`, `description`, `active`, audit actor fields, timestamps).
+3. **`user_hub_access`**: Explicit staff-to-hub assignments for HR/Payroll users whose `hub_access_scope` is `assigned`.
+4. **`riders`**: Fleet riders (`id`, `name`, `mkb_id`, `user_id`, `hub_id`, `zone_id`, `face_descriptor`, `status`).
+5. **`attendance_logs`**: Time-In/Out logs (`id`, `rider_id`, `hub_id`, `date`, `time_in`, `time_out`, `status`, `lat`, `lng`).
+6. **`rider_locations`**: Live GPS coordinates (`id`, `rider_id`, `hub_id`, `latitude`, `longitude`, `speed`, `recorded_at`).
+7. **`zones`**: Geofence polygon zones (`id`, `hub_id`, `name`, `coordinates`, `color`).
+8. **`parcel_logs`**: Daily parcel counts & earnings (`id`, `rider_id`, `hub_id`, `date`, `parcels`, `heavy_parcels`, `rate`, `heavy_rate`, `standard_earnings`, `heavy_earnings`, `daily_gross`, `rate_configuration_id`).
+9. **`parcel_log_audit`**: Append-only, hub-scoped audit history of parcel log edits.
+10. **`parcel_correction_requests`**: Rider/HR correction requests (`id`, `parcel_log_id`, `hub_id`, `requested_delivered`, `requested_heavy`, `status`).
+11. **`parcel_rate_configurations`**: Effective-dated rates (`id`, `effective_from`, `effective_until`, `early_standard_rate`, `regular_standard_rate`, `late_standard_rate`, `heavy_parcel_rate`, `heavy_threshold_kg`).
+12. **`parcel_rate_configuration_audit`**: Audit trail for rate configuration changes.
+13. **`payroll_records`**: Hub-scoped derived payroll summaries (`id`, `rider_id`, `hub_id`, `cutoff_start`, `cutoff_end`, `total_parcels`, `gross_pay`, `status`).
+14. **`payroll_delivery_lines`**: Hub-scoped immutable daily delivery line snapshots for submitted/approved/paid payroll.
+15. **`rider_documents`**: Employee document metadata (`id`, `rider_id`, `hub_id`, `document_type`, `file_path`, `verification_status`).
+16. **`notifications`**: System notifications (`id`, `target_role`, `hub_id`, `title`, `message`, `read`).
+17. **`activity_logs`**: System event audit trail (`id`, `event_type`, `hub_id`, `description`, `metadata`, `created_at`).
+18. **`reviews`**: Courier review and moderation records.
+19. **`user_devices`**: Registered user-device and device-validation records, including hub snapshots where applicable.
+20. **`violations`**: Hub-scoped Rider incidents for `boundary_exit`, `idle_timeout`, and `manual_flag`, with independent read and resolution state.
+21. **`support_tickets`**: RLS-isolated, hub-scoped support requests with Open, In Progress, and Resolved lifecycle state.
+22. **`support_ticket_messages`**: Append-only ticket conversation history.
+23. **`user_notification_preferences`**: One Supabase-backed notification-presentation preference row per user.
+24. **`payroll_bulk_operations`**: Server-only idempotency and completed-result records for atomic payroll bulk transitions.
+
+Hub-scoped operational tables use indexed `hub_id` snapshots and restrictive RLS policies backed by `private.user_can_access_hub(...)`. The database remains authoritative for data visibility; changing the frontend selector alone cannot grant access to another hub.
 
 ---
 
@@ -539,7 +551,7 @@ Verification executed against active repository state:
 - **Violations Database Lifecycle/RLS Suite**: **PASS (27 / 27 transactional assertions)**
 - **Payroll Bulk Actions Database Suite**: **PASS (57 / 57 transactional assertions; latest completed batch result)**
 - **Employee Archive Database Lifecycle/RLS Suite**: **PASS (40 / 40 transactional assertions)**
-- **Automated Test Suite (`npm test`)**: **PASS (172 / 172 tests passed across 43 test files)**
+- **Automated Test Suite (`npm test -- --run`)**: **PASS (232 / 232 tests passed across 56 test files)**
 - **Account-Security Database Suite**: **PASS (14 / 14 transactional assertions)**
 - **Session-Control RLS Suite**: **PASS (5 / 5 transactional assertions)**
 - **ESLint Linting (`npm run lint`)**: **PASS (0 errors, 8 pre-existing warnings)**
@@ -579,7 +591,52 @@ Verification executed against active repository state:
 
 ---
 
-## 18. Deferred / Future Features (Explicitly Marked PLANNED / DEFERRED)
+## 18. Latest Implemented Work — Multi-Hub and Dashboard UI Polish
+
+### August 12, 2026 — Multi-Hub Foundation and Workspace
+
+This was an earlier full-stack implementation and is already committed. It is separate from the August 13 UI-only work below.
+
+- Added `hubs`, `user_hub_access`, `users.hub_access_scope`, indexed operational `hub_id` snapshots, restrictive hub-access RLS, authoritative helper functions, and Admin RPCs for staff access and zone assignment.
+- Admin remains global. HR and Payroll may be global or assigned to explicit hubs. Riders inherit their hub from `riders.hub_id`, and Rider zone/hub consistency is enforced.
+- Added the global Hub selector, `HubContext`, persisted per-user workspace selection, hub-aware query state, hub-filtered Realtime handling, and route refresh behavior when the workspace changes.
+- Added Admin Hub Management for creating, editing, activating/deactivating hubs and assigning zones. Hubs are not synthesized automatically.
+- Added hub selection to the Geofence zone workflow and hub access controls to Employee Management.
+- Preserve this implementation. Do not remove the Hub selector, `HubProvider`, Hub Management route, hub-scoped query filtering, database snapshots, RPCs, triggers, or RLS policies during UI work.
+
+### August 13, 2026 — Audit Logs UI
+
+- Reworked the narrow-screen audit ledger into readable activity cards instead of compressing the desktop table into an unusable mobile layout.
+- Improved compact KPI cards, action/type emphasis, responsive filters, refresh/export controls, actor metadata, expandable details, loading/error/empty states, and internal table scrolling.
+- Existing log loading, filtering, export data, activity-log persistence, permissions, and backend behavior were preserved.
+
+### August 13, 2026 — Payroll Reports Chart
+
+- Replaced the visually empty parcel comparison area with a responsive ranked horizontal comparison for **Parcels Delivered per Rider**.
+- Added proportional volume bars, zero-value treatment, leader emphasis, scale markers, loading and empty states, and summary metrics for highest volume, leader output, and active riders.
+- Existing payroll calculations, cutoff filtering, source records, report generation, exports, and immutable payroll rules were not changed.
+
+### August 13, 2026 — Universal Dashboard Width and Responsiveness Pass
+
+- Root cause: operational pages duplicated centered `max-w-*` / `mx-auto` containers while the shared staff workspace had no explicit fluid-width contract.
+- Added shared `.dashboard-workspace`, `.dashboard-page`, and `.dashboard-auto-grid` primitives. Staff routes now use a full available-width canvas after the sidebar, `min-width: 0`, fluid responsive padding, and no `100vw` overflow workaround.
+- Removed conflicting page-level caps from Admin/HR dashboards, Hub Management, Reviews Moderation, Attendance, Users/Employee Management, Reports, Geofence, Audit Logs, Parcel Operations/History, Payroll Checklist/Dashboard, Payroll Computation, Payroll Reports, Payroll History, and Settings.
+- Improved adaptive Reviews grids and narrow-screen Hub Management details/zone assignment controls. Live Monitoring intentionally remains a flush map canvas; dialogs, focused forms, authentication UI, the Support drawer, and Rider-focused workflows retain appropriate readable bounds.
+- This batch changed only `dashboard/src` frontend presentation files plus this documentation. It did **not** change services, Supabase, migrations, database schema/data, RLS, authentication, attendance, payroll calculations, geofencing behavior, facial recognition, backend functions, or `landing/`.
+
+### Latest Verification
+
+- Responsive browser matrix: **86 checks passed** from 320px through 3840px, including effective widths representative of 1080p, 1440p, 2K, 4K, ultrawide, and zoomed-out desktop usage.
+- TypeScript: **PASS**.
+- Automated tests: **232 / 232 PASS across 56 files**.
+- ESLint: **PASS with 0 errors and 8 pre-existing warnings**.
+- Production build: **PASS**; the existing Vite large-chunk advisory remains.
+- `git diff --check`: **PASS**.
+- All task-generated implementation changes are inside `dashboard/`; no task-generated `landing/` changes remain.
+
+---
+
+## 19. Deferred / Future Features (Explicitly Marked PLANNED / DEFERRED)
 
 > [!CAUTION]
 > The following features have been discussed or planned for future releases, but **are NOT yet implemented in the codebase**. Future agents must not assume these exist.
@@ -596,26 +653,23 @@ Verification executed against active repository state:
    - Preferred-language selection is currently a stored preference only; it does not translate application content.
 6. **Landing Contact-Form Backend** *(PLANNED / DEFERRED)*:
    - The public landing contact form has no submission handler, API route, or persistence workflow.
-7. **Multi-Hub HR & Payroll Architecture** *(PLANNED / DEFERRED)*:
-   - 4 regional hub structures (Hub-scoped HR/Payroll access vs main organization scope).
-   - Currently, single organization-wide role model is used.
-8. **Loans / Cash Advances / Financial Management** *(PLANNED / DEFERRED)*:
+7. **Loans / Cash Advances / Financial Management** *(PLANNED / DEFERRED)*:
    - Cash Advances, Loans, and automatic repayment deductions.
    - Currently, standard gross pay and manual adjustment fields (`other_earnings`, `deductions`, `late_onhold`, `late_remittance`) are used.
-9. **Native Capacitor Rider Application / Native Background GPS** *(PLANNED / DEFERRED)*:
+8. **Native Capacitor Rider Application / Native Background GPS** *(PLANNED / DEFERRED)*:
    - Native iOS/Android builds and background geolocation daemon.
    - Currently, mobile rider features run as responsive web app / PWA with foreground GPS.
-10. **Alternative Biometric Architecture** *(PLANNED / DEFERRED)*:
+9. **Alternative Biometric Architecture** *(PLANNED / DEFERRED)*:
    - Tiny Face Detector production use, MediaPipe Web Workers, native TensorFlow Lite/native ML, Capacitor biometric migration, rider re-enrollment, and recognition-model replacement are not implemented.
    - SSD MobileNet V1 remains authoritative. Current physical Android acceptance testing does not justify Tiny Face Detector or a MediaPipe Worker; evaluate alternatives only if future telemetry or a verified regression warrants it.
-11. **Formal Rehire / Employment Periods** *(PLANNED / DEFERRED)*:
+10. **Formal Rehire / Employment Periods** *(PLANNED / DEFERRED)*:
    - Restore Employment currently reuses the same employee identity and preserves the Archive/Restore gap. A separate `employment_periods` model and formal Rehire workflow are not implemented.
-12. **Future-Dated Employee Archive** *(PLANNED / DEFERRED)*:
+11. **Future-Dated Employee Archive** *(PLANNED / DEFERRED)*:
    - Archive effective dates are limited to today or earlier in v1. Scheduled future employment termination is not implemented.
 
 ---
 
-## 19. Current Handover State for Next IDE (Codex / Antigravity Handoff)
+## 20. Current Handover State for Next IDE (Codex / Antigravity Handoff)
 
 ### Essential Invariants for Future Developers & AI Agents
 
@@ -630,3 +684,4 @@ Verification executed against active repository state:
 9. **Preserve Operational Rate Integrity**: Parcel rates are resolved based on work date and Time-In timestamp. The fixed heavy parcel rate (₱17/parcel) applies to parcels above 4 kg.
 10. **Keep Employment, Account, and Rider State Separate**: Employee Archive changes `users.employment_status`, forces account suspension, and leaves Rider live state Offline. Restore Employment must not automatically reactivate the account, create a new identity, synthesize history, or replay stale offline work.
 11. **Use Explicit Workforce Scopes**: Current operational selectors use Active/current workforce scope; historical pages use All/date-effective scope. Do not globally hide Archived identities or globally include them in new work.
+12. **Preserve Multi-Hub Authorization**: Keep the global Hub selector and client workspace filters synchronized with the database-authoritative `hub_id` snapshots and restrictive RLS. A UI-only change must never remove hub boundaries, broaden an assigned staff member to All Hubs, or treat client filtering as an authorization substitute.

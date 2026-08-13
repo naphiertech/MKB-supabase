@@ -368,7 +368,7 @@ export function Attendance() {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+    <div className="dashboard-page space-y-5">
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard

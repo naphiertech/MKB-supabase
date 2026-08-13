@@ -323,7 +323,7 @@ export function AuditLogs() {
   };
 
   return (
-    <div className="space-y-5 p-4 md:p-6 lg:p-7">
+    <div className="dashboard-page space-y-5">
       
       {/* Stats Widgets */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">

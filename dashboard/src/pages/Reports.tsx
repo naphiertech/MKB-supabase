@@ -168,7 +168,7 @@ export function Reports() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+    <div className="dashboard-page space-y-5">
       {/* ------------------------------------------------------------- */}
       {/* 1. EXECUTIVE KPI SUMMARY CARDS                                 */}
       {/* ------------------------------------------------------------- */}
