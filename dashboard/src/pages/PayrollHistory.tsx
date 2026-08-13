@@ -185,7 +185,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
         .from('payroll_records')
         .select(`
           *,
-          riders!inner(id, name, mkb_id, avatar_url, zone_id, zones(name)),
+          riders!inner(id, name, mkb_id, avatar_url, zone_id, zones!riders_zone_id_fkey(name)),
           submitted_user:users!payroll_records_submitted_by_fkey(full_name, email),
           approved_user:users!payroll_records_approved_by_fkey(full_name, email),
           rejected_user:users!payroll_records_rejected_by_fkey(full_name, email),

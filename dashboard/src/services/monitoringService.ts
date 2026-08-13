@@ -110,7 +110,7 @@ export async function getOnlineRiders(): Promise<Rider[]> {
       last_ping,
       contact,
       mkb_id,
-      zones (
+      zones!riders_zone_id_fkey (
         id,
         name
       )
@@ -155,7 +155,7 @@ export async function getAllRiders(options: { scope: WorkforceScope; date?: stri
       last_ping,
       contact,
       mkb_id,
-      zones (
+      zones!riders_zone_id_fkey (
         id,
         name
       )

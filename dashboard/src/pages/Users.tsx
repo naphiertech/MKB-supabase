@@ -54,9 +54,10 @@ type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';
 
 interface UsersProps {
   onlineUserIds: string[];
+  onManageAssignment?: (riderId: string) => void;
 }
 
-export function Users({ onlineUserIds = [] }: UsersProps) {
+export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
   const { session } = useAuth();
   const { hubs, workspaceKey } = useHub();
   const currentUserRole = session?.role;
@@ -639,6 +640,7 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
           <EmployeeDetails
             user={selectedUser}
             zones={zonesList}
+            onManageAssignment={onManageAssignment}
             onClose={() => {
               setView('list');
               setSelectedUser(null);

@@ -99,7 +99,7 @@ select is((select metadata->>'actor_email_snapshot' from public.activity_logs wh
 
 reset role;
 update auth.users
-set email = 'naphier.tech@gmail.com', email_confirmed_at = clock_timestamp()
+set email = 'snapshot-confirmed@example.test', email_confirmed_at = clock_timestamp()
 where id = 'f2000000-0000-4000-8000-000000000001';
 update public.users set full_name = 'Renata Cruz Updated' where id = 'f2000000-0000-4000-8000-000000000001';
 select is((select approved_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'snapshot-admin@example.test', 'later profile/Auth email changes do not rewrite approval history');
@@ -130,7 +130,7 @@ select lives_ok(
   )$$,
   'bulk approval captures one trusted actor snapshot for the atomic batch'
 );
-select is((select count(*) from public.payroll_records where id in ('f4000000-0000-4000-8000-000000000003', 'f4000000-0000-4000-8000-000000000004') and approved_by = 'f2000000-0000-4000-8000-000000000001' and approved_by_name_snapshot = 'Renata Cruz Updated' and approved_by_email_snapshot = 'naphier.tech@gmail.com'), 2::bigint, 'every bulk-approved row receives the same current confirmed identity and ignores pending email_change');
+select is((select count(*) from public.payroll_records where id in ('f4000000-0000-4000-8000-000000000003', 'f4000000-0000-4000-8000-000000000004') and approved_by = 'f2000000-0000-4000-8000-000000000001' and approved_by_name_snapshot = 'Renata Cruz Updated' and approved_by_email_snapshot = 'snapshot-confirmed@example.test'), 2::bigint, 'every bulk-approved row receives the same current confirmed identity and ignores pending email_change');
 
 select lives_ok(
   $$select public.bulk_mark_payroll_records_paid(
@@ -140,11 +140,11 @@ select lives_ok(
   'payment captures the confirmed actor identity'
 );
 select is((select paid_by from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000005'), 'f2000000-0000-4000-8000-000000000001'::uuid, 'payment stores the authoritative actor UUID');
-select is((select paid_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000005'), 'naphier.tech@gmail.com', 'payment stores the current confirmed email, not pending email_change');
+select is((select paid_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000005'), 'snapshot-confirmed@example.test', 'payment stores the current confirmed email, not pending email_change');
 
 reset role;
 update auth.users set email = 'renata-later@example.test', email_confirmed_at = clock_timestamp() where id = 'f2000000-0000-4000-8000-000000000001';
-select is((select paid_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000005'), 'naphier.tech@gmail.com', 'later Auth changes do not rewrite the payment snapshot');
+select is((select paid_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000005'), 'snapshot-confirmed@example.test', 'later Auth changes do not rewrite the payment snapshot');
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"f2000000-0000-4000-8000-000000000003","role":"authenticated"}', true);

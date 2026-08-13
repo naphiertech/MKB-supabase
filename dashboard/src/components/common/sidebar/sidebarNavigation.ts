@@ -13,7 +13,8 @@ import {
   BookOpen,
   PackageCheck,
   History,
-  Building2
+  Building2,
+  Route
 } from 'lucide-react';
 
 export type PageKey =
@@ -31,7 +32,8 @@ export type PageKey =
   | 'daily_parcels'
   | 'parcel_history'
   | 'payroll_history'
-  | 'hubs';
+  | 'hubs'
+  | 'rider_assignments';
 
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 
@@ -83,6 +85,7 @@ export const ADMIN_ITEMS: SidebarItem[] = [
     items: [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
       { key: 'users', label: 'Users Registry', icon: UsersIcon },
+      { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
       { key: 'reviews', label: 'Courier Reviews', icon: Star },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]
@@ -130,6 +133,7 @@ export const HR_ITEMS: SidebarItem[] = [
     items: [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
       { key: 'users', label: 'Employee Management', icon: UsersIcon },
+      { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
       { key: 'reviews', label: 'Courier Reviews', icon: Star },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]

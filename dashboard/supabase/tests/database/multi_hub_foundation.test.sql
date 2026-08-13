@@ -59,12 +59,12 @@ insert into public.user_hub_access (user_id, hub_id, assigned_by) values
   ('d1000000-0000-4000-8000-000000000004', 'a1000000-0000-4000-8000-000000000001', 'd1000000-0000-4000-8000-000000000001');
 
 insert into public.attendance_logs (id, rider_id, date, time_in, status, source) values
-  ('e1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, now(), 'present', 'system'),
-  ('e1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000002', current_date, now(), 'present', 'system');
+  ('e1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (clock_timestamp() at time zone 'Asia/Manila')::date, clock_timestamp(), 'present', 'system'),
+  ('e1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000002', (clock_timestamp() at time zone 'Asia/Manila')::date, clock_timestamp(), 'present', 'system');
 
 insert into multi_hub_tap_results select is((select hub_id from public.attendance_logs where id = 'e1000000-0000-4000-8000-000000000001'), 'a1000000-0000-4000-8000-000000000001'::uuid, 'attendance snapshots the Rider hub');
 insert into multi_hub_tap_results select throws_ok(
-  $$insert into public.attendance_logs (rider_id, hub_id, date, time_in, status, source) values ('c1000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000002',current_date,now(),'present','system')$$,
+  $$insert into public.attendance_logs (rider_id, hub_id, date, time_in, status, source) values ('c1000000-0000-4000-8000-000000000001','a1000000-0000-4000-8000-000000000002',(clock_timestamp() at time zone 'Asia/Manila')::date,clock_timestamp(),'present','system')$$,
   '23514', null, 'a forged operational hub is rejected'
 );
 

@@ -42,6 +42,7 @@ const ParcelHistory = lazy(() => import('./pages/ParcelHistory').then((module) =
 const PayrollHistory = lazy(() => import('./pages/PayrollHistory').then((module) => ({ default: module.PayrollHistory })));
 const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })));
 const HubManagement = lazy(() => import('./pages/HubManagement').then((module) => ({ default: module.HubManagement })));
+const RiderAssignments = lazy(() => import('./pages/RiderAssignments').then((module) => ({ default: module.RiderAssignments })));
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
   state: { hasError: boolean; error: unknown } = { hasError: false, error: null };
   static getDerivedStateFromError(error: unknown) {
@@ -454,6 +455,7 @@ export function App() {
         'attendance',
         'reports',
         'users',
+        'rider_assignments',
         'reviews',
         'payroll',
         'payroll_history',
@@ -471,6 +473,7 @@ export function App() {
         'reports',
         'reviews',
         'users',
+        'rider_assignments',
         'payroll',
         'payroll_history',
         'audit_logs',
@@ -494,6 +497,11 @@ export function App() {
   function handleNavigate(p: PageKey) {
     setCurrentPage(p);
     setMobileNavOpen(false);
+  }
+
+  function handleManageAssignment(riderId: string) {
+    window.sessionStorage.setItem('mkb.assignment.focus', riderId);
+    handleNavigate('rider_assignments');
   }
 
 
@@ -551,7 +559,8 @@ export function App() {
                     {safePage === 'hubs' && <HubManagement />}
                     {safePage === 'attendance' && <Attendance />}
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
-                    {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
+                    {safePage === 'users' && <Users onlineUserIds={onlineUserIds} onManageAssignment={handleManageAssignment} />}
+                    {safePage === 'rider_assignments' && <RiderAssignments />}
                     {safePage === 'reviews' && <ReviewsModeration />}
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
@@ -569,7 +578,8 @@ export function App() {
                     {safePage === 'attendance' && <Attendance />}
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'reviews' && <ReviewsModeration />}
-                    {safePage === 'users' && <Users onlineUserIds={onlineUserIds} />}
+                    {safePage === 'users' && <Users onlineUserIds={onlineUserIds} onManageAssignment={handleManageAssignment} />}
+                    {safePage === 'rider_assignments' && <RiderAssignments />}
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
                     {safePage === 'audit_logs' && <AuditLogs />}
