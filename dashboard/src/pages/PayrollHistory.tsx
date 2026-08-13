@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   History,
   Search,
@@ -21,6 +22,7 @@ import { exportCutoffSummaryCSV, exportParcelPayslipXLSX, exportParcelPayslipPDF
 import { AnimatePresence, motion } from 'framer-motion';
 import type { PageKey } from '../components/common/Sidebar';
 import { PayrollActorIdentity } from '../components/payroll/PayrollActorIdentity';
+import { RightDrawer } from '../components/common/RightDrawer';
 
 export interface HistoricalRecord {
   id: string;
@@ -877,16 +879,16 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       )}
 
       {/* READ-ONLY CUTOFF DETAILS DRAWER */}
-      <AnimatePresence>
-        {isDrawerOpen && selectedCutoffGroup && (
-          <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs">
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="safe-drawer flex w-full max-w-2xl flex-col overflow-y-auto border-l border-border bg-white shadow-2xl"
-            >
+      <RightDrawer
+        open={isDrawerOpen && Boolean(selectedCutoffGroup)}
+        onClose={() => setIsDrawerOpen(false)}
+        ariaLabel={selectedCutoffGroup ? `Payroll cutoff archive ${selectedCutoffGroup.label}` : 'Payroll cutoff archive'}
+        widthClassName="max-w-2xl"
+        panelClassName="overflow-y-auto"
+        closeLabel="Close payroll archive drawer"
+      >
+        {selectedCutoffGroup && (
+          <>
               {/* Drawer Header */}
               <div className="p-5 border-b border-border bg-panel-bg flex items-center justify-between sticky top-0 z-10">
                 <div className="space-y-0.5">
@@ -952,15 +954,15 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </div>
+          </>
         )}
-      </AnimatePresence>
+      </RightDrawer>
 
       {/* READ-ONLY PAYSLIP PREVIEW MODAL */}
-      <AnimatePresence>
-        {isPayslipModalOpen && selectedRiderRecord && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isPayslipModalOpen && selectedRiderRecord && (
+          <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1128,8 +1130,10 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
               </div>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }

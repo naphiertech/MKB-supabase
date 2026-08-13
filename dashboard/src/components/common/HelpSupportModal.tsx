@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   BookOpen,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { BRANDING } from '../../config/branding';
 import { SupportTicketDesk } from './SupportTicketDesk';
+import { RightDrawer } from './RightDrawer';
 
 export type HelpTab = 'guide' | 'faq' | 'support';
 
@@ -38,22 +38,8 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
   useEffect(() => {
     if (open) {
       setActiveTab(defaultTab);
-      window.requestAnimationFrame(() => closeButtonRef.current?.focus());
     }
   }, [open, defaultTab]);
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open, onClose]);
   // FAQ Data List
   const faqs = [
     {
@@ -84,29 +70,15 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
   );
 
   return (
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-[2000]">
-          {/* Backdrop overlay */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="absolute inset-0 bg-foreground/50 backdrop-blur-sm"
-          />
-
-          {/* Slide-over Drawer */}
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="help-support-title"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="safe-drawer absolute inset-y-0 right-0 flex w-full max-w-lg flex-col overflow-hidden border-l border-border bg-white shadow-2xl z-10 font-[Geist,sans-serif]"
-          >
+    <RightDrawer
+      open={open}
+      onClose={onClose}
+      ariaLabelledBy="help-support-title"
+      initialFocusRef={closeButtonRef}
+      widthClassName="max-w-lg"
+      panelClassName="overflow-hidden font-[Geist,sans-serif]"
+      closeLabel="Close help and support"
+    >
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-panel-bg px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex min-w-0 items-center gap-2">
@@ -322,9 +294,6 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
               )}
             </div>
           </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+    </RightDrawer>
   );
 }

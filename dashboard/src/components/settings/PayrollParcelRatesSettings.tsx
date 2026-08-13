@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Calendar, CalendarClock, Coins, FileText, History, Info, Loader2, Pencil, Plus, Power, X } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
 import type { Role } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
 import { Modal } from '../common/Modal';
+import { RightDrawer } from '../common/RightDrawer';
 import {
   createFutureParcelRateConfiguration,
   deactivateFutureParcelRateConfiguration,
@@ -71,10 +70,6 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
-  const savingRef = useRef(saving);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -92,61 +87,6 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
   }, [role]);
 
   useEffect(() => { void load(); }, [load]);
-
-  useEffect(() => {
-    savingRef.current = saving;
-  }, [saving]);
-
-  useEffect(() => {
-    if (!editorOpen) return;
-    openerRef.current = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !savingRef.current) {
-        setEditorOpen(false);
-        return;
-      }
-
-      if (e.key !== 'Tab' || !dialogRef.current) return;
-      const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        )
-      ).filter((element) => !element.hasAttribute('hidden'));
-
-      if (focusable.length === 0) {
-        e.preventDefault();
-        dialogRef.current.focus();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-
-    window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    window.requestAnimationFrame(() => {
-      const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      (firstFocusable ?? dialogRef.current)?.focus();
-    });
-
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = previousOverflow;
-      openerRef.current?.focus();
-    };
-  }, [editorOpen]);
 
   const current = useMemo(() => getCurrentParcelRateConfiguration(configurations), [configurations]);
   const sortedConfigurations = useMemo(
@@ -256,35 +196,15 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
 
       {role === 'admin' && <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-xs" aria-labelledby="rate-audit-heading"><div className="border-b border-border px-5 py-4"><h3 id="rate-audit-heading" className="text-sm font-bold text-foreground">Rate-change Audit History</h3><p className="mt-0.5 text-xs text-muted-foreground">Append-only record of previous and new effective-dated values.</p></div><div className="divide-y divide-border">{audit.length ? audit.slice(0, 50).map((entry) => <div key={entry.id} className="space-y-2 px-5 py-3 text-xs"><div className="flex flex-wrap gap-x-5 gap-y-1"><span className="font-semibold text-foreground">{new Date(entry.changed_at).toLocaleString('en-PH')}</span><span className="capitalize text-foreground">{entry.action}</span><span className="text-foreground">By {entry.changedByName}</span><span className="text-muted-foreground">Effective {formatDate(entry.effective_date)}</span></div><p className="text-muted-foreground">{entry.reason}</p><div className="grid gap-1 rounded-lg border border-border bg-panel-bg p-2 text-[10px] sm:grid-cols-2"><span><strong>Previous:</strong> {auditRateSummary(entry.previous_values)}</span><span><strong>New:</strong> {auditRateSummary(entry.new_values)}</span></div></div>) : <p className="px-5 py-8 text-center text-xs text-muted-foreground">No audit entries available.</p>}</div></section>}
 
-      {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {editorOpen && (
-            <>
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => !saving && setEditorOpen(false)}
-                className="fixed inset-0 z-[9990] bg-foreground/40 backdrop-blur-xs cursor-default"
-                aria-hidden="true"
-              />
-
-              {/* Right-Side Drawer Panel - Portaled to document.body for full viewport coverage */}
-              <motion.div
-                ref={dialogRef}
-                tabIndex={-1}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="drawer-rate-title"
-                aria-describedby="drawer-rate-subtitle"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'spring', damping: 30, stiffness: 350 }}
-                className="safe-drawer fixed inset-y-0 right-0 z-[9991] flex w-full flex-col border-l border-border bg-white shadow-2xl sm:w-[520px] md:w-[560px]"
-              >
+      <RightDrawer
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        dismissible={!saving}
+        ariaLabelledBy="drawer-rate-title"
+        ariaDescribedBy="drawer-rate-subtitle"
+        widthClassName="max-w-[560px]"
+        closeLabel="Close rate configuration drawer"
+      >
                 {/* Sticky Header */}
                 <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-white px-5 py-4">
                   <div className="min-w-0">
@@ -514,12 +434,7 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
                     <span>{editing ? 'Update Configuration' : 'Save Configuration'}</span>
                   </button>
                 </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+      </RightDrawer>
 
       <Modal open={Boolean(deactivating)} onClose={() => !saving && setDeactivating(null)} title="Deactivate future configuration" subtitle="Only scheduled configurations can be deactivated." size="sm" dismissible={!saving}><label className="space-y-1 text-xs font-semibold text-foreground">Reason *<textarea value={reason} onChange={(event) => setReason(event.target.value)} className="ar-textarea" rows={3} /></label>{error && <p role="alert" className="mt-3 text-xs font-medium text-red-600">{error}</p>}<div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setDeactivating(null)} disabled={saving} className="h-9 rounded-md border border-border px-4 text-xs font-semibold">Cancel</button><button type="button" onClick={() => void handleDeactivate()} disabled={saving} className="inline-flex h-9 items-center gap-2 rounded-md bg-red-600 px-4 text-xs font-semibold text-white disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />} Deactivate</button></div></Modal>
     </div>

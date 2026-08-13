@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Calendar,
   Search,
@@ -38,6 +38,7 @@ import { pushToast } from '../hooks/useToast';
 import { getLocalDateString } from '../services/attendanceService';
 import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
 import { RiderAvatar } from '../components/common/RiderAvatar';
+import { RightDrawer } from '../components/common/RightDrawer';
 import { useAuth } from '../hooks/useAuth';
 
 function StatusBadge({ status }: { status?: ParcelHistoryItem['attendanceStatus'] }) {
@@ -571,25 +572,17 @@ export function ParcelHistory() {
       </div>
 
       {/* Slide-over Detail Drawer */}
-      {selectedDetailRow &&
-        createPortal(
-          <AnimatePresence>
-            {selectedDetailRow && (
-              <div className="fixed inset-0 z-[100000] flex justify-end">
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setSelectedDetailRow(null)}
-                  className="fixed inset-0 bg-black/30 backdrop-blur-xs"
-                />
-                <motion.div
-                  initial={{ x: '100%' }}
-                  animate={{ x: 0 }}
-                  exit={{ x: '100%' }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                  className="safe-drawer flex w-full max-w-md flex-col border-l border-border bg-white shadow-2xl font-sans z-[100000]"
-                >
+      <RightDrawer
+        open={Boolean(selectedDetailRow)}
+        onClose={() => setSelectedDetailRow(null)}
+        dismissible={!submittingDrawerEdit}
+        ariaLabel={selectedDetailRow ? `Parcel history for ${selectedDetailRow.riderName}` : 'Parcel history details'}
+        widthClassName="max-w-md"
+        panelClassName="font-sans"
+        closeLabel="Close parcel history drawer"
+      >
+        {selectedDetailRow && (
+          <>
                   <div className="p-5 border-b border-border flex items-center justify-between bg-panel-bg">
                     <div className="flex items-center gap-3">
                       <RiderAvatar src={selectedDetailRow.riderAvatar} name={selectedDetailRow.riderName} className="w-10 h-10" />
@@ -1015,12 +1008,9 @@ export function ParcelHistory() {
                       Close Drawer
                     </button>
                   </div>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>,
-          document.body
+          </>
         )}
+      </RightDrawer>
 
       {/* Correction Requests Review Modal */}
       {showCorrectionsModal && canReviewCorrections &&
