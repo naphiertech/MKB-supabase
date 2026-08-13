@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, ComponentType } from 'react';
+import { useCallback, useMemo, useState, useEffect, useRef, ComponentType } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Plus,
@@ -7,7 +7,11 @@ import {
   Users as UsersIcon,
   Bike,
   Wallet,
-  Download
+  Download,
+  Filter,
+  ChevronDown,
+  RotateCcw,
+  X,
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { type AppUser, type EmploymentStatus, type UserRole, type UserStatus, type Zone } from '../services/types';
@@ -82,6 +86,9 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
   const [attendanceCheckBusy, setAttendanceCheckBusy] = useState(false);
   const [archiveBlockedByAttendance, setArchiveBlockedByAttendance] = useState(false);
 
+  const [showFiltersPopover, setShowFiltersPopover] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+
   // Sync roleFilter for HR
   useEffect(() => {
     if (currentUserRole === 'hr') {
@@ -93,6 +100,27 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
   useEffect(() => {
     setPage(1);
   }, [q, roleFilter, statusFilter, employmentFilter, zoneFilter]);
+
+  // Dismiss popover on outside click or Escape key
+  useEffect(() => {
+    if (!showFiltersPopover) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filtersRef.current && !filtersRef.current.contains(e.target as Node)) {
+        setShowFiltersPopover(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowFiltersPopover(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showFiltersPopover]);
 
   const loadData = useCallback(async () => {
     try {
@@ -233,6 +261,54 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
     rider: activeWorkforce.filter((u) => u.role === 'rider').length,
     payroll: activeWorkforce.filter((u) => u.role === 'payroll').length,
     archived: userList.filter((u) => u.employmentStatus === 'archived').length,
+  };
+
+  const groupedZones = useMemo(() => {
+    if (workspaceKey !== 'all' || hubs.length <= 1) {
+      return { isGrouped: false, list: zonesList, groups: [] };
+    }
+    const activeHubIds = new Set(hubs.map((h) => h.id));
+    const groups: { hubName: string; zones: Zone[] }[] = [];
+
+    hubs.forEach((hub) => {
+      const hubZones = zonesList.filter((z) => z.hubId === hub.id);
+      if (hubZones.length > 0) {
+        groups.push({ hubName: hub.name, zones: hubZones });
+      }
+    });
+
+    const unassigned = zonesList.filter((z) => !z.hubId || !activeHubIds.has(z.hubId));
+    if (unassigned.length > 0) {
+      groups.push({ hubName: 'Other / Unassigned', zones: unassigned });
+    }
+
+    return { isGrouped: true, list: zonesList, groups };
+  }, [zonesList, hubs, workspaceKey]);
+
+  const activeExtraFiltersCount = useMemo(() => {
+    let count = 0;
+    if (employmentFilter !== 'active') count++;
+    if (statusFilter !== 'all') count++;
+    return count;
+  }, [employmentFilter, statusFilter]);
+
+  const isAnyFilterActive = useMemo(() => {
+    return Boolean(
+      q.trim() ||
+      (currentUserRole !== 'hr' && roleFilter !== 'all') ||
+      zoneFilter !== 'all' ||
+      employmentFilter !== 'active' ||
+      statusFilter !== 'all'
+    );
+  }, [q, roleFilter, zoneFilter, employmentFilter, statusFilter, currentUserRole]);
+
+  const handleResetFilters = () => {
+    setQ('');
+    if (currentUserRole !== 'hr') setRoleFilter('all');
+    setZoneFilter('all');
+    setEmploymentFilter('active');
+    setStatusFilter('all');
+    setPage(1);
   };
 
   const filtered = useMemo(
@@ -649,91 +725,196 @@ export function Users({ onlineUserIds = [] }: UsersProps) {
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="bg-white border border-border rounded-xl p-3 flex flex-wrap gap-2 items-center shadow-sm">
-            <div className="flex h-10 min-w-0 flex-1 basis-full items-center gap-2 rounded-md border border-border bg-panel-bg px-3 transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 sm:h-9 sm:basis-auto sm:min-w-[220px] sm:max-w-md">
-              <Search className="w-4 h-4 text-muted-foreground" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder={currentUserRole === 'hr' ? "Search riders by name or email…" : "Search by name or email…"}
-                className="bg-transparent outline-none text-sm text-foreground placeholder:text-subtle-text flex-1" />
-              
-            </div>
-            {currentUserRole !== 'hr' && (
-              <Segmented
-                value={roleFilter}
-                onChange={(v) => setRoleFilter(v as typeof roleFilter)}
-                options={[
-                {
-                  v: 'all',
-                  l: 'All Roles'
-                },
-                {
-                  v: 'admin',
-                  l: 'Admin'
-                },
-                {
-                  v: 'hr',
-                  l: 'HR'
-                },
-                {
-                  v: 'rider',
-                  l: 'Rider'
-                },
-                {
-                  v: 'payroll',
-                  l: 'Payroll'
-                }]
-                } />
-            )}
-            
-            <select
-              value={zoneFilter}
-              onChange={(e) => setZoneFilter(e.target.value)}
-              className="h-9 px-3 rounded-md bg-panel-bg border border-border text-xs text-foreground font-semibold outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer shadow-sm"
-            >
-              <option value="all">All Zones ({zonesList.length})</option>
-              {zonesList.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.name}
-                </option>
-              ))}
-            </select>
+          {/* Compact Filter Toolbar */}
+          <div className="bg-white border border-border rounded-xl p-3 shadow-sm">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5">
+              {/* Search Input */}
+              <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-panel-bg px-3 transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
+                <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder={currentUserRole === 'hr' ? "Search riders by name or email…" : "Search by name or email…"}
+                  className="bg-transparent outline-none text-xs sm:text-sm text-foreground placeholder:text-subtle-text flex-1 min-w-0"
+                />
+                {q && (
+                  <button
+                    type="button"
+                    onClick={() => setQ('')}
+                    className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
 
-            <Segmented
-              label="Filter by employment lifecycle"
-              value={employmentFilter}
-              onChange={(v) => setEmploymentFilter(v as typeof employmentFilter)}
-              options={[
-                { v: 'active', l: 'Employment: Active' },
-                { v: 'archived', l: `Archived (${counts.archived})` },
-                { v: 'all', l: 'All Employment' },
-              ]}
-            />
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                {/* Role Select Dropdown */}
+                {currentUserRole !== 'hr' && (
+                  <select
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
+                    aria-label="Filter by role"
+                    className="h-9 px-3 rounded-lg bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer shadow-sm min-w-[110px]"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="admin">Admin ({counts.admin})</option>
+                    <option value="hr">HR ({counts.hr})</option>
+                    <option value="rider">Rider ({counts.rider})</option>
+                    <option value="payroll">Payroll ({counts.payroll})</option>
+                  </select>
+                )}
 
-            <Segmented
-              label="Filter by account status"
-              value={statusFilter}
-              onChange={(v) => setStatusFilter(v as typeof statusFilter)}
-              options={[
-              {
-                v: 'all',
-                l: 'All Accounts'
-              },
-              {
-                v: 'active',
-                l: 'Account: Active'
-              },
-              {
-                v: 'suspended',
-                l: 'Account: Restricted / Suspended'
-              }]
-              } />
-            
-            <div className="flex-1" />
-            <div className="text-xs text-muted-foreground font-mono px-2">
-              {filtered.length} shown
+                {/* Hub-Aware Zone Dropdown */}
+                <select
+                  value={zoneFilter}
+                  onChange={(e) => setZoneFilter(e.target.value)}
+                  aria-label="Filter by zone"
+                  className="h-9 px-3 rounded-lg bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer shadow-sm min-w-[130px] max-w-[200px] truncate"
+                >
+                  <option value="all">All Zones ({zonesList.length})</option>
+                  {groupedZones.isGrouped
+                    ? groupedZones.groups.map((group) => (
+                        <optgroup key={group.hubName} label={group.hubName}>
+                          {group.zones.map((z) => (
+                            <option key={z.id} value={z.id}>
+                              {z.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))
+                    : groupedZones.list.map((z) => (
+                        <option key={z.id} value={z.id}>
+                          {z.name}
+                        </option>
+                      ))}
+                </select>
+
+                {/* More Filters Popover Button & Container */}
+                <div className="relative" ref={filtersRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowFiltersPopover((prev) => !prev)}
+                    className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors cursor-pointer ${
+                      activeExtraFiltersCount > 0 || showFiltersPopover
+                        ? 'border-primary bg-primary/5 text-primary font-semibold'
+                        : 'border-border bg-panel-bg text-foreground hover:bg-panel-bg/80'
+                    }`}
+                    aria-expanded={showFiltersPopover}
+                    aria-label="More filters"
+                  >
+                    <Filter className="w-3.5 h-3.5" />
+                    <span>Filters</span>
+                    {activeExtraFiltersCount > 0 && (
+                      <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold text-white">
+                        {activeExtraFiltersCount}
+                      </span>
+                    )}
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showFiltersPopover ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Popover Card */}
+                  <AnimatePresence>
+                    {showFiltersPopover && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        className="absolute right-0 top-full z-30 mt-2 w-72 rounded-xl border border-border bg-white p-4 shadow-lg"
+                      >
+                        <div className="flex items-center justify-between border-b border-border pb-2.5 mb-3">
+                          <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                            <Filter className="w-3.5 h-3.5 text-primary" /> Filter Options
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowFiltersPopover(false)}
+                            className="rounded p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                            aria-label="Close filter popover"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-3.5">
+                          {/* Employment Status Filter */}
+                          <div>
+                            <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                              Employment Lifecycle
+                            </label>
+                            <select
+                              value={employmentFilter}
+                              onChange={(e) => setEmploymentFilter(e.target.value as typeof employmentFilter)}
+                              aria-label="Filter by employment lifecycle"
+                              className="w-full h-8 px-2.5 rounded-md bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary cursor-pointer"
+                            >
+                              <option value="active">Employment: Active</option>
+                              <option value="archived">Archived ({counts.archived})</option>
+                              <option value="all">All Employment</option>
+                            </select>
+                          </div>
+
+                          {/* Account Access Filter */}
+                          <div>
+                            <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                              Account Status
+                            </label>
+                            <select
+                              value={statusFilter}
+                              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                              aria-label="Filter by account status"
+                              className="w-full h-8 px-2.5 rounded-md bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary cursor-pointer"
+                            >
+                              <option value="all">All Accounts</option>
+                              <option value="active">Account: Active</option>
+                              <option value="suspended">Account: Restricted / Suspended</option>
+                            </select>
+                          </div>
+
+                          {/* Popover Footer Reset */}
+                          <div className="pt-2 border-t border-border flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={handleResetFilters}
+                              disabled={!isAnyFilterActive}
+                              className="text-xs text-muted-foreground hover:text-primary disabled:opacity-40 transition-colors flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Reset all
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowFiltersPopover(false)}
+                              className="px-3 py-1 rounded bg-primary text-white text-xs font-semibold hover:bg-primary-hover transition-colors cursor-pointer"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Toolbar Reset Button (when any filter is active) */}
+                {isAnyFilterActive && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-dashed border-border px-2.5 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
+                    title="Reset filters to default"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span className="hidden sm:inline">Reset</span>
+                  </button>
+                )}
+
+                {/* Results Count Badge */}
+                <div className="ml-auto text-xs text-muted-foreground font-mono px-1 shrink-0">
+                  {filtered.length} shown
+                </div>
+              </div>
             </div>
           </div>
 
@@ -809,25 +990,4 @@ function RoleChip({
     </span>);
 
 }
-function Segmented({
-  label = 'Filter options',
-  value,
-  onChange,
-  options
-}: {label?: string;value: string;onChange: (v: string) => void;options: {v: string;l: string;}[];}) {
-  return (
-    <div className="table-scroll-region flex w-full rounded-md border border-border bg-panel-bg p-0.5 sm:inline-flex sm:w-auto" role="group" aria-label={label} tabIndex={0}>
-      {options.map((o) =>
-      <button
-        key={o.v}
-        type="button"
-        onClick={() => onChange(o.v)}
-        aria-pressed={value === o.v}
-        className={`h-9 shrink-0 rounded px-2.5 text-xs transition-colors sm:h-8 ${value === o.v ? 'bg-white text-foreground shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground'}`}>
-        
-          {o.l}
-        </button>
-      )}
-    </div>);
 
-}
