@@ -485,7 +485,7 @@ export function Settings() {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+    <div className="dashboard-page space-y-5">
       <div className="bg-white border border-border rounded-xl p-5 shadow-sm font-[Geist,sans-serif]">
         <form onSubmit={handleSubmit} className="flex flex-col bg-white">
           {/* Top Tab Bar & Actions Row */}

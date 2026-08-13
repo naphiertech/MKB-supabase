@@ -296,7 +296,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
+    <div className="dashboard-page space-y-5">
 
       {/* 1. SHARED CUTOFF OVERVIEW & INTEGRATED ACTION BAR (CONSISTENT FOR ALL ROLES) */}
       <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-4">

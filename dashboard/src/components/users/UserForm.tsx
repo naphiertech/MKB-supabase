@@ -499,7 +499,7 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
       </div>
 
       {/* Main Spacious Content */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-6 space-y-6">
+      <div className="dashboard-page flex-1 space-y-6">
         <p className="text-xs font-medium text-muted-foreground">
           Required fields are marked with <span className="font-bold text-red-600">*</span>.
         </p>

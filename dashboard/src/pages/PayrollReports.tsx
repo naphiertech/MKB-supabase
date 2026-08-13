@@ -566,7 +566,7 @@ export function PayrollReports() {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+    <div className="dashboard-page space-y-5">
       {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {TEMPLATES.map(t => {

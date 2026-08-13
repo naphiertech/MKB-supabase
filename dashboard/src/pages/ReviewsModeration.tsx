@@ -83,7 +83,7 @@ export function ReviewsModeration() {
   const displayedReviews = activeTab === 'pending' ? pendingReviews : approvedReviews;
 
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-6 max-w-7xl mx-auto">
+    <div className="dashboard-page space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
@@ -101,10 +101,10 @@ export function ReviewsModeration() {
 
       {/* Tabs / Filter Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-2 rounded-xl border border-border shadow-xs">
-        <div className="flex gap-1">
+        <div className="table-scroll-region flex w-full gap-1 sm:w-auto">
           <button
             onClick={() => setActiveTab('pending')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+            className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
               activeTab === 'pending'
                 ? 'bg-accent text-primary border border-primary/25'
                 : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg border border-transparent'
@@ -120,7 +120,7 @@ export function ReviewsModeration() {
           </button>
           <button
             onClick={() => setActiveTab('approved')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+            className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
               activeTab === 'approved'
                 ? 'bg-accent text-primary border border-primary/25'
                 : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg border border-transparent'
@@ -164,7 +164,7 @@ export function ReviewsModeration() {
         </div>
       ) : (
         /* Reviews list */
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="dashboard-auto-grid gap-4">
           {displayedReviews.map((review) => (
             <div
               key={review.id}

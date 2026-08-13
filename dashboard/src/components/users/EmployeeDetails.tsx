@@ -308,7 +308,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
       </div>
 
       {/* Main Grid Content */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 md:px-6">
+      <div className="dashboard-page flex-1">
         {missingStaffFields.length > 0 && (
           <section className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4" aria-label="Incomplete staff profile">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />

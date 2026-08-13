@@ -57,7 +57,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+    <div className="dashboard-page space-y-5">
       {/* 1. Refined KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard

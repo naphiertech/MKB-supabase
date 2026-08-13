@@ -551,7 +551,7 @@ export function DailyParcelEntry() {
       initial="initial"
       animate="animate"
       exit="exit"
-      className="mx-auto max-w-[1600px] space-y-5 p-4 font-sans md:p-6 lg:p-7"
+      className="dashboard-page space-y-5 font-sans"
     >
       {/* Informational Header Card */}
       <div className="bg-white border border-border rounded-xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">

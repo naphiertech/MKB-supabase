@@ -96,7 +96,7 @@ export function HubManagement() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6 lg:p-8">
+    <div className="dashboard-page space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Hub directory</h2>
@@ -125,17 +125,17 @@ export function HubManagement() {
         </form>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)]">
-        <section className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)]">
+        <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-white shadow-sm">
           <div className="border-b border-border px-4 py-3 text-sm font-semibold">Hubs</div>
           {loading ? <p className="p-6 text-sm text-muted-foreground">Loading hubs…</p> : snapshot.hubs.length === 0 ? (
             <div className="p-8 text-center"><Building2 className="mx-auto h-8 w-8 text-muted-foreground" /><p className="mt-3 font-medium">No hubs configured</p><p className="mt-1 text-sm text-muted-foreground">Create the first real hub when its details are ready.</p></div>
           ) : (
             <div className="divide-y divide-border">
               {snapshot.hubs.map((hub) => (
-                <button key={hub.id} type="button" onClick={() => setSelectedId(hub.id)} className={`flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-panel-bg ${selectedId === hub.id ? 'bg-primary/5' : ''}`}>
+                <button key={hub.id} type="button" onClick={() => setSelectedId(hub.id)} className={`flex min-w-0 w-full items-center gap-3 px-4 py-4 text-left hover:bg-panel-bg ${selectedId === hub.id ? 'bg-primary/5' : ''}`}>
                   <span className={`grid h-9 w-9 place-items-center rounded-lg ${hub.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}><Building2 className="h-4 w-4" /></span>
-                  <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{hub.name}</span><span className="text-xs text-muted-foreground">{hub.zoneCount} zones · {hub.riderCount} riders · {hub.staffCount} staff</span></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{hub.name}</span><span className="block truncate text-xs text-muted-foreground">{hub.zoneCount} zones · {hub.riderCount} riders · {hub.staffCount} staff</span></span>
                   <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${hub.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>{hub.active ? 'Active' : 'Inactive'}</span>
                 </button>
               ))}
@@ -143,12 +143,12 @@ export function HubManagement() {
           )}
         </section>
 
-        <section className="rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+        <section className="min-w-0 rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
           {selectedHub ? <>
-            <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{selectedHub.name}</h3><p className="mt-1 text-sm text-muted-foreground">{selectedHub.description || 'No description provided.'}</p></div><div className="flex gap-1"><button type="button" onClick={() => openEdit(selectedHub)} aria-label="Edit hub" className="rounded-lg border border-border p-2 text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => void toggleActive(selectedHub)} aria-label={selectedHub.active ? 'Deactivate hub' : 'Activate hub'} className="rounded-lg border border-border p-2 text-muted-foreground hover:text-primary"><Power className="h-4 w-4" /></button></div></div>
+            <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="truncate font-semibold">{selectedHub.name}</h3><p className="mt-1 text-sm text-muted-foreground text-wrap-safe">{selectedHub.description || 'No description provided.'}</p></div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => openEdit(selectedHub)} aria-label="Edit hub" className="rounded-lg border border-border p-2 text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => void toggleActive(selectedHub)} aria-label={selectedHub.active ? 'Deactivate hub' : 'Activate hub'} className="rounded-lg border border-border p-2 text-muted-foreground hover:text-primary"><Power className="h-4 w-4" /></button></div></div>
             <div className="mt-5 border-t border-border pt-4"><h4 className="flex items-center gap-2 text-sm font-semibold"><MapPin className="h-4 w-4 text-primary" /> Zone assignments</h4><div className="mt-3 space-y-2">
               {snapshot.zones.length === 0 ? <p className="text-sm text-muted-foreground">No zones are available.</p> : snapshot.zones.map((zone) => (
-                <div key={zone.id} className="flex items-center gap-3 rounded-lg bg-panel-bg px-3 py-2.5"><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{zone.name}</span><span className="text-xs text-muted-foreground">{zone.riderCount} assigned riders</span></span><select aria-label={`Hub for ${zone.name}`} value={zone.hubId ?? ''} onChange={(event) => { if (event.target.value) void assignZone(zone.id, event.target.value); }} className="max-w-[11rem] rounded-lg border border-border bg-white px-2 py-1.5 text-xs"><option value="" disabled>Unassigned</option>{snapshot.hubs.map((hub) => <option key={hub.id} value={hub.id}>{hub.name}</option>)}</select></div>
+                <div key={zone.id} className="flex min-w-0 flex-col items-stretch gap-2 rounded-lg bg-panel-bg px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3"><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{zone.name}</span><span className="text-xs text-muted-foreground">{zone.riderCount} assigned riders</span></span><select aria-label={`Hub for ${zone.name}`} value={zone.hubId ?? ''} onChange={(event) => { if (event.target.value) void assignZone(zone.id, event.target.value); }} className="w-full min-w-0 rounded-lg border border-border bg-white px-2 py-1.5 text-xs sm:w-auto sm:max-w-[11rem]"><option value="" disabled>Unassigned</option>{snapshot.hubs.map((hub) => <option key={hub.id} value={hub.id}>{hub.name}</option>)}</select></div>
               ))}
             </div></div>
           </> : <p className="text-sm text-muted-foreground">Select a hub to view details.</p>}
