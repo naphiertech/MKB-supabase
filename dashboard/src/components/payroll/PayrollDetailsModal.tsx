@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
 import {
   X,
   ChevronLeft,
@@ -42,6 +40,7 @@ import { AttendanceLogsTable } from "./AttendanceLogsTable";
 import { PayslipSlipCard } from "./PayslipSlipCard";
 import { useParcelLogsRealtimeVersion } from "../../hooks/useParcelLogsRealtimeVersion";
 import { PayrollActorIdentity } from "./PayrollActorIdentity";
+import { RightDrawer } from "../common/RightDrawer";
 
 export interface PayrollRecordShape {
   id: string;
@@ -551,25 +550,15 @@ export function PayrollDetailsModal({
     }
   };
 
-  return createPortal(
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="fixed inset-0 bg-foreground/25 backdrop-blur-sm z-[1200]"
-      />
-
-      {/* Drawer Container */}
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "tween", duration: 0.3, ease: "easeOut" }}
-        className="safe-drawer fixed top-0 bottom-0 right-0 flex w-full flex-col border-l border-border bg-white shadow-[0_0_50px_rgba(26,20,16,0.15)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-[70vw] 2xl:max-w-[60vw] z-[1201] font-[Geist,sans-serif]"
-      >
+  return (
+    <RightDrawer
+      open={isOpen}
+      onClose={onClose}
+      ariaLabel="Payroll Details"
+      widthClassName="sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-[70vw] 2xl:max-w-[60vw]"
+      panelClassName="font-[Geist,sans-serif]"
+      closeLabel="Close payroll details drawer"
+    >
         {/* Modal Header */}
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-panel-bg px-3 py-3 sm:px-5 sm:py-3.5">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -1132,8 +1121,6 @@ export function PayrollDetailsModal({
             </div>
           </div>
         </div>
-      </motion.div>
-    </>,
-    document.body
+    </RightDrawer>
   );
 }

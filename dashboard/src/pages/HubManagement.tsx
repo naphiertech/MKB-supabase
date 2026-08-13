@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Building2, MapPin, Pencil, Plus, Power } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Building2, MapPin, Pencil, Plus, Power, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { RightDrawer } from '../components/common/RightDrawer';
 import { useHub } from '../context/HubContext';
 import {
   assignZoneToHub,
@@ -23,6 +24,9 @@ export function HubManagement() {
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const drawerTitleId = useId();
+  const drawerDescriptionId = useId();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,28 +106,97 @@ export function HubManagement() {
           <h2 className="text-xl font-semibold text-foreground">Hub directory</h2>
           <p className="mt-1 text-sm text-muted-foreground">Create operational hubs and place zones under them. No hubs are created automatically.</p>
         </div>
-        <button type="button" onClick={openCreate} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90">
-          <Plus className="h-4 w-4" /> Create hub
+        <button
+          type="button"
+          onClick={openCreate}
+          aria-expanded={showForm}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" />
+          <span>Create hub</span>
         </button>
       </div>
 
-      {showForm && (
-        <form onSubmit={submit} className="rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
-          <h3 className="font-semibold">{editing ? 'Edit hub' : 'Create hub'}</h3>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <label className="text-sm font-medium">Hub name
-              <input required maxLength={120} value={name} onChange={(event) => setName(event.target.value)} className="mt-1.5 w-full rounded-lg border border-border px-3 py-2 outline-none focus:border-primary" />
-            </label>
-            <label className="text-sm font-medium">Description <span className="font-normal text-muted-foreground">(optional)</span>
-              <input maxLength={500} value={description} onChange={(event) => setDescription(event.target.value)} className="mt-1.5 w-full rounded-lg border border-border px-3 py-2 outline-none focus:border-primary" />
-            </label>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold">Cancel</button>
-            <button disabled={saving || !name.trim()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Saving…' : 'Save hub'}</button>
-          </div>
-        </form>
-      )}
+      <RightDrawer
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        ariaLabelledBy={drawerTitleId}
+        ariaDescribedBy={drawerDescriptionId}
+        initialFocusRef={nameInputRef}
+        widthClassName="max-w-md"
+        closeLabel="Close hub drawer"
+      >
+                <div className="flex shrink-0 items-center justify-between border-b border-border bg-white px-4 py-3.5 sm:px-5 sm:py-4">
+                  <div className="flex items-center gap-1.5">
+                    <h2 id={drawerTitleId} className="text-base font-semibold text-foreground">
+                      {editing ? 'Edit hub' : 'Create hub'}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-panel-bg hover:text-foreground"
+                    aria-label="Close drawer"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5">
+                    <p id={drawerDescriptionId} className="text-xs leading-relaxed text-muted-foreground">
+                      {editing
+                        ? 'Update this operational hub’s details for its Zamboanga City service area.'
+                        : 'Specify details for a new operational hub in Zamboanga City.'}
+                    </p>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground">
+                        Hub name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        ref={nameInputRef}
+                        required
+                        maxLength={120}
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        className="mt-1.5 min-h-11 w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        placeholder="e.g. Zamboanga City Operations Hub"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground">
+                        Description <span className="font-normal text-muted-foreground">(optional)</span>
+                      </label>
+                      <textarea
+                        rows={4}
+                        maxLength={500}
+                        value={description}
+                        onChange={(event) => setDescription(event.target.value)}
+                        className="mt-1.5 w-full resize-y rounded-lg border border-border px-3 py-2 text-sm leading-relaxed text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                        placeholder="e.g. Operational hub serving assigned Zamboanga City zones and riders."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-border bg-white px-4 py-4 sm:px-5">
+                    <button
+                      type="button"
+                      onClick={() => setShowForm(false)}
+                      className="min-h-11 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-panel-bg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      disabled={saving || !name.trim()}
+                      className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {saving ? 'Saving…' : 'Save hub'}
+                    </button>
+                  </div>
+                </form>
+      </RightDrawer>
 
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)]">
         <section className="min-w-0 overflow-hidden rounded-xl border border-border bg-white shadow-sm">
