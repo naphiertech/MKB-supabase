@@ -45,11 +45,11 @@ insert into public.riders (id, hub_id, name, mkb_id, email, zone_id, status) val
   ('92000000-0000-4000-8000-000000000007', '90000000-0000-4000-8000-000000000001', 'Stale Rider', 'TEST-GEO-007', 'geo-stale@example.test', '91000000-0000-4000-8000-000000000001', 'active');
 
 insert into public.attendance_logs (id, rider_id, date, time_in, status, source) values
-  ('93000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000001', (now() at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),
-  ('93000000-0000-4000-8000-000000000002', '92000000-0000-4000-8000-000000000002', (now() at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),
-  ('93000000-0000-4000-8000-000000000003', '92000000-0000-4000-8000-000000000003', (now() at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),
-  ('93000000-0000-4000-8000-000000000005', '92000000-0000-4000-8000-000000000005', (now() at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),
-  ('93000000-0000-4000-8000-000000000007', '92000000-0000-4000-8000-000000000007', (now() at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system');
+  ('93000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000001', ((now() - interval '30 minutes') at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),
+  ('93000000-0000-4000-8000-000000000002', '92000000-0000-4000-8000-000000000002', ((now() - interval '30 minutes') at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),
+  ('93000000-0000-4000-8000-000000000003', '92000000-0000-4000-8000-000000000003', ((now() - interval '30 minutes') at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),
+  ('93000000-0000-4000-8000-000000000005', '92000000-0000-4000-8000-000000000005', ((now() - interval '30 minutes') at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system'),
+  ('93000000-0000-4000-8000-000000000007', '92000000-0000-4000-8000-000000000007', ((now() - interval '30 minutes') at time zone 'Asia/Manila')::date, now() - interval '30 minutes', 'present', 'system');
 
 insert into public.rider_locations (id, rider_id, lat, lng, recorded_at)
 values ('94000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000001', 6.9214, 122.0790, clock_timestamp());

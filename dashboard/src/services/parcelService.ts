@@ -658,7 +658,7 @@ export const getPayrollRecords = async (
 ) => {
   const { data, error } = await supabase
     .from('payroll_records')
-    .select('*, riders(id, name, mkb_id, avatar_url, zone_id, notes, zones(name))')
+    .select('*, riders(id, name, mkb_id, avatar_url, zone_id, notes, zones!riders_zone_id_fkey(name))')
     .gte('cutoff_start', cutoffFrom)
     .lte('cutoff_start', cutoffTo)
     .order('created_at', { ascending: false });
@@ -704,7 +704,7 @@ export const getPaginatedPayrollRecords = async (params: PaginatedPayrollParams)
     .from('payroll_records')
     .select(`
       *,
-      riders!inner(id, name, mkb_id, avatar_url, zone_id, notes, zones(name)),
+      riders!inner(id, name, mkb_id, avatar_url, zone_id, notes, zones!riders_zone_id_fkey(name)),
       submitted_user:users!payroll_records_submitted_by_fkey(full_name, email),
       approved_user:users!payroll_records_approved_by_fkey(full_name, email),
       rejected_user:users!payroll_records_rejected_by_fkey(full_name, email),
@@ -1069,7 +1069,7 @@ export const getParcelLogsDetails = async (
 ) => {
   let query = supabase
     .from('parcel_logs')
-    .select('*, riders(name, mkb_id, zones(name))')
+    .select('*, riders(name, mkb_id, zones!riders_zone_id_fkey(name))')
     .gte('date', from)
     .lte('date', to);
 

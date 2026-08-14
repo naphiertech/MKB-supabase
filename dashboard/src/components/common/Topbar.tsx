@@ -72,14 +72,18 @@ const TITLES: Record<
     title: 'Payroll History',
     subtitle: 'Read-only archive of historical payroll cutoffs & payslips'
   },
+  rider_assignments: {
+    title: 'Rider Assignments',
+    subtitle: 'Manage permanent Home assignments and temporary deployments'
+  },
   hubs: {
     title: 'Hub Management',
     subtitle: 'Manage hubs and zone assignments'
   }
 };
 const ALLOWED_PAGES_BY_ROLE: Record<TopbarRole, PageKey[]> = {
-  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
-  hr: ['dashboard', 'monitoring', 'attendance', 'users', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
+  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'users', 'rider_assignments', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
+  hr: ['dashboard', 'monitoring', 'attendance', 'users', 'rider_assignments', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
   payroll: ['dashboard', 'computation', 'reports', 'settings']
 };
 

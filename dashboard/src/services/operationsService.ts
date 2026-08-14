@@ -316,7 +316,7 @@ export async function getDailyParcelEntries(params: {
   // 1. Fetch active riders
   let ridersQuery = supabase
     .from('riders')
-    .select('id, name, mkb_id, avatar_url, face_image_url, zone_id, status, zones(name)');
+    .select('id, name, mkb_id, avatar_url, face_image_url, zone_id, status, zones!riders_zone_id_fkey(name)');
 
   if (params.zoneId && params.zoneId !== 'all') {
     ridersQuery = ridersQuery.eq('zone_id', params.zoneId);
@@ -723,7 +723,7 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
         avatar_url,
         face_image_url,
         zone_id,
-        zones (name)
+        zones!riders_zone_id_fkey (name)
       )
     `,
       { count: 'exact' }

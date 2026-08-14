@@ -58,7 +58,7 @@ insert into employee_archive_tap_results select throws_ok(
 );
 
 insert into public.attendance_logs (id, rider_id, date, time_in, status, source)
-values ('e4000000-0000-4000-8000-000000000005','e2000000-0000-4000-8000-000000000005',current_date,now(),'present','system');
+values ('e4000000-0000-4000-8000-000000000005','e2000000-0000-4000-8000-000000000005',(clock_timestamp() at time zone 'Asia/Manila')::date,clock_timestamp(),'present','system');
 insert into employee_archive_tap_results select throws_ok(
   $$select public.transition_employee_lifecycle('e1000000-0000-4000-8000-000000000002','e1000000-0000-4000-8000-000000000005','archive',current_date,'Resigned',null,'e3000000-0000-4000-8000-000000000004')$$,
   'P0001', null, 'open attendance blocks Archive'

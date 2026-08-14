@@ -28,6 +28,7 @@ import { getUserTrustedDevice, resetUserTrustedDevice } from '../../services/rid
 import { DeviceResetModal, type TrustedDeviceInfo } from './DeviceResetModal';
 import { RiderDocumentsTab } from './RiderDocumentsTab';
 import { getMissingStaffProfileFields, isStaffRole } from '../../services/staffProfilePolicy';
+import { getRiderAssignmentWorkspace, type RiderAssignmentRow } from '../../services/riderAssignmentService';
 
 function formatTimeString(dateStr: string | null): string {
   if (!dateStr) return '—';
@@ -40,9 +41,10 @@ interface EmployeeDetailsProps {
   zones: Zone[];
   onClose: () => void;
   onEdit: () => void;
+  onManageAssignment?: (riderId: string) => void;
 }
 
-export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetailsProps) {
+export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignment }: EmployeeDetailsProps) {
   const { session } = useAuth();
   const isRider = user.role === 'rider';
   const canViewDocuments = session?.role === 'admin' || session?.role === 'hr';
@@ -59,6 +61,16 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
   const [device, setDevice] = useState<TrustedDeviceInfo | null>(null);
   const [deviceLoading, setDeviceLoading] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [assignment, setAssignment] = useState<RiderAssignmentRow | null>(null);
+
+  useEffect(() => {
+    if (!isRider || !user.riderId) { setAssignment(null); return; }
+    let active = true;
+    getRiderAssignmentWorkspace({ riderId: user.riderId })
+      .then((workspace) => { if (active) setAssignment(workspace.riders[0] ?? null); })
+      .catch((error) => console.error('Failed to load Rider assignment summary:', error));
+    return () => { active = false; };
+  }, [isRider, user.riderId]);
 
   useEffect(() => {
     if (!isRider) return;
@@ -620,6 +632,28 @@ export function EmployeeDetails({ user, zones, onClose, onEdit }: EmployeeDetail
                   </div>
                 </div>
               </div>
+
+              {isRider && (
+                <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4 sm:col-span-2">
+                  <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-bold text-accent-foreground uppercase tracking-wider">Assignment Summary</span>
+                    </div>
+                    {user.riderId && onManageAssignment && (
+                      <button type="button" onClick={() => onManageAssignment(user.riderId!)} className="text-xs font-semibold text-primary hover:underline">
+                        Manage Assignment
+                      </button>
+                    )}
+                  </div>
+                  <dl className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+                    <div><dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Home Hub</dt><dd className="mt-0.5 font-semibold text-foreground">{assignment?.homeHubName ?? 'Restricted / Unassigned'}</dd></div>
+                    <div><dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current Operational Hub</dt><dd className="mt-0.5 font-semibold text-foreground">{assignment?.operationalHubName ?? 'Restricted / Unassigned'}</dd></div>
+                    <div><dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current Zone</dt><dd className="mt-0.5 font-semibold text-foreground">{assignment?.operationalZoneName ?? 'Restricted / Unassigned'}</dd></div>
+                    <div><dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assignment Type / Status</dt><dd className="mt-0.5 font-semibold capitalize text-foreground">{assignment ? `${assignment.assignmentType.replace(/_/g, ' ')} · ${assignment.status.replace(/_/g, ' ')}` : 'Not available'}</dd></div>
+                  </dl>
+                </div>
+              )}
 
               {/* Card 3: Address Details */}
               <div className="bg-white rounded-xl border border-border p-5 shadow-sm space-y-4 sm:col-span-2">

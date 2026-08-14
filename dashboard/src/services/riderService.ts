@@ -33,7 +33,7 @@ export interface RiderPayrollRecord {
 export const getRiderPayrollHistory = async (riderId: string): Promise<RiderPayrollRecord[]> => {
   const { data, error } = await supabase
     .from('payroll_records')
-    .select('*, riders(id, name, mkb_id, avatar_url, zones(name), shift)')
+    .select('*, riders(id, name, mkb_id, avatar_url, zones!riders_zone_id_fkey(name), shift)')
     .eq('rider_id', riderId)
     .order('cutoff_start', { ascending: false });
 
@@ -80,7 +80,7 @@ export const getRiderUserMapping = async (userId: string) => {
 export const getRiderFullProfile = async (resolvedRiderId: string) => {
   const { data, error } = await supabase
     .from('riders')
-    .select('*, zones(*)')
+    .select('*, zones!riders_zone_id_fkey(*)')
     .eq('id', resolvedRiderId)
     .maybeSingle();
 

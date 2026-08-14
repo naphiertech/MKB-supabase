@@ -164,7 +164,7 @@ export function useRealtimeLocation(): {
             last_ping,
             contact,
             mkb_id,
-            zones (
+            zones!riders_zone_id_fkey (
               id,
               name
             )

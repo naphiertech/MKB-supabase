@@ -1198,7 +1198,7 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
                     value={form.hubId}
                     onChange={(event) => setRiderHub(event.target.value)}
                     className="ar-input"
-                    disabled={submitting || riderHubLocked}
+                    disabled={submitting || riderHubLocked || mode === "edit"}
                   >
                     <option value="">Select a hub</option>
                     {activeAuthorizedHubs.map((hub) => (
@@ -1208,6 +1208,11 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
                   {riderHubLocked && form.hubId && (
                     <p className="mt-1.5 text-[10px] text-muted-foreground">
                       This Rider is locked to your assigned hub.
+                    </p>
+                  )}
+                  {mode === "edit" && (
+                    <p className="mt-1.5 text-[10px] text-muted-foreground">
+                      Use Rider Assignments to transfer or temporarily deploy an existing Rider.
                     </p>
                   )}
                   {activeAuthorizedHubs.length === 0 && (
@@ -1227,7 +1232,7 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
                     value={form.zoneId}
                     onChange={(e) => setField("zoneId", e.target.value)}
                     className="ar-input"
-                    disabled={submitting || !form.hubId}
+                    disabled={submitting || !form.hubId || mode === "edit"}
                   >
                     <option value="">{form.hubId ? "Select a zone" : "Select a hub first"}</option>
                     {riderZones.map((z) => (
