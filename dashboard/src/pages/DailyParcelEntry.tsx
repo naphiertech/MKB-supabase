@@ -38,37 +38,26 @@ import { getLocalDateString } from '../services/attendanceService';
 import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
 import { RiderAvatar } from '../components/common/RiderAvatar';
 import { RightDrawer } from '../components/common/RightDrawer';
+import { StatusBadge as SemanticStatusBadge } from '../components/common/DashboardPrimitives';
 
 function StatusBadge({ status }: { status: DailyParcelRow['attendanceStatus'] }) {
   switch (status) {
     case 'present':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          Present
-        </span>
+        <SemanticStatusBadge tone="success" dot size="md">Present</SemanticStatusBadge>
       );
     case 'late':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-          Late
-        </span>
+        <SemanticStatusBadge tone="warning" dot size="md">Late</SemanticStatusBadge>
       );
     case 'on_leave':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-          On Leave
-        </span>
+        <SemanticStatusBadge tone="info" dot size="md">On Leave</SemanticStatusBadge>
       );
     case 'absent':
     default:
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
-          <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-          Absent
-        </span>
+        <SemanticStatusBadge tone="danger" dot size="md">Absent</SemanticStatusBadge>
       );
   }
 }

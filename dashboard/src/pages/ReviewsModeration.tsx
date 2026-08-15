@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { getReviews, approveReview, deleteReview } from '../services/reviewService';
-import { Star, Trash2, CheckCircle2, Clock, MessageSquare, ThumbsUp } from 'lucide-react';
+import { Star, Trash2, CheckCircle2, Clock, ThumbsUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
+import { StatePanel, ToolbarSurface } from '../components/common/DashboardPrimitives';
 
 interface DBReview {
   id: string;
@@ -83,32 +84,16 @@ export function ReviewsModeration() {
   const displayedReviews = activeTab === 'pending' ? pendingReviews : approvedReviews;
 
   return (
-    <div className="dashboard-page space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground tracking-tight flex items-center gap-2">
-            <MessageSquare className="w-6 h-6 text-primary" />
-            {isHR ? 'Rider Performance Feedback' : 'Customer Reviews Moderation'}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isHR 
-              ? 'View submitted customer reviews and rider performance feedback.' 
-              : 'Moderate submitted customer reviews before they are displayed publicly on the landing page.'}
-          </p>
-        </div>
-      </div>
-
+    <div className="dashboard-page space-y-5">
       {/* Tabs / Filter Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-2 rounded-xl border border-border shadow-xs">
-        <div className="table-scroll-region flex w-full gap-1 sm:w-auto">
+      <ToolbarSurface className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="ui-tab-list table-scroll-region w-full sm:w-auto" role="tablist" aria-label="Review status">
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'pending'}
             onClick={() => setActiveTab('pending')}
-            className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === 'pending'
-                ? 'bg-accent text-primary border border-primary/25'
-                : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg border border-transparent'
-            }`}
+            className={`ui-tab ${activeTab === 'pending' ? 'ui-tab-active' : ''}`}
           >
             <Clock className="w-4 h-4" />
             Pending Verification
@@ -119,12 +104,11 @@ export function ReviewsModeration() {
             )}
           </button>
           <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'approved'}
             onClick={() => setActiveTab('approved')}
-            className={`flex shrink-0 items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === 'approved'
-                ? 'bg-accent text-primary border border-primary/25'
-                : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg border border-transparent'
-            }`}
+            className={`ui-tab ${activeTab === 'approved' ? 'ui-tab-active' : ''}`}
           >
             <ThumbsUp className="w-4 h-4" />
             Approved Publicly
@@ -136,39 +120,30 @@ export function ReviewsModeration() {
           </button>
         </div>
         
-        <div className="text-xs text-muted-foreground font-mono pr-2">
+        <div className="px-1 text-xs text-muted-foreground font-mono">
           {displayedReviews.length} item{displayedReviews.length !== 1 && 's'} listed
         </div>
-      </div>
+      </ToolbarSurface>
 
       {/* Loading state */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white border border-border rounded-2xl space-y-4">
-          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground font-medium">Fetching reviews...</p>
-        </div>
+        <div className="ui-card"><StatePanel title="Fetching reviews…" loading /></div>
       ) : displayedReviews.length === 0 ? (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center py-16 bg-white border border-border rounded-2xl text-center px-4">
-          <div className="w-14 h-14 bg-panel-bg rounded-full flex items-center justify-center border border-border text-muted-foreground mb-4">
-            {activeTab === 'pending' ? <Clock className="w-6 h-6" /> : <Star className="w-6 h-6" />}
-          </div>
-          <h3 className="text-base font-semibold text-foreground">
-            No {activeTab} reviews found
-          </h3>
-          <p className="text-sm text-muted-foreground max-w-sm mt-1">
-            {activeTab === 'pending'
-              ? 'New reviews submitted from the landing portal will appear here for validation.'
-              : 'Approved reviews will display publicly on the landing portal.'}
-          </p>
-        </div>
+        <div className="ui-card"><StatePanel
+          icon={activeTab === 'pending' ? Clock : Star}
+          title={`No ${activeTab} reviews found`}
+          description={activeTab === 'pending'
+            ? 'New reviews submitted from the landing portal will appear here for validation.'
+            : 'Approved reviews will display publicly on the landing portal.'}
+        /></div>
       ) : (
         /* Reviews list */
         <div className="dashboard-auto-grid gap-4">
           {displayedReviews.map((review) => (
             <div
               key={review.id}
-              className={`bg-white border p-5 rounded-2xl shadow-sm flex flex-col justify-between transition-all duration-200 ${
+              className={`ui-card ui-card-interactive flex flex-col justify-between p-5 ${
                 review.status === 'pending' ? 'border-border hover:border-primary/30' : 'border-border hover:border-muted-foreground/30'
               }`}
             >
@@ -216,7 +191,7 @@ export function ReviewsModeration() {
                   <button
                     onClick={() => handleDelete(review.id)}
                     disabled={actioningId === review.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition-colors cursor-pointer"
+                    className="ui-button-danger text-xs"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     Delete
@@ -225,7 +200,7 @@ export function ReviewsModeration() {
                     <button
                       onClick={() => handleApprove(review.id)}
                       disabled={actioningId === review.id}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
+                      className="ui-button bg-emerald-600 px-4 text-xs text-white shadow-sm hover:bg-emerald-700"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Approve

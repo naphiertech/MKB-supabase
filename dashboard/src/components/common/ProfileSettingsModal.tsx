@@ -848,31 +848,6 @@ export function ProfileSettingsModal({ open, onClose }: ProfileSettingsModalProp
         </div>
       </form>
 
-      <style>{`
-        .prof-input {
-          width: 100%;
-          height: 42px;
-          padding-left: 14px;
-          padding-right: 14px;
-          background: #ffffff;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          color: var(--foreground);
-          font-size: 13px;
-          outline: none;
-          transition: all 200ms ease;
-        }
-        .prof-input:hover {
-          border-color: rgba(27, 61, 50, 0.4);
-        }
-        .prof-input:focus {
-          border-color: #1b3d32;
-          box-shadow: 0 0 0 4px rgba(27, 61, 50, 0.08);
-        }
-        select.prof-input {
-          background-image: none;
-        }
-      `}</style>
     </Modal>
   );
 }

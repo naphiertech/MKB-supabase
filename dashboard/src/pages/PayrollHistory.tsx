@@ -414,28 +414,23 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
   return (
     <div className="dashboard-page space-y-5">
 
-      {/* HEADER BAR */}
-      <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-3">
+      {/* Archive context and actions; the app shell owns the page title. */}
+      <div className="ui-toolbar">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-accent text-primary text-[10.5px] font-bold tracking-wide uppercase">
-                <History className="w-3.5 h-3.5" />
-                Historical Archive
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-panel-bg text-muted-foreground border border-border text-[10.5px] font-semibold">
-                <Lock className="w-3 h-3 text-primary" />
-                Read-Only Archive ({role.toUpperCase()})
-              </span>
-            </div>
-            <h1 className="text-lg md:text-xl font-extrabold text-foreground tracking-tight mt-1">
-              Payroll History & Cutoff Archives
-            </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-accent text-primary text-[10.5px] font-bold tracking-wide uppercase">
+              <History className="w-3.5 h-3.5" />
+              Historical Archive
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-panel-bg text-muted-foreground border border-border text-[10.5px] font-semibold">
+              <Lock className="w-3 h-3 text-primary" />
+              Read-Only Archive ({role.toUpperCase()})
+            </span>
           </div>
 
           <button
             onClick={loadHistoryData}
-            className="h-8 px-3 rounded-lg bg-panel-bg border border-border text-foreground hover:bg-accent transition text-xs font-semibold flex items-center gap-1.5 shrink-0 cursor-pointer"
+            className="ui-button-secondary h-8 shrink-0 text-xs"
           >
             <Loader2 className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : 'hidden'}`} />
             Refresh Archive

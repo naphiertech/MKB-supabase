@@ -22,9 +22,9 @@ import {
   SlidersHorizontal,
   Users,
   X,
-  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
 import { RightDrawer } from '../components/common/RightDrawer';
 import { useHub } from '../context/HubContext';
 import {
@@ -55,53 +55,11 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-PH', {
   timeStyle: 'short',
 });
 
-interface MetricCardProps {
-  icon: LucideIcon;
-  iconClassName: string;
-  iconBackgroundClassName: string;
-  label: string;
-  value: number | null;
-  supportingText: string;
-}
-
-function MetricCard({
-  icon: Icon,
-  iconClassName,
-  iconBackgroundClassName,
-  label,
-  value,
-  supportingText,
-}: MetricCardProps) {
-  return (
-    <article className="min-w-0 rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
-      <div className="flex min-w-0 items-center gap-3.5">
-        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${iconBackgroundClassName}`}>
-          <Icon className={`h-5 w-5 ${iconClassName}`} aria-hidden="true" />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            {label}
-          </span>
-          <strong className="mt-0.5 block text-2xl font-semibold leading-none text-foreground">
-            {value === null ? '—' : NUMBER_FORMAT.format(value)}
-          </strong>
-          <span className="mt-1 block truncate text-xs text-muted-foreground">{supportingText}</span>
-        </span>
-      </div>
-    </article>
-  );
-}
-
 function HubStatusBadge({ active }: { active: boolean }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-        active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-      }`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} aria-hidden="true" />
+    <StatusBadge tone={active ? 'success' : 'neutral'} dot size="md">
       {active ? 'Active' : 'Inactive'}
-    </span>
+    </StatusBadge>
   );
 }
 
@@ -280,7 +238,7 @@ export function HubManagement() {
           type="button"
           onClick={openCreate}
           aria-expanded={showForm}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="ui-button-primary min-h-11 px-4"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           <span>Create hub</span>
@@ -288,37 +246,32 @@ export function HubManagement() {
       </div>
 
       <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
+        <SummaryCard
           icon={Building2}
-          iconClassName="text-primary"
-          iconBackgroundClassName="bg-primary/10"
           label="Total Hubs"
-          value={loading ? null : totals.hubs}
-          supportingText={`${NUMBER_FORMAT.format(totals.activeHubs)} active`}
+          value={loading ? '—' : NUMBER_FORMAT.format(totals.hubs)}
+          helper={`${NUMBER_FORMAT.format(totals.activeHubs)} active`}
         />
-        <MetricCard
+        <SummaryCard
           icon={MapPin}
-          iconClassName="text-emerald-700"
-          iconBackgroundClassName="bg-emerald-50"
+          tone="success"
           label="Total Zones"
-          value={loading ? null : totals.zones}
-          supportingText="Across all hubs"
+          value={loading ? '—' : NUMBER_FORMAT.format(totals.zones)}
+          helper="Across all hubs"
         />
-        <MetricCard
+        <SummaryCard
           icon={Users}
-          iconClassName="text-blue-700"
-          iconBackgroundClassName="bg-blue-50"
+          tone="info"
           label="Total Riders"
-          value={loading ? null : totals.riders}
-          supportingText="Assigned across hubs"
+          value={loading ? '—' : NUMBER_FORMAT.format(totals.riders)}
+          helper="Assigned across hubs"
         />
-        <MetricCard
+        <SummaryCard
           icon={Users}
-          iconClassName="text-violet-700"
-          iconBackgroundClassName="bg-violet-50"
+          tone="violet"
           label="Total Staff"
-          value={loading ? null : totals.staff}
-          supportingText="Across hub assignments"
+          value={loading ? '—' : NUMBER_FORMAT.format(totals.staff)}
+          helper="Across hub assignments"
         />
       </div>
 
@@ -338,7 +291,7 @@ export function HubManagement() {
           <button
             type="button"
             onClick={() => setShowForm(false)}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-panel-bg hover:text-foreground"
+            className="ui-icon-button"
             aria-label="Close drawer"
           >
             <X className="h-5 w-5" />
@@ -363,7 +316,7 @@ export function HubManagement() {
                 maxLength={120}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="mt-1.5 min-h-11 w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="ui-control mt-1.5 min-h-11"
                 placeholder="e.g. Zamboanga City Operations Hub"
               />
             </div>
@@ -377,7 +330,7 @@ export function HubManagement() {
                 maxLength={500}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                className="mt-1.5 w-full resize-y rounded-lg border border-border px-3 py-2 text-sm leading-relaxed text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                className="ui-textarea mt-1.5"
                 placeholder="e.g. Operational hub serving assigned Zamboanga City zones and riders."
               />
             </div>
@@ -387,13 +340,13 @@ export function HubManagement() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="min-h-11 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-panel-bg"
+              className="ui-button-secondary min-h-11"
             >
               Cancel
             </button>
             <button
               disabled={saving || !name.trim()}
-              className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50"
+              className="ui-button-primary min-h-11"
             >
               {saving ? 'Saving…' : 'Save hub'}
             </button>
@@ -425,7 +378,7 @@ export function HubManagement() {
                   value={hubSearch}
                   onChange={(event) => setHubSearch(event.target.value)}
                   placeholder="Search hubs"
-                  className="min-h-10 w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  className="ui-control min-h-10 pl-9 pr-3"
                 />
               </label>
               <label className="relative min-w-0">

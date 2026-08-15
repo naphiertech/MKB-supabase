@@ -7,6 +7,7 @@ import {
   type HrLogStatus
 } from '../../services/attendanceService';
 import { pushToast } from '../../hooks/useToast';
+import { StatusBadge } from '../common/DashboardPrimitives';
 
 interface HRAttendanceOverviewProps {
   logs: AttendanceLog[];
@@ -16,60 +17,33 @@ interface HRAttendanceOverviewProps {
 type Range = 'today' | 'week' | 'all';
 type StatusFilter = 'all' | HrLogStatus;
 
-const STATUS_STYLES: Record<HrLogStatus, string> = {
-  Complete: 'bg-emerald-50 text-emerald-700 border-emerald-500/25',
-  Incomplete: 'bg-amber-50 text-amber-700 border-amber-500/25',
-  Absent: 'bg-red-50 text-red-700 border-red-500/25',
-  Late: 'bg-accent text-accent-foreground border-primary/25'
-};
-
-const STATUS_DOT: Record<HrLogStatus, string> = {
-  Complete: 'bg-emerald-500',
-  Incomplete: 'bg-amber-500',
-  Absent: 'bg-red-500',
-  Late: 'bg-primary'
-};
-
 function HrStatusPill({ status }: { status: HrLogStatus }) {
+  const tone = status === 'Complete' ? 'success' : status === 'Absent' ? 'danger' : 'warning';
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS_STYLES[status]}`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[status]}`} />
+    <StatusBadge tone={tone} dot>
       {status}
-    </span>
+    </StatusBadge>
   );
 }
 
 function VerificationBadge({ source, lat }: { source: 'face-scan' | 'manual' | 'system'; lat?: number }) {
   if (source === 'system') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
-        <span>Auto-Cutoff</span>
-      </span>
+      <StatusBadge tone="neutral">Auto-Cutoff</StatusBadge>
     );
   }
   if (source === 'face-scan' && lat) {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300">
-        <ScanFace className="w-3 h-3 text-emerald-600" />
-        <span>Face + GPS</span>
-      </span>
+      <StatusBadge tone="success" icon={<ScanFace className="h-3 w-3" />}>Face + GPS</StatusBadge>
     );
   }
   if (source === 'face-scan') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-300">
-        <ScanFace className="w-3 h-3 text-green-600" />
-        <span>Face Scan</span>
-      </span>
+      <StatusBadge tone="success" icon={<ScanFace className="h-3 w-3" />}>Face Scan</StatusBadge>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-300">
-      <UserCheck className="w-3 h-3 text-amber-600" />
-      <span>Manual</span>
-    </span>
+    <StatusBadge tone="warning" icon={<UserCheck className="h-3 w-3" />}>Manual</StatusBadge>
   );
 }
 
