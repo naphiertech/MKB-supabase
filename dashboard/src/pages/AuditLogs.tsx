@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { getActivityLogs, type ActivityLog } from '../lib/apiService';
 import { pushToast } from '../hooks/useToast';
+import { StatePanel, SummaryCard } from '../components/common/DashboardPrimitives';
 
 const PAGE_SIZE = 100;
 
@@ -327,83 +328,14 @@ export function AuditLogs() {
       
       {/* Stats Widgets */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        
-        {/* Total Events */}
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
-              Total Log Entries
-            </div>
-            <div className="mt-1 font-mono text-xl font-bold text-foreground sm:text-2xl">
-              {loading ? '...' : stats.total}
-            </div>
-            <div className="mt-0.5 hidden text-[10px] text-muted-foreground font-mono sm:block">
-              currently loaded
-            </div>
-          </div>
-          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-panel-bg sm:flex">
-            <Database className="w-5 h-5 text-primary" />
-          </div>
-        </div>
-
-        {/* Login Events */}
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
-              Login Events
-            </div>
-            <div className="mt-1 font-mono text-xl font-bold text-purple-700 sm:text-2xl">
-              {loading ? '...' : stats.logins}
-            </div>
-            <div className="mt-0.5 hidden text-[10px] text-muted-foreground font-mono sm:block">
-              biometric & manual checkins
-            </div>
-          </div>
-          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-purple-100 bg-purple-50 sm:flex">
-            <Lock className="w-5 h-5 text-purple-600" />
-          </div>
-        </div>
-
-        {/* Payroll Actions */}
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
-              Payroll Status Audits
-            </div>
-            <div className="mt-1 font-mono text-xl font-bold text-blue-700 sm:text-2xl">
-              {loading ? '...' : stats.payrollUpdates}
-            </div>
-            <div className="mt-0.5 hidden text-[10px] text-muted-foreground font-mono sm:block">
-              approvals and modifications
-            </div>
-          </div>
-          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 sm:flex">
-            <ShieldCheck className="w-5 h-5 text-blue-600" />
-          </div>
-        </div>
-
-        {/* Admin operations */}
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
-              Admin Modifications
-            </div>
-            <div className="mt-1 font-mono text-xl font-bold text-primary sm:text-2xl">
-              {loading ? '...' : stats.adminEvents}
-            </div>
-            <div className="mt-0.5 hidden text-[10px] text-primary/80 font-mono sm:block">
-              system settings edits
-            </div>
-          </div>
-          <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-accent sm:flex">
-            <Activity className="w-5 h-5 text-primary" />
-          </div>
-        </div>
-
+        <SummaryCard icon={Database} label="Total Log Entries" value={loading ? '…' : stats.total} helper="Currently loaded" tone="neutral" />
+        <SummaryCard icon={Lock} label="Login Events" value={loading ? '…' : stats.logins} helper="Biometric and manual check-ins" tone="violet" />
+        <SummaryCard icon={ShieldCheck} label="Payroll Status Audits" value={loading ? '…' : stats.payrollUpdates} helper="Approvals and modifications" tone="info" />
+        <SummaryCard icon={Activity} label="Admin Modifications" value={loading ? '…' : stats.adminEvents} helper="System settings edits" tone="brand" />
       </div>
 
       {/* Control panel (Filters + Search) */}
-      <div className="bg-white border border-border rounded-xl p-4 shadow-sm space-y-4">
+      <div className="ui-toolbar space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
           {/* Search bar */}
@@ -414,7 +346,7 @@ export function AuditLogs() {
               placeholder="Search audit logs…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full h-10 pl-9 pr-4 rounded-lg bg-panel-bg border border-border text-sm text-foreground placeholder-subtle-text outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition"
+              className="ui-control w-full pl-9 pr-4"
             />
           </div>
 
@@ -423,7 +355,7 @@ export function AuditLogs() {
             <button
               onClick={() => void loadLogs()}
               disabled={loading}
-              className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-3 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground disabled:opacity-50 sm:text-sm cursor-pointer"
+              className="ui-button-secondary"
               title="Reload logs from DB"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -431,7 +363,7 @@ export function AuditLogs() {
             </button>
             <button
               onClick={handleExportCSV}
-              className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-primary-hover sm:px-4 sm:text-sm cursor-pointer"
+              className="ui-button-primary"
             >
               <Download className="w-4 h-4" />
               Export Logs (CSV)
@@ -449,7 +381,7 @@ export function AuditLogs() {
             <select
               value={roleFilter}
               onChange={e => setRoleFilter(e.target.value as 'all' | 'admin' | 'hr' | 'payroll' | 'rider')}
-              className="h-10 w-full rounded-lg border border-border bg-white px-2 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 lg:h-9 lg:w-auto"
+              className="ui-control w-full px-2 text-xs lg:w-auto"
             >
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
@@ -465,7 +397,7 @@ export function AuditLogs() {
             <select
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              className="h-10 w-full min-w-0 rounded-lg border border-border bg-white px-2 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 lg:h-9 lg:w-auto lg:max-w-60"
+              className="ui-control w-full min-w-0 px-2 text-xs lg:w-auto lg:max-w-60"
             >
               <option value="all">All Events</option>
               {distinctEventTypes.map(type => (
@@ -480,7 +412,7 @@ export function AuditLogs() {
             <select
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value as 'all' | 'today' | '3days' | '7days')}
-              className="h-10 w-full rounded-lg border border-border bg-white px-2 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 lg:h-9 lg:w-auto"
+              className="ui-control w-full px-2 text-xs lg:w-auto"
             >
               <option value="all">All History</option>
               <option value="today">Today Only</option>
@@ -493,28 +425,25 @@ export function AuditLogs() {
       </div>
 
       {/* Main Table Grid */}
-      <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+      <div className="ui-card overflow-hidden">
         
         {loading && (
-          <div className="p-10 text-center space-y-4">
-            <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
-            <div className="text-sm text-muted-foreground font-medium">Querying public.activity_logs...</div>
-          </div>
+          <StatePanel compact loading title="Loading audit activity" description="Querying the activity ledger…" />
         )}
 
         {!loading && filteredLogs.length === 0 && (
-          <div className="p-16 text-center space-y-2">
-            <Database className="w-10 h-10 text-subtle-text mx-auto" />
-            <div className="text-sm font-semibold text-foreground">{loadError ? 'Audit logs could not be loaded' : 'No logs matching filters found'}</div>
-            <div className="text-xs text-muted-foreground">{loadError ? 'Check your connection and try again.' : 'Try adjusting your search criteria or filters.'}</div>
-            <button
+          <StatePanel
+            icon={Database}
+            title={loadError ? 'Audit logs could not be loaded' : 'No logs matching filters found'}
+            description={loadError ? 'Check your connection and try again.' : 'Try adjusting your search criteria or filters.'}
+            action={<button
               type="button"
               onClick={() => loadError ? void loadLogs() : (setSearch(''), setRoleFilter('all'), setTypeFilter('all'), setDateFilter('all'))}
-              className="mt-3 h-9 rounded-lg border border-border bg-white px-3 text-xs font-semibold text-foreground hover:border-primary/40"
+              className="ui-button-secondary"
             >
               {loadError ? 'Retry' : 'Clear filters'}
-            </button>
-          </div>
+            </button>}
+          />
         )}
 
         {!loading && filteredLogs.length > 0 && (
@@ -602,7 +531,7 @@ export function AuditLogs() {
             </div>
 
           <div className="table-scroll-region hidden lg:block" role="region" aria-label="Audit log records" tabIndex={0}>
-            <table className="w-full min-w-[66rem] border-collapse text-left text-xs">
+            <table className="data-table-wide min-w-[66rem] text-xs">
               <thead className="bg-panel-bg border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                 <tr>
                   <th colSpan={6} className="p-0">

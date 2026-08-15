@@ -104,7 +104,7 @@ export function LiveMonitoring() {
             }
             <button
               onClick={() => setCollapsed((v) => !v)}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg cursor-pointer"
+              className="ui-icon-button h-9 w-9 border-0"
               aria-label="Toggle rail">
               
               {collapsed ?

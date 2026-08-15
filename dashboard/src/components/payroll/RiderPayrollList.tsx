@@ -657,7 +657,7 @@ export function RiderPayrollList({
               <select
                 value={zoneFilter}
                 onChange={e => setZoneFilter(e.target.value)}
-                className="h-9 min-w-0 flex-1 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer md:flex-none"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-white px-2.5 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer sm:w-48 sm:flex-none"
               >
                 <option value="all">All Zones</option>
                 {allZones.map(z => (
@@ -673,7 +673,7 @@ export function RiderPayrollList({
                 ref={statusFilterRef}
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="h-9 min-w-0 flex-1 px-2.5 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer font-mono text-[11px] md:flex-none"
+                className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-white px-2.5 font-mono text-[11px] text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer sm:w-40 sm:flex-none"
               >
                 <option value="all">All Statuses</option>
                 <option value="draft">Draft</option>

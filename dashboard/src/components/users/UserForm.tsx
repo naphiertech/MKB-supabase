@@ -1387,46 +1387,6 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
         </div>
       </div>
 
-    <style>{`
-      .ar-input {
-        width: 100%;
-        height: 36px;
-        padding: 0 12px;
-        background: #FFFFFF;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: var(--foreground);
-        font-size: 13px;
-        outline: none;
-        transition: border-color 150ms ease, box-shadow 150ms ease;
-      }
-      .ar-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
-      .ar-input::placeholder { color: #A39B8E; }
-      .ar-input:disabled { background: var(--panel-bg); color: var(--muted-foreground); cursor: not-allowed; }
-      select.ar-input {
-        appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6258' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 10px center;
-        padding-right: 28px;
-      }
-      .ar-textarea {
-        width: 100%;
-        padding: 10px 12px;
-        background: #FFFFFF;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: var(--foreground);
-        font-size: 13px;
-        outline: none;
-        resize: vertical;
-        transition: border-color 150ms ease, box-shadow 150ms ease;
-      }
-      .ar-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-ring); }
-      .ar-textarea::placeholder { color: #A39B8E; }
-      .ar-textarea:disabled { background: var(--panel-bg); color: var(--muted-foreground); cursor: not-allowed; }
-    `}</style>
-
       {cameraOpen && (
         <FaceCaptureModal
           riderName={`${form.firstName} ${form.lastName}`.trim() || "New rider"}

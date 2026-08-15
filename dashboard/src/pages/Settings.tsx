@@ -992,31 +992,6 @@ export function Settings() {
         </form>
       </div>
 
-      <style>{`
-        .prof-input {
-          width: 100%;
-          height: 42px;
-          padding-left: 14px;
-          padding-right: 14px;
-          background: #ffffff;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          color: var(--foreground);
-          font-size: 13px;
-          outline: none;
-          transition: all 200ms ease;
-        }
-        .prof-input:hover {
-          border-color: rgba(219, 108, 0, 0.4);
-        }
-        .prof-input:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 4px rgba(219, 108, 0, 0.08);
-        }
-        select.prof-input {
-          background-image: none;
-        }
-      `}</style>
     </div>
   );
 }

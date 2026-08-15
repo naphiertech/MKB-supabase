@@ -1,6 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import type { Zone, Rider, AttendanceLog } from '../../services/types';
 import { getLocalDateString } from '../../services/attendanceService';
+import { StatusBadge } from '../common/DashboardPrimitives';
 interface AssignedRidersByZoneProps {
   zones: Zone[];
   riders: Rider[];
@@ -10,49 +11,12 @@ interface AssignedRidersByZoneProps {
   onToggleGroup: (zoneId: string) => void;
   onSelectZone: (zoneId: string) => void;
 }
-const STATUS_META: Record<
-  Rider['status'],
-  {
-    label: string;
-    bg: string;
-    text: string;
-    dot: string;
-  }> =
-{
-  active: {
-    label: 'Active',
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    dot: 'bg-emerald-500'
-  },
-  idle: {
-    label: 'Idle',
-    bg: 'bg-amber-50',
-    text: 'text-amber-700',
-    dot: 'bg-amber-500'
-  },
-  violation: {
-    label: 'Violation',
-    bg: 'bg-red-50',
-    text: 'text-red-700',
-    dot: 'bg-red-500'
-  },
-  offline: {
-    label: 'Offline',
-    bg: 'bg-gray-100',
-    text: 'text-gray-600',
-    dot: 'bg-gray-400'
-  }
-};
 function RiderStatusPill({ status }: {status: Rider['status'];}) {
-  const m = STATUS_META[status];
+  const tone = status === 'active' ? 'success' : status === 'idle' ? 'warning' : status === 'violation' ? 'danger' : 'neutral';
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${m.bg} ${m.text}`}>
-      
-      <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
-      {m.label}
-    </span>);
+    <StatusBadge tone={tone} dot>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </StatusBadge>);
 
 }
 export function AssignedRidersByZone({

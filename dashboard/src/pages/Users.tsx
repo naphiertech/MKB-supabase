@@ -728,8 +728,8 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
           </div>
 
           {/* Compact Filter Toolbar */}
-          <div className="bg-white border border-border rounded-xl p-3 shadow-sm">
-            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5">
+          <div className="ui-toolbar p-3">
+            <div className="flex flex-col flex-wrap items-stretch gap-2.5 sm:flex-row sm:items-center lg:flex-nowrap">
               {/* Search Input */}
               <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-panel-bg px-3 transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
                 <Search className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -751,14 +751,14 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-nowrap">
                 {/* Role Select Dropdown */}
                 {currentUserRole !== 'hr' && (
                   <select
                     value={roleFilter}
                     onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
                     aria-label="Filter by role"
-                    className="h-9 px-3 rounded-lg bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer shadow-sm min-w-[110px]"
+                    className="ui-control h-9 w-full px-3 text-xs font-medium sm:w-36"
                   >
                     <option value="all">All Roles</option>
                     <option value="admin">Admin ({counts.admin})</option>
@@ -773,7 +773,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                   value={zoneFilter}
                   onChange={(e) => setZoneFilter(e.target.value)}
                   aria-label="Filter by zone"
-                  className="h-9 px-3 rounded-lg bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer shadow-sm min-w-[130px] max-w-[200px] truncate"
+                  className="ui-control h-9 w-full truncate px-3 text-xs font-medium sm:w-64"
                 >
                   <option value="all">All Zones ({zonesList.length})</option>
                   {groupedZones.isGrouped
