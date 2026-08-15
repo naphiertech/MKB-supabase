@@ -299,7 +299,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
     <div className="dashboard-page space-y-5">
 
       {/* 1. SHARED CUTOFF OVERVIEW & INTEGRATED ACTION BAR (CONSISTENT FOR ALL ROLES) */}
-      <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-4">
+      <div className="ui-card space-y-4 p-4 md:p-5">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 border-b border-border pb-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -316,9 +316,9 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
                 Open Cutoff
               </span>
             </div>
-            <h1 className="text-lg md:text-xl font-extrabold text-foreground tracking-tight">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">
               Active Cutoff: {cutoffLabel}, {currentYear}
-            </h1>
+            </h2>
           </div>
 
           {/* Cutoff Selector & Controls */}
@@ -326,7 +326,7 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
             <select
               value={month}
               onChange={e => setMonth(Number(e.target.value))}
-              className="h-8 px-2.5 rounded-md bg-panel-bg border border-border text-xs font-semibold text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono cursor-pointer"
+              className="ui-control h-8 w-full px-2.5 font-mono text-xs font-semibold sm:w-44"
             >
               {MONTHS.map((m, idx) => (
                 <option key={m} value={idx}>

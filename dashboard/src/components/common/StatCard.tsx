@@ -98,7 +98,7 @@ export function StatCard({
       initial={isFirstRender ? { opacity: 0, y: 8 } : false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, delay: isFirstRender ? index * 0.04 : 0 }}
-      whileHover={isClickable ? { y: -3 } : { y: -2 }}
+      whileHover={isClickable ? { y: -2 } : undefined}
       whileTap={isClickable ? { scale: 0.98 } : undefined}
       onClick={onClick}
       onKeyDown={(e) => {
@@ -109,7 +109,7 @@ export function StatCard({
       }}
       role={isClickable ? "button" : undefined}
       tabIndex={isClickable ? 0 : undefined}
-      className={`relative bg-white border border-border rounded-xl p-4 overflow-hidden shadow-2xs hover:shadow-md transition-all outline-none focus-visible:ring-2 focus-visible:ring-offset-2 h-full flex flex-col justify-between ${
+      className={`ui-card relative h-full overflow-hidden p-4 outline-none transition-all focus-visible:ring-2 focus-visible:ring-offset-2 flex flex-col justify-between ${
         isClickable ? `cursor-pointer ${HOVER_BORDER[accent]} focus-visible:ring-primary/40` : ""
       }`}
     >

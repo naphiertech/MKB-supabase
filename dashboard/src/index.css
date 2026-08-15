@@ -135,6 +135,88 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
   }
+
+  /* Shared dashboard surface language. Page layouts may differ; equivalent
+   * cards, controls, toolbars, tables, and states should not. */
+  .ui-card {
+    @apply rounded-xl border border-border bg-white shadow-sm;
+  }
+
+  .ui-card-interactive {
+    @apply transition-[border-color,box-shadow,transform] duration-200 hover:border-primary hover:shadow-md;
+  }
+
+  .ui-toolbar {
+    @apply rounded-xl border border-border bg-white p-3 shadow-sm sm:p-4;
+  }
+
+  .ui-eyebrow {
+    @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  .ui-section-title {
+    @apply text-sm font-semibold tracking-tight text-foreground;
+  }
+
+  .ui-control,
+  .ar-input,
+  .prof-input {
+    @apply h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-muted-foreground hover:border-primary focus:border-primary focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:bg-panel-bg disabled:text-muted-foreground disabled:opacity-70;
+  }
+
+  select.ui-control,
+  select.ar-input,
+  select.prof-input {
+    @apply appearance-none cursor-pointer pr-8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6258' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+  }
+
+  .ui-textarea,
+  .ar-textarea {
+    @apply w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm leading-relaxed text-foreground outline-none transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-muted-foreground hover:border-primary focus:border-primary focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:bg-panel-bg disabled:text-muted-foreground disabled:opacity-70;
+    resize: vertical;
+  }
+
+  .ui-button,
+  .ui-button-primary,
+  .ui-button-secondary,
+  .ui-button-danger {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ui-button-primary {
+    @apply bg-primary text-white shadow-sm hover:bg-primary-hover;
+  }
+
+  .ui-button-secondary {
+    @apply border border-border bg-white text-foreground hover:border-primary hover:bg-panel-bg;
+  }
+
+  .ui-button-danger {
+    @apply border border-red-200 bg-red-50 text-red-700 hover:bg-red-100;
+  }
+
+  .ui-icon-button {
+    @apply inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-panel-bg hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ui-tab-list {
+    @apply flex gap-1 overflow-x-auto rounded-lg border border-border bg-panel-bg p-1;
+  }
+
+  .ui-tab {
+    @apply inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-transparent px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-white hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  }
+
+  .ui-tab-active {
+    @apply border-primary bg-white text-primary shadow-sm;
+  }
+
+  .ui-state {
+    @apply flex flex-col items-center justify-center gap-3 px-5 text-center;
+  }
 }
 
 /* Responsive layout primitives shared by dense dashboard surfaces. */
@@ -155,6 +237,44 @@
 
 .data-table-extra-wide {
   min-width: 72rem;
+}
+
+:where(.data-table, .data-table-wide, .data-table-extra-wide) {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+:where(.data-table, .data-table-wide, .data-table-extra-wide) thead {
+  background: var(--panel-bg);
+  color: var(--muted-foreground);
+  font-size: 0.65625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:where(.data-table, .data-table-wide, .data-table-extra-wide) tbody tr {
+  border-top: 1px solid var(--border);
+  transition: background-color 150ms ease;
+}
+
+:where(.data-table, .data-table-wide, .data-table-extra-wide) tbody tr:hover {
+  background: color-mix(in srgb, var(--panel-bg) 65%, transparent);
+}
+
+@media (pointer: coarse) {
+  .ui-control,
+  .ar-input,
+  .prof-input,
+  .ui-button,
+  .ui-button-primary,
+  .ui-button-secondary,
+  .ui-button-danger,
+  .ui-icon-button,
+  .ui-tab {
+    min-height: 44px;
+  }
 }
 
 .viewport-dialog {

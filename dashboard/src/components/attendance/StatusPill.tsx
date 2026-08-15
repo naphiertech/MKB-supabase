@@ -1,5 +1,6 @@
 import type { AttendancePresence, AttendanceStatus, PunctualityStatus } from '../../services/types';
 import { CheckCircle2, Clock, CalendarX, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { StatusBadge } from '../common/DashboardPrimitives';
 
 interface StatusPillProps {
   status: AttendancePresence | AttendanceStatus;
@@ -9,31 +10,27 @@ export function StatusPill({ status }: StatusPillProps) {
   switch (status) {
     case 'present':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Present</span>
-        </span>
+        <StatusBadge tone="success" size="md" icon={<CheckCircle2 className="h-3.5 w-3.5" />}>
+          Present
+        </StatusBadge>
       );
     case 'late':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
-          <Clock className="w-3.5 h-3.5 text-amber-600" />
-          <span>Late</span>
-        </span>
+        <StatusBadge tone="warning" size="md" icon={<Clock className="h-3.5 w-3.5" />}>
+          Late
+        </StatusBadge>
       );
     case 'on_leave':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs">
-          <CalendarX className="w-3.5 h-3.5 text-slate-500" />
-          <span>On Leave</span>
-        </span>
+        <StatusBadge tone="info" size="md" icon={<CalendarX className="h-3.5 w-3.5" />}>
+          On Leave
+        </StatusBadge>
       );
     case 'absent':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
-          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-          <span>Absent</span>
-        </span>
+        <StatusBadge tone="danger" size="md" icon={<AlertTriangle className="h-3.5 w-3.5" />}>
+          Absent
+        </StatusBadge>
       );
     default:
       return null;
@@ -48,17 +45,15 @@ export function PunctualityPill({ punctuality }: PunctualityPillProps) {
   switch (punctuality) {
     case 'on_time':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-2xs">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>On Time</span>
-        </span>
+        <StatusBadge tone="success" size="md" icon={<ShieldCheck className="h-3.5 w-3.5" />}>
+          On Time
+        </StatusBadge>
       );
     case 'late':
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
-          <Clock className="w-3.5 h-3.5 text-amber-600" />
-          <span>Late</span>
-        </span>
+        <StatusBadge tone="warning" size="md" icon={<Clock className="h-3.5 w-3.5" />}>
+          Late
+        </StatusBadge>
       );
     case 'none':
     default:
