@@ -36,6 +36,7 @@ interface DbRiderRow {
 interface DbViolationRow {
   id: string;
   rider_id: string;
+  zone_id: string | null;
   zone_name: string | null;
   created_at: string;
   type: string;
@@ -81,6 +82,7 @@ const mapViolation = (row: DbViolationRow): ViolationEvent => {
     id: row.id,
     riderId: row.rider_id,
     riderName: rider?.name || 'Unknown Rider',
+    zoneId: row.zone_id ?? undefined,
     zoneName: row.zone_name || 'No Zone',
     ts: new Date(row.created_at).getTime(),
     type: row.type as ViolationEvent['type'],
@@ -220,6 +222,50 @@ export async function getViolations(): Promise<ViolationEvent[]> {
   }
 
   return (data || []).map(mapViolation);
+}
+
+export async function getViolationsForReport(options: {
+  from: string;
+  to: string;
+  zoneIds: string[];
+}): Promise<ViolationEvent[]> {
+  const pageSize = 500;
+  const violations: ViolationEvent[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from('violations')
+      .select(`
+        *,
+        riders (
+          name
+        )
+      `)
+      .gte('created_at', `${options.from}T00:00:00+08:00`)
+      .lte('created_at', `${options.to}T23:59:59.999+08:00`);
+
+    if (options.zoneIds.length > 0) {
+      query = query.in('zone_id', options.zoneIds);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) {
+      console.error('Error fetching violations for report:', error);
+      throw error;
+    }
+
+    const page = (data ?? []) as unknown as DbViolationRow[];
+    violations.push(...page.map(mapViolation));
+    hasMore = page.length === pageSize;
+    offset += pageSize;
+  }
+
+  return violations;
 }
 
 export async function getTodayViolations(): Promise<ViolationEvent[]> {

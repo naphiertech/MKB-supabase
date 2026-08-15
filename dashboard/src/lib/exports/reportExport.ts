@@ -1,12 +1,26 @@
 import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
-import ExcelJS from 'exceljs';
-import { BRANDING } from '../../config/branding';
+import autoTable from 'jspdf-autotable';
 import { type AttendanceLog, type Rider, type Zone, type ViolationEvent } from '../../services/types';
 import { getAttendanceLogs } from '../../services/attendanceService';
-import { getAllRiders } from '../../services/monitoringService';
+import { getAllRiders, getViolationsForReport } from '../../services/monitoringService';
 import { getZones } from '../../services/geofenceService';
-import { getViolations } from '../../services/monitoringService';
+import { exportXLSXFile } from './excelHelper';
+import {
+  buildExportFilename,
+  downloadBlob,
+  downloadCsv,
+  formatManilaDateTime,
+} from './exportUtils';
+import type { XlsxTemplateKey } from './xlsxTemplateRegistry';
+import {
+  applyBusinessDocumentFooters,
+  businessTableStyles,
+  createBusinessPdf,
+  drawBusinessDocumentHeader,
+  drawMetricStrip,
+  PDF_DOCUMENT_THEME,
+  pdfThemeRgb,
+} from './pdfDocumentTheme';
 
 export type ReportTemplate =
 'weekly_attendance' |
@@ -90,37 +104,32 @@ export function buildWeeklyAttendance(opts: BuilderOptions, attendanceLogsList: 
 
 export function buildViolationSummary(
   opts: BuilderOptions,
-  violationsList: ViolationEvent[],
-  ridersList: Rider[]
+  violationsList: ViolationEvent[]
 ): ReportData {
   const fromTs = new Date(opts.from + 'T00:00:00').getTime();
   const toTs = new Date(opts.to + 'T23:59:59').getTime();
   const filtered = violationsList.filter((v) => {
     if (v.ts < fromTs || v.ts > toTs) return false;
-    if (opts.zoneIds.length > 0) {
-      const rider = ridersList.find((r) => r.id === v.riderId);
-      if (!rider || !rider.zoneId || !opts.zoneIds.includes(rider.zoneId))
-      return false;
-    }
+    if (opts.zoneIds.length > 0 && (!v.zoneId || !opts.zoneIds.includes(v.zoneId))) return false;
     return true;
   });
   const rows = filtered.map((v) => {
-    const rider = ridersList.find((r) => r.id === v.riderId);
-    const coords = rider ?
-    `${rider.lat.toFixed(4)}, ${rider.lng.toFixed(4)}` :
-    '—';
-    const time = new Date(v.ts).toLocaleString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    return [v.riderName, v.zoneName, time, coords, v.read ? 'Y' : 'N'];
+    const coords = Number.isFinite(v.lat) && Number.isFinite(v.lng)
+      ? `${v.lat!.toFixed(4)}, ${v.lng!.toFixed(4)}`
+      : '—';
+    const time = formatManilaDateTime(v.ts);
+    return [
+      v.riderName,
+      v.zoneName,
+      time,
+      coords,
+      v.resolved ? 'Y' : 'N',
+      v.type.replace(/_/g, ' '),
+    ];
   });
   return {
     title: TEMPLATE_TITLES.violation_summary,
-    columns: ['Rider', 'Zone', 'Violation Time', 'Coordinates', 'Resolved'],
+    columns: ['Rider', 'Historical Zone', 'Event Time', 'Coordinates', 'Resolved', 'Violation Type'],
     rows
   };
 }
@@ -149,8 +158,7 @@ export function buildZoneCoverage(
     0;
     const zoneViolations = violationsList.filter((v) => {
       if (v.ts < fromTs || v.ts > toTs) return false;
-      const rider = ridersList.find((r) => r.id === v.riderId);
-      return rider?.zoneId === zone.id;
+      return v.zoneId === zone.id;
     }).length;
     return [zone.name, ridersInZone.length, avgHours, zoneViolations];
   });
@@ -231,7 +239,7 @@ function buildReport(
     case 'weekly_attendance':
       return buildWeeklyAttendance(opts, attendanceLogsList);
     case 'violation_summary':
-      return buildViolationSummary(opts, violationsList, ridersList);
+      return buildViolationSummary(opts, violationsList);
     case 'zone_coverage':
       return buildZoneCoverage(opts, attendanceLogsList, ridersList, zonesList, violationsList);
     case 'rider_performance':
@@ -241,283 +249,144 @@ function buildReport(
 
 // ------------ Writers ------------
 
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function csvEscape(cell: string | number): string {
-  const s = String(cell ?? '');
-  if (/[",\n\r]/.test(s)) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
 export function exportCSV(data: ReportData, filename: string) {
-  const lines = [data.columns, ...data.rows].map((row) =>
-    row.map(csvEscape).join(',')
-  );
-  const csv = '\uFEFF' + lines.join('\r\n'); // BOM for Excel compatibility
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, `${filename}.csv`);
+  downloadCsv([data.columns, ...data.rows], `${filename}.csv`);
 }
 
-export async function exportXLSX(data: ReportData, filename: string, templateKey?: string) {
-  if (templateKey) {
-    try {
-      const templatePath = '/files/MKB_Analytics_Reports_Template.xlsx';
-      const response = await fetch(templatePath);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const arrayBuffer = await response.arrayBuffer();
+const REPORT_XLSX_TEMPLATES: Record<ReportTemplate, XlsxTemplateKey> = {
+  weekly_attendance: 'weeklyAttendance',
+  violation_summary: 'violationSummary',
+  zone_coverage: 'zoneCoverage',
+  rider_performance: 'riderPerformance',
+};
 
-      const workbook = new ExcelJS.Workbook();
-      await workbook.xlsx.load(arrayBuffer);
+export async function exportXLSX(data: ReportData, filename: string, template?: ReportTemplate) {
+  await exportXLSXFile(
+    data.title,
+    data.columns,
+    data.rows,
+    filename,
+    template ? REPORT_XLSX_TEMPLATES[template] : undefined,
+  );
+}
 
-      // Map templateKey to worksheet name
-      const sheetMap: Record<string, string> = {
-        weekly_attendance: 'Rider Daily Summary',
-        violation_summary: 'Geofence Violations',
-        zone_coverage: 'Rider Roster',
-        rider_performance: 'Weekly Efficiency'
-      };
+const REPORT_DESCRIPTORS: Record<string, string> = {
+  'Attendance Records Report': 'Operational attendance register',
+  'Weekly Attendance': 'Weekly workforce attendance and hours review',
+  'Violation Summary': 'Geofence incident and resolution register',
+  'Zone Coverage': 'Operational assignment and coverage overview',
+  'Rider Performance': 'Rider attendance and compliance performance',
+};
 
-      const targetSheetName = sheetMap[templateKey];
-      if (targetSheetName) {
-        const worksheet = workbook.getWorksheet(targetSheetName);
-        if (worksheet) {
-          // 1. Overwrite Row 5 with data.columns (headers), and clear any excess cells in Row 5
-          const headerRow = worksheet.getRow(5);
-          const maxCols = Math.max(data.columns.length, headerRow.cellCount || 0);
-          for (let cIdx = 0; cIdx < maxCols; cIdx++) {
-            const cell = headerRow.getCell(1 + cIdx);
-            if (cIdx < data.columns.length) {
-              cell.value = data.columns[cIdx];
-            } else {
-              cell.value = null;
-            }
-          }
-          headerRow.commit();
-
-          // 2. Inject data rows starting from Row 6 (1-indexed in ExcelJS)
-          data.rows.forEach((rowData, rIdx) => {
-            const rowNum = 6 + rIdx;
-            const excelRow = worksheet.getRow(rowNum);
-            const rowMaxCols = Math.max(rowData.length, excelRow.cellCount || 0);
-            for (let cIdx = 0; cIdx < rowMaxCols; cIdx++) {
-              const cell = excelRow.getCell(1 + cIdx);
-              if (cIdx < rowData.length) {
-                cell.value = rowData[cIdx];
-              } else {
-                cell.value = null;
-              }
-            }
-            excelRow.commit();
-          });
-
-          // 3. Clear any remaining template placeholder rows (up to row 40)
-          const startClearRow = 6 + data.rows.length;
-          for (let rowNum = startClearRow; rowNum <= 40; rowNum++) {
-            const excelRow = worksheet.getRow(rowNum);
-            const cellCount = excelRow.cellCount || 0;
-            if (excelRow.hasValues) {
-              for (let cIdx = 0; cIdx < Math.max(10, cellCount); cIdx++) {
-                excelRow.getCell(1 + cIdx).value = null;
-              }
-              excelRow.commit();
-            }
-          }
-
-          // 4. Remove all other worksheets from the workbook so only the active report sheet is exported
-          workbook.worksheets.forEach((ws) => {
-            if (ws.name !== targetSheetName) {
-              workbook.removeWorksheet(ws.id);
-            }
-          });
-
-          const buffer = await workbook.xlsx.writeBuffer();
-          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${filename}.xlsx`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn(`Failed to load Excel template at /files/MKB_Analytics_Reports_Template.xlsx. Falling back to default generation.`, err);
-    }
+function reportMetrics(data: ReportData): Array<{ label: string; value: string }> {
+  if (data.title === 'Violation Summary') {
+    const resolved = data.rows.filter(row => row[4] === 'Y').length;
+    return [
+      { label: 'Incidents', value: String(data.rows.length) },
+      { label: 'Open', value: String(data.rows.length - resolved) },
+      { label: 'Resolved', value: String(resolved) },
+    ];
   }
-
-  const aoa = [data.columns, ...data.rows];
-  const sheet = XLSX.utils.aoa_to_sheet(aoa);
-  // Bold header row
-  const headerRange = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1');
-  for (let c = headerRange.s.c; c <= headerRange.e.c; c++) {
-    const addr = XLSX.utils.encode_cell({ r: 0, c });
-    const cell = sheet[addr];
-    if (cell) {
-      cell.s = { font: { bold: true } };
-    }
+  if (data.title === 'Zone Coverage') {
+    return [
+      { label: 'Zones', value: String(data.rows.length) },
+      { label: 'Assigned Riders', value: String(data.rows.reduce((sum, row) => sum + Number(row[1] || 0), 0)) },
+      { label: 'Violations', value: String(data.rows.reduce((sum, row) => sum + Number(row[3] || 0), 0)) },
+    ];
   }
-  // Reasonable column widths
-  sheet['!cols'] = data.columns.map((col, i) => {
-    const maxLen = Math.max(
-      col.length,
-      ...data.rows.map((r) => String(r[i] ?? '').length)
-    );
-    return { wch: Math.min(40, Math.max(10, maxLen + 2)) };
+  if (data.title === 'Rider Performance') {
+    const rates = data.rows.map(row => Number(String(row[5] ?? '0').replace('%', '')) || 0);
+    const averageRate = rates.length ? Math.round(rates.reduce((sum, rate) => sum + rate, 0) / rates.length) : 0;
+    return [
+      { label: 'Riders Reviewed', value: String(data.rows.length) },
+      { label: 'Average Attendance', value: `${averageRate}%` },
+      { label: 'Total Violations', value: String(data.rows.reduce((sum, row) => sum + Number(row[4] || 0), 0)) },
+    ];
+  }
+  const statusIndex = data.columns.findIndex(column => column.toLowerCase() === 'status');
+  const lateCount = statusIndex >= 0
+    ? data.rows.filter(row => String(row[statusIndex]).toLowerCase() === 'late').length
+    : 0;
+  return [
+    { label: 'Attendance Records', value: String(data.rows.length) },
+    { label: 'Late Records', value: String(lateCount) },
+    { label: 'Total Hours', value: data.rows.reduce((sum, row) => {
+      const hoursIndex = data.columns.findIndex(column => column.toLowerCase().includes('hours'));
+      return sum + (hoursIndex >= 0 ? Number(row[hoursIndex] || 0) : 0);
+    }, 0).toLocaleString('en-PH', { maximumFractionDigits: 1 }) },
+  ];
+}
+
+export function createReportPdf(
+  data: ReportData,
+  meta: { from: string; to: string },
+): jsPDF {
+  const landscape = data.columns.length >= 6;
+  const doc = createBusinessPdf({ orientation: landscape ? 'landscape' : 'portrait', format: 'letter' });
+  const generatedDate = formatManilaDateTime(new Date());
+  const numericColumns: Record<number, { halign: 'right' }> = {};
+  data.columns.forEach((column, index) => {
+    if (/hours|count|riders|violations|rate|parcels|pay|earnings|deductions|total/i.test(column)) {
+      numericColumns[index] = { halign: 'right' };
+    }
   });
-  const book = XLSX.utils.book_new();
-  const sheetName = data.title.slice(0, 31);
-  XLSX.utils.book_append_sheet(book, sheet, sheetName);
-  XLSX.writeFile(book, `${filename}.xlsx`);
+
+  const firstPageHeaderBottom = 144;
+  const metricBottom = firstPageHeaderBottom + 50;
+  const pdfRows = data.title === 'Violation Summary'
+    ? data.rows.map(row => row.map((value, index) => index === 4 ? (value === 'Y' ? 'Resolved' : 'Open') : value))
+    : data.rows;
+  autoTable(doc, {
+    ...businessTableStyles(),
+    startY: metricBottom + 10,
+    margin: {
+      left: PDF_DOCUMENT_THEME.page.margin,
+      right: PDF_DOCUMENT_THEME.page.margin,
+      top: 101,
+      bottom: PDF_DOCUMENT_THEME.page.footerHeight + 18,
+    },
+    head: [data.columns],
+    body: pdfRows.length ? pdfRows : [['No records match the selected reporting period.']],
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
+    columnStyles: numericColumns,
+    willDrawPage: () => {
+      const pageNumber = doc.getCurrentPageInfo().pageNumber;
+      drawBusinessDocumentHeader(doc, {
+        title: data.title,
+        descriptor: REPORT_DESCRIPTORS[data.title] ?? 'Operational business report',
+        classification: data.title === 'Violation Summary' ? 'Incident Report' : 'Operations Report',
+        metadata: pageNumber === 1 ? [
+          { label: 'Reporting Period', value: `${meta.from} to ${meta.to}` },
+          { label: 'Records', value: data.rows.length.toLocaleString('en-PH') },
+          { label: 'Generated At', value: generatedDate },
+        ] : undefined,
+        compact: pageNumber > 1,
+      });
+      if (pageNumber === 1) drawMetricStrip(doc, reportMetrics(data), firstPageHeaderBottom);
+    },
+    didParseCell: (hook) => {
+      if (hook.section !== 'body') return;
+      const header = data.columns[hook.column.index]?.toLowerCase() ?? '';
+      const value = String(hook.cell.raw ?? '').toLowerCase();
+      if (header.includes('status') || header.includes('resolved')) {
+        hook.cell.styles.fontStyle = 'bold';
+        if (/open|late|violation|absent/.test(value)) hook.cell.styles.textColor = pdfThemeRgb('danger');
+        if (/resolved|present|complete/.test(value)) hook.cell.styles.textColor = pdfThemeRgb('success');
+      }
+    },
+  });
+
+  applyBusinessDocumentFooters(doc, generatedDate);
+  return doc;
 }
 
 export function exportPDF(
   data: ReportData,
   filename: string,
-  meta: {from: string; to: string;}
-) {
-  const doc = new jsPDF({
-    unit: 'pt',
-    format: 'letter',
-    orientation: 'portrait'
-  });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const generatedDate = new Date().toLocaleString('en-PH', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
-  const marginX = 40;
-  const headerHeight = 100;
-  const footerHeight = 40;
-  const rowHeight = 22;
-  const headerRowHeight = 26;
-  const usableWidth = pageWidth - marginX * 2;
-  const colWidth = usableWidth / data.columns.length;
-
-  function drawPageChrome(pageNum: number) {
-    // Brand
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.setTextColor(219, 108, 0);
-    doc.text(BRANDING.appName, marginX, 38);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 98, 88);
-    doc.text('MKB Corporation', marginX, 52);
-    // Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(26, 20, 16);
-    doc.text(data.title, marginX, 78);
-    // Date range
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(107, 98, 88);
-    doc.text(`${meta.from}  →  ${meta.to}`, pageWidth - marginX, 78, {
-      align: 'right'
-    });
-    // Divider
-    doc.setDrawColor(239, 234, 226);
-    doc.setLineWidth(0.5);
-    doc.line(marginX, 92, pageWidth - marginX, 92);
-
-    // Footer
-    const footerY = pageHeight - 24;
-    doc.line(marginX, footerY - 12, pageWidth - marginX, footerY - 12);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(107, 98, 88);
-    doc.text(
-      `Generated by ${BRANDING.appName} · MKB Corporation · ${generatedDate}`,
-      pageWidth / 2,
-      footerY,
-      { align: 'center' }
-    );
-    doc.text(`Page ${pageNum}`, pageWidth - marginX, footerY, {
-      align: 'right'
-    });
-  }
-
-  function drawTableHeader(y: number): number {
-    doc.setFillColor(217, 119, 6); // #D97706
-    doc.rect(marginX, y, usableWidth, headerRowHeight, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(255, 255, 255);
-    data.columns.forEach((col, i) => {
-      doc.text(col, marginX + i * colWidth + 6, y + 17);
-    });
-    return y + headerRowHeight;
-  }
-
-  function truncate(text: string, maxWidth: number): string {
-    if (doc.getTextWidth(text) <= maxWidth) return text;
-    let truncated = text;
-    while (
-      truncated.length > 1 &&
-      doc.getTextWidth(truncated + '…') > maxWidth
-    ) {
-      truncated = truncated.slice(0, -1);
-    }
-    return truncated + '…';
-  }
-
-  let pageNum = 1;
-  drawPageChrome(pageNum);
-  let y = headerHeight + 10;
-  y = drawTableHeader(y);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-
-  data.rows.forEach((row, idx) => {
-    // Page break
-    if (y + rowHeight > pageHeight - footerHeight) {
-      doc.addPage();
-      pageNum += 1;
-      drawPageChrome(pageNum);
-      y = headerHeight + 10;
-      y = drawTableHeader(y);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-    }
-    // Zebra stripe
-    if (idx % 2 === 0) {
-      doc.setFillColor(255, 248, 238); // #FFF8EE
-      doc.rect(marginX, y, usableWidth, rowHeight, 'F');
-    }
-    // Cell text
-    doc.setTextColor(26, 20, 16);
-    row.forEach((cell, i) => {
-      const text = truncate(String(cell ?? ''), colWidth - 12);
-      doc.text(text, marginX + i * colWidth + 6, y + 15);
-    });
-    // Bottom border
-    doc.setDrawColor(239, 234, 226);
-    doc.setLineWidth(0.3);
-    doc.line(marginX, y + rowHeight, pageWidth - marginX, y + rowHeight);
-    y += rowHeight;
-  });
-
-  doc.save(`${filename}.pdf`);
+  meta: { from: string; to: string },
+): void {
+  downloadBlob(createReportPdf(data, meta).output('blob'), `${filename}.pdf`);
 }
 
 // ------------ Orchestrator ------------
@@ -537,10 +406,13 @@ export async function generateReport(
 
   // Fetch live lists from database dynamically
   const [logsData, ridersData, zonesData, violationsData] = await Promise.all([
-    getAttendanceLogs(),
+    getAttendanceLogs(
+      { dateFrom: opts.from, dateTo: opts.to },
+      { finalizeDaily: false }
+    ),
     getAllRiders({ scope: 'historical' }),
     getZones(),
-    getViolations()
+    getViolationsForReport({ from: opts.from, to: opts.to, zoneIds: opts.zoneIds })
   ]);
 
   const data = buildReport(opts.template, {
@@ -553,7 +425,12 @@ export async function generateReport(
     throw new ReportError('NO_DATA', 'No data matches the selected filters');
   }
 
-  const filename = `mkbridertrack_${opts.template}_${opts.from}_${opts.to}`;
+  const filename = buildExportFilename({
+    prefix: `mkbridertrack_${opts.template}`,
+    from: opts.from,
+    to: opts.to,
+    extension: opts.format,
+  }).replace(/\.[^.]+$/, '');
 
   // Small async tick so the UI can render the loading state
   await new Promise((r) => setTimeout(r, 50));

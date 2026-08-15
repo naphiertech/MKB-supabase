@@ -23,6 +23,7 @@ import { EmployeeDetails } from '../components/users/EmployeeDetails';
 import { useAuth } from '../hooks/useAuth';
 import { clearCachedAvatar } from '../lib/avatarCache';
 import { exportXLSXFile } from '../lib/exports/excelHelper';
+import { buildExportFilename } from '../lib/exports/exportUtils';
 import { toast } from 'react-hot-toast';
 import {
   archiveEmployee,
@@ -359,8 +360,8 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
         'Employee Registry',
         headers,
         rows,
-        `MKB_Employee_Registry_${new Date().toISOString().split('T')[0]}`,
-        '/files/MKB_Employee_Registry_Template.xlsx'
+        buildExportFilename({ prefix: 'employee_registry', extension: 'xlsx' }).replace(/\.xlsx$/, ''),
+        'employeeRegistry'
       );
     } catch (err) {
       console.error('Failed to export registry:', err);
