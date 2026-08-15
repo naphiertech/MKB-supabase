@@ -11,7 +11,7 @@ import {
   Search,
   RotateCcw
 } from 'lucide-react';
-import { getAttendanceLogs, getLocalDateString, exportLogsCsv, isAttendanceFinalized } from '../services/attendanceService';
+import { getAttendanceLogs, getLocalDateString, isAttendanceFinalized } from '../services/attendanceService';
 import { getZones } from '../services/geofenceService';
 import type { AttendanceLog, Zone } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
@@ -21,7 +21,7 @@ import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetai
 import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/dtrParserService';
 import { toast } from 'react-hot-toast';
 import { exportEmployeeDTR } from '../lib/exports/employeeExport';
-import { exportPDF } from '../lib/exports/reportExport';
+import { exportAttendanceCsv, exportAttendancePdf } from '../lib/exports/attendanceExport';
 import { getCachedAvatar } from '../lib/avatarCache';
 import { isEmploymentActiveOnDate } from '../services/employmentLifecycle';
 import type { EmploymentStatus } from '../services/types';
@@ -279,34 +279,11 @@ export function Attendance() {
   };
 
   const handleExportCSV = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    exportLogsCsv(filtered, `attendance_report_${todayStr}.csv`);
+    exportAttendanceCsv(filtered, { from: dateFrom, to: dateTo });
   };
 
   const handleExportPDF = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const columns = ['Rider', 'Date', 'Time-In', 'Time-Out', 'Hours', 'Zone', 'Status', 'Source'];
-    const rows = filtered.map((l) => [
-      l.riderName,
-      l.date,
-      l.timeIn || '—',
-      l.timeOut || '—',
-      `${l.hours.toFixed(1)}h`,
-      l.zoneName,
-      l.status.toUpperCase(),
-      l.source === 'face-scan' ? 'Face Scan' : 'Manual'
-    ]);
-
-    const reportData = {
-      title: 'Attendance Records Report',
-      columns,
-      rows
-    };
-
-    const from = filtered.length > 0 ? filtered[filtered.length - 1].date : 'N/A';
-    const to = filtered.length > 0 ? filtered[0].date : 'N/A';
-
-    exportPDF(reportData, `attendance_report_${todayStr}`, { from, to });
+    exportAttendancePdf(filtered, { from: dateFrom, to: dateTo });
   };
 
   const handleDownloadDTR = (riderId: string) => {

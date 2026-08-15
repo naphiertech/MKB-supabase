@@ -18,6 +18,7 @@ import {
 import { getActivityLogs, type ActivityLog } from '../lib/apiService';
 import { pushToast } from '../hooks/useToast';
 import { StatePanel, SummaryCard } from '../components/common/DashboardPrimitives';
+import { buildExportFilename, downloadCsv, formatManilaDate, formatManilaDateTime } from '../lib/exports/exportUtils';
 
 const PAGE_SIZE = 100;
 
@@ -251,7 +252,7 @@ export function AuditLogs() {
 
       return [
         l.id,
-        new Date(l.created_at).toLocaleString('en-PH'),
+        formatManilaDateTime(l.created_at),
         actorName,
         actorEmail,
         actorRole,
@@ -263,23 +264,16 @@ export function AuditLogs() {
       ];
     });
 
-    const escapeCSV = (v: string) => 
-      /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-
-    const csvContent = 
-      [headers, ...rows]
-        .map(row => row.map(c => escapeCSV(String(c ?? ''))).join(','))
-        .join('\n') + '\n';
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `mkbridertrack_audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const exportedDates = filteredLogs
+      .map(log => formatManilaDate(log.created_at, 'iso'))
+      .filter(date => date !== '—')
+      .sort();
+    downloadCsv([headers, ...rows], buildExportFilename({
+      prefix: 'audit_logs',
+      from: exportedDates[0] ?? formatManilaDate(new Date(), 'iso'),
+      to: exportedDates.at(-1),
+      extension: 'csv',
+    }));
 
     pushToast({
       title: 'Audit logs exported',

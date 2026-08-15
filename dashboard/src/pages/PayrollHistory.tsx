@@ -18,7 +18,14 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { PayrollStatus } from '../types/payroll';
-import { exportCutoffSummaryCSV, exportParcelPayslipXLSX, exportParcelPayslipPDF, type PayslipDay, type PayslipSnapshotContext } from '../lib/exports/payrollExport';
+import {
+  buildPayslipDocumentData,
+  exportCutoffSummaryCSV,
+  exportCutoffSummaryPDF,
+  exportCutoffSummaryXLSX,
+  printParcelPayslipDocument,
+  type PayslipDocumentData,
+} from '../lib/exports/payrollExport';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { PageKey } from '../components/common/Sidebar';
 import { PayrollActorIdentity } from '../components/payroll/PayrollActorIdentity';
@@ -90,31 +97,6 @@ export interface HistoricalRecord {
   }>;
 }
 
-function historicalExportData(record: HistoricalRecord): { days: PayslipDay[]; snapshot: PayslipSnapshotContext } {
-  const legacy = Number(record.calculation_version ?? 1) === 1;
-  const lines = record.payroll_delivery_lines ?? [];
-  const days = lines.map(line => ({
-    date: line.date, standardParcels: Number(line.standard_delivered), heavyParcels: Number(line.heavy_delivered),
-    failedParcels: Number(line.failed), returnedParcels: Number(line.returned),
-    standardRate: Number(line.applied_standard_rate), heavyRate: Number(line.applied_heavy_rate),
-    standardEarnings: Number(line.standard_earnings), heavyEarnings: Number(line.heavy_earnings),
-    grossDeliveryPay: Number(line.gross_delivery_pay), rateConfigurationId: line.rate_configuration_id,
-    calculationVersion: Number(line.calculation_version),
-  }));
-  return {
-    days,
-    snapshot: {
-      source: legacy ? 'legacy' : 'snapshot', calculationVersion: Number(record.calculation_version ?? 1),
-      standardParcels: Number(record.standard_parcels ?? record.total_parcels ?? 0),
-      heavyParcels: Number(record.heavy_parcels ?? 0),
-      failedParcels: lines.reduce((sum, line) => sum + Number(line.failed), 0),
-      returnedParcels: lines.reduce((sum, line) => sum + Number(line.returned), 0),
-      standardEarnings: Number(record.standard_earnings ?? record.gross_pay ?? 0),
-      heavyEarnings: Number(record.heavy_earnings ?? 0), grossDeliveryPay: Number(record.gross_pay ?? 0),
-    },
-  };
-}
-
 export interface CutoffSummaryGroup {
   cutoffKey: string;
   cutoffStart: string;
@@ -143,6 +125,51 @@ function computeNetPay(r: HistoricalRecord): number {
   const fm = Number(r.fm_pickup_count || 0) * 3;
   const deduct = Number(r.deductions || 0) + Number(r.late_onhold || 0) + Number(r.late_remittance || 0);
   return gross + other + fm - deduct;
+}
+
+function historicalRecordToPayslipDocumentData(record: HistoricalRecord): PayslipDocumentData {
+  const deliveryLines = record.payroll_delivery_lines ?? [];
+  const standardParcels = Number(record.standard_parcels ?? record.total_parcels ?? 0);
+  const heavyParcels = Number(record.heavy_parcels ?? 0);
+  return buildPayslipDocumentData({
+    riderName: record.riders?.name || 'Rider',
+    mkbId: record.riders?.mkb_id || '—',
+    zoneName: record.riders?.zones?.name || 'Unassigned',
+    cutoffFrom: record.cutoff_start,
+    cutoffTo: record.cutoff_end,
+    dayEntries: deliveryLines.map(line => ({
+      date: line.date,
+      standardParcels: Number(line.standard_delivered),
+      heavyParcels: Number(line.heavy_delivered),
+      failedParcels: Number(line.failed),
+      returnedParcels: Number(line.returned),
+      standardRate: Number(line.applied_standard_rate),
+      heavyRate: Number(line.applied_heavy_rate),
+      standardEarnings: Number(line.standard_earnings),
+      heavyEarnings: Number(line.heavy_earnings),
+      grossDeliveryPay: Number(line.gross_delivery_pay),
+      rateConfigurationId: line.rate_configuration_id,
+      calculationVersion: Number(line.calculation_version),
+    })),
+    snapshot: {
+      source: record.snapshot_finalized_at ? 'snapshot' : 'legacy',
+      calculationVersion: Number(record.calculation_version ?? 1),
+      standardParcels,
+      heavyParcels,
+      failedParcels: deliveryLines.reduce((sum, line) => sum + Number(line.failed), 0),
+      returnedParcels: deliveryLines.reduce((sum, line) => sum + Number(line.returned), 0),
+      standardEarnings: Number(record.standard_earnings ?? record.gross_pay ?? 0),
+      heavyEarnings: Number(record.heavy_earnings ?? 0),
+      grossDeliveryPay: Number(record.gross_pay ?? 0),
+    },
+    adjustments: {
+      otherEarnings: Number(record.other_earnings ?? 0),
+      fmPickupCount: Number(record.fm_pickup_count ?? 0),
+      deductions: Number(record.deductions ?? 0),
+      lateOnhold: Number(record.late_onhold ?? 0),
+      lateRemittance: Number(record.late_remittance ?? 0),
+    },
+  });
 }
 
 interface PayrollHistoryProps {
@@ -369,6 +396,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
   const handleExportCutoff = (group: CutoffSummaryGroup, format: 'csv' | 'xlsx' | 'pdf') => {
     const rows = group.records.map(r => ({
       riderName: r.riders?.name || 'Rider',
+      riderId: r.riders?.mkb_id || '—',
       zone: r.riders?.zones?.name || 'Unassigned',
       totalParcels: r.total_parcels || 0,
       standardParcels: Number(r.standard_parcels ?? r.total_parcels ?? 0),
@@ -378,36 +406,16 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       standardEarnings: Number(r.standard_earnings ?? r.gross_pay ?? 0),
       heavyEarnings: Number(r.heavy_earnings ?? 0),
       calculationVersion: Number(r.calculation_version ?? 1),
+      flagged: r.status === 'flagged' ? 'YES' : 'NO',
       grossPay: r.gross_pay || 0
     }));
 
     if (format === 'csv') {
-      exportCutoffSummaryCSV(rows, group.label);
-    } else if (format === 'xlsx' || format === 'pdf') {
-      const firstRider = group.records[0];
-      if (firstRider) {
-        const exportData = historicalExportData(firstRider);
-        if (format === 'xlsx') {
-          void exportParcelPayslipXLSX(
-            firstRider.riders?.name || 'Rider',
-            firstRider.riders?.mkb_id || '',
-            group.cutoffStart,
-            group.cutoffEnd,
-            exportData.days,
-            exportData.snapshot
-          );
-        } else {
-          exportParcelPayslipPDF(
-            firstRider.riders?.name || 'Rider',
-            firstRider.riders?.mkb_id || '',
-            firstRider.riders?.zones?.name || 'Unassigned',
-            group.cutoffStart,
-            group.cutoffEnd,
-            exportData.days,
-            exportData.snapshot
-          );
-        }
-      }
+      exportCutoffSummaryCSV(rows, { label: group.label, from: group.cutoffStart, to: group.cutoffEnd });
+    } else if (format === 'xlsx') {
+      void exportCutoffSummaryXLSX(rows, { label: group.label, from: group.cutoffStart, to: group.cutoffEnd });
+    } else {
+      exportCutoffSummaryPDF(rows, { label: group.label, from: group.cutoffStart, to: group.cutoffEnd });
     }
   };
 
@@ -1116,7 +1124,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
               {/* Action Footer */}
               <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => printParcelPayslipDocument(historicalRecordToPayslipDocumentData(selectedRiderRecord))}
                   className="h-9 px-4 rounded-lg bg-primary text-white hover:bg-primary-hover transition text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />

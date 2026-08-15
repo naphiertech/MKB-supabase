@@ -4,6 +4,7 @@ import { getCachedAvatar } from '../lib/avatarCache';
 import { createSyncOperationId, getStorageAdapter, type QueueEnqueueInput } from '../lib/storage';
 import { dispatchNotificationSafe } from './notificationService';
 import { getRiderWorkforceDirectory } from './workforceDirectoryService';
+import { downloadCsv } from '../lib/exports/exportUtils';
 
 // Helper to convert dynamic timestamps (timestamptz) back to HH:MM format in local timezone
 function toHHMM(dateStr: string | null): string | null {
@@ -338,25 +339,17 @@ export function deriveHrStatus(log: AttendanceLog): HrLogStatus {
 export function exportLogsCsv(logs: AttendanceLog[], filename = 'attendance_logs.csv') {
   const headers = ['Rider Name', 'Date', 'Time In', 'Time Out', 'Hours', 'Zone', 'Status', 'Source'];
   const rows = logs.map((l) => [
-    `"${l.riderName.replace(/"/g, '""')}"`,
+    l.riderName,
     l.date,
     l.timeIn || '',
     l.timeOut || '',
     l.hours ? l.hours.toFixed(2) : '0.00',
-    `"${l.zoneName.replace(/"/g, '""')}"`,
+    l.zoneName,
     l.status,
     l.source
   ]);
 
-  const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', filename);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  downloadCsv([headers, ...rows], filename);
 }
 
 export async function getRiderAttendanceInDateRange(riderId: string, dateFrom: string, dateTo: string): Promise<AttendanceLog[]> {

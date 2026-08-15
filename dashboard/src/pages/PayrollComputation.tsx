@@ -11,7 +11,7 @@ import {
 } from '../services/parcelService';
 import { SearchableRiderComboboxModal } from '../components/payroll/SearchableRiderComboboxModal';
 import { useAuth } from '../hooks/useAuth';
-import { exportParcelPayslipPDF, exportParcelCSV, parcelLogsToPayslipDays, type PayslipSnapshotContext } from '../lib/exports/payrollExport';
+import { exportParcelPayslipPDF, exportParcelCSV, parcelLogsToPayslipDays, payslipAdjustmentsFromRecord, type PayslipSnapshotContext } from '../lib/exports/payrollExport';
 import { pushToast } from '../hooks/useToast';
 import { isReadOnlyStatus } from '../types/payroll';
 import {
@@ -312,7 +312,8 @@ export function PayrollComputation() {
         cutoffFrom,
         cutoffTo,
         payslipDays,
-        snapshotContext
+        snapshotContext,
+        payslipAdjustmentsFromRecord(activeRider ?? {})
       );
       pushToast({
         title: 'PDF Payslip Generated',
@@ -336,7 +337,8 @@ export function PayrollComputation() {
         cutoffFrom,
         cutoffTo,
         payslipDays,
-        snapshotContext
+        snapshotContext,
+        payslipAdjustmentsFromRecord(activeRider ?? {})
       );
       pushToast({
         title: 'CSV exported successfully',

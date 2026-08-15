@@ -63,6 +63,7 @@ export interface ViolationEvent {
   id: string;
   riderId: string;
   riderName: string;
+  zoneId?: string;
   zoneName: string;
   ts: number;
   type: 'boundary_exit' | 'idle_timeout' | 'manual_flag';

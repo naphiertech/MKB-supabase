@@ -26,13 +26,16 @@ import {
   exportParcelPayslipPDF,
   exportParcelCSV,
   exportCutoffSummaryCSV,
+  exportCutoffSummaryPDF,
+  exportCutoffSummaryXLSX,
+  payslipAdjustmentsFromRecord,
   parcelLogsToPayslipDays,
   type PayslipSnapshotContext,
 } from '../lib/exports/payrollExport';
 import { isReadOnlyStatus } from '../types/payroll';
 import { pushToast } from '../hooks/useToast';
 import { exportXLSXFile } from '../lib/exports/excelHelper';
-import autoTable from 'jspdf-autotable';
+import { buildExportFilename, downloadCsv } from '../lib/exports/exportUtils';
 
 type PayrollTemplate = 'cutoff_summary' | 'individual_payslips' | 'parcel_logs';
 type PayrollFormat = 'pdf' | 'csv' | 'xlsx';
@@ -86,22 +89,6 @@ function isoOffset(days: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function csvEscape(cell: string | number | null | undefined): string {
-  const s = String(cell ?? '');
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
 export function PayrollReports() {
   const [ridersList, setRidersList] = useState<Rider[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
@@ -350,60 +337,12 @@ export function PayrollReports() {
               calculationVersion: r.calculationVersion,
               grossPay: r.grossPay
             })),
-            cutoffLabel
+            { label: cutoffLabel, from, to }
           );
         } else if (format === 'xlsx') {
-          await exportXLSXFile(
-            'Cutoff Summary',
-            ['Rider', 'Rider ID', 'Zone', 'Standard', 'Heavy', 'Failed', 'Returned', 'Standard Earnings', 'Heavy Earnings', 'Gross Delivery Pay', 'Calculation Version', 'Flagged'],
-            rows.map(r => [
-              r.riderName,
-              r.riderId,
-              r.zone,
-              r.standardParcels, r.heavyParcels, r.failedParcels, r.returnedParcels,
-              r.standardEarnings, r.heavyEarnings, r.grossPay, r.calculationVersion, r.flagged
-            ]),
-            `mkbridertrack_cutoff_summary_${from}_${to}`,
-            '/files/MKB_Cutoff_Summary_Payroll_Template.xlsx'
-          );
+          await exportCutoffSummaryXLSX(rows, { label: cutoffLabel, from, to });
         } else {
-          // pdf: Use jsPDF with autoTable to list finalized cutoff totals
-          const totalParcels = rows.reduce((s, r) => s + r.totalParcels, 0);
-          const totalGross = rows.reduce((s, r) => s + r.grossPay, 0);
-
-          await import('jspdf').then((m) => {
-            const jsPDF = m.default;
-            const doc = new jsPDF();
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.text('FLEET CUTOFF SUMMARY — MKB CORPORATION', 105, 20, { align: 'center' });
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Period: ${from} to ${to}`, 105, 27, { align: 'center' });
-
-            autoTable(doc, {
-              startY: 35,
-              head: [['Rider', 'Zone', 'Standard', 'Heavy', 'Failed', 'Returned', 'Gross Pay', 'Version']],
-              body: rows.map(r => [
-                r.riderName,
-                r.zone,
-                r.standardParcels.toString(), r.heavyParcels.toString(),
-                r.failedParcels.toString(), r.returnedParcels.toString(),
-                `₱${r.grossPay.toLocaleString()}`, `v${r.calculationVersion}`
-              ]),
-              headStyles: { fillColor: [219, 108, 0], textColor: 255 },
-              alternateRowStyles: { fillColor: [255, 241, 224] }
-            });
-
-            const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12;
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.text(`Total Fleet Parcels : ${totalParcels.toLocaleString()} parcels`, 14, finalY);
-            doc.setTextColor(219, 108, 0);
-            doc.text(`Total Fleet Gross   : ₱${totalGross.toLocaleString()}`, 14, finalY + 7);
-
-            doc.save(`mkbridertrack_cutoff_summary_${from}_${to}.pdf`);
-          });
+          exportCutoffSummaryPDF(rows, { label: cutoffLabel, from, to });
         }
 
         pushToast({
@@ -442,6 +381,7 @@ export function PayrollReports() {
           };
 
           const zoneName = zonesList.find(z => z.id === rider.zoneId)?.name || '—';
+          const adjustments = payslipAdjustmentsFromRecord(payrollRecord);
 
           if (format === 'csv') {
             exportParcelCSV(
@@ -450,7 +390,8 @@ export function PayrollReports() {
               from,
               to,
               dayEntries,
-              snapshot
+              snapshot,
+              adjustments
             );
           } else {
             exportParcelPayslipPDF(
@@ -460,7 +401,8 @@ export function PayrollReports() {
               from,
               to,
               dayEntries,
-              snapshot
+              snapshot,
+              adjustments
             );
           }
         }
@@ -514,8 +456,7 @@ export function PayrollReports() {
             'Parcel Log',
             cols,
             rows,
-            `mkbridertrack_parcel_log_${from}_${to}`,
-            '/files/MKB_Raw_Parcel_Delivery_Logs.xlsx'
+            buildExportFilename({ prefix: 'parcel_logs', from, to, extension: 'xlsx' }).replace(/\.xlsx$/, '')
           );
         } else {
           // PDF / CSV exports raw logs as CSV
@@ -526,11 +467,9 @@ export function PayrollReports() {
               tone: 'info'
             });
           }
-          const csv = '\uFEFF' + [cols, ...rows].map(r => r.map(csvEscape).join(',')).join('\r\n');
-          downloadBlob(
-            new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
-            `mkbridertrack_parcel_log_${from}_${to}.csv`
-          );
+          downloadCsv([cols, ...rows], buildExportFilename({
+            prefix: 'parcel_logs', from, to, extension: 'csv',
+          }));
         }
 
         pushToast({

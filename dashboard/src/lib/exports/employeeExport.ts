@@ -1,18 +1,27 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { AppUser, AttendanceLog } from '../../services/types';
+import {
+  buildDtrDocumentData,
+  buildEmployeeProfileDocumentData,
+  type DtrDocumentData,
+  type EmployeeProfileDocumentData,
+} from './employeeDocument';
+import { buildExportFilename, downloadBlob } from './exportUtils';
+import {
+  applyBusinessDocumentFooters,
+  businessTableStyles,
+  createBusinessPdf,
+  drawBusinessDocumentHeader,
+  drawSectionHeading,
+  PDF_DOCUMENT_THEME,
+  pdfThemeRgb,
+} from './pdfDocumentTheme';
+
+export { buildDtrDocumentData, buildEmployeeProfileDocumentData } from './employeeDocument';
 
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable: { finalY: number };
-}
-
-function formatDtrTimeString(dateStr: string | null): string {
-  if (!dateStr) return '';
-  if (/^\d{2}:\d{2}(:\d{2})?$/.test(dateStr)) {
-    return dateStr.slice(0, 5);
-  }
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? '' : d.toTimeString().slice(0, 5);
 }
 
 interface ExportProfileCardOptions {
@@ -32,120 +41,89 @@ export function exportEmployeeProfileCard({
   formattedLastLogin
 }: ExportProfileCardOptions) {
   try {
-    const doc = new jsPDF();
-    const isRider = user.role === 'rider';
-
-    // Title & Header branding
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(219, 108, 0); // MKB Orange
-    doc.text('MKB CORPORATION - EMPLOYEE PROFILE CARD', 14, 20);
-
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(107, 98, 88); // Charcoal Gray
-    doc.text(`Generated on ${new Date().toLocaleDateString()} | MKB Logistics Registry`, 14, 25);
-    
-    // Line separator
-    doc.setDrawColor(239, 234, 226);
-    doc.setLineWidth(0.5);
-    doc.line(14, 28, 196, 28);
-
-    // Section 1: Basic Information
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(26, 20, 16);
-    doc.text('1. Basic Profile & Employment', 14, 36);
-
-    const basicInfoRows = [
-      ['Full Name', user.name || '—'],
-      ['Role / Title', (user.role || '—').toUpperCase()],
-      ['Employee ID (MKB ID)', user.mkbRiderId || '—'],
-      ['Employment Type', user.employmentType || '—'],
-      ['Date Joined / Hire', formattedHireDate],
-      ['Assigned Operational Zone', zoneName],
-      ['Account Registry Status', user.status || '—']
-    ];
-
-    autoTable(doc, {
-      startY: 40,
-      head: [['Field / Property', 'Registered Value']],
-      body: basicInfoRows,
-      theme: 'striped',
-      headStyles: { fillColor: [219, 108, 0], textColor: 255 },
-      styles: { fontSize: 9, font: 'helvetica' },
-      margin: { left: 14, right: 14 }
-    });
-
-    const nextY1 = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 10;
-
-    // Section 2: Contact & Address Details
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('2. Contact Info & Residential Address', 14, nextY1);
-
-    const contactAddressRows = [
-      ['Primary Email', user.email || '—'],
-      ['Phone Number', user.contact || '—'],
-      ['Last Active Time', formattedLastLogin],
-      ['Street Address', user.streetAddress || '—'],
-      ['Barangay', user.barangay || '—'],
-      ['City', user.city || '—'],
-      ['Province', user.province || '—'],
-      ['Zip Code', user.zipCode || '—']
-    ];
-
-    autoTable(doc, {
-      startY: nextY1 + 4,
-      head: [['Property', 'Details']],
-      body: contactAddressRows,
-      theme: 'striped',
-      headStyles: { fillColor: [219, 108, 0], textColor: 255 },
-      styles: { fontSize: 9, font: 'helvetica' },
-      margin: { left: 14, right: 14 }
-    });
-
-    const nextY2 = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 10;
-
-    // Section 3: Vehicle Specs, Emergency Info, and Remarks
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('3. Operations, Emergency & Onboarding Notes', 14, nextY2);
-
-    const vehicleEmergencyRows = [
-      ['Vehicle Type / Class', isRider ? (user.vehicleType || '—') : 'Not applicable'],
-      ['Vehicle License Plate', isRider ? (user.vehiclePlateNumber || '—') : 'Not applicable'],
-      ['Emergency Contact Person', user.emergencyContactName || '—'],
-      ['Emergency Contact Phone', user.emergencyContactPhone || '—'],
-      ['Biometric Scan Enrolled', user.faceImage ? 'Yes (Enrolled)' : 'No (Pending)'],
-      ['Onboarding Notes / Remarks', user.notes || 'No remarks recorded']
-    ];
-
-    autoTable(doc, {
-      startY: nextY2 + 4,
-      head: [['Operation/HR Item', 'Status / Detail']],
-      body: vehicleEmergencyRows,
-      theme: 'striped',
-      headStyles: { fillColor: [219, 108, 0], textColor: 255 },
-      styles: { fontSize: 9, font: 'helvetica' },
-      margin: { left: 14, right: 14 }
-    });
-
-    const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 20;
-
-    // Verification Signature Block
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Employee Signature:', 14, finalY);
-    doc.line(14, finalY + 8, 80, finalY + 8);
-
-    doc.text('Authorized Administrator:', 120, finalY);
-    doc.line(120, finalY + 8, 186, finalY + 8);
-
-    doc.save(`MKB_Profile_Card_${(user.name || 'employee').replace(/\s+/g, '_')}.pdf`);
+    renderEmployeeProfilePdf(buildEmployeeProfileDocumentData({
+      user, zoneName, formattedHireDate, formattedLastLogin,
+    }), user.mkbRiderId || user.name || 'employee');
   } catch (err) {
     console.error('Failed to export profile PDF:', err);
   }
+}
+
+export function createEmployeeProfilePdf(data: EmployeeProfileDocumentData): jsPDF {
+  const doc = createBusinessPdf({ orientation: 'portrait', format: 'a4' });
+  drawBusinessDocumentHeader(doc, {
+    title: 'Employee Profile',
+    descriptor: 'Personnel, employment, and operational assignment record',
+    classification: 'Personnel Record',
+    metadata: [
+      { label: 'Employee', value: data.employee.name },
+      { label: 'Role', value: data.employee.role },
+      { label: 'Assignment', value: data.employee.zoneName || 'Not assigned' },
+      { label: 'Generated On', value: data.generatedOn },
+    ],
+  });
+
+  let currentY = 154;
+  const sections = [
+    { title: 'Identity and Employment', rows: data.sections.basic },
+    { title: 'Contact and Address', rows: data.sections.contact },
+    { title: 'Operations and Emergency Information', rows: data.sections.operations },
+  ];
+
+  sections.forEach(section => {
+    const estimatedHeight = 42 + section.rows.length * 24;
+    if (currentY + estimatedHeight > doc.internal.pageSize.getHeight() - 55) {
+      doc.addPage();
+      drawBusinessDocumentHeader(doc, {
+        title: 'Employee Profile',
+        classification: 'Personnel Record',
+        compact: true,
+      });
+      currentY = 108;
+    }
+    const tableStart = drawSectionHeading(doc, section.title, currentY);
+    const startPage = doc.getCurrentPageInfo().pageNumber;
+    autoTable(doc, {
+      ...businessTableStyles(),
+      startY: tableStart,
+      margin: {
+        left: PDF_DOCUMENT_THEME.page.margin,
+        right: PDF_DOCUMENT_THEME.page.margin,
+        top: 102,
+        bottom: PDF_DOCUMENT_THEME.page.footerHeight + 18,
+      },
+      head: [['Information Item', 'Recorded Detail']],
+      body: section.rows,
+      showHead: 'everyPage',
+      rowPageBreak: 'avoid',
+      columnStyles: {
+        0: { cellWidth: 165, fontStyle: 'bold', fillColor: pdfThemeRgb('surface') },
+        1: { cellWidth: 'auto' },
+      },
+      willDrawPage: () => {
+        if (doc.getCurrentPageInfo().pageNumber > startPage) {
+          drawBusinessDocumentHeader(doc, {
+            title: 'Employee Profile',
+            classification: 'Personnel Record',
+            compact: true,
+          });
+        }
+      },
+    });
+    currentY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 24;
+  });
+
+  applyBusinessDocumentFooters(doc, data.generatedOn);
+  return doc;
+}
+
+export function renderEmployeeProfilePdf(data: EmployeeProfileDocumentData, filenameIdentifier: string): void {
+  const filename = buildExportFilename({
+    prefix: 'employee_profile',
+    identifier: filenameIdentifier,
+    extension: 'pdf',
+  });
+  downloadBlob(createEmployeeProfilePdf(data).output('blob'), filename);
 }
 
 interface ExportDTROptions {
@@ -167,16 +145,20 @@ export function exportEmployeeDTR({
   logs
 }: ExportDTROptions) {
   try {
+    renderEmployeeDtrPdf(buildDtrDocumentData({ riderName, riderRole, zoneName, calendarDate, logs }));
+  } catch (err) {
+    console.error('Failed to generate DTR PDF:', err);
+  }
+}
+
+export function renderEmployeeDtrPdf(data: DtrDocumentData): void {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
     });
 
-    const year = calendarDate.getFullYear();
-    const month = calendarDate.getMonth();
-    const monthName = calendarDate.toLocaleString('en-US', { month: 'long' });
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const { year, monthName } = data.month;
 
     const drawSingleDTR = (startX: number) => {
       doc.setFont('helvetica', 'normal');
@@ -189,7 +171,7 @@ export function exportEmployeeDTR({
       // Name Line
       doc.setFontSize(8.5);
       doc.setFont('helvetica', 'bold');
-      doc.text(riderName.toUpperCase(), startX + 43, 21, { align: 'center' });
+      doc.text(data.employee.name.toUpperCase(), startX + 43, 21, { align: 'center' });
       doc.line(startX + 3, 22, startX + 83, 22);
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(6.5);
@@ -201,13 +183,13 @@ export function exportEmployeeDTR({
       
       doc.text('Position:', startX + 3, 29);
       doc.setFont('helvetica', 'bold');
-      doc.text(riderRole.toUpperCase(), startX + 15, 29);
+      doc.text(data.employee.role.toUpperCase(), startX + 15, 29);
       doc.line(startX + 15, 30, startX + 83, 30);
 
       doc.setFont('helvetica', 'normal');
       doc.text('Area of Assignment:', startX + 3, 34);
       doc.setFont('helvetica', 'bold');
-      doc.text(zoneName, startX + 28, 34);
+      doc.text(data.employee.zoneName, startX + 28, 34);
       doc.line(startX + 28, 35, startX + 83, 35);
 
       doc.setFont('helvetica', 'normal');
@@ -220,82 +202,16 @@ export function exportEmployeeDTR({
       doc.setFontSize(6);
       doc.text('Official hrs. for arrival (Reg.Days) and Departure (Saturdays)', startX + 3, 44);
 
-      const tableRows = [];
-      let totalMinutes = 0;
-
-      for (let day = 1; day <= 31; day++) {
-        let amIn = '';
-        let amOut = '';
-        let pmIn = '';
-        let pmOut = '';
-        let otIn = '';
-        let otOut = '';
-        const utHrs = '';
-        const utMin = '';
-
-        if (day <= daysInMonth) {
-          const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          const log = logs.find(l => l.date === dayStr);
-
-          if (log) {
-            if (log.timeIn) {
-              const formattedIn = formatDtrTimeString(log.timeIn);
-              if (formattedIn) {
-                const hour = parseInt(formattedIn.split(':')[0], 10);
-                if (hour < 12) {
-                  amIn = formattedIn;
-                } else {
-                  pmIn = formattedIn;
-                }
-              }
-            }
-            if (log.timeOut) {
-              const formattedOut = formatDtrTimeString(log.timeOut);
-              if (formattedOut) {
-                const hour = parseInt(formattedOut.split(':')[0], 10);
-                if (hour < 12) {
-                  amOut = formattedOut;
-                } else {
-                  pmOut = formattedOut;
-                }
-              }
-            }
-
-            if (log.hours > 8) {
-              const formattedOut = formatDtrTimeString(log.timeOut);
-              otIn = '17:00';
-              otOut = formattedOut || '';
-            }
-
-            totalMinutes += Math.round(log.hours * 60);
-          }
-        }
-
-        tableRows.push([
-          day.toString(),
-          amIn,
-          amOut,
-          pmIn,
-          pmOut,
-          otIn,
-          otOut,
-          utHrs,
-          utMin
-        ]);
-      }
-
-      const totHrs = Math.floor(totalMinutes / 60);
-      const totMins = totalMinutes % 60;
-      tableRows.push([
-        'TOTAL',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        totHrs > 0 ? `${totHrs}h` : '0h',
-        totMins > 0 ? `${totMins}m` : '0m'
+      const tableRows = data.rows.map((row) => [
+        String(row.day),
+        row.amIn,
+        row.amOut,
+        row.pmIn,
+        row.pmOut,
+        row.overtimeIn,
+        row.overtimeOut,
+        row.undertimeHours,
+        row.undertimeMinutes,
       ]);
 
       autoTable(doc, {
@@ -359,12 +275,14 @@ export function exportEmployeeDTR({
 
     // Draw left DTR
     drawSingleDTR(10);
-    
+
     // Draw right DTR
     drawSingleDTR(110);
 
-    doc.save(`MKB_DTR_${riderName.replace(/\s+/g, '_')}_${monthName}_${year}.pdf`);
-  } catch (err) {
-    console.error('Failed to generate DTR PDF:', err);
-  }
+    const filename = buildExportFilename({
+      prefix: 'dtr',
+      identifier: `${data.employee.name}_${monthName}_${year}`,
+      extension: 'pdf',
+    });
+    downloadBlob(doc.output('blob'), filename);
 }

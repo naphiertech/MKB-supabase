@@ -1,7 +1,26 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import ExcelJS from 'exceljs';
-import { BRANDING } from '../../config/branding';
+import { exportXLSXFile } from './excelHelper';
+import { exportOfficialPayslipXLSX } from './officialPayslipTemplateAdapter';
+import {
+  applyBusinessDocumentFooters,
+  businessTableStyles,
+  createBusinessPdf,
+  drawBusinessDocumentHeader,
+  drawMetricStrip,
+  drawSectionHeading,
+  formatPdfCurrency,
+  PDF_DOCUMENT_THEME,
+  pdfThemeRgb,
+} from './pdfDocumentTheme';
+import {
+  buildExportFilename,
+  downloadBlob,
+  downloadCsv,
+  formatManilaDate,
+  formatManilaDateTime,
+  printPdfBlob,
+} from './exportUtils';
 
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable: { finalY: number };
@@ -34,6 +53,80 @@ export interface PayslipSnapshotContext {
   grossDeliveryPay: number;
 }
 
+export interface PayslipAdjustments {
+  otherEarnings?: number;
+  fmPickupCount?: number;
+  deductions?: number;
+  lateOnhold?: number;
+  lateRemittance?: number;
+}
+
+export interface PayrollAdjustmentRecord {
+  other_earnings?: number | string | null;
+  fm_pickup_count?: number | string | null;
+  deductions?: number | string | null;
+  late_onhold?: number | string | null;
+  late_remittance?: number | string | null;
+}
+
+export function payslipAdjustmentsFromRecord(record: PayrollAdjustmentRecord): Required<PayslipAdjustments> {
+  return {
+    otherEarnings: Number(record.other_earnings ?? 0),
+    fmPickupCount: Number(record.fm_pickup_count ?? 0),
+    deductions: Number(record.deductions ?? 0),
+    lateOnhold: Number(record.late_onhold ?? 0),
+    lateRemittance: Number(record.late_remittance ?? 0),
+  };
+}
+
+function normalizedAdjustments(adjustments: PayslipAdjustments): Required<PayslipAdjustments> {
+  return {
+    otherEarnings: Number(adjustments.otherEarnings ?? 0),
+    fmPickupCount: Number(adjustments.fmPickupCount ?? 0),
+    deductions: Number(adjustments.deductions ?? 0),
+    lateOnhold: Number(adjustments.lateOnhold ?? 0),
+    lateRemittance: Number(adjustments.lateRemittance ?? 0),
+  };
+}
+
+export function calculatePayslipNetPay(grossPay: number, adjustments: PayslipAdjustments): number {
+  const values = normalizedAdjustments(adjustments);
+  return Number(grossPay) + values.otherEarnings + values.fmPickupCount * 3
+    - values.deductions - values.lateOnhold - values.lateRemittance;
+}
+
+export interface PayslipDocumentData {
+  rider: { name: string; mkbId: string; zoneName: string };
+  cutoff: { from: string; to: string };
+  days: PayslipDay[];
+  snapshot: PayslipSnapshotContext;
+  adjustments: Required<PayslipAdjustments>;
+  totals: { totalEarnings: number; totalDeductions: number; netPay: number };
+}
+
+export function buildPayslipDocumentData(input: {
+  riderName: string;
+  mkbId: string;
+  zoneName: string;
+  cutoffFrom: string;
+  cutoffTo: string;
+  dayEntries: PayslipDay[];
+  snapshot: PayslipSnapshotContext;
+  adjustments?: PayslipAdjustments;
+}): PayslipDocumentData {
+  const adjustments = normalizedAdjustments(input.adjustments ?? {});
+  const totalEarnings = input.snapshot.grossDeliveryPay + adjustments.otherEarnings + adjustments.fmPickupCount * 3;
+  const totalDeductions = adjustments.deductions + adjustments.lateOnhold + adjustments.lateRemittance;
+  return {
+    rider: { name: input.riderName, mkbId: input.mkbId, zoneName: input.zoneName },
+    cutoff: { from: input.cutoffFrom, to: input.cutoffTo },
+    days: input.dayEntries,
+    snapshot: input.snapshot,
+    adjustments,
+    totals: { totalEarnings, totalDeductions, netPay: totalEarnings - totalDeductions },
+  };
+}
+
 export function parcelLogsToPayslipDays(entries: Array<{
   date: string; parcels: number; heavyParcels: number; failedParcels: number; returnedParcels: number;
   rate: number; heavyRate: number; standardEarnings: number; heavyEarnings: number; dailyGross: number;
@@ -57,23 +150,6 @@ function validateSnapshotExport(dayEntries: PayslipDay[], snapshot: PayslipSnaps
   }
 }
 
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function csvEscape(cell: string | number | null | undefined): string {
-  const s = String(cell ?? '');
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
 export const exportParcelPayslipPDF = (
   riderName: string,
   mkbId: string,
@@ -82,184 +158,159 @@ export const exportParcelPayslipPDF = (
   cutoffTo: string,
   dayEntries: PayslipDay[],
   snapshot: PayslipSnapshotContext,
-  adjustments: {
-    otherEarnings?: number;
-    fmPickupCount?: number;
-    deductions?: number;
-    lateOnhold?: number;
-    lateRemittance?: number;
-  } = {}
+  adjustments: PayslipAdjustments = {}
 ) => {
   validateSnapshotExport(dayEntries, snapshot);
-  const doc = new jsPDF();
+  renderParcelPayslipPDF(buildPayslipDocumentData({
+    riderName, mkbId, zoneName, cutoffFrom, cutoffTo, dayEntries, snapshot, adjustments,
+  }));
+};
+
+export function createParcelPayslipPdf(data: PayslipDocumentData): jsPDF {
+  const { rider, cutoff, days, snapshot, adjustments } = data;
+  const doc = createBusinessPdf({ orientation: 'portrait', format: 'a4' });
+  const generatedAt = formatManilaDateTime(new Date());
   const totalParcels = snapshot.standardParcels + snapshot.heavyParcels;
-  const grossPay = snapshot.grossDeliveryPay;
+  const adjustmentTotal = adjustments.otherEarnings + adjustments.fmPickupCount * 3;
 
-  const otherEarnings = adjustments.otherEarnings ?? 0;
-  const fmPickupCount = adjustments.fmPickupCount ?? 0;
-  const fmPickupPay = fmPickupCount * 3;
-  const totalEarnings = grossPay + otherEarnings + fmPickupPay;
-  const generalDeductions = adjustments.deductions ?? 0;
-  const lateOnhold = adjustments.lateOnhold ?? 0;
-  const lateRemittance = adjustments.lateRemittance ?? 0;
-  const totalDeductions = generalDeductions + lateOnhold + lateRemittance;
-  const netTakeHome = totalEarnings - totalDeductions;
-
-  // Header
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PAYSLIP — MKB CORPORATION', 105, 20, { align: 'center' });
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${BRANDING.appName} Logistics System`, 105, 27, { align: 'center' });
-
-  // Divider
-  doc.setLineWidth(0.5);
-  doc.line(14, 32, 196, 32);
-
-  // Rider info
-  doc.setFontSize(10);
-  doc.text(`Rider     : ${riderName}`, 14, 40);
-  doc.text(`Rider ID  : ${mkbId}`, 14, 47);
-  doc.text(`Zone      : ${zoneName}`, 14, 54);
-  doc.text(
-    `Cutoff    : ${new Date(cutoffFrom).toLocaleDateString('en-PH', {
-      month: 'long', day: '2-digit', year: 'numeric'
-    })} – ${new Date(cutoffTo).toLocaleDateString('en-PH', {
-      month: 'long', day: '2-digit', year: 'numeric'
-    })}`,
-    14, 61
-  );
-  doc.text(
-    `Generated : ${new Date().toLocaleDateString('en-PH', {
-      month: 'long', day: '2-digit', year: 'numeric'
-    })}`,
-    14, 68
-  );
-
-  // Day-by-day table
   autoTable(doc, {
-    startY: 76,
+    ...businessTableStyles(),
+    startY: 210,
+    margin: {
+      left: PDF_DOCUMENT_THEME.page.margin,
+      right: PDF_DOCUMENT_THEME.page.margin,
+      top: 100,
+      bottom: PDF_DOCUMENT_THEME.page.footerHeight + 18,
+    },
     head: [['Date', 'Standard', 'Heavy', 'Failed', 'Returned', 'Std Rate', 'Heavy Rate', 'Gross']],
-    body: dayEntries.map(e => [
-        new Date(e.date).toLocaleDateString('en-PH', {
-          month: 'long', day: '2-digit', year: 'numeric'
-        }),
-        e.standardParcels.toString(), e.heavyParcels.toString(), e.failedParcels.toString(), e.returnedParcels.toString(),
-        `₱${e.standardRate.toFixed(2)}`, `₱${e.heavyRate.toFixed(2)}`,
-        `₱${e.grossDeliveryPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      ]),
-    headStyles: {
-      fillColor: [219, 108, 0],
-      textColor: 255,
-      fontStyle: 'bold',
+    body: days.length ? days.map(entry => [
+      formatManilaDate(entry.date, 'short'),
+      entry.standardParcels,
+      entry.heavyParcels,
+      entry.failedParcels,
+      entry.returnedParcels,
+      formatPdfCurrency(entry.standardRate),
+      formatPdfCurrency(entry.heavyRate),
+      formatPdfCurrency(entry.grossDeliveryPay),
+    ]) : [['No delivery entries recorded for this cutoff.', '', '', '', '', '', '', '']],
+    showHead: 'everyPage',
+    rowPageBreak: 'avoid',
+    columnStyles: {
+      0: { cellWidth: 68 },
+      1: { halign: 'right' },
+      2: { halign: 'right' },
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+      5: { halign: 'right' },
+      6: { halign: 'right' },
+      7: { halign: 'right', fontStyle: 'bold' },
     },
-    alternateRowStyles: {
-      fillColor: [255, 241, 224],
-    },
-    styles: {
-      fontSize: 9,
-      font: 'helvetica',
+    willDrawPage: () => {
+      const pageNumber = doc.getCurrentPageInfo().pageNumber;
+      drawBusinessDocumentHeader(doc, {
+        title: 'Rider Payslip',
+        descriptor: 'Delivery earnings and payroll adjustment statement',
+        classification: 'Payroll Document',
+        metadata: pageNumber === 1 ? [
+          { label: 'Rider', value: rider.name },
+          { label: 'MKB ID', value: rider.mkbId },
+          { label: 'Cutoff', value: `${formatManilaDate(cutoff.from, 'short')} to ${formatManilaDate(cutoff.to, 'short')}` },
+          { label: 'Zone', value: rider.zoneName || 'Not assigned' },
+        ] : undefined,
+        compact: pageNumber > 1,
+      });
+      if (pageNumber === 1) {
+        drawMetricStrip(doc, [
+          { label: 'Delivered Parcels', value: totalParcels.toLocaleString('en-PH') },
+          { label: 'Gross Delivery Pay', value: formatPdfCurrency(snapshot.grossDeliveryPay) },
+          { label: 'Adjustments', value: formatPdfCurrency(adjustmentTotal) },
+          { label: 'Net Pay', value: formatPdfCurrency(data.totals.netPay) },
+        ], 144);
+        drawSectionHeading(doc, 'Daily Delivery Breakdown', 200);
+      }
     },
   });
 
-  // Summary
-  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 8;
-  doc.setLineWidth(0.5);
-  doc.line(14, finalY, 196, finalY);
+  const dailyTableBottom = (doc as JsPDFWithAutoTable).lastAutoTable.finalY;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let summaryStart = dailyTableBottom + 24;
+  if (summaryStart > pageHeight - 245) {
+    doc.addPage();
+    drawBusinessDocumentHeader(doc, {
+      title: 'Rider Payslip',
+      classification: 'Payroll Document',
+      compact: true,
+    });
+    summaryStart = 112;
+  }
 
-  doc.setFontSize(10);
-  doc.text(
-    `Total Parcels Delivered : ${totalParcels}`,
-    14, finalY + 8
-  );
+  const tableStart = drawSectionHeading(doc, 'Payroll Reconciliation', summaryStart);
+  const reconciliationRows: Array<[string, string]> = [
+    ['Gross Delivery Pay', formatPdfCurrency(snapshot.grossDeliveryPay)],
+    ['Other Earnings', formatPdfCurrency(adjustments.otherEarnings)],
+    [`FM Pickup Bonus (${adjustments.fmPickupCount} pcs x PHP 3)`, formatPdfCurrency(adjustments.fmPickupCount * 3)],
+    ['TOTAL EARNINGS', formatPdfCurrency(data.totals.totalEarnings)],
+    ['General Deductions', formatPdfCurrency(adjustments.deductions)],
+    ['Late Onhold', formatPdfCurrency(adjustments.lateOnhold)],
+    ['Late Remittance', formatPdfCurrency(adjustments.lateRemittance)],
+    ['TOTAL DEDUCTIONS', formatPdfCurrency(data.totals.totalDeductions)],
+    ['NET TAKE-HOME PAY', formatPdfCurrency(data.totals.netPay)],
+  ];
+  autoTable(doc, {
+    ...businessTableStyles(),
+    startY: tableStart,
+    margin: {
+      left: PDF_DOCUMENT_THEME.page.margin,
+      right: PDF_DOCUMENT_THEME.page.margin,
+      bottom: PDF_DOCUMENT_THEME.page.footerHeight + 18,
+    },
+    head: [['Payroll Component', 'Amount']],
+    body: reconciliationRows,
+    columnStyles: { 1: { halign: 'right', cellWidth: 150 } },
+    didParseCell: hook => {
+      if (hook.section !== 'body') return;
+      const rawRow = hook.row.raw;
+      const label = String(Array.isArray(rawRow) ? rawRow[0] ?? '' : '');
+      if (label.startsWith('TOTAL')) hook.cell.styles.fontStyle = 'bold';
+      if (label === 'NET TAKE-HOME PAY') {
+        hook.cell.styles.fontStyle = 'bold';
+        hook.cell.styles.fillColor = pdfThemeRgb('accentSoft');
+        hook.cell.styles.textColor = pdfThemeRgb('ink');
+        hook.cell.styles.lineWidth = { top: 1 };
+        hook.cell.styles.lineColor = pdfThemeRgb('accent');
+      }
+    },
+  });
 
-  let currentY = finalY + 15;
-  doc.text(`Standard / Heavy       : ${snapshot.standardParcels} / ${snapshot.heavyParcels}`, 14, currentY);
-  currentY += 7;
-  doc.text(`Failed / Returned      : ${snapshot.failedParcels} / ${snapshot.returnedParcels}`, 14, currentY);
-  currentY += 7;
-  doc.text(`Standard delivery pay   : ₱${snapshot.standardEarnings.toFixed(2)}`, 14, currentY);
-  currentY += 7;
-  doc.text(`Heavy delivery pay      : ₱${snapshot.heavyEarnings.toFixed(2)}`, 14, currentY);
-  currentY += 7;
-  doc.text(snapshot.source === 'legacy' ? 'Legacy immutable snapshot' : `Calculation v${snapshot.calculationVersion}`, 14, currentY);
-  currentY += 7;
-
-  currentY += 3;
-
+  const noteY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 15;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(0);
-
-  if (otherEarnings > 0 || fmPickupCount > 0) {
-    doc.text(`Base Delivery Pay       : ₱${grossPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-    currentY += 7;
-    if (otherEarnings > 0) {
-      doc.text(`Other Earnings          : ₱${otherEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-      currentY += 7;
-    }
-    if (fmPickupCount > 0) {
-      doc.text(`FM Pick Up (${fmPickupCount} pcs)      : ₱${fmPickupPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-      currentY += 7;
-    }
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL EARNINGS          : ₱${totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-    doc.setFont('helvetica', 'normal');
-    currentY += 9;
-  } else {
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL EARNINGS          : ₱${grossPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-    doc.setFont('helvetica', 'normal');
-    currentY += 9;
-  }
-
-  if (totalDeductions > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('DEDUCTIONS', 14, currentY);
-    doc.setFont('helvetica', 'normal');
-    currentY += 7;
-    if (generalDeductions > 0) {
-      doc.text(`General Deductions      : ₱${generalDeductions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-      currentY += 7;
-    }
-    if (lateOnhold > 0) {
-      doc.text(`Late Onhold             : ₱${lateOnhold.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-      currentY += 7;
-    }
-    if (lateRemittance > 0) {
-      doc.text(`Late Remittance         : ₱${lateRemittance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-      currentY += 7;
-    }
-    doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL DEDUCTIONS        : ₱${totalDeductions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 14, currentY);
-    doc.setFont('helvetica', 'normal');
-    currentY += 9;
-  }
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(219, 108, 0);
+  doc.setFontSize(7.5);
+  doc.setTextColor(...pdfThemeRgb('muted'));
   doc.text(
-    `NET TAKE-HOME           : ₱${netTakeHome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    14, currentY + 3
+    snapshot.source === 'legacy'
+      ? 'Payroll basis: immutable legacy snapshot.'
+      : `Payroll basis: calculation version ${snapshot.calculationVersion} with snapshotted delivery rates.`,
+    PDF_DOCUMENT_THEME.page.margin,
+    noteY,
   );
 
-  // Footer note
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
-  doc.setTextColor(150);
-  doc.text(
-    'Government deductions are processed separately outside this system.',
-    105, currentY + 16,
-    { align: 'center' }
-  );
+  applyBusinessDocumentFooters(doc, generatedAt);
+  return doc;
+}
 
-  // Save
-  doc.save(
-    `payslip_${riderName.replace(/\s+/g, '_')}_${cutoffFrom}_${cutoffTo}.pdf`
-  );
-};
+export function renderParcelPayslipPDF(data: PayslipDocumentData): void {
+  downloadBlob(createParcelPayslipPdf(data).output('blob'), buildExportFilename({
+    prefix: 'payslip',
+    identifier: data.rider.mkbId,
+    from: data.cutoff.from,
+    to: data.cutoff.to,
+    extension: 'pdf',
+  }));
+}
+
+export function printParcelPayslipDocument(data: PayslipDocumentData): void {
+  printPdfBlob(createParcelPayslipPdf(data).output('blob'));
+}
 
 export const exportParcelCSV = (
   riderName: string,
@@ -268,33 +319,34 @@ export const exportParcelCSV = (
   cutoffTo: string,
   dayEntries: PayslipDay[],
   snapshot: PayslipSnapshotContext,
-  adjustments: {
-    otherEarnings?: number;
-    fmPickupCount?: number;
-    deductions?: number;
-    lateOnhold?: number;
-    lateRemittance?: number;
-  } = {}
+  adjustments: PayslipAdjustments = {}
 ) => {
   validateSnapshotExport(dayEntries, snapshot);
+  renderParcelPayslipCsv(buildPayslipDocumentData({
+    riderName, mkbId, zoneName: '', cutoffFrom, cutoffTo, dayEntries, snapshot, adjustments,
+  }));
+};
+
+export function renderParcelPayslipCsv(data: PayslipDocumentData): void {
+  const { rider, cutoff, days: dayEntries, snapshot, adjustments: values } = data;
   const totalParcels = snapshot.standardParcels + snapshot.heavyParcels;
   const grossPay = snapshot.grossDeliveryPay;
 
-  const otherEarnings = adjustments.otherEarnings ?? 0;
-  const fmPickupCount = adjustments.fmPickupCount ?? 0;
+  const otherEarnings = values.otherEarnings;
+  const fmPickupCount = values.fmPickupCount;
   const fmPickupPay = fmPickupCount * 3;
-  const totalEarnings = grossPay + otherEarnings + fmPickupPay;
-  const generalDeductions = adjustments.deductions ?? 0;
-  const lateOnhold = adjustments.lateOnhold ?? 0;
-  const lateRemittance = adjustments.lateRemittance ?? 0;
-  const totalDeductions = generalDeductions + lateOnhold + lateRemittance;
-  const netTakeHome = totalEarnings - totalDeductions;
+  const totalEarnings = data.totals.totalEarnings;
+  const generalDeductions = values.deductions;
+  const lateOnhold = values.lateOnhold;
+  const lateRemittance = values.lateRemittance;
+  const totalDeductions = data.totals.totalDeductions;
+  const netTakeHome = data.totals.netPay;
 
   const metadata = [
     ['Rider Payslip — MKB Corporation'],
-    ['Rider Name', riderName],
-    ['Rider ID', mkbId],
-    ['Cutoff Period', `${cutoffFrom} to ${cutoffTo}`],
+    ['Rider Name', rider.name],
+    ['Rider ID', rider.mkbId],
+    ['Cutoff Period', `${cutoff.from} to ${cutoff.to}`],
     []
   ];
 
@@ -333,13 +385,14 @@ export const exportParcelCSV = (
     ['NET TAKE-HOME PAY', `₱${netTakeHome.toFixed(2)}`]
   ];
 
-  const csv = '\uFEFF' + lines.map(row => row.map(csvEscape).join(',')).join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, `payslip_${riderName.replace(/\s+/g, '_')}_${cutoffFrom}_${cutoffTo}.csv`);
-};
+  downloadCsv(lines, buildExportFilename({
+    prefix: 'payslip', identifier: rider.mkbId, from: cutoff.from, to: cutoff.to, extension: 'csv',
+  }));
+}
 
 export interface CutoffSummaryRow {
   riderName: string;
+  riderId?: string;
   zone: string;
   totalParcels: number;
   standardParcels?: number;
@@ -349,22 +402,186 @@ export interface CutoffSummaryRow {
   failedParcels?: number;
   returnedParcels?: number;
   calculationVersion?: number;
+  flagged?: string;
   grossPay: number;
+}
+
+export interface CutoffSummaryPeriod {
+  label: string;
+  from?: string;
+  to?: string;
+}
+
+export interface CutoffSummaryDocumentData {
+  period: CutoffSummaryPeriod;
+  rows: CutoffSummaryRow[];
+  totals: { parcels: number; grossPay: number };
+}
+
+function normalizeCutoffPeriod(period: string | CutoffSummaryPeriod): CutoffSummaryPeriod {
+  if (typeof period !== 'string') return period;
+  const dates = period.match(/(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})/);
+  return { label: period, from: dates?.[1], to: dates?.[2] };
+}
+
+export function buildCutoffSummaryDocumentData(
+  rows: CutoffSummaryRow[],
+  period: string | CutoffSummaryPeriod,
+): CutoffSummaryDocumentData {
+  return {
+    period: normalizeCutoffPeriod(period),
+    rows,
+    totals: {
+      parcels: rows.reduce((sum, row) => sum + row.totalParcels, 0),
+      grossPay: rows.reduce((sum, row) => sum + row.grossPay, 0),
+    },
+  };
+}
+
+export function buildCutoffSummarySpreadsheetData(rows: CutoffSummaryRow[]) {
+  return {
+    columns: ['Rider', 'Rider ID', 'Zone', 'Total Parcels', 'Flagged', 'Total Gross Pay'],
+    rows: rows.map(row => [
+      row.riderName,
+      row.riderId ?? '—',
+      row.zone,
+      row.totalParcels,
+      row.flagged ?? 'NO',
+      row.grossPay,
+    ]),
+  };
+}
+
+function cutoffFilename(data: CutoffSummaryDocumentData, extension: 'csv' | 'pdf' | 'xlsx'): string {
+  return buildExportFilename({
+    prefix: 'payroll_cutoff',
+    identifier: data.period.from && data.period.to ? undefined : data.period.label,
+    from: data.period.from,
+    to: data.period.to,
+    extension,
+  });
+}
+
+export async function exportCutoffSummaryXLSX(
+  rows: CutoffSummaryRow[],
+  period: string | CutoffSummaryPeriod,
+): Promise<void> {
+  const documentData = buildCutoffSummaryDocumentData(rows, period);
+  const data = buildCutoffSummarySpreadsheetData(rows);
+  await exportXLSXFile(
+    'Cutoff Summary', data.columns, data.rows,
+    cutoffFilename(documentData, 'xlsx').replace(/\.xlsx$/, ''),
+    'cutoffSummary',
+  );
+}
+
+export function exportCutoffSummaryPDF(
+  rows: CutoffSummaryRow[],
+  period: string | CutoffSummaryPeriod,
+): void {
+  renderCutoffSummaryPdf(buildCutoffSummaryDocumentData(rows, period));
+}
+
+export function renderCutoffSummaryPdf(data: CutoffSummaryDocumentData): void {
+  downloadBlob(createCutoffSummaryPdf(data).output('blob'), cutoffFilename(data, 'pdf'));
+}
+
+export function createCutoffSummaryPdf(data: CutoffSummaryDocumentData): jsPDF {
+  const doc = createBusinessPdf({ orientation: 'landscape', format: 'a4' });
+  const generatedAt = formatManilaDateTime(new Date());
+  const flaggedCount = data.rows.filter(row => row.flagged === 'YES').length;
+  autoTable(doc, {
+    ...businessTableStyles(),
+    startY: 208,
+    margin: {
+      left: PDF_DOCUMENT_THEME.page.margin,
+      right: PDF_DOCUMENT_THEME.page.margin,
+      top: 100,
+      bottom: PDF_DOCUMENT_THEME.page.footerHeight + 18,
+    },
+    head: [['Rider', 'Zone', 'Standard', 'Heavy', 'Failed', 'Returned', 'Gross Pay', 'Version']],
+    body: data.rows.length ? data.rows.map(row => [
+      row.riderName,
+      row.zone,
+      row.standardParcels ?? row.totalParcels,
+      row.heavyParcels ?? 0,
+      row.failedParcels ?? 0,
+      row.returnedParcels ?? 0,
+      formatPdfCurrency(row.grossPay),
+      `v${row.calculationVersion ?? 1}`,
+    ]) : [['No payroll records match this cutoff.', '', '', '', '', '', '', '']],
+    foot: data.rows.length ? [[
+      'FLEET TOTAL', '', '', '', '', '', formatPdfCurrency(data.totals.grossPay), '',
+    ]] : undefined,
+    showHead: 'everyPage',
+    showFoot: 'lastPage',
+    rowPageBreak: 'avoid',
+    columnStyles: {
+      0: { cellWidth: 130 },
+      1: { cellWidth: 115 },
+      2: { halign: 'right' },
+      3: { halign: 'right' },
+      4: { halign: 'right' },
+      5: { halign: 'right' },
+      6: { halign: 'right', cellWidth: 105, fontStyle: 'bold' },
+      7: { halign: 'center', cellWidth: 55 },
+    },
+    footStyles: {
+      fillColor: pdfThemeRgb('accentSoft'),
+      textColor: pdfThemeRgb('ink'),
+      fontStyle: 'bold',
+      lineColor: pdfThemeRgb('accent'),
+      lineWidth: { top: 1 },
+    },
+    willDrawPage: () => {
+      const pageNumber = doc.getCurrentPageInfo().pageNumber;
+      drawBusinessDocumentHeader(doc, {
+        title: 'Payroll Cutoff Summary',
+        descriptor: 'Fleet delivery volume and gross payroll review',
+        classification: 'Financial Report',
+        metadata: pageNumber === 1 ? [
+          { label: 'Cutoff', value: data.period.label.replace(/[–—]/g, '-') },
+          { label: 'Riders', value: data.rows.length.toLocaleString('en-PH') },
+          { label: 'Generated At', value: generatedAt },
+        ] : undefined,
+        compact: pageNumber > 1,
+      });
+      if (pageNumber === 1) {
+        drawMetricStrip(doc, [
+          { label: 'Riders', value: data.rows.length.toLocaleString('en-PH') },
+          { label: 'Delivered Parcels', value: data.totals.parcels.toLocaleString('en-PH') },
+          { label: 'Flagged Records', value: flaggedCount.toLocaleString('en-PH') },
+          { label: 'Gross Payroll', value: formatPdfCurrency(data.totals.grossPay) },
+        ], 144);
+        drawSectionHeading(doc, 'Rider Payroll Register', 198);
+      }
+    },
+    didParseCell: hook => {
+      if (hook.section === 'body' && hook.column.index === 0 && String(hook.cell.raw).length > 36) {
+        hook.cell.styles.fontSize = 7.5;
+      }
+    },
+  });
+  applyBusinessDocumentFooters(doc, generatedAt);
+  return doc;
 }
 
 export const exportCutoffSummaryCSV = (
   rows: CutoffSummaryRow[],
-  cutoffLabel: string
+  period: string | CutoffSummaryPeriod,
 ) => {
-  const filename = `mkbridertrack_cutoff_summary_${cutoffLabel.replace(/\s+/g, '_')}`;
+  renderCutoffSummaryCsv(buildCutoffSummaryDocumentData(rows, period));
+};
+
+export function renderCutoffSummaryCsv(data: CutoffSummaryDocumentData): void {
   const header = ['Rider', 'Zone', 'Standard', 'Heavy', 'Failed', 'Returned', 'Total Delivered', 'Standard Earnings', 'Heavy Earnings', 'Gross Delivery Pay', 'Calculation Version'];
 
   const lines = [
     ['MKBRiderTrack Cutoff Summary'],
-    [`Cutoff: ${cutoffLabel}`],
+    [`Cutoff: ${data.period.label}`],
     [],
     header,
-    ...rows.map(r => [
+    ...data.rows.map(r => [
       r.riderName,
       r.zone,
       r.standardParcels ?? r.totalParcels,
@@ -379,232 +596,28 @@ export const exportCutoffSummaryCSV = (
     ])
   ];
 
-  const csv = '\uFEFF' + lines.map(row => row.map(csvEscape).join(',')).join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, `${filename}.csv`);
-};
+  downloadCsv(lines, cutoffFilename(data, 'csv'));
+}
 
 export const exportParcelPayslipXLSX = async (
   riderName: string,
-  _mkbId: string,
+  mkbId: string,
   cutoffFrom: string,
   cutoffTo: string,
   dayEntries: PayslipDay[],
   snapshot: PayslipSnapshotContext,
   atmNumber = 'N/A',
-  adjustments: {
-    otherEarnings?: number;
-    fmPickupCount?: number;
-    deductions?: number;
-    lateOnhold?: number;
-    lateRemittance?: number;
-  } = {}
-) => {
-  try {
-    validateSnapshotExport(dayEntries, snapshot);
-    const exportDays = dayEntries.length > 0 ? dayEntries : [{
-      date: cutoffTo,
-      standardParcels: snapshot.standardParcels,
-      heavyParcels: snapshot.heavyParcels,
-      failedParcels: snapshot.failedParcels,
-      returnedParcels: snapshot.returnedParcels,
-      standardRate: 0,
-      heavyRate: 0,
-      standardEarnings: snapshot.standardEarnings,
-      heavyEarnings: snapshot.heavyEarnings,
-      grossDeliveryPay: snapshot.grossDeliveryPay,
-      rateConfigurationId: null,
-      calculationVersion: snapshot.calculationVersion,
-    }];
-    const response = await fetch('/files/MKB_PAYSLIP_Template.xlsx');
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    const arrayBuffer = await response.arrayBuffer();
-
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(arrayBuffer);
-    const ws = wb.worksheets[0];
-    if (!ws) throw new Error("Worksheet not found in template");
-
-    // Populate Rider details
-    ws.getCell('C4').value = riderName;
-    ws.getCell('C5').value = 'N/A'; // Dummy Account
-    ws.getCell('C6').value = atmNumber || 'N/A';
-
-    const totalDays = exportDays.length;
-    const originalDaysCount = 7;
-    const extraDays = totalDays - originalDaysCount;
-
-    // Insert extra rows and shift merged ranges if needed
-    if (extraDays > 0) {
-      const mergesToShift: { original: string; shifted: string }[] = [];
-      const allMerges = [...(ws.model.merges || [])];
-
-      allMerges.forEach((rangeStr) => {
-        const parts = rangeStr.split(':');
-        if (parts.length !== 2) return;
-        const [startCell, endCell] = parts;
-        const startMatch = startCell.match(/^([A-Z]+)(\d+)$/);
-        if (!startMatch) return;
-        const startRow = parseInt(startMatch[2], 10);
-        
-        if (startRow >= 16) {
-          const shiftCell = (cell: string) => {
-            const match = cell.match(/^([A-Z]+)(\d+)$/);
-            if (!match) return cell;
-            const col = match[1];
-            const row = parseInt(match[2], 10);
-            return `${col}${row + extraDays}`;
-          };
-          
-          mergesToShift.push({
-            original: rangeStr,
-            shifted: `${shiftCell(startCell)}:${shiftCell(endCell)}`,
-          });
-        }
-      });
-
-      // Unmerge original cells at or below row 16 before inserting rows
-      mergesToShift.forEach((m) => {
-        try {
-          ws.unMergeCells(m.original);
-        } catch (err) {
-          console.warn('Failed to unmerge cell range:', m.original, err);
-        }
-      });
-
-      ws.insertRows(16, Array(extraDays).fill([]), 'down');
-      
-      // Copy formatting and formulas from Row 15 to the new rows
-      const sourceRow = ws.getRow(15);
-      for (let i = 0; i < extraDays; i++) {
-        const targetRowNum = 16 + i;
-        const targetRow = ws.getRow(targetRowNum);
-        targetRow.height = sourceRow.height;
-        sourceRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-          const targetCell = targetRow.getCell(colNumber);
-          targetCell.style = cell.style;
-
-          const val = cell.value;
-          if (val && typeof val === 'object' && (val as any).formula) {
-            const shiftedFormula = (val as any).formula.replace(/([A-Z]+)15/g, `$1${targetRowNum}`);
-            targetCell.value = { formula: shiftedFormula };
-          } else {
-            targetCell.value = val;
-          }
-        });
-        targetRow.commit();
-      }
-
-      // Re-merge shifted cell ranges
-      mergesToShift.forEach((m) => {
-        try {
-          ws.mergeCells(m.shifted);
-        } catch (err) {
-          console.warn('Failed to merge cell range:', m.shifted, err);
-        }
-      });
-    }
-
-    const startDayRow = 9;
-    const lastDayRow = 9 + totalDays - 1;
-    const subTotalRow = lastDayRow + 1;
-    const otherEarningsRow = lastDayRow + 2;
-    const fmPickUpRow = lastDayRow + 3;
-    const deductionsRow = lastDayRow + 4;
-    const lateOnholdRow = lastDayRow + 5;
-    const lateRemittanceRow = lastDayRow + 6;
-    const atmRow = lastDayRow + 7;
-    const totalRow = lastDayRow + 8;
-
-    // Update To date formula in header
-    ws.getCell('L6').value = { formula: `C${lastDayRow}` };
-
-    // Use exact immutable line earnings; never infer or fall back to a current rate.
-    ws.getCell('D8').value = 'Heavy Qty';
-    ws.getCell('E8').value = 'Heavy Pay';
-    ws.getCell('F8').value = 'Standard Qty';
-    ws.getCell('G8').value = 'Standard Pay';
-    ws.getCell('Q8').value = 'Failed';
-    ws.getCell('R8').value = 'Returned';
-    ws.getCell('S8').value = 'Rate Configuration';
-    ws.getCell('T8').value = 'Calculation Version';
-    ws.getCell('U8').value = 'Standard Rate';
-    ws.getCell('V8').value = 'Heavy Rate';
-    exportDays.forEach((entry, idx) => {
-      const rowNum = startDayRow + idx;
-      const dateVal = new Date(entry.date);
-      ws.getCell(`C${rowNum}`).value = dateVal;
-
-      // Initialize all parcel counts as 0 to overwrite default template values
-      ws.getCell(`D${rowNum}`).value = 0;
-      ws.getCell(`F${rowNum}`).value = 0;
-      ws.getCell(`H${rowNum}`).value = 0;
-      ws.getCell(`J${rowNum}`).value = 0;
-      ws.getCell(`L${rowNum}`).value = 0;
-      ws.getCell(`N${rowNum}`).value = 0;
-
-      ws.getCell(`D${rowNum}`).value = entry.heavyParcels;
-      ws.getCell(`E${rowNum}`).value = entry.heavyEarnings;
-      ws.getCell(`F${rowNum}`).value = entry.standardParcels;
-      ws.getCell(`G${rowNum}`).value = entry.standardEarnings;
-      ws.getCell(`Q${rowNum}`).value = entry.failedParcels;
-      ws.getCell(`R${rowNum}`).value = entry.returnedParcels;
-      ws.getCell(`S${rowNum}`).value = entry.rateConfigurationId ?? (snapshot.source === 'legacy' ? 'Legacy snapshot' : 'Missing');
-      ws.getCell(`T${rowNum}`).value = entry.calculationVersion;
-      ws.getCell(`U${rowNum}`).value = snapshot.source === 'legacy' ? 'Legacy' : entry.standardRate;
-      ws.getCell(`V${rowNum}`).value = snapshot.source === 'legacy' ? 'Legacy' : entry.heavyRate;
-    });
-
-    // Update Sub Total formulas
-    ws.getCell(`D${subTotalRow}`).value = { formula: `SUM(D${startDayRow}:D${lastDayRow})` };
-    ws.getCell(`E${subTotalRow}`).value = { formula: `SUM(E${startDayRow}:E${lastDayRow})` };
-    ws.getCell(`F${subTotalRow}`).value = { formula: `SUM(F${startDayRow}:F${lastDayRow})` };
-    ws.getCell(`G${subTotalRow}`).value = { formula: `SUM(G${startDayRow}:G${lastDayRow})` };
-    ws.getCell(`H${subTotalRow}`).value = { formula: `SUM(H${startDayRow}:H${lastDayRow})` };
-    ws.getCell(`I${subTotalRow}`).value = { formula: `SUM(I${startDayRow}:I${lastDayRow})` };
-    ws.getCell(`J${subTotalRow}`).value = { formula: `SUM(J${startDayRow}:J${lastDayRow})` };
-    ws.getCell(`K${subTotalRow}`).value = { formula: `SUM(K${startDayRow}:K${lastDayRow})` };
-    ws.getCell(`L${subTotalRow}`).value = { formula: `SUM(L${startDayRow}:L${lastDayRow})` };
-    ws.getCell(`M${subTotalRow}`).value = { formula: `SUM(M${startDayRow}:M${lastDayRow})` };
-    ws.getCell(`N${subTotalRow}`).value = { formula: `SUM(N${startDayRow}:N${lastDayRow})` };
-    ws.getCell(`O${subTotalRow}`).value = { formula: `SUM(O${startDayRow}:O${lastDayRow})` };
-    ws.getCell(`P${subTotalRow}`).value = { formula: `SUM(P${startDayRow}:P${lastDayRow})` };
-    ws.getCell(`P${subTotalRow}`).value = snapshot.grossDeliveryPay;
-
-    // Write dynamic adjustments values to cells
-    ws.getCell(`D${otherEarningsRow}`).value = (adjustments.otherEarnings ?? 0) / 5;
-    ws.getCell(`C${fmPickUpRow}`).value = adjustments.fmPickupCount ?? 0;
-    ws.getCell(`N${deductionsRow}`).value = adjustments.deductions ?? 0;
-    ws.getCell(`C${lateOnholdRow}`).value = adjustments.lateOnhold ?? 0;
-    ws.getCell(`C${lateRemittanceRow}`).value = adjustments.lateRemittance ?? 0;
-
-    // Update other formulas
-    ws.getCell(`N${otherEarningsRow}`).value = { formula: `D${otherEarningsRow}*5` };
-    ws.getCell(`N${fmPickUpRow}`).value = { formula: `C${fmPickUpRow}*3` };
-    
-    const lateOnholdFormula = `C${lateOnholdRow}+C${lateRemittanceRow}+K${lateOnholdRow}+K${lateRemittanceRow}`;
-    ws.getCell(`N${lateOnholdRow}`).value = { formula: lateOnholdFormula };
-    ws.getCell(`N${lateRemittanceRow}`).value = { formula: lateOnholdFormula };
-
-    // Use the stored gross snapshot rather than summing template quantity cells.
-    ws.getCell(`N${atmRow}`).value = { formula: `P${subTotalRow}+N${otherEarningsRow}+N${fmPickUpRow}-SUM(N${deductionsRow}:N${lateRemittanceRow})` };
-
-    // TOTAL uses the same immutable delivery gross plus existing adjustments.
-    ws.getCell(`N${totalRow}`).value = { formula: `P${subTotalRow}+N${otherEarningsRow}+N${fmPickUpRow}-SUM(N${deductionsRow}:N${lateRemittanceRow})` };
-
-    // Generate buffer and trigger download
-    const buffer = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payslip_${riderName.replace(/\s+/g, '_')}_${cutoffFrom}_${cutoffTo}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error('Failed to export Excel payslip using template:', err);
-    throw err;
-  }
+  adjustments: PayslipAdjustments = {}
+): Promise<void> => {
+  validateSnapshotExport(dayEntries, snapshot);
+  return exportOfficialPayslipXLSX(buildPayslipDocumentData({
+    riderName,
+    mkbId,
+    zoneName: '',
+    cutoffFrom,
+    cutoffTo,
+    dayEntries,
+    snapshot,
+    adjustments,
+  }), atmNumber);
 };
