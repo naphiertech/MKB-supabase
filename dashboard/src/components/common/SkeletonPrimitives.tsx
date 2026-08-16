@@ -1,15 +1,38 @@
+import type { CSSProperties, ReactNode } from 'react';
+
 /**
  * Core Skeleton Visual Primitives
  * Reusable shimmer elements for building synchronized page skeletons.
  */
 
+export interface SkeletonPageProps {
+  children: ReactNode;
+  className?: string;
+  label?: string;
+}
+
+export function SkeletonPage({ children, className = '', label = 'Loading page content' }: SkeletonPageProps) {
+  return (
+    <div
+      className={`dashboard-page w-full min-w-0 max-w-none ${className}`}
+      role="status"
+      aria-busy="true"
+      aria-label={label}
+      data-skeleton-page
+    >
+      <span className="sr-only">{label}</span>
+      <div aria-hidden="true">{children}</div>
+    </div>
+  );
+}
+
 export interface SkeletonBlockProps {
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }
 
 export function SkeletonBlock({ className = '', style }: SkeletonBlockProps) {
-  return <div className={`rounded ar-shimmer ${className}`} style={style} />;
+  return <div aria-hidden="true" className={`rounded ar-shimmer ${className}`} style={style} />;
 }
 
 export interface SkeletonTextProps {
@@ -21,6 +44,7 @@ export interface SkeletonTextProps {
 export function SkeletonText({ className = '', width, height }: SkeletonTextProps) {
   return (
     <div
+      aria-hidden="true"
       className={`rounded ar-shimmer ${className}`}
       style={{
         width: width ?? undefined,
@@ -32,9 +56,25 @@ export function SkeletonText({ className = '', width, height }: SkeletonTextProp
 
 export interface SkeletonStatCardProps {
   height?: string;
+  compact?: boolean;
 }
 
-export function SkeletonStatCard({ height = 'h-36' }: SkeletonStatCardProps) {
+export function SkeletonStatCard({ height = 'h-36', compact = false }: SkeletonStatCardProps) {
+  if (compact) {
+    return (
+      <div className="min-w-0 rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex min-w-0 items-center gap-3.5">
+          <SkeletonBlock className="h-11 w-11 shrink-0 rounded-xl" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <SkeletonBlock className="h-2.5 w-24" />
+            <SkeletonBlock className="h-6 w-14" />
+            <SkeletonBlock className="h-2.5 w-28 max-w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative bg-white border border-border rounded-xl p-4 sm:p-5 overflow-hidden shadow-sm ${height}`}>
       <div className="absolute top-0 left-0 right-0 h-[2px] bg-border" />
@@ -65,12 +105,41 @@ export function SkeletonStatCard({ height = 'h-36' }: SkeletonStatCardProps) {
 export interface SkeletonTableProps {
   rows?: number;
   columns?: number;
+  columnWeights?: number[];
+  className?: string;
+  minWidthClassName?: string;
+  showToolbar?: boolean;
+  showFooter?: boolean;
+  mobileCards?: boolean;
+  mobileBreakpoint?: 'sm' | 'lg';
 }
 
-export function SkeletonTable({ rows = 5, columns = 5 }: SkeletonTableProps) {
+export function SkeletonTable({
+  rows = 5,
+  columns = 5,
+  columnWeights,
+  className = '',
+  minWidthClassName = '',
+  showToolbar = true,
+  showFooter = false,
+  mobileCards = true,
+  mobileBreakpoint = 'sm',
+}: SkeletonTableProps) {
+  const weights = columnWeights?.length === columns
+    ? columnWeights
+    : Array.from({ length: columns }, (_, index) => index === 0 ? 1.7 : 1);
+  const weightTotal = weights.reduce((total, weight) => total + weight, 0);
+  const desktopVisibility = mobileCards
+    ? mobileBreakpoint === 'lg' ? 'hidden lg:block' : 'hidden sm:block'
+    : 'block';
+  const mobileVisibility = mobileCards
+    ? mobileBreakpoint === 'lg' ? 'lg:hidden' : 'sm:hidden'
+    : 'hidden';
+  const barWidths = ['w-24', 'w-16', 'w-28', 'w-20', 'w-14', 'w-24'];
+
   return (
-    <div className="bg-white border border-border rounded-xl flex flex-col shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b border-border gap-3 flex-wrap">
+    <div className={`min-w-0 overflow-hidden rounded-xl border border-border bg-white shadow-sm ${className}`} data-skeleton-table>
+      {showToolbar && <div className="flex items-center justify-between p-4 border-b border-border gap-3 flex-wrap">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg ar-shimmer shrink-0" />
           <div className="space-y-1">
@@ -82,16 +151,21 @@ export function SkeletonTable({ rows = 5, columns = 5 }: SkeletonTableProps) {
           <div className="w-36 h-8 rounded-md bg-panel-bg border border-border ar-shimmer opacity-50" />
           <div className="w-16 h-7 rounded ar-shimmer" />
         </div>
-      </div>
+      </div>}
 
       {/* Desktop Table View */}
-      <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className={`${desktopVisibility} table-scroll-region`}>
+        <table className={`w-full text-sm ${minWidthClassName}`}>
+          <colgroup>
+            {weights.map((weight, index) => (
+              <col key={index} style={{ width: `${(weight / weightTotal) * 100}%` }} />
+            ))}
+          </colgroup>
           <thead>
             <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border bg-panel-bg">
               {Array.from({ length: columns }).map((_, c) => (
                 <th key={c} className="py-2.5 px-4">
-                  <div className="w-12 h-3 rounded ar-shimmer" />
+                  <SkeletonBlock className={`${barWidths[c % barWidths.length]} h-3 max-w-full`} />
                 </th>
               ))}
             </tr>
@@ -110,7 +184,7 @@ export function SkeletonTable({ rows = 5, columns = 5 }: SkeletonTableProps) {
                 </td>
                 {Array.from({ length: columns - 1 }).map((_, c) => (
                   <td key={c} className="py-2.5 px-4">
-                    <div className="w-12 h-3.5 rounded ar-shimmer" />
+                    <SkeletonBlock className={`${barWidths[(c + idx + 1) % barWidths.length]} h-3.5 max-w-full`} />
                   </td>
                 ))}
               </tr>
@@ -120,7 +194,7 @@ export function SkeletonTable({ rows = 5, columns = 5 }: SkeletonTableProps) {
       </div>
 
       {/* Mobile Stacked Card View */}
-      <div className="sm:hidden p-3 space-y-3 bg-panel-bg/30">
+      <div className={`${mobileVisibility} space-y-3 bg-panel-bg/30 p-3`}>
         {Array.from({ length: rows }).map((_, idx) => (
           <div key={idx} className="bg-white border border-border rounded-lg p-3 space-y-2.5 shadow-xs">
             <div className="flex items-center justify-between">
@@ -137,6 +211,17 @@ export function SkeletonTable({ rows = 5, columns = 5 }: SkeletonTableProps) {
           </div>
         ))}
       </div>
+
+      {showFooter && (
+        <div className="flex flex-col gap-3 border-t border-border bg-panel-bg px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <SkeletonBlock className="h-3 w-52 max-w-full" />
+          <div className="flex items-center gap-1.5">
+            <SkeletonBlock className="h-7 w-7" />
+            <SkeletonBlock className="h-7 w-24" />
+            <SkeletonBlock className="h-7 w-7" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

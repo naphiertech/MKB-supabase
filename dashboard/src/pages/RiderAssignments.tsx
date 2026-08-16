@@ -21,6 +21,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { StatePanel, StatusBadge, SummaryCard, type SemanticTone } from '../components/common/DashboardPrimitives';
 import { RightDrawer } from '../components/common/RightDrawer';
+import { RiderAssignmentsSkeleton } from '../components/assignments/RiderAssignmentsSkeleton';
 import { useHub } from '../context/HubContext';
 import { getZonesForHubs } from '../services/geofenceService';
 import type { Zone } from '../services/types';
@@ -82,6 +83,7 @@ export function RiderAssignments() {
   const [filters, setFilters] = useState({ hubId: '', zoneId: '', assignmentType: '', status: '', search: '' });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const hasLoadedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,6 +109,7 @@ export function RiderAssignments() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load Rider Assignments.');
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
     }
   }, [activeHubs, selectedHubId]);
@@ -193,6 +196,8 @@ export function RiderAssignments() {
     : drawerMode === 'deploy' ? 'Deploy Temporarily'
       : drawerMode === 'extend' ? 'Extend Deployment'
         : drawerMode === 'end' ? 'End Deployment Early' : 'Assignment History';
+
+  if (loading && !hasLoadedRef.current) return <RiderAssignmentsSkeleton />;
 
   return (
     <div className="dashboard-page flex-1 space-y-4">

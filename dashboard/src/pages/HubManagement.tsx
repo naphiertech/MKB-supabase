@@ -26,6 +26,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
 import { RightDrawer } from '../components/common/RightDrawer';
+import { HubManagementSkeleton } from '../components/hubs/HubManagementSkeleton';
 import { useHub } from '../context/HubContext';
 import {
   assignZoneToHub,
@@ -83,6 +84,7 @@ export function HubManagement() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [assigningZoneId, setAssigningZoneId] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const drawerTitleId = useId();
   const drawerDescriptionId = useId();
@@ -100,6 +102,7 @@ export function HubManagement() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Unable to load hubs.');
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -224,6 +227,8 @@ export function HubManagement() {
       setAssigningZoneId(null);
     }
   }
+
+  if (loading && !hasLoadedRef.current) return <HubManagementSkeleton />;
 
   return (
     <div className="dashboard-page space-y-5">

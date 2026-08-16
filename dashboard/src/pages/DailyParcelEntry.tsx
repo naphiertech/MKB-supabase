@@ -39,6 +39,7 @@ import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
 import { RiderAvatar } from '../components/common/RiderAvatar';
 import { RightDrawer } from '../components/common/RightDrawer';
 import { StatusBadge as SemanticStatusBadge } from '../components/common/DashboardPrimitives';
+import { SkeletonTable } from '../components/common/SkeletonPrimitives';
 
 function StatusBadge({ status }: { status: DailyParcelRow['attendanceStatus'] }) {
   switch (status) {
@@ -755,10 +756,15 @@ export function DailyParcelEntry() {
         </div>
 
         {loading ? (
-          <div className="p-12 text-center space-y-3">
-            <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
-            <p className="text-xs text-muted-foreground font-medium">Loading eligible encoding queue...</p>
-          </div>
+          <SkeletonTable
+            rows={7}
+            columns={10}
+            columnWeights={[1.45, 1.1, 0.95, 0.75, 0.7, 0.65, 0.65, 0.7, 0.9, 0.55]}
+            className="rounded-none border-0 shadow-none"
+            minWidthClassName="data-table-extra-wide"
+            showToolbar={false}
+            mobileBreakpoint="lg"
+          />
         ) : displayRows.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <div className="p-3 rounded-full bg-accent text-primary w-fit mx-auto border border-primary/20">

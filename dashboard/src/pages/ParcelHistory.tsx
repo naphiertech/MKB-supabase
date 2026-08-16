@@ -40,6 +40,7 @@ import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
 import { RiderAvatar } from '../components/common/RiderAvatar';
 import { RightDrawer } from '../components/common/RightDrawer';
 import { StatusBadge as SemanticStatusBadge } from '../components/common/DashboardPrimitives';
+import { SkeletonTable } from '../components/common/SkeletonPrimitives';
 import { useAuth } from '../hooks/useAuth';
 
 function StatusBadge({ status }: { status?: ParcelHistoryItem['attendanceStatus'] }) {
@@ -413,10 +414,16 @@ export function ParcelHistory() {
       {/* Main Data Table */}
       <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
         {loading ? (
-          <div className="p-12 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-            <Loader2 className="w-5 h-5 animate-spin text-primary" />
-            Fetching historical parcel manifest logs...
-          </div>
+          <SkeletonTable
+            rows={8}
+            columns={10}
+            columnWeights={[1, 1.6, 1.2, 0.75, 0.65, 0.65, 0.75, 0.8, 1, 0.45]}
+            className="rounded-none border-0 shadow-none"
+            minWidthClassName="data-table-extra-wide"
+            showToolbar={false}
+            showFooter
+            mobileBreakpoint="lg"
+          />
         ) : historyItems.length === 0 ? (
           <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
             <PackageCheck className="w-8 h-8 text-muted-foreground/40 mx-auto" />

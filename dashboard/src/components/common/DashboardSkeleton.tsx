@@ -4,6 +4,7 @@ import { type RiderPageKey } from '../rider/RiderTopNav';
 // Shared Primitives
 import {
   SkeletonBlock,
+  SkeletonPage,
   SkeletonText,
   SkeletonStatCard,
   SkeletonTable,
@@ -36,6 +37,9 @@ import { RiderDashboardSkeleton } from '../rider/RiderDashboardSkeleton';
 import { RiderProfileSkeleton } from '../rider/RiderProfileSkeleton';
 import { SettingsSkeleton } from '../settings/SettingsSkeleton';
 import { UsersSkeleton } from '../users/UsersSkeleton';
+import { HubManagementSkeleton } from '../hubs/HubManagementSkeleton';
+import { RiderAssignmentsSkeleton } from '../assignments/RiderAssignmentsSkeleton';
+import { RiderAttendanceSkeleton, RiderMonitoringSkeleton } from '../rider/RiderRouteSkeletons';
 
 // Re-export all skeletons for public API compatibility
 export {
@@ -66,10 +70,15 @@ export {
   RiderProfileSkeleton as ProfileSkeleton,
   SettingsSkeleton,
   UsersSkeleton,
+  HubManagementSkeleton,
+  RiderAssignmentsSkeleton,
+  RiderAttendanceSkeleton,
+  RiderMonitoringSkeleton,
   SkeletonStatCard as StatCardSkeleton,
   SkeletonMap as MapSkeleton,
   SkeletonTable as AttendanceTableSkeleton,
   SkeletonBlock,
+  SkeletonPage,
   SkeletonText,
   SkeletonStatCard,
   SkeletonTable,
@@ -96,13 +105,13 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
   // Feature page dispatchers
   switch (page) {
     case 'monitoring':
-      return <LiveMonitoringSkeleton />;
+      return role === 'rider' ? <RiderMonitoringSkeleton /> : <LiveMonitoringSkeleton />;
 
     case 'geofence':
       return <GeofenceSkeleton />;
 
     case 'attendance':
-      return role === 'rider' ? <RiderDashboardSkeleton /> : <AttendanceSkeleton />;
+      return role === 'rider' ? <RiderAttendanceSkeleton /> : <AttendanceSkeleton />;
 
     case 'computation':
       return <SalaryComputationSkeleton />;
@@ -122,6 +131,12 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
     case 'users':
       return <UsersSkeleton />;
 
+    case 'hubs':
+      return <HubManagementSkeleton />;
+
+    case 'rider_assignments':
+      return <RiderAssignmentsSkeleton />;
+
     case 'reports':
       return role === 'payroll' ? <PayrollReportsSkeleton /> : <ReportsSkeleton />;
 
@@ -139,7 +154,7 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
 
     default:
       return (
-        <div className="p-4 md:p-6 lg:p-7 space-y-5">
+        <SkeletonPage className="space-y-5" label="Loading dashboard module">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="bg-white border border-border rounded-xl p-5 space-y-3 shadow-sm">
@@ -149,7 +164,7 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
               </div>
             ))}
           </div>
-        </div>
+        </SkeletonPage>
       );
   }
 }

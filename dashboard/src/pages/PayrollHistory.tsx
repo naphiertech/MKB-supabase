@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   History,
@@ -30,6 +30,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { PageKey } from '../components/common/Sidebar';
 import { PayrollActorIdentity } from '../components/payroll/PayrollActorIdentity';
 import { RightDrawer } from '../components/common/RightDrawer';
+import { PayrollHistorySkeleton } from '../components/payroll/PayrollDashboardSkeleton';
 
 export interface HistoricalRecord {
   id: string;
@@ -179,6 +180,7 @@ interface PayrollHistoryProps {
 
 export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
   const [records, setRecords] = useState<HistoricalRecord[]>([]);
   const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
 
@@ -227,6 +229,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
     } catch (err) {
       console.error('Failed to load payroll history:', err);
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
     }
   };
@@ -418,6 +421,8 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       exportCutoffSummaryPDF(rows, { label: group.label, from: group.cutoffStart, to: group.cutoffEnd });
     }
   };
+
+  if (loading && !hasLoadedRef.current) return <PayrollHistorySkeleton />;
 
   return (
     <div className="dashboard-page space-y-5">

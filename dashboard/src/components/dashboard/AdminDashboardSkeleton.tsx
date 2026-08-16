@@ -1,4 +1,4 @@
-import { SkeletonStatCard, SkeletonMap, SkeletonTable } from '../common/SkeletonPrimitives';
+import { SkeletonPage, SkeletonStatCard, SkeletonMap, SkeletonTable } from '../common/SkeletonPrimitives';
 
 export function OnlineRidersSkeleton() {
   return (
@@ -70,7 +70,7 @@ export function ViolationFeedSkeleton() {
 
 export function AdminDashboardSkeleton() {
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+    <SkeletonPage className="space-y-5" label="Loading Operations Dashboard">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <SkeletonStatCard />
         <SkeletonStatCard />
@@ -95,6 +95,6 @@ export function AdminDashboardSkeleton() {
           <ViolationFeedSkeleton />
         </div>
       </div>
-    </div>
+    </SkeletonPage>
   );
 }

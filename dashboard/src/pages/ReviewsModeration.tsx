@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getReviews, approveReview, deleteReview } from '../services/reviewService';
 import { Star, Trash2, CheckCircle2, Clock, ThumbsUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { StatePanel, ToolbarSurface } from '../components/common/DashboardPrimitives';
+import { ReviewsSkeleton } from '../components/common/ReviewsSkeleton';
 
 interface DBReview {
   id: string;
@@ -24,6 +25,7 @@ export function ReviewsModeration() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved'>('pending');
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   // Fetch reviews from Supabase
   const loadReviews = async () => {
@@ -35,6 +37,7 @@ export function ReviewsModeration() {
       console.error('Error fetching reviews:', err);
       toast.error('Failed to load reviews.');
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
     }
   };
@@ -82,6 +85,8 @@ export function ReviewsModeration() {
   const pendingReviews = reviews.filter((r) => r.status === 'pending');
   const approvedReviews = reviews.filter((r) => r.status === 'approved');
   const displayedReviews = activeTab === 'pending' ? pendingReviews : approvedReviews;
+
+  if (loading && !hasLoadedRef.current) return <ReviewsSkeleton />;
 
   return (
     <div className="dashboard-page space-y-5">
