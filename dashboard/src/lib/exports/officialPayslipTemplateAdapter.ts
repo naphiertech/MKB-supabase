@@ -8,10 +8,10 @@ const OFFICIAL_PAYSLIP_TEMPLATE = '/files/MKB_PAYSLIP_Template.xlsx';
  * Locked adapter for the official payslip workbook. Cell addresses, formulas,
  * merged ranges, and rate columns intentionally remain template-specific here.
  */
-export async function exportOfficialPayslipXLSX(
+export async function createOfficialPayslipXLSXBlob(
   data: PayslipDocumentData,
   atmNumber = 'N/A',
-): Promise<void> {
+): Promise<Blob> {
   try {
     const { rider, cutoff, snapshot, adjustments } = data;
     const exportDays = data.days.length > 0 ? data.days : [{
@@ -177,18 +177,23 @@ export async function exportOfficialPayslipXLSX(
     };
 
     const buffer = await workbook.xlsx.writeBuffer();
-    downloadBlob(
-      new Blob([buffer], { type: EXPORT_MIME_TYPES.xlsx }),
-      buildExportFilename({
-        prefix: 'payslip',
-        identifier: rider.mkbId,
-        from: cutoff.from,
-        to: cutoff.to,
-        extension: 'xlsx',
-      }),
-    );
+    return new Blob([buffer], { type: EXPORT_MIME_TYPES.xlsx });
   } catch (error) {
     console.error('Failed to export Excel payslip using template:', error);
     throw error;
   }
+}
+
+export async function exportOfficialPayslipXLSX(
+  data: PayslipDocumentData,
+  atmNumber = 'N/A',
+): Promise<void> {
+  const blob = await createOfficialPayslipXLSXBlob(data, atmNumber);
+  downloadBlob(blob, buildExportFilename({
+    prefix: 'payslip',
+    identifier: data.rider.mkbId,
+    from: data.cutoff.from,
+    to: data.cutoff.to,
+    extension: 'xlsx',
+  }));
 }

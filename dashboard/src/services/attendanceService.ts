@@ -30,6 +30,7 @@ export function getLocalDateString(d: Date = new Date()) {
 
 interface DbAttendanceViewRow {
   id: string;
+  hub_id: string | null;
   rider_id: string;
   rider_name: string | null;
   rider_avatar: string | null;
@@ -120,7 +121,7 @@ export async function getAttendanceLogs(filters?: {
   dateTo?: string;
   zoneId?: string;
   riderId?: string;
-}, options: { finalizeDaily?: boolean } = {}): Promise<AttendanceLog[]> {
+}, options: { finalizeDaily?: boolean; throwOnError?: boolean; includeEvents?: boolean } = {}): Promise<AttendanceLog[]> {
   // Trigger auto-absent finalization for requested dates
   if (options.finalizeDaily !== false) {
     const queryDate = filters?.dateFrom || getLocalDateString();
@@ -154,6 +155,7 @@ export async function getAttendanceLogs(filters?: {
 
   if (error) {
     console.error('Error fetching attendance summary view:', error);
+    if (options.throwOnError) throw error;
     return [];
   }
 
@@ -167,6 +169,7 @@ export async function getAttendanceLogs(filters?: {
 
     return {
       id: row.id,
+      hubId: row.hub_id,
       riderId: row.rider_id,
       riderName: row.rider_name || 'Unknown Rider',
       riderAvatar: realPhoto,
@@ -193,7 +196,7 @@ export async function getAttendanceLogs(filters?: {
   const riderIds = result.map(r => r.riderId);
   const dates = result.map(r => r.date).filter(Boolean);
 
-  if (riderIds.length > 0 && dates.length > 0) {
+  if (options.includeEvents !== false && riderIds.length > 0 && dates.length > 0) {
     try {
       const minDate = dates.reduce((a, b) => a < b ? a : b);
       const maxDate = dates.reduce((a, b) => a > b ? a : b);

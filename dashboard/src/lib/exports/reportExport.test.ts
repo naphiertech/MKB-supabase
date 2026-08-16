@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ViolationEvent } from '../../services/types';
+import type { AttendanceLog, ViolationEvent } from '../../services/types';
 
 const mocks = vi.hoisted(() => ({
   getAttendanceLogs: vi.fn(),
@@ -17,8 +17,9 @@ vi.mock('../../services/monitoringService', () => ({
   getViolationsForReport: mocks.getViolationsForReport,
 }));
 vi.mock('../../services/geofenceService', () => ({ getZones: mocks.getZones }));
+vi.mock('../../services/historicalAttendanceContext', () => ({ enrichAttendanceWithHistoricalZones: (logs: unknown[]) => Promise.resolve(logs) }));
 
-import { buildViolationSummary, generateReport } from './reportExport';
+import { buildRiderPerformance, buildViolationSummary, buildZoneCoverage, generateReport } from './reportExport';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -63,9 +64,40 @@ describe('read-only report generation', () => {
 
     expect(mocks.getAttendanceLogs).toHaveBeenCalledWith(
       { dateFrom: '2026-08-01', dateTo: '2026-08-15' },
-      { finalizeDaily: false },
+      { finalizeDaily: false, includeEvents: false },
     );
     expect(mocks.getViolationsForReport).toHaveBeenCalledWith({ from: '2026-08-01', to: '2026-08-15', zoneIds: ['zone-1'] });
     expect(mocks.getViolations).not.toHaveBeenCalled();
+    expect(mocks.getAllRiders).not.toHaveBeenCalled();
+  });
+});
+
+describe('historical report derivation', () => {
+  const log: AttendanceLog = {
+    id: 'a1', riderId: 'r1', riderName: 'Juan', riderAvatar: '', date: '2026-08-01',
+    timeIn: '08:00', timeOut: '17:00', hours: 9, zoneId: 'historical-zone', zoneName: 'Historical Zone',
+    status: 'present', presence: 'present', punctuality: 'on_time', source: 'face-scan', events: [],
+  };
+
+  it('counts Riders reporting in historical attendance instead of current Zone assignments', () => {
+    const report = buildZoneCoverage(
+      { from: '2026-08-01', to: '2026-08-15', zoneIds: [] },
+      [log],
+      [{ id: 'historical-zone', name: 'Historical Zone', center: [0, 0], radius: 100, color: '#000' }],
+      [],
+    );
+    expect(report.columns[1]).toBe('Riders Reporting');
+    expect(report.rows[0][1]).toBe(1);
+  });
+
+  it('does not fabricate zero rows for Riders absent from the selected report dataset', () => {
+    const report = buildRiderPerformance(
+      { from: '2026-08-01', to: '2026-08-15', zoneIds: [] },
+      [log],
+      [],
+    );
+    expect(report.rows).toHaveLength(1);
+    expect(report.rows[0][0]).toBe('Juan');
+    expect(report.rows[0][5]).toBe('100%');
   });
 });

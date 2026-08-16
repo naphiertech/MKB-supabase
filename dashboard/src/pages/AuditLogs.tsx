@@ -360,7 +360,7 @@ export function AuditLogs() {
               className="ui-button-primary"
             >
               <Download className="w-4 h-4" />
-              Export Logs (CSV)
+              Export CSV
             </button>
           </div>
 

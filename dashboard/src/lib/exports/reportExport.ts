@@ -1,9 +1,10 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { type AttendanceLog, type Rider, type Zone, type ViolationEvent } from '../../services/types';
+import { type AttendanceLog, type Zone, type ViolationEvent } from '../../services/types';
 import { getAttendanceLogs } from '../../services/attendanceService';
-import { getAllRiders, getViolationsForReport } from '../../services/monitoringService';
+import { getViolationsForReport } from '../../services/monitoringService';
 import { getZones } from '../../services/geofenceService';
+import { enrichAttendanceWithHistoricalZones } from '../../services/historicalAttendanceContext';
 import { exportXLSXFile } from './excelHelper';
 import {
   buildExportFilename,
@@ -106,8 +107,8 @@ export function buildViolationSummary(
   opts: BuilderOptions,
   violationsList: ViolationEvent[]
 ): ReportData {
-  const fromTs = new Date(opts.from + 'T00:00:00').getTime();
-  const toTs = new Date(opts.to + 'T23:59:59').getTime();
+  const fromTs = new Date(opts.from + 'T00:00:00+08:00').getTime();
+  const toTs = new Date(opts.to + 'T23:59:59.999+08:00').getTime();
   const filtered = violationsList.filter((v) => {
     if (v.ts < fromTs || v.ts > toTs) return false;
     if (opts.zoneIds.length > 0 && (!v.zoneId || !opts.zoneIds.includes(v.zoneId))) return false;
@@ -137,7 +138,6 @@ export function buildViolationSummary(
 export function buildZoneCoverage(
   opts: BuilderOptions,
   attendanceLogsList: AttendanceLog[],
-  ridersList: Rider[],
   zonesList: Zone[],
   violationsList: ViolationEvent[]
 ): ReportData {
@@ -146,28 +146,28 @@ export function buildZoneCoverage(
   zonesList.filter((z) => opts.zoneIds.includes(z.id)) :
   zonesList;
   const logs = filterAttendance({ ...opts, zoneIds: [] }, attendanceLogsList);
-  const fromTs = new Date(opts.from + 'T00:00:00').getTime();
-  const toTs = new Date(opts.to + 'T23:59:59').getTime();
+  const fromTs = new Date(opts.from + 'T00:00:00+08:00').getTime();
+  const toTs = new Date(opts.to + 'T23:59:59.999+08:00').getTime();
   const rows = targetZones.map((zone) => {
-    const ridersInZone = ridersList.filter((r) => r.zoneId === zone.id);
     const zoneLogs = logs.filter((l) => l.zoneId === zone.id);
-    const totalHours = zoneLogs.reduce((sum, l) => sum + l.hours, 0);
+    const completedShifts = zoneLogs.filter(log => log.timeIn && log.timeOut);
+    const totalHours = completedShifts.reduce((sum, l) => sum + l.hours, 0);
     const avgHours =
-    zoneLogs.length > 0 ?
-    Math.round(totalHours / zoneLogs.length * 10) / 10 :
+    completedShifts.length > 0 ?
+    Math.round(totalHours / completedShifts.length * 10) / 10 :
     0;
     const zoneViolations = violationsList.filter((v) => {
       if (v.ts < fromTs || v.ts > toTs) return false;
       return v.zoneId === zone.id;
     }).length;
-    return [zone.name, ridersInZone.length, avgHours, zoneViolations];
+    return [zone.name, new Set(zoneLogs.map(log => log.riderId)).size, avgHours, zoneViolations];
   });
   return {
     title: TEMPLATE_TITLES.zone_coverage,
     columns: [
       'Zone',
-      'Total Riders Assigned',
-      'Avg Hours Covered',
+      'Riders Reporting',
+      'Avg Completed Shift Hours',
       'Violations'
     ],
     rows
@@ -177,23 +177,14 @@ export function buildZoneCoverage(
 export function buildRiderPerformance(
   opts: BuilderOptions,
   attendanceLogsList: AttendanceLog[],
-  ridersList: Rider[],
   violationsList: ViolationEvent[]
 ): ReportData {
   const logs = filterAttendance(opts, attendanceLogsList);
-  const targetRiders =
-  opts.zoneIds.length > 0 ?
-  ridersList.filter((r) => r.zoneId && opts.zoneIds.includes(r.zoneId)) :
-  ridersList;
-  const fromTs = new Date(opts.from + 'T00:00:00').getTime();
-  const toTs = new Date(opts.to + 'T23:59:59').getTime();
-  // Total days in range
-  const daysInRange = Math.max(
-    1,
-    Math.ceil((toTs - fromTs) / (1000 * 60 * 60 * 24))
-  );
-  const rows = targetRiders.map((rider) => {
-    const riderLogs = logs.filter((l) => l.riderId === rider.id);
+  const fromTs = new Date(opts.from + 'T00:00:00+08:00').getTime();
+  const toTs = new Date(opts.to + 'T23:59:59.999+08:00').getTime();
+  const logsByRider = new Map<string, AttendanceLog[]>();
+  logs.forEach(log => logsByRider.set(log.riderId, [...(logsByRider.get(log.riderId) ?? []), log]));
+  const rows = [...logsByRider.entries()].map(([riderId, riderLogs]) => {
     const daysPresent = riderLogs.filter(
       (l) => l.status === 'present' || l.status === 'late'
     ).length;
@@ -201,11 +192,11 @@ export function buildRiderPerformance(
     Math.round(riderLogs.reduce((sum, l) => sum + l.hours, 0) * 10) / 10;
     const lateCount = riderLogs.filter((l) => l.status === 'late').length;
     const riderViolations = violationsList.filter(
-      (v) => v.riderId === rider.id && v.ts >= fromTs && v.ts <= toTs
+      (v) => v.riderId === riderId && v.ts >= fromTs && v.ts <= toTs
     ).length;
-    const rate = Math.round(daysPresent / daysInRange * 100);
+    const rate = Math.round(daysPresent / riderLogs.length * 100);
     return [
-      rider.name,
+      riderLogs[0].riderName,
       daysPresent,
       totalHours,
       lateCount,
@@ -231,7 +222,6 @@ function buildReport(
   template: ReportTemplate,
   opts: BuilderOptions,
   attendanceLogsList: AttendanceLog[],
-  ridersList: Rider[],
   zonesList: Zone[],
   violationsList: ViolationEvent[]
 ): ReportData {
@@ -241,9 +231,9 @@ function buildReport(
     case 'violation_summary':
       return buildViolationSummary(opts, violationsList);
     case 'zone_coverage':
-      return buildZoneCoverage(opts, attendanceLogsList, ridersList, zonesList, violationsList);
+      return buildZoneCoverage(opts, attendanceLogsList, zonesList, violationsList);
     case 'rider_performance':
-      return buildRiderPerformance(opts, attendanceLogsList, ridersList, violationsList);
+      return buildRiderPerformance(opts, attendanceLogsList, violationsList);
   }
 }
 
@@ -274,7 +264,7 @@ const REPORT_DESCRIPTORS: Record<string, string> = {
   'Attendance Records Report': 'Operational attendance register',
   'Weekly Attendance': 'Weekly workforce attendance and hours review',
   'Violation Summary': 'Geofence incident and resolution register',
-  'Zone Coverage': 'Operational assignment and coverage overview',
+  'Zone Coverage': 'Historical assignment Zone coverage overview',
   'Rider Performance': 'Rider attendance and compliance performance',
 };
 
@@ -290,7 +280,7 @@ function reportMetrics(data: ReportData): Array<{ label: string; value: string }
   if (data.title === 'Zone Coverage') {
     return [
       { label: 'Zones', value: String(data.rows.length) },
-      { label: 'Assigned Riders', value: String(data.rows.reduce((sum, row) => sum + Number(row[1] || 0), 0)) },
+      { label: 'Riders Reporting', value: String(data.rows.reduce((sum, row) => sum + Number(row[1] || 0), 0)) },
       { label: 'Violations', value: String(data.rows.reduce((sum, row) => sum + Number(row[3] || 0), 0)) },
     ];
   }
@@ -405,21 +395,21 @@ export async function generateReport(
   }
 
   // Fetch live lists from database dynamically
-  const [logsData, ridersData, zonesData, violationsData] = await Promise.all([
+  const [rawLogsData, zonesData, violationsData] = await Promise.all([
     getAttendanceLogs(
       { dateFrom: opts.from, dateTo: opts.to },
-      { finalizeDaily: false }
+      { finalizeDaily: false, includeEvents: false }
     ),
-    getAllRiders({ scope: 'historical' }),
     getZones(),
     getViolationsForReport({ from: opts.from, to: opts.to, zoneIds: opts.zoneIds })
   ]);
+  const logsData = await enrichAttendanceWithHistoricalZones(rawLogsData);
 
   const data = buildReport(opts.template, {
     from: opts.from,
     to: opts.to,
     zoneIds: opts.zoneIds
-  }, logsData, ridersData, zonesData, violationsData);
+  }, logsData, zonesData, violationsData);
 
   if (data.rows.length === 0) {
     throw new ReportError('NO_DATA', 'No data matches the selected filters');

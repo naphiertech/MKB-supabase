@@ -713,7 +713,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                 className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-border bg-white px-3 text-xs font-semibold text-foreground shadow-sm transition-colors hover:bg-panel-bg focus:outline-none focus:ring-2 focus:ring-primary/15 sm:h-9 sm:px-3.5 sm:text-sm cursor-pointer"
               >
                 <Download className="w-4 h-4 text-primary" />
-                Export Excel
+                Export XLSX
               </button>
               <button
                 type="button"

@@ -37,6 +37,7 @@ export interface Rider {
 
 export interface AttendanceLog {
   id: string;
+  hubId?: string | null;
   riderId: string;
   riderName: string;
   riderAvatar: string;
@@ -48,6 +49,7 @@ export interface AttendanceLog {
   hours: number;
   zoneId: string;
   zoneName: string;
+  zoneContext?: 'assignment_history' | 'current_assignment';
   status: AttendanceStatus;
   presence: AttendancePresence;
   punctuality: PunctualityStatus;
@@ -61,6 +63,7 @@ export interface AttendanceLog {
 
 export interface ViolationEvent {
   id: string;
+  hubId?: string | null;
   riderId: string;
   riderName: string;
   zoneId?: string;

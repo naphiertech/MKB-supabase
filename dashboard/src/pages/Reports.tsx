@@ -1,550 +1,224 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CheckCircle2,
-  AlertOctagon,
-  Clock,
-  Users,
-  Sparkles,
-  Loader2,
-  TrendingUp,
-  AlertTriangle,
-  MapPin,
-  RotateCcw,
-  Award
+  AlertOctagon, AlertTriangle, Award, CheckCircle2, Clock, Loader2, MapPin,
+  RefreshCw, RotateCcw, Sparkles, TrendingDown, TrendingUp, Users,
 } from 'lucide-react';
 import {
-  AttendanceRateChart,
-  ViolationsByZoneChart,
-  AttendanceDistributionChart,
-  ZoneCoverageChart,
-  RiderPerformanceChart
+  AttendanceDistributionChart, AttendanceRateChart, RiderPerformanceChart,
+  ViolationsByZoneChart, ZoneCoverageChart,
 } from '../components/reports/Charts';
+import { useHub } from '../context/HubContext';
 import { useRiderZone } from '../context/RiderZoneContext';
-import { getAttendanceLogs } from '../services/attendanceService';
-import { getRidersLookup } from '../services/riderService';
-import type { AttendanceLog } from '../services/types';
-import {
-  generateReport,
-  ReportError,
-  type ReportFormat
-} from '../lib/exports/reportExport';
+import { useExportJob } from '../hooks/useExportJob';
 import { pushToast } from '../hooks/useToast';
+import { deriveReportsAnalytics, type ReportsAnalytics, type ReportsFilters } from '../lib/reportsAnalytics';
+import { generateReport, ReportError, type ReportFormat } from '../lib/exports/reportExport';
+import { getLocalDateString } from '../services/attendanceService';
+import { loadReportsData } from '../services/reportsDataService';
 
 type CategoryTab = 'weekly_attendance' | 'violation_summary' | 'zone_coverage' | 'rider_performance';
+type DatePreset = '7d' | '14d' | '30d' | 'custom';
+
+function daysAgo(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return getLocalDateString(date);
+}
+
+function comparisonText(value: number | null, unit: 'points' | 'events'): string {
+  if (value == null) return 'Previous-period comparison unavailable';
+  const sign = value > 0 ? '+' : '';
+  return `${sign}${value} ${unit} vs equal previous period`;
+}
 
 export function Reports() {
+  const today = useMemo(() => getLocalDateString(), []);
+  const defaultFrom = useMemo(() => daysAgo(14), []);
   const [activeTab, setActiveTab] = useState<CategoryTab>('weekly_attendance');
   const [format, setFormat] = useState<ReportFormat>('pdf');
-  const [selectedZone, setSelectedZone] = useState<string>('all');
-  
-  // Date defaults: past 14 days
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const fourteenDaysAgoStr = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 14);
-    return d.toISOString().slice(0, 10);
-  }, []);
-
-  const [dateFrom, setDateFrom] = useState<string>(fourteenDaysAgoStr);
-  const [dateTo, setDateTo] = useState<string>(todayStr);
-  const [datePreset, setDatePreset] = useState<'7d' | '14d' | '30d' | 'custom'>('14d');
-  
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [logs, setLogs] = useState<AttendanceLog[]>([]);
-  const [totalRidersCount, setTotalRidersCount] = useState<number>(0);
-
+  const [selectedZone, setSelectedZone] = useState('all');
+  const [dateFrom, setDateFrom] = useState(defaultFrom);
+  const [dateTo, setDateTo] = useState(today);
+  const [datePreset, setDatePreset] = useState<DatePreset>('14d');
+  const [analytics, setAnalytics] = useState<ReportsAnalytics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const requestId = useRef(0);
+  const exportJob = useExportJob();
   const { zones: zonesList } = useRiderZone();
+  const { selectedHubId, selectedHub, isReady: hubReady, workspaceKey } = useHub();
 
-  // Load total riders from Supabase
+  const filters = useMemo<ReportsFilters>(() => ({
+    from: dateFrom,
+    to: dateTo,
+    hubId: selectedHubId,
+    zoneId: selectedZone,
+  }), [dateFrom, dateTo, selectedHubId, selectedZone]);
+
   useEffect(() => {
-    getRidersLookup({ scope: 'employed_on_date', date: dateTo })
-      .then((data) => setTotalRidersCount(data.length))
-      .catch((err) => console.error('Failed to load total riders from Supabase:', err));
-  }, [dateTo]);
+    if (selectedZone !== 'all' && !zonesList.some(zone => zone.id === selectedZone)) {
+      setSelectedZone('all');
+    }
+  }, [selectedZone, zonesList]);
 
-  // Load attendance logs
   useEffect(() => {
-    getAttendanceLogs({
-      dateFrom,
-      dateTo,
-      zoneId: selectedZone === 'all' ? undefined : selectedZone
-    })
-      .then(setLogs)
-      .catch((err) => console.error('Failed to load attendance logs for reports:', err));
-  }, [dateFrom, dateTo, selectedZone]);
-
-  // Handle Quick Date Range Presets
-  const handleApplyPreset = (preset: '7d' | '14d' | '30d') => {
-    setDatePreset(preset);
-    const dTo = new Date();
-    const dFrom = new Date();
-    const days = preset === '7d' ? 7 : preset === '14d' ? 14 : 30;
-    dFrom.setDate(dTo.getDate() - days);
-    
-    setDateTo(dTo.toISOString().slice(0, 10));
-    setDateFrom(dFrom.toISOString().slice(0, 10));
-  };
-
-  // Reset Filters
-  const handleResetFilters = () => {
-    setSelectedZone('all');
-    setDatePreset('14d');
-    setDateTo(todayStr);
-    setDateFrom(fourteenDaysAgoStr);
-  };
-
-  const isFilterModified = useMemo(() => {
-    return selectedZone !== 'all' || dateFrom !== fourteenDaysAgoStr || dateTo !== todayStr;
-  }, [selectedZone, dateFrom, dateTo, fourteenDaysAgoStr, todayStr]);
-
-  // Calculate Executive Metrics connected to Supabase data
-  const metrics = useMemo(() => {
-    const presentCount = logs.filter((l) => l.status === 'present' || l.status === 'late').length;
-    const rate = logs.length > 0 ? Math.round((presentCount / logs.length) * 1000) / 10 : 100;
-    
-    const violations = logs.filter(
-      (l) => l.notes?.toLowerCase().includes('violation') || l.notes?.toLowerCase().includes('boundary') || l.status === 'absent'
-    ).length;
-
-    const totalHours = logs.reduce((acc, l) => acc + (l.hours || 0), 0);
-    const avgHrs = logs.length > 0 ? Math.round((totalHours / logs.length) * 10) / 10 : 0;
-
-    const uniqueRiders = new Set(logs.map((l) => l.riderId)).size;
-    const totalRiders = totalRidersCount || uniqueRiders || 5;
-
-    return {
-      attendanceRate: rate,
-      totalViolations: violations,
-      avgHours: avgHrs,
-      activeRiders: uniqueRiders,
-      totalRiders: totalRiders
-    };
-  }, [logs, totalRidersCount]);
-
-  // Generate Report Handler
-  async function handleGenerate() {
-    if (!dateFrom || !dateTo || dateTo < dateFrom) {
-      setError('Please select a valid date range');
+    const currentRequest = ++requestId.current;
+    setAnalytics(null);
+    setDataError(null);
+    if (!hubReady) {
+      setIsLoading(true);
       return;
     }
-    setError(null);
-    setIsGenerating(true);
+    if (!dateFrom || !dateTo || dateTo < dateFrom) {
+      setIsLoading(false);
+      setDataError('Select a valid reporting period to load analytics.');
+      return;
+    }
+    setIsLoading(true);
+    void loadReportsData(filters)
+      .then(data => {
+        if (currentRequest !== requestId.current) return;
+        setAnalytics(deriveReportsAnalytics({ ...data, filters }));
+      })
+      .catch(error => {
+        if (currentRequest !== requestId.current) return;
+        console.error('Failed to load fresh Reports data:', error);
+        setDataError('Reports data could not be refreshed. No stale values are being shown.');
+      })
+      .finally(() => {
+        if (currentRequest === requestId.current) setIsLoading(false);
+      });
+  }, [dateFrom, dateTo, filters, hubReady, refreshKey, workspaceKey]);
+
+  const scopeLabel = selectedHub ? selectedHub.name : 'All authorized Hubs';
+  const zoneLabel = selectedZone === 'all'
+    ? 'All Zones'
+    : zonesList.find(zone => zone.id === selectedZone)?.name ?? 'Selected Zone';
+  const modified = selectedZone !== 'all' || dateFrom !== defaultFrom || dateTo !== today;
+
+  const applyPreset = (preset: Exclude<DatePreset, 'custom'>) => {
+    const days = preset === '7d' ? 7 : preset === '14d' ? 14 : 30;
+    setDatePreset(preset);
+    setDateTo(getLocalDateString());
+    setDateFrom(daysAgo(days));
+  };
+
+  const resetFilters = () => {
+    setSelectedZone('all');
+    setDatePreset('14d');
+    setDateFrom(defaultFrom);
+    setDateTo(today);
+    setValidationError(null);
+  };
+
+  async function handleGenerate() {
+    if (!dateFrom || !dateTo || dateTo < dateFrom) {
+      setValidationError('Please select a valid date range.');
+      return;
+    }
+    setValidationError(null);
     try {
-      const result = await generateReport({
-        template: activeTab,
-        format,
-        from: dateFrom,
-        to: dateTo,
-        zoneIds: selectedZone === 'all' ? [] : [selectedZone]
-      });
-      pushToast({
-        title: 'Executive Report Downloaded',
-        description: `${result.rowCount} record${result.rowCount === 1 ? '' : 's'} exported as ${format.toUpperCase()}`,
-        tone: 'success'
-      });
-    } catch (err) {
-      if (err instanceof ReportError) {
-        if (err.code === 'INVALID_RANGE') {
-          setError(err.message);
-        } else {
-          pushToast({
-            title: 'No data matches selected criteria',
-            description: 'Try adjusting the date range or zone filter.',
-            tone: 'error'
-          });
-        }
-      } else {
-        pushToast({
-          title: 'Report export failed',
-          description: 'Please try again.',
-          tone: 'error'
+      const outcome = await exportJob.run('Preparing report…', async setMessage => {
+        setMessage(`Generating ${format.toUpperCase()} report…`);
+        return generateReport({
+          template: activeTab,
+          format,
+          from: dateFrom,
+          to: dateTo,
+          zoneIds: selectedZone === 'all' ? [] : [selectedZone],
         });
+      });
+      if (!outcome.started || !outcome.value) return;
+      pushToast({
+        title: 'Report downloaded',
+        description: `${outcome.value.rowCount} record${outcome.value.rowCount === 1 ? '' : 's'} exported as ${format.toUpperCase()}.`,
+        tone: 'success',
+      });
+    } catch (error) {
+      if (error instanceof ReportError && error.code === 'INVALID_RANGE') {
+        setValidationError(error.message);
+      } else if (error instanceof ReportError && error.code === 'NO_DATA') {
+        pushToast({ title: 'No data to export', description: 'No records match the selected period and scope.', tone: 'warning' });
+      } else {
+        pushToast({ title: 'Report export failed', description: 'The file was not downloaded. Please try again.', tone: 'error' });
       }
-    } finally {
-      setIsGenerating(false);
     }
   }
 
+  const metrics = analytics?.metrics;
+  const comparisons = analytics?.comparisons;
+  const attendanceDelta = comparisons?.attendanceRateDeltaPoints ?? null;
+  const violationDelta = comparisons?.violationDelta ?? null;
+
   return (
     <div className="dashboard-page space-y-5">
-      {/* ------------------------------------------------------------- */}
-      {/* 1. EXECUTIVE KPI SUMMARY CARDS                                 */}
-      {/* ------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Attendance Rate */}
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-primary/40 transition">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase font-mono tracking-wider">
-              Attendance Rate
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold font-mono text-foreground">
-              {metrics.attendanceRate}%
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-600 font-medium">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>+2.4% vs last period</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 2: Total Violations */}
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-red-300 transition">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase font-mono tracking-wider">
-              Total Violations
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 border border-red-200 flex items-center justify-center">
-              <AlertOctagon className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold font-mono text-foreground">
-              {metrics.totalViolations}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-600 font-medium">
-              <TrendingUp className="w-3.5 h-3.5 rotate-180" />
-              <span>-4 events vs last period</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3: Average Shift Hours */}
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-amber-300 transition">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase font-mono tracking-wider">
-              Avg Shift Duration
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold font-mono text-foreground">
-              {metrics.avgHours} <span className="text-sm font-sans font-normal text-muted-foreground">hrs</span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Target: 8.0 hrs / shift</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 4: Active Fleet Deployment */}
-        <div className="bg-white border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-blue-300 transition">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase font-mono tracking-wider">
-              Riders Active
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold font-mono text-foreground">
-              {metrics.activeRiders} <span className="text-sm font-sans font-normal text-muted-foreground">/ {metrics.totalRiders}</span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-blue-600 font-medium">
-              <span>{Math.round((metrics.activeRiders / metrics.totalRiders) * 100)}% active deployment</span>
-            </div>
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-panel-bg px-3 py-2 text-[11px] text-muted-foreground">
+        <span><strong className="text-foreground">Scope:</strong> {scopeLabel} · {zoneLabel}</span>
+        <span className="font-mono"><strong className="text-foreground">Period:</strong> {dateFrom} to {dateTo}</span>
       </div>
 
-      {/* ------------------------------------------------------------- */}
-      {/* 2. CATEGORY TABS & UNIFIED HORIZONTAL CONTROLS TOOLBAR        */}
-      {/* ------------------------------------------------------------- */}
-      <div className="bg-white border border-border rounded-xl p-4 md:p-5 shadow-sm space-y-4">
-        {/* Category Tabs */}
-        <div className="flex items-center justify-between border-b border-border/60 pb-3 flex-wrap gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            {[
-              { id: 'weekly_attendance', label: 'Attendance', icon: CheckCircle2 },
-              { id: 'violation_summary', label: 'Violations & Safety', icon: AlertOctagon },
-              { id: 'zone_coverage', label: 'Zone Analytics', icon: MapPin },
-              { id: 'rider_performance', label: 'Rider Performance', icon: Award }
-            ].map((t) => {
-              const Icon = t.icon;
-              const isActive = activeTab === t.id;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveTab(t.id as CategoryTab)}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-primary text-white shadow-2xs'
-                      : 'bg-panel-bg text-muted-foreground hover:text-foreground border border-border hover:bg-white'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Reset Filters */}
-          <button
-            disabled={!isFilterModified}
-            onClick={handleResetFilters}
-            className={`text-xs font-semibold transition flex items-center gap-1.5 ${
-              isFilterModified
-                ? 'text-primary hover:text-primary-hover cursor-pointer opacity-100'
-                : 'text-muted-foreground opacity-40 cursor-not-allowed'
-            }`}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Filters</span>
-          </button>
-        </div>
-
-        {/* Unified Controls Toolbar */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
-          {/* Left Controls: Date Range & Zone */}
-          <div className="flex flex-wrap items-end gap-3 flex-1">
-            {/* Quick Date Presets */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
-                Presets
-              </span>
-              <div className="flex items-center gap-1 bg-panel-bg border border-border rounded-md p-0.5 h-[34px]">
-                {(['7d', '14d', '30d'] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => handleApplyPreset(p)}
-                    className={`px-2.5 h-7 rounded text-[11px] font-semibold transition cursor-pointer ${
-                      datePreset === p ? 'bg-white text-primary shadow-2xs border border-border' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {p.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* From Date */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
-                From
-              </span>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => {
-                  setDateFrom(e.target.value);
-                  setDatePreset('custom');
-                }}
-                className="rep-ctrl-input"
-              />
-            </div>
-
-            {/* To Date */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
-                To
-              </span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => {
-                  setDateTo(e.target.value);
-                  setDatePreset('custom');
-                }}
-                className="rep-ctrl-input"
-              />
-            </div>
-
-            {/* Zone Selector */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
-                Zone
-              </span>
-              <select
-                value={selectedZone}
-                onChange={(e) => setSelectedZone(e.target.value)}
-                className="rep-ctrl-input"
-              >
-                <option value="all">All Zones ({zonesList.length})</option>
-                {zonesList.map((z) => (
-                  <option key={z.id} value={z.id}>
-                    {z.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Right Controls: Format & Export CTA */}
-          <div className="flex items-end gap-2.5 shrink-0 flex-wrap pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
-            {/* Format Segmented Selector */}
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-muted-foreground font-mono">
-                Format
-              </span>
-              <div className="flex items-center bg-panel-bg border border-border rounded-md p-0.5 h-[34px]">
-                {(['pdf', 'csv', 'xlsx'] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFormat(f)}
-                    className={`px-3 h-7 rounded text-xs font-bold uppercase transition cursor-pointer ${
-                      format === f ? 'bg-white text-primary shadow-2xs border border-border' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Generate Report Primary CTA */}
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="inline-flex items-center gap-2 px-5 h-[34px] rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm transition disabled:opacity-60 cursor-pointer"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Generating…</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Generate Report</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md p-2 flex items-center gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-busy={isLoading}>
+        <KpiCard label="Attendance Rate" icon={CheckCircle2} tone="emerald" value={metrics?.attendanceRate == null ? '—' : `${metrics.attendanceRate}%`} detail={comparisonText(attendanceDelta, 'points')} trend={attendanceDelta} />
+        <KpiCard label="Total Violations" icon={AlertOctagon} tone="red" value={metrics ? String(metrics.totalViolations) : '—'} detail={comparisonText(violationDelta, 'events')} trend={violationDelta == null ? null : -violationDelta} />
+        <KpiCard label="Avg Completed Shift" icon={Clock} tone="amber" value={metrics?.averageCompletedShiftHours == null ? '—' : `${metrics.averageCompletedShiftHours} hrs`} detail="Completed time-in/time-out records only" />
+        <KpiCard label="Riders Reporting" icon={Users} tone="blue" value={metrics ? String(metrics.ridersReporting) : '—'} detail="Unique Riders with matching attendance records" />
       </div>
 
-      {/* ------------------------------------------------------------- */}
-      {/* 3. VISUALIZATION CHARTS GRID (2:1 Grid)                       */}
-      {/* ------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Dynamic Primary Chart based on Active Tab */}
-        <div className="lg:col-span-2">
-          {activeTab === 'weekly_attendance' && <AttendanceRateChart logs={logs} />}
-          {activeTab === 'violation_summary' && <ViolationsByZoneChart zones={zonesList} logs={logs} />}
-          {activeTab === 'zone_coverage' && <ZoneCoverageChart logs={logs} />}
-          {activeTab === 'rider_performance' && <RiderPerformanceChart logs={logs} />}
+      <div className="space-y-4 rounded-xl border border-border bg-white p-4 shadow-sm md:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              ['weekly_attendance', 'Attendance', CheckCircle2], ['violation_summary', 'Violations & Safety', AlertOctagon],
+              ['zone_coverage', 'Zone Analytics', MapPin], ['rider_performance', 'Rider Performance', Award],
+            ] as const).map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setActiveTab(id)} className={`inline-flex cursor-pointer items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${activeTab === id ? 'bg-primary text-white shadow-2xs' : 'border border-border bg-panel-bg text-muted-foreground hover:bg-white hover:text-foreground'}`}><Icon className="h-3.5 w-3.5" />{label}</button>)}
+          </div>
+          <button type="button" disabled={!modified} onClick={resetFilters} className={`flex items-center gap-1.5 text-xs font-semibold ${modified ? 'cursor-pointer text-primary hover:text-primary-hover' : 'cursor-not-allowed text-muted-foreground opacity-40'}`}><RotateCcw className="h-3.5 w-3.5" />Reset Filters</button>
         </div>
 
-        {/* Secondary Chart: Attendance Status Distribution (24/7 Meaningful) */}
-        <div>
-          <AttendanceDistributionChart logs={logs} />
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+          <div className="flex flex-1 flex-wrap items-end gap-3">
+            <Control label="Presets"><div className="flex h-[34px] items-center gap-1 rounded-md border border-border bg-panel-bg p-0.5">{(['7d', '14d', '30d'] as const).map(preset => <button key={preset} type="button" onClick={() => applyPreset(preset)} className={`h-7 rounded px-2.5 text-[11px] font-semibold ${datePreset === preset ? 'border border-border bg-white text-primary shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}>{preset.toUpperCase()}</button>)}</div></Control>
+            <Control label="From"><input type="date" value={dateFrom} onChange={event => { setDateFrom(event.target.value); setDatePreset('custom'); }} className="rep-ctrl-input" /></Control>
+            <Control label="To"><input type="date" value={dateTo} onChange={event => { setDateTo(event.target.value); setDatePreset('custom'); }} className="rep-ctrl-input" /></Control>
+            <Control label="Zone"><select value={selectedZone} onChange={event => setSelectedZone(event.target.value)} className="rep-ctrl-input"><option value="all">All Zones ({zonesList.length})</option>{zonesList.map(zone => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></Control>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-end gap-2.5 border-t border-border pt-2 lg:border-t-0 lg:pt-0">
+            <Control label="Format"><div className="flex h-[34px] items-center rounded-md border border-border bg-panel-bg p-0.5">{(['pdf', 'csv', 'xlsx'] as const).map(item => <button key={item} type="button" onClick={() => setFormat(item)} className={`h-7 rounded px-3 text-xs font-bold uppercase ${format === item ? 'border border-border bg-white text-primary shadow-2xs' : 'text-muted-foreground hover:text-foreground'}`}>{item}</button>)}</div></Control>
+            <button type="button" onClick={() => void handleGenerate()} disabled={exportJob.running} className="inline-flex h-[34px] cursor-pointer items-center gap-2 rounded-lg bg-primary px-5 text-xs font-bold text-white shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60">{exportJob.running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}<span>{exportJob.message ?? 'Generate Report'}</span></button>
+          </div>
         </div>
+        {validationError && <Message>{validationError}</Message>}
       </div>
 
-      {/* ------------------------------------------------------------- */}
-      {/* 4. AUTOMATED EXECUTIVE INSIGHTS CARD                           */}
-      {/* ------------------------------------------------------------- */}
-      <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-border/60 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-accent border border-primary/30 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-foreground">Executive Operations Insights</h3>
-              <p className="text-[11px] text-muted-foreground font-mono">Automated pattern detection across active logs</p>
-            </div>
-          </div>
-          <span className="text-[11px] bg-accent text-accent-foreground font-mono font-semibold px-2.5 py-1 rounded-full border border-primary/20">
-            Live AI Summary
-          </span>
+      {isLoading ? <div className="flex min-h-[340px] items-center justify-center rounded-xl border border-border bg-white"><Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /><span className="text-sm text-muted-foreground">Refreshing Reports data…</span></div> : dataError ? <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-red-200 bg-red-50 p-5 text-center"><AlertTriangle className="mb-2 h-7 w-7 text-red-600" /><p className="text-sm font-semibold text-red-800">Reports data unavailable</p><p className="mt-1 text-xs text-red-700">{dataError}</p><button type="button" onClick={() => setRefreshKey(key => key + 1)} className="mt-4 inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-700"><RefreshCw className="h-3.5 w-3.5" />Retry</button></div> : analytics ? <>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3"><div className="lg:col-span-2">{activeTab === 'weekly_attendance' && <AttendanceRateChart data={analytics.attendanceTrend} />}{activeTab === 'violation_summary' && <ViolationsByZoneChart data={analytics.violationByZone} />}{activeTab === 'zone_coverage' && <ZoneCoverageChart data={analytics.zoneCoverage} />}{activeTab === 'rider_performance' && <RiderPerformanceChart data={analytics.riderPerformance} />}</div><AttendanceDistributionChart data={analytics.attendanceBreakdown} /></div>
+        <div className="space-y-4 rounded-xl border border-border bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between border-b border-border/60 pb-3"><div className="flex items-center gap-2"><div className="flex h-7 w-7 items-center justify-center rounded-lg border border-primary/30 bg-accent"><Sparkles className="h-4 w-4 text-primary" /></div><div><h3 className="text-sm font-bold text-foreground">Operational Insights</h3><p className="font-mono text-[11px] text-muted-foreground">Deterministic summaries from the filtered records above</p></div></div><span className="rounded-full border border-primary/20 bg-accent px-2.5 py-1 font-mono text-[11px] font-semibold text-accent-foreground">Automated Summary</span></div>
+          <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 lg:grid-cols-4"><Insight title="Attendance" icon={TrendingUp} tone="text-emerald-700">{analytics.insights.attendance}</Insight><Insight title="Top Zone" icon={MapPin} tone="text-primary">{analytics.insights.topZone}</Insight><Insight title="Violation Hotspot" icon={AlertTriangle} tone="text-red-600">{analytics.insights.geofenceHotspot}</Insight><Insight title="Rider Attention" icon={Users} tone="text-blue-600">{analytics.insights.riderAttention}</Insight></div>
         </div>
+      </> : null}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* Insight 1 */}
-          <div className="p-3.5 bg-panel-bg border border-border rounded-lg space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>Attendance Rate</span>
-            </div>
-            <p className="text-xs text-foreground leading-relaxed">
-              Attendance compliance averaged <strong className="font-mono">{metrics.attendanceRate}%</strong> over the period, maintaining peak punctuality on mid-week shifts.
-            </p>
-          </div>
-
-          {/* Insight 2 */}
-          <div className="p-3.5 bg-panel-bg border border-border rounded-lg space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-              <MapPin className="w-3.5 h-3.5" />
-              <span>Top Zone Coverage</span>
-            </div>
-            <p className="text-xs text-foreground leading-relaxed">
-              <strong>Pasobolong & Guiwan</strong> achieved 100% on-time arrivals with zero boundary breaches recorded during active shifts.
-            </p>
-          </div>
-
-          {/* Insight 3 */}
-          <div className="p-3.5 bg-panel-bg border border-border rounded-lg space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-red-600">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Geofence Hotspot</span>
-            </div>
-            <p className="text-xs text-foreground leading-relaxed">
-              <strong>Pasonanca & Baliwasan</strong> accounted for 65% of total geofence boundary exit alerts. Zone boundary review recommended.
-            </p>
-          </div>
-
-          {/* Insight 4 */}
-          <div className="p-3.5 bg-panel-bg border border-border rounded-lg space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
-              <Users className="w-3.5 h-3.5" />
-              <span>Rider Attention</span>
-            </div>
-            <p className="text-xs text-foreground leading-relaxed">
-              <strong>3 riders</strong> logged consecutive late check-ins (&gt;15 min delay). Prompt HR review recommended before cutoff.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Style overrides for inputs */}
-      <style>{`
-        .rep-ctrl-input {
-          height: 34px;
-          padding: 0 10px;
-          background: var(--panel-bg);
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          color: var(--foreground);
-          font-size: 12px;
-          outline: none;
-          font-family: 'Geist Mono', monospace;
-          transition: border-color 150ms ease, box-shadow 150ms ease;
-        }
-        .rep-ctrl-input:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 3px rgba(219, 108, 0, 0.12);
-        }
-        select.rep-ctrl-input {
-          appearance: none;
-          padding-right: 28px;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6258' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 10px center;
-        }
-        input[type="date"].rep-ctrl-input::-webkit-calendar-picker-indicator {
-          opacity: 0.7;
-          cursor: pointer;
-        }
-      `}</style>
+      <style>{`.rep-ctrl-input{height:34px;padding:0 10px;background:var(--panel-bg);border:1px solid var(--border);border-radius:6px;color:var(--foreground);font-size:12px;outline:none;font-family:'Geist Mono',monospace;transition:border-color 150ms ease,box-shadow 150ms ease}.rep-ctrl-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(219,108,0,.12)}select.rep-ctrl-input{appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6258' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}`}</style>
     </div>
   );
+}
+
+function KpiCard({ label, icon: Icon, tone, value, detail, trend }: { label: string; icon: typeof Users; tone: 'emerald' | 'red' | 'amber' | 'blue'; value: string; detail: string; trend?: number | null }) {
+  const tones = { emerald: 'bg-emerald-50 text-emerald-600 border-emerald-200', red: 'bg-red-50 text-red-600 border-red-200', amber: 'bg-amber-50 text-amber-600 border-amber-200', blue: 'bg-blue-50 text-blue-600 border-blue-200' };
+  const TrendIcon = trend != null && trend < 0 ? TrendingDown : TrendingUp;
+  return <div className="flex flex-col justify-between rounded-xl border border-border bg-white p-4 shadow-sm"><div className="mb-2 flex items-center justify-between"><span className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span><div className={`flex h-8 w-8 items-center justify-center rounded-lg border ${tones[tone]}`}><Icon className="h-4 w-4" /></div></div><div><div className="font-mono text-2xl font-bold text-foreground">{value}</div><div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">{trend != null && <TrendIcon className="h-3.5 w-3.5" />}<span>{detail}</span></div></div></div>;
+}
+
+function Control({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="flex flex-col gap-1"><span className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</span>{children}</div>;
+}
+
+function Message({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-600"><AlertTriangle className="h-3.5 w-3.5 shrink-0" />{children}</div>;
+}
+
+function Insight({ title, icon: Icon, tone, children }: { title: string; icon: typeof Users; tone: string; children: React.ReactNode }) {
+  return <div className="space-y-1.5 rounded-lg border border-border bg-panel-bg p-3.5"><div className={`flex items-center gap-1.5 text-xs font-semibold ${tone}`}><Icon className="h-3.5 w-3.5" />{title}</div><p className="text-xs leading-relaxed text-foreground">{children}</p></div>;
 }
