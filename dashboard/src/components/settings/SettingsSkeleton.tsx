@@ -1,6 +1,8 @@
+import { SkeletonPage } from '../common/SkeletonPrimitives';
+
 export function SettingsSkeleton() {
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-6 max-w-4xl">
+    <SkeletonPage className="space-y-6" label="Loading Settings">
       <div className="flex border-b border-border gap-6 pb-px">
         <div className="w-28 h-8 rounded ar-shimmer" />
         <div className="w-20 h-8 rounded ar-shimmer" />
@@ -33,6 +35,6 @@ export function SettingsSkeleton() {
           <div className="w-32 h-10 rounded-lg ar-shimmer" />
         </div>
       </div>
-    </div>
+    </SkeletonPage>
   );
 }

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Search, 
   Filter, 
   Calendar, 
@@ -18,6 +18,7 @@ import {
 import { getActivityLogs, type ActivityLog } from '../lib/apiService';
 import { pushToast } from '../hooks/useToast';
 import { StatePanel, SummaryCard } from '../components/common/DashboardPrimitives';
+import { AuditLogsSkeleton } from '../components/common/AuditLogsSkeleton';
 import { buildExportFilename, downloadCsv, formatManilaDate, formatManilaDateTime } from '../lib/exports/exportUtils';
 
 const PAGE_SIZE = 100;
@@ -121,6 +122,7 @@ export function AuditLogs() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '3days' | '7days'>('all');
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   // Load logs on mount & support manual refresh
   const loadLogs = useCallback(async (append = false, offset = 0) => {
@@ -139,6 +141,7 @@ export function AuditLogs() {
       });
       setLoadError(true);
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
       setLoadingMore(false);
     }
@@ -316,6 +319,8 @@ export function AuditLogs() {
     if (t.includes('update') || t.includes('modify') || t.includes('edit')) return 'bg-amber-500';
     return 'bg-slate-400';
   };
+
+  if (loading && !hasLoadedRef.current) return <AuditLogsSkeleton />;
 
   return (
     <div className="dashboard-page space-y-5">

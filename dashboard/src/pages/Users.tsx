@@ -18,6 +18,7 @@ import { type AppUser, type EmploymentStatus, type UserRole, type UserStatus, ty
 import { logActivity } from '../lib/apiService';
 import { getZones, getZonesForHubs } from '../services/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
+import { UsersSkeleton } from '../components/users/UsersSkeleton';
 import { UserForm } from '../components/users/UserForm';
 import { EmployeeDetails } from '../components/users/EmployeeDetails';
 import { useAuth } from '../hooks/useAuth';
@@ -464,6 +465,8 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
       setLifecycleBusy(false);
     }
   };
+
+  if (loading && view === 'list') return <UsersSkeleton />;
 
   return (
     <>
@@ -921,12 +924,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-              Loading users from Supabase...
-            </div>
-          ) : (
-            <UsersTable
+          <UsersTable
               users={paginatedUsers}
               zones={zonesList}
               onlineUserIds={onlineUserIds}
@@ -950,7 +948,6 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
               onArchive={openArchive}
               onRestore={openRestore}
             />
-          )}
         </motion.div>
       )}
     </AnimatePresence>

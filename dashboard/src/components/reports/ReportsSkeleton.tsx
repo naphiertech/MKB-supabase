@@ -1,40 +1,38 @@
+import { SkeletonBlock, SkeletonPage, SkeletonStatCard } from '../common/SkeletonPrimitives';
+
 export function ChartsGridSkeleton() {
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="bg-white border border-border rounded-xl p-5 space-y-3.5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg ar-shimmer shrink-0" />
-              <div className="space-y-1 flex-1">
-                <div className="w-24 h-3.5 rounded ar-shimmer" />
-                <div className="w-12 h-3 rounded ar-shimmer" />
+    <div className="space-y-4" data-reports-panels-skeleton>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div key={index} className="space-y-4 rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex justify-between items-center">
+              <div className="space-y-1">
+                <SkeletonBlock className="h-4 w-40" />
+                <SkeletonBlock className="h-3 w-56 max-w-full" />
               </div>
+              <SkeletonBlock className="h-7 w-20 rounded-lg" />
             </div>
-            <div className="w-full h-8 rounded ar-shimmer" />
+            <SkeletonBlock className="h-[260px] rounded-lg opacity-50 sm:h-[300px]" />
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <div className="bg-white border border-border rounded-xl p-4 space-y-4 shadow-sm">
-            <div className="flex justify-between items-center">
-              <div className="space-y-1">
-                <div className="w-36 h-4 rounded ar-shimmer" />
-                <div className="w-48 h-3 rounded ar-shimmer" />
-              </div>
-              <div className="w-20 h-8 rounded ar-shimmer" />
-            </div>
-            <div className="h-[280px] rounded ar-shimmer opacity-40" />
-          </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-4 rounded-xl border border-border bg-white p-4 shadow-sm lg:col-span-2 sm:p-5">
+          <div className="space-y-1"><SkeletonBlock className="h-4 w-36" /><SkeletonBlock className="h-3 w-48 max-w-full" /></div>
+          <SkeletonBlock className="h-[240px] rounded-lg opacity-50" />
         </div>
-        <div className="bg-white border border-border rounded-xl p-4 space-y-4 shadow-sm">
-          <div className="space-y-1">
-            <div className="w-24 h-4 rounded ar-shimmer" />
-            <div className="w-36 h-3 rounded ar-shimmer" />
-          </div>
-          <div className="h-[280px] rounded ar-shimmer opacity-40" />
+        <div className="space-y-4 rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+          <div className="space-y-1"><SkeletonBlock className="h-4 w-28" /><SkeletonBlock className="h-3 w-40 max-w-full" /></div>
+          <SkeletonBlock className="h-[240px] rounded-lg opacity-50" />
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3"><SkeletonBlock className="h-4 w-40" /><SkeletonBlock className="h-6 w-28 rounded-full" /></div>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => <SkeletonBlock key={index} className="h-24 rounded-lg" />)}
         </div>
       </div>
     </div>
@@ -43,8 +41,17 @@ export function ChartsGridSkeleton() {
 
 export function ReportsSkeleton() {
   return (
-    <div className="p-4 md:p-6 lg:p-7">
+    <SkeletonPage className="space-y-4" label="Loading Insights and Reports">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => <SkeletonStatCard key={index} compact />)}
+      </div>
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4 shadow-sm lg:flex-row lg:items-end">
+        <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => <SkeletonBlock key={index} className="h-10 rounded-lg" />)}
+        </div>
+        <SkeletonBlock className="h-9 w-full rounded-lg lg:w-32" />
+      </div>
       <ChartsGridSkeleton />
-    </div>
+    </SkeletonPage>
   );
 }

@@ -1,4 +1,4 @@
-import { SkeletonStatCard, SkeletonTable } from '../common/SkeletonPrimitives';
+import { SkeletonPage, SkeletonStatCard, SkeletonTable } from '../common/SkeletonPrimitives';
 
 export function RiderStatusGridSkeleton() {
   return (
@@ -86,7 +86,7 @@ export function HRViolationSummarySkeleton() {
 
 export function HRDashboardSkeleton() {
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+    <SkeletonPage className="space-y-5" label="Loading HR Dashboard">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <SkeletonStatCard />
         <SkeletonStatCard />
@@ -110,6 +110,6 @@ export function HRDashboardSkeleton() {
       <SkeletonTable rows={6} columns={6} />
       <RiderStatusGridSkeleton />
       <HRViolationSummarySkeleton />
-    </div>
+    </SkeletonPage>
   );
 }

@@ -1,8 +1,8 @@
-import { SkeletonStatCard, SkeletonTable } from '../common/SkeletonPrimitives';
+import { SkeletonPage, SkeletonStatCard, SkeletonTable } from '../common/SkeletonPrimitives';
 
 export function AttendanceSkeleton() {
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
+    <SkeletonPage className="space-y-5" label="Loading Attendance Logs">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SkeletonStatCard />
         <SkeletonStatCard />
@@ -16,6 +16,6 @@ export function AttendanceSkeleton() {
       </div>
 
       <SkeletonTable rows={5} columns={5} />
-    </div>
+    </SkeletonPage>
   );
 }

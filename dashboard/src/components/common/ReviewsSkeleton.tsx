@@ -1,12 +1,8 @@
+import { SkeletonPage } from './SkeletonPrimitives';
+
 export function ReviewsSkeleton() {
   return (
-    <div className="p-4 md:p-6 lg:p-7 space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
-        <div className="space-y-1">
-          <div className="w-48 h-5 rounded ar-shimmer" />
-          <div className="w-64 h-3.5 rounded ar-shimmer" />
-        </div>
-      </div>
+    <SkeletonPage className="space-y-5" label="Loading Courier Reviews">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-2 rounded-xl border border-border shadow-xs">
         <div className="flex gap-1">
           <div className="w-32 h-8 rounded ar-shimmer" />
@@ -42,6 +38,6 @@ export function ReviewsSkeleton() {
           </div>
         ))}
       </div>
-    </div>
+    </SkeletonPage>
   );
 }

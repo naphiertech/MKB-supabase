@@ -1,6 +1,8 @@
+import { SkeletonPage } from '../common/SkeletonPrimitives';
+
 export function RiderDashboardSkeleton() {
   return (
-    <div className="p-4 md:p-6 lg:p-7 max-w-6xl mx-auto space-y-5">
+    <SkeletonPage className="mx-auto max-w-6xl space-y-5" label="Loading Rider Dashboard">
       <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-accent/30 via-white to-white p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2 flex-1">
@@ -102,6 +104,6 @@ export function RiderDashboardSkeleton() {
           </div>
         </div>
       </div>
-    </div>
+    </SkeletonPage>
   );
 }
