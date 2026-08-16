@@ -150,6 +150,10 @@ function validateSnapshotExport(dayEntries: PayslipDay[], snapshot: PayslipSnaps
   }
 }
 
+export function validatePayslipDocumentForExport(data: PayslipDocumentData): void {
+  validateSnapshotExport(data.days, data.snapshot);
+}
+
 export const exportParcelPayslipPDF = (
   riderName: string,
   mkbId: string,

@@ -35,6 +35,7 @@ interface DbRiderRow {
 
 interface DbViolationRow {
   id: string;
+  hub_id: string | null;
   rider_id: string;
   zone_id: string | null;
   zone_name: string | null;
@@ -80,6 +81,7 @@ const mapViolation = (row: DbViolationRow): ViolationEvent => {
   const rider = row.riders;
   return {
     id: row.id,
+    hubId: row.hub_id,
     riderId: row.rider_id,
     riderName: rider?.name || 'Unknown Rider',
     zoneId: row.zone_id ?? undefined,

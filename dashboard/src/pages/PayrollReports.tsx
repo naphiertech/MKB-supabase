@@ -23,19 +23,21 @@ import {
   getPayrollRecords
 } from '../services/parcelService';
 import {
-  exportParcelPayslipPDF,
-  exportParcelCSV,
+  buildPayslipDocumentData,
   exportCutoffSummaryCSV,
   exportCutoffSummaryPDF,
   exportCutoffSummaryXLSX,
   payslipAdjustmentsFromRecord,
   parcelLogsToPayslipDays,
+  type PayslipDocumentData,
   type PayslipSnapshotContext,
 } from '../lib/exports/payrollExport';
 import { isReadOnlyStatus } from '../types/payroll';
 import { pushToast } from '../hooks/useToast';
 import { exportXLSXFile } from '../lib/exports/excelHelper';
 import { buildExportFilename, downloadCsv } from '../lib/exports/exportUtils';
+import { downloadPayslipPackage } from '../lib/exports/bulkPayslipExport';
+import { useExportJob } from '../hooks/useExportJob';
 
 type PayrollTemplate = 'cutoff_summary' | 'individual_payslips' | 'parcel_logs';
 type PayrollFormat = 'pdf' | 'csv' | 'xlsx';
@@ -60,7 +62,7 @@ const TEMPLATES: {
     key: 'individual_payslips',
     title: 'Individual Payslips',
     description: 'Generate a payslip per rider — single rider or bulk export for all riders.',
-    meta: 'Per-rider · PDF/CSV',
+    meta: 'Per-rider · PDF/Official XLSX',
     icon: Receipt,
     accent: '#b85a00'
   },
@@ -89,6 +91,19 @@ function isoOffset(days: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function friendlyExportError(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/unsupported snapshotted .* rate|do not reconcile/i.test(message)) {
+    return 'An official XLSX could not be created because a finalized rate snapshot is unsupported or does not reconcile. Review the affected payroll record.';
+  }
+  if (/worksheet not found|http error|template/i.test(message)) {
+    return 'The official payslip template could not be loaded. Try again or contact an administrator.';
+  }
+  if (/zip/i.test(message)) return 'The ZIP package could not be created. No bulk download was completed.';
+  if (/no payslips/i.test(message)) return message;
+  return 'The export could not be completed. Please try again.';
+}
+
 export function PayrollReports() {
   const [ridersList, setRidersList] = useState<Rider[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
@@ -99,7 +114,8 @@ export function PayrollReports() {
   const [to, setTo] = useState(isoToday());
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const [bulkMode, setBulkMode] = useState<'single' | 'bulk'>('bulk');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const exportJob = useExportJob();
+  const isGenerating = exportJob.running;
   const [error, setError] = useState<string | null>(null);
 
   interface ExportLog {
@@ -107,11 +123,7 @@ export function PayrollReports() {
     format: string;
     time: string;
   }
-  const [exportHistory, setExportHistory] = useState<ExportLog[]>([
-    { filename: 'mkbridertrack_cutoff_summary_2026-06-16_2026-06-30.xlsx', format: 'xlsx', time: 'Yesterday at 3:15 PM' },
-    { filename: 'mkbridertrack_individual_payslips_2026-06-16_2026-06-30.pdf', format: 'pdf', time: 'Yesterday at 3:10 PM' },
-    { filename: 'mkbridertrack_parcel_log_2026-06-16_2026-06-30.csv', format: 'csv', time: 'Yesterday at 3:08 PM' },
-  ]);
+  const [exportHistory, setExportHistory] = useState<ExportLog[]>([]);
 
   useEffect(() => {
     Promise.all([getAllRiders({ scope: 'historical' }), getZones()]).then(([r, z]) => {
@@ -196,7 +208,7 @@ export function PayrollReports() {
     };
   }, [from, to]);
 
-  // Stats for the AI Payroll Summary card
+  // Deterministic cutoff summary derived from the selected records.
   const filteredLogs = selectedZones.length === 0
     ? cutoffLogs
     : cutoffLogs.filter(log => log.riders?.zone_id && selectedZones.includes(log.riders.zone_id));
@@ -266,22 +278,19 @@ export function PayrollReports() {
       return;
     }
     setError(null);
-    setIsGenerating(true);
-
-    const cutoffLabel = `${from} to ${to}`;
-    const targetRiders = filteredRiders();
-
     try {
-      if (targetRiders.length === 0) {
-        pushToast({
-          title: 'No riders match the selected filters',
-          tone: 'error'
-        });
-        setIsGenerating(false);
-        return;
-      }
+      await exportJob.run('Preparing export…', async setProgress => {
+        const cutoffLabel = `${from} to ${to}`;
+        const targetRiders = filteredRiders();
+        let completedExport: ExportLog | null = null;
 
-      if (template === 'cutoff_summary') {
+        if (template !== 'cutoff_summary' && targetRiders.length === 0) {
+          pushToast({ title: 'No Riders match the selected filters', tone: 'warning' });
+          return;
+        }
+
+        if (template === 'cutoff_summary') {
+          setProgress('Loading finalized payroll snapshots…');
         const records = await getPayrollRecords(from, to);
         const finalizedRecords = records.filter(r => isReadOnlyStatus(r.status));
         const filteredRecords = selectedZones.length === 0
@@ -294,7 +303,6 @@ export function PayrollReports() {
             description: 'No finalized payroll entries in Supabase for this range.',
             tone: 'info'
           });
-          setIsGenerating(false);
           return;
         }
 
@@ -323,6 +331,7 @@ export function PayrollReports() {
         });
 
         if (format === 'csv') {
+          setProgress('Generating CSV cutoff summary…');
           exportCutoffSummaryCSV(
             rows.map(r => ({
               riderName: r.riderName,
@@ -340,10 +349,18 @@ export function PayrollReports() {
             { label: cutoffLabel, from, to }
           );
         } else if (format === 'xlsx') {
+          setProgress('Generating XLSX cutoff summary…');
           await exportCutoffSummaryXLSX(rows, { label: cutoffLabel, from, to });
         } else {
+          setProgress('Generating PDF cutoff summary…');
           exportCutoffSummaryPDF(rows, { label: cutoffLabel, from, to });
         }
+
+        completedExport = {
+          filename: buildExportFilename({ prefix: 'payroll_cutoff', from, to, extension: format }),
+          format,
+          time: 'Just now',
+        };
 
         pushToast({
           title: 'Cutoff Summary exported',
@@ -358,62 +375,80 @@ export function PayrollReports() {
 
         if (targets.length === 0) {
           pushToast({
-            title: 'No rider selected',
-            tone: 'error'
+            title: 'No Rider selected',
+            tone: 'warning'
           });
-          setIsGenerating(false);
           return;
         }
 
+        setProgress('Loading finalized payroll snapshots…');
         const payrollRecords = (await getPayrollRecords(from, to)).filter(record => isReadOnlyStatus(record.status));
-        // Finalized payslips are generated only from immutable payroll snapshots.
-        for (const rider of targets) {
+        const documents: PayslipDocumentData[] = [];
+        const preparationFailures: Array<{ riderName: string; message: string }> = [];
+        for (let index = 0; index < targets.length; index += 1) {
+          const rider = targets[index];
+          setProgress(`Preparing ${index + 1} of ${targets.length} payslips…`);
           const payrollRecord = payrollRecords.find(record => record.rider_id === rider.id);
-          if (!payrollRecord) throw new Error(`No finalized payroll snapshot found for ${rider.name}.`);
-          const deliveryData = await getPayrollDeliveryData(payrollRecord);
-          const dayEntries = parcelLogsToPayslipDays(deliveryData.lines);
-          const snapshot: PayslipSnapshotContext = {
-            source: deliveryData.source, calculationVersion: deliveryData.calculationVersion,
-            standardParcels: deliveryData.summary.standardDelivered, heavyParcels: deliveryData.summary.heavyDelivered,
-            failedParcels: deliveryData.summary.failed, returnedParcels: deliveryData.summary.returned,
-            standardEarnings: deliveryData.summary.standardEarnings, heavyEarnings: deliveryData.summary.heavyEarnings,
-            grossDeliveryPay: deliveryData.summary.grossDeliveryPay,
-          };
-
-          const zoneName = zonesList.find(z => z.id === rider.zoneId)?.name || '—';
-          const adjustments = payslipAdjustmentsFromRecord(payrollRecord);
-
-          if (format === 'csv') {
-            exportParcelCSV(
-              rider.name,
-              rider.riderCode || 'MKB-RIDER',
-              from,
-              to,
-              dayEntries,
+          if (!payrollRecord) {
+            preparationFailures.push({ riderName: rider.name, message: 'No finalized payroll snapshot found.' });
+            continue;
+          }
+          try {
+            const deliveryData = await getPayrollDeliveryData(payrollRecord);
+            const snapshot: PayslipSnapshotContext = {
+              source: deliveryData.source, calculationVersion: deliveryData.calculationVersion,
+              standardParcels: deliveryData.summary.standardDelivered, heavyParcels: deliveryData.summary.heavyDelivered,
+              failedParcels: deliveryData.summary.failed, returnedParcels: deliveryData.summary.returned,
+              standardEarnings: deliveryData.summary.standardEarnings, heavyEarnings: deliveryData.summary.heavyEarnings,
+              grossDeliveryPay: deliveryData.summary.grossDeliveryPay,
+            };
+            documents.push(buildPayslipDocumentData({
+              riderName: rider.name,
+              mkbId: rider.riderCode || 'MKB-RIDER',
+              zoneName: zonesList.find(zone => zone.id === rider.zoneId)?.name || '—',
+              cutoffFrom: from,
+              cutoffTo: to,
+              dayEntries: parcelLogsToPayslipDays(deliveryData.lines),
               snapshot,
-              adjustments
-            );
-          } else {
-            exportParcelPayslipPDF(
-              rider.name,
-              rider.riderCode || 'MKB-RIDER',
-              zoneName,
-              from,
-              to,
-              dayEntries,
-              snapshot,
-              adjustments
-            );
+              adjustments: payslipAdjustmentsFromRecord(payrollRecord),
+            }));
+          } catch (error) {
+            preparationFailures.push({
+              riderName: rider.name,
+              message: error instanceof Error ? error.message : 'Payroll snapshot could not be loaded.',
+            });
           }
         }
 
-        pushToast({
-          title: `${targets.length} payslips downloaded`,
-          description: `${format.toUpperCase()} · ${cutoffLabel}`,
-          tone: 'success'
+        if (documents.length === 0) {
+          throw new Error(`No payslips could be generated. ${preparationFailures.map(failure => failure.riderName).join(', ')} have no usable finalized snapshot.`);
+        }
+        const packageResult = await downloadPayslipPackage(documents, {
+          format: format === 'xlsx' ? 'xlsx' : 'pdf',
+          from,
+          to,
+          forceArchive: targets.length > 1,
+          onProgress: setProgress,
         });
+        const failures = [...preparationFailures, ...packageResult.failures];
+        completedExport = { filename: packageResult.filename, format: packageResult.archive ? 'zip' : format, time: 'Just now' };
+        if (failures.length > 0) {
+          pushToast({
+            title: `${packageResult.generatedCount} payslip${packageResult.generatedCount === 1 ? '' : 's'} downloaded with ${failures.length} skipped`,
+            description: failures.map(failure => failure.riderName).join(', '),
+            tone: 'warning',
+            duration: 6000,
+          });
+        } else {
+          pushToast({
+            title: packageResult.archive ? `${packageResult.generatedCount} payslips downloaded in one ZIP` : 'Payslip downloaded',
+            description: `${format.toUpperCase()} · ${cutoffLabel}`,
+            tone: 'success',
+          });
+        }
 
       } else if (template === 'parcel_logs') {
+        setProgress('Loading parcel logs…');
         const filterOpts: { riderId?: string; riderIds?: string[] } = {};
         if (bulkMode === 'single' && singleRiderId) {
           filterOpts.riderId = singleRiderId;
@@ -429,7 +464,6 @@ export function PayrollReports() {
             description: 'No daily parcel entries exist for this cutoff.',
             tone: 'info'
           });
-          setIsGenerating(false);
           return;
         }
 
@@ -452,6 +486,7 @@ export function PayrollReports() {
         ]);
 
         if (format === 'xlsx') {
+          setProgress('Generating XLSX parcel log…');
           await exportXLSXFile(
             'Parcel Log',
             cols,
@@ -459,48 +494,35 @@ export function PayrollReports() {
             buildExportFilename({ prefix: 'parcel_logs', from, to, extension: 'xlsx' }).replace(/\.xlsx$/, '')
           );
         } else {
-          // PDF / CSV exports raw logs as CSV
-          if (format === 'pdf') {
-            pushToast({
-              title: 'PDF unavailable for raw logs',
-              description: 'Exported as CSV instead.',
-              tone: 'info'
-            });
-          }
+          setProgress('Generating CSV parcel log…');
           downloadCsv([cols, ...rows], buildExportFilename({
             prefix: 'parcel_logs', from, to, extension: 'csv',
           }));
         }
 
+        const actualFormat = format === 'xlsx' ? 'xlsx' : 'csv';
+        completedExport = {
+          filename: buildExportFilename({ prefix: 'parcel_logs', from, to, extension: actualFormat }),
+          format: actualFormat,
+          time: 'Just now',
+        };
+
         pushToast({
           title: 'Parcel Logs exported',
-          description: `${rows.length} entries · ${format.toUpperCase()}`,
+          description: `${rows.length} entries · ${actualFormat.toUpperCase()}`,
           tone: 'success'
         });
       }
 
-      // Track export history
-      let genFilename = `mkbridertrack_${template}_${from}_${to}.${format}`;
-      if (template === 'parcel_logs' && format === 'pdf') {
-        genFilename = `mkbridertrack_parcel_log_${from}_${to}.csv`;
-      }
-      setExportHistory(prev => [
-        {
-          filename: genFilename,
-          format: format === 'pdf' && template === 'parcel_logs' ? 'csv' : format,
-          time: 'Just now'
-        },
-        ...prev
-      ]);
+        if (completedExport) setExportHistory(previous => [completedExport!, ...previous]);
+      });
     } catch (err) {
       console.error(err);
       pushToast({
         title: 'Export failed',
-        description: err instanceof Error ? err.message : 'Failed to complete query transactions.',
+        description: friendlyExportError(err),
         tone: 'error'
       });
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -650,7 +672,7 @@ export function PayrollReports() {
                       onChange={e => setSingleRiderId(e.target.value)}
                       className="w-full h-10 px-3 pr-8 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer"
                     >
-                      {ridersList.map(r => (
+                      {filteredRiders().map(r => (
                         <option key={r.id} value={r.id}>
                           {r.name} · {r.riderCode}
                         </option>
@@ -666,7 +688,7 @@ export function PayrollReports() {
                 <div className="grid grid-cols-3 gap-1.5">
                   {(['pdf', 'csv', 'xlsx'] as const).map(f => {
                     const disabled =
-                      (template === 'individual_payslips' && f === 'xlsx') ||
+                      (template === 'individual_payslips' && f === 'csv') ||
                       (template === 'parcel_logs' && f === 'pdf');
                     const selected = format === f;
                     return (
@@ -691,7 +713,7 @@ export function PayrollReports() {
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating Report...
+                    {exportJob.message ?? 'Generating export…'}
                   </>
                 ) : (
                   'Generate Report'
@@ -702,7 +724,7 @@ export function PayrollReports() {
         </div>
 
         <div>
-          {/* AI Payroll Summary Card */}
+          {/* Deterministic Payroll Summary Card */}
           <div className="bg-white border border-border rounded-xl p-5 flex flex-col justify-between h-full">
             <div>
               <div className="flex items-center gap-2 mb-4">
@@ -710,8 +732,8 @@ export function PayrollReports() {
                   <Sparkles className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-foreground">AI Payroll Summary</div>
-                  <div className="text-[11px] text-muted-foreground font-mono">Dynamic insights</div>
+                  <div className="text-sm font-semibold text-foreground">Payroll Snapshot Summary</div>
+                  <div className="text-[11px] text-muted-foreground font-mono">Calculated from selected cutoff records</div>
                 </div>
               </div>
 
