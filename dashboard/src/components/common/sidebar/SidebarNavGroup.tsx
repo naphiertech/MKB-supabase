@@ -38,6 +38,7 @@ export function SidebarNavGroup({
   const Icon = item.icon;
   const hasActiveChild = item.items.some((sub) => sub.key === current);
   const sectionBadgeSum = item.items.reduce((sum, sub) => sum + (badgeCounts?.[sub.key] || 0), 0);
+  const hasSectionBadge = sectionBadgeSum > 0;
 
   return (
     <div className="space-y-0.5">
@@ -75,71 +76,84 @@ export function SidebarNavGroup({
         <div className={`flex items-center justify-center shrink-0 relative transition-all duration-300 ease-in-out ${
           showCollapsed ? 'w-9 h-9' : 'w-5 h-5'
         }`}>
-          <Icon className={`w-[18px] h-[18px] transition-colors duration-150 ${hasActiveChild ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
-          {showCollapsed && sectionBadgeSum > 0 ? (
+          <Icon className={`w-5 h-5 transition-colors duration-150 ${hasActiveChild ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
+          {hasSectionBadge && showCollapsed && (
             <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white animate-pulse" />
-          ) : null}
+          )}
         </div>
 
-        <span className={`flex-1 text-left font-medium truncate transition-all duration-300 ease-in-out ${
-          showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100 max-w-[160px]'
-        }`}>
+        {/* Section Title */}
+        <span
+          aria-hidden={showCollapsed}
+          className={`flex-1 text-left font-medium truncate whitespace-nowrap transition-all duration-300 ease-in-out ${
+            showCollapsed ? 'opacity-0 max-w-0 overflow-hidden pointer-events-none' : 'opacity-100 max-w-[160px] pointer-events-auto'
+          }`}
+        >
           {item.title}
         </span>
-        {sectionBadgeSum > 0 && !expanded && (
-          <span className={`bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center mr-1 shadow-sm animate-pulse shrink-0 transition-all duration-300 ease-in-out ${
-            showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
-          }`}>
+
+        {/* Badge in expanded view */}
+        {hasSectionBadge && !expanded && (
+          <span
+            aria-hidden={showCollapsed}
+            className={`bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center mr-1 shadow-sm animate-pulse shrink-0 transition-all duration-300 ease-in-out ${
+              showCollapsed ? 'opacity-0 max-w-0 overflow-hidden pointer-events-none' : 'opacity-100'
+            }`}
+          >
             {sectionBadgeSum}
           </span>
         )}
-        <ChevronDown className={`w-3.5 h-3.5 transition-all duration-300 ease-in-out text-muted-foreground shrink-0 ${
-          expanded ? 'rotate-180' : ''
-        } ${showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'}`} />
+
+        {/* Accordion Chevron Arrow */}
+        <ChevronDown
+          aria-hidden={showCollapsed}
+          className={`w-4 h-4 transition-all duration-300 ease-in-out text-muted-foreground shrink-0 ${
+            expanded ? 'rotate-180' : ''
+          } ${showCollapsed ? 'opacity-0 max-w-0 overflow-hidden pointer-events-none' : 'opacity-100'}`}
+        />
       </button>
 
-      {/* Expanded Accordion List */}
-      {!showCollapsed && (
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.18, ease: "easeInOut" }}
-              className="overflow-hidden border-l border-border ml-5 pl-[14px] mt-1 space-y-1"
-            >
-              {item.items.map((subItem) => {
-                const subActive = current === subItem.key;
-                const SubIcon = subItem.icon;
-                return (
-                  <button
-                    key={subItem.key}
-                    onClick={() => onNavigate(subItem.key)}
-                    aria-current={subActive ? 'page' : undefined}
-                    className={`group relative z-0 w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${subActive ? a.text : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}
-                  >
-                    {subActive && (
-                      <motion.span
-                        layoutId={mobile ? undefined : "activeSubNav"}
-                        className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
-                    )}
-                    <SubIcon className={`w-3.5 h-3.5 ${subActive ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
-                    <span className="flex-1 text-left font-medium truncate">{subItem.label}</span>
-                    {badgeCounts?.[subItem.key] ? (
-                      <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center ml-auto shadow-sm animate-pulse shrink-0">
-                        {badgeCounts[subItem.key]}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      )}
+      {/* Accordion Submenu Lifecycle */}
+      <AnimatePresence initial={false}>
+        {expanded && !showCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden border-l border-border ml-5 pl-[14px] mt-1 space-y-1"
+          >
+            {item.items.map((subItem) => {
+              const subActive = current === subItem.key;
+              const SubIcon = subItem.icon;
+              const subBadge = typeof badgeCounts?.[subItem.key] === 'number' ? badgeCounts[subItem.key]! : 0;
+              return (
+                <button
+                  key={subItem.key}
+                  onClick={() => onNavigate(subItem.key)}
+                  aria-current={subActive ? 'page' : undefined}
+                  className={`group relative z-0 w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${subActive ? a.text : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}
+                >
+                  {subActive && (
+                    <motion.span
+                      layoutId={mobile ? undefined : "activeSubNav"}
+                      className={`absolute inset-0 rounded-lg -z-10 ${a.activeBg}`}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  <SubIcon className={`w-3.5 h-3.5 shrink-0 ${subActive ? a.iconActive : 'text-muted-foreground group-hover:text-foreground'}`} />
+                  <span className="flex-1 text-left font-medium truncate whitespace-nowrap">{subItem.label}</span>
+                  {subBadge > 0 ? (
+                    <span className="bg-red-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] h-4 flex items-center justify-center ml-auto shadow-sm animate-pulse shrink-0">
+                      {subBadge}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

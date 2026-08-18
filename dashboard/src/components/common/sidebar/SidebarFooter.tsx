@@ -31,7 +31,7 @@ export function SidebarFooter({
   return (
     <div className={`border-t border-border transition-all duration-300 ease-in-out ${showCollapsed ? 'p-2' : 'p-3'}`}>
       <div className={`flex items-center rounded-lg transition-all duration-300 ease-in-out ${
-        showCollapsed ? 'flex-col justify-center gap-1.5 bg-transparent' : `gap-3 px-2 py-2 bg-panel-bg ${a.profileHover}`
+        showCollapsed ? 'flex-col justify-center gap-1 bg-transparent' : `gap-3 px-2 py-2 bg-panel-bg ${a.profileHover}`
       }`}>
         <div
           onMouseEnter={(e) => showCollapsed && onMouseEnterLink?.(user.name, e)}
@@ -47,9 +47,12 @@ export function SidebarFooter({
           />
         </div>
 
-        <div className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${
-          showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100 max-w-[140px]'
-        }`}>
+        <div
+          aria-hidden={showCollapsed}
+          className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${
+            showCollapsed ? 'opacity-0 max-h-0 max-w-0 overflow-hidden pointer-events-none' : 'opacity-100 max-w-[140px]'
+          }`}
+        >
           <div className="text-sm text-foreground font-semibold truncate">
             {user.name}
           </div>
@@ -59,7 +62,7 @@ export function SidebarFooter({
         </div>
 
         <div className={`flex items-center gap-0.5 transition-all duration-300 ease-in-out ${
-          showCollapsed ? 'flex-col gap-1.5' : ''
+          showCollapsed ? 'flex-col gap-1 mt-0.5' : ''
         }`}>
           <button
             type="button"
@@ -70,7 +73,7 @@ export function SidebarFooter({
             title="Account settings"
             className={`rounded-lg flex items-center justify-center transition-all duration-300 ease-in-out cursor-pointer ${
               showCollapsed
-                ? `w-9 h-9 hover:bg-panel-bg ${current === 'settings' ? a.iconActive : 'text-muted-foreground hover:text-primary'}`
+                ? `w-8 h-8 hover:bg-panel-bg ${current === 'settings' ? a.iconActive : 'text-muted-foreground hover:text-primary'}`
                 : `p-1.5 hover:bg-white mr-0.5 ${current === 'settings' ? a.iconActive : 'text-muted-foreground hover:text-primary'}`
             }`}
           >
@@ -85,7 +88,7 @@ export function SidebarFooter({
             aria-label="Sign out"
             title="Sign out"
             className={`rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive transition-all duration-300 ease-in-out cursor-pointer ${
-              showCollapsed ? 'w-9 h-9 hover:bg-panel-bg' : 'p-1.5 hover:bg-white'
+              showCollapsed ? 'w-8 h-8 hover:bg-panel-bg' : 'p-1.5 hover:bg-white'
             }`}
           >
             <LogOut className="w-4 h-4" />
