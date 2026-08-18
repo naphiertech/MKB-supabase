@@ -199,15 +199,18 @@ export function Sidebar({
       >
         {/* Brand Header */}
         <div className={`pt-5 pb-4 border-b border-border transition-all duration-300 ease-in-out ${showCollapsed ? 'px-2' : 'px-5'}`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className={`flex items-center gap-2.5 ${showCollapsed ? 'mx-auto' : ''}`}>
+          <div className={`flex items-center transition-all duration-300 ease-in-out ${showCollapsed ? 'justify-center' : 'justify-between gap-2'}`}>
+            <div className={`flex items-center min-w-0 transition-all duration-300 ease-in-out ${showCollapsed ? 'justify-center' : 'gap-2.5'}`}>
               <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-amber-500 flex items-center justify-center shadow-sm shrink-0">
                 <Activity className="w-5 h-5 text-white" strokeWidth={2.5} />
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
               </div>
-              <div className={`flex flex-col leading-tight flex-1 min-w-0 transition-all duration-300 ease-in-out ${
-                showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100 max-w-[140px]'
-              }`}>
+              <div
+                aria-hidden={showCollapsed}
+                className={`flex flex-col leading-tight flex-1 min-w-0 overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out ${
+                  showCollapsed ? 'opacity-0 max-w-0 ml-0 pointer-events-none' : 'opacity-100 max-w-[140px] pointer-events-auto'
+                }`}
+              >
                 <span className="text-foreground font-semibold tracking-tight text-[15px] truncate">
                   {BRANDING.appName}
                 </span>
@@ -217,18 +220,19 @@ export function Sidebar({
               </div>
             </div>
 
-            {/* Collapse button for Desktop */}
+            {/* Collapse button for Desktop (Top Right when Expanded) */}
             {!mobile && (
               <button
                 type="button"
+                tabIndex={showCollapsed ? -1 : undefined}
                 onClick={handleToggleCollapse}
-                aria-label={showCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                title={showCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                className={`w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center transition-all duration-300 ease-in-out cursor-pointer shrink-0 ${
-                  showCollapsed ? 'hidden' : ''
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
+                className={`w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center shrink-0 overflow-hidden transition-all duration-300 ease-in-out cursor-pointer ${
+                  showCollapsed ? 'opacity-0 max-w-0 pointer-events-none' : 'opacity-100 max-w-[32px] pointer-events-auto'
                 }`}
               >
-                <PanelLeftClose className="w-4 h-4" />
+                <PanelLeftClose className="w-4 h-4 shrink-0" />
               </button>
             )}
 
@@ -245,15 +249,21 @@ export function Sidebar({
             )}
           </div>
 
-          {/* Desktop Collapsed Expand Button */}
-          {!mobile && showCollapsed && (
-            <div className="mt-3 flex flex-col items-center">
+          {/* Desktop Collapsed Expand Button (Centered Below Logo when Collapsed) */}
+          {!mobile && (
+            <div
+              aria-hidden={!showCollapsed}
+              className={`overflow-hidden flex flex-col items-center transition-all duration-300 ease-in-out ${
+                showCollapsed ? 'opacity-100 max-h-10 mt-3 pointer-events-auto' : 'opacity-0 max-h-0 mt-0 pointer-events-none'
+              }`}
+            >
               <button
                 type="button"
+                tabIndex={!showCollapsed ? -1 : undefined}
                 onClick={handleToggleCollapse}
                 aria-label="Expand sidebar"
                 title="Expand sidebar"
-                className="w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center transition cursor-pointer"
+                className="w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg flex items-center justify-center transition cursor-pointer shrink-0"
               >
                 <PanelLeftOpen className="w-4 h-4" />
               </button>
@@ -264,11 +274,14 @@ export function Sidebar({
         {/* Navigation Scroll Area */}
         <nav className={`flex-1 ${showCollapsed ? 'px-2 py-3 space-y-2' : 'px-3 py-3 space-y-1'} overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden`}>
           <div className={`px-2 transition-all duration-300 ease-in-out ${
-            showCollapsed ? 'my-2 border-t border-border/60 mx-1' : 'mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono'
+            showCollapsed ? 'my-2.5 border-t border-border/60 mx-1 pt-0' : 'mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono border-t border-transparent'
           }`}>
-            <span className={`transition-all duration-300 ease-in-out ${
-              showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
-            }`}>
+            <span
+              aria-hidden={showCollapsed}
+              className={`overflow-hidden whitespace-nowrap block transition-all duration-300 ease-in-out ${
+                showCollapsed ? 'opacity-0 max-h-0 pointer-events-none' : 'opacity-100 max-h-4 pointer-events-auto'
+              }`}
+            >
               Operations
             </span>
           </div>
@@ -319,11 +332,14 @@ export function Sidebar({
           })}
 
           <div className={`px-2 transition-all duration-300 ease-in-out ${
-            showCollapsed ? 'my-3 border-t border-border/60 mx-1' : 'mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono'
+            showCollapsed ? 'my-3 border-t border-border/60 mx-1 pt-0' : 'mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono border-t border-transparent'
           }`}>
-            <span className={`transition-all duration-300 ease-in-out ${
-              showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
-            }`}>
+            <span
+              aria-hidden={showCollapsed}
+              className={`overflow-hidden whitespace-nowrap block transition-all duration-300 ease-in-out ${
+                showCollapsed ? 'opacity-0 max-h-0 pointer-events-none' : 'opacity-100 max-h-4 pointer-events-auto'
+              }`}
+            >
               Help & Support
             </span>
           </div>
@@ -386,11 +402,14 @@ export function Sidebar({
           </div>
 
           <div className={`px-2 transition-all duration-300 ease-in-out ${
-            showCollapsed ? 'my-3 border-t border-border/60 mx-1' : 'mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono'
+            showCollapsed ? 'my-3 border-t border-border/60 mx-1 pt-0' : 'mt-4 mb-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70 font-mono border-t border-transparent'
           }`}>
-            <span className={`transition-all duration-300 ease-in-out ${
-              showCollapsed ? 'opacity-0 max-w-0 overflow-hidden hidden' : 'opacity-100'
-            }`}>
+            <span
+              aria-hidden={showCollapsed}
+              className={`overflow-hidden whitespace-nowrap block transition-all duration-300 ease-in-out ${
+                showCollapsed ? 'opacity-0 max-h-0 pointer-events-none' : 'opacity-100 max-h-4 pointer-events-auto'
+              }`}
+            >
               System
             </span>
           </div>
@@ -398,17 +417,15 @@ export function Sidebar({
           <div
             onMouseEnter={(e) => showCollapsed && handleMouseEnterLink('Geofence: Online (1.8s tick)', e)}
             onMouseLeave={handleMouseLeaveLink}
-            className={`transition-all duration-300 ease-in-out ${
-              showCollapsed ? 'my-1 flex justify-center' : 'mx-2 p-3 rounded-lg bg-panel-bg border border-border'
+            className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              showCollapsed ? 'my-1 mx-auto w-9 h-9 rounded-lg bg-panel-bg border border-border flex items-center justify-center cursor-help' : 'mx-2 p-3 rounded-lg bg-panel-bg border border-border'
             }`}
           >
             {showCollapsed ? (
-              <div className="w-9 h-9 rounded-lg bg-panel-bg border border-border flex items-center justify-center cursor-help">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             ) : (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
+              <div className="w-full">
+                <div className="flex items-center justify-between mb-1.5 whitespace-nowrap">
                   <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
                     Geofence
                   </span>
@@ -416,7 +433,7 @@ export function Sidebar({
                     ● Online
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono whitespace-nowrap">
                   <span>Realtime</span>
                   <span className="text-emerald-600/90">1.8s tick</span>
                 </div>
