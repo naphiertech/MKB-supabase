@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Phone, Mail, IdCard, MapPin, Edit3, Check, X, Lock, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, IdCard, MapPin, Edit3, Check, X, Lock, Eye, EyeOff, LogOut } from 'lucide-react';
 import { MapContainer, TileLayer, Polygon, Circle } from 'react-leaflet';
 import {
   type Rider,
@@ -19,6 +19,7 @@ interface RiderProfileProps {
   riderId: string;
   restricted: boolean;
   onBack: () => void;
+  onSignOut?: () => void;
 }
 
 const MAP_TILE = {
@@ -26,7 +27,7 @@ const MAP_TILE = {
   attribution: '&copy; OpenStreetMap &copy; CARTO'
 };
 
-export function RiderProfile({ userId, riderId, restricted, onBack }: RiderProfileProps) {
+export function RiderProfile({ userId, riderId, restricted, onBack, onSignOut }: RiderProfileProps) {
   const [rider, setRider] = useState<Rider | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
@@ -393,6 +394,24 @@ export function RiderProfile({ userId, riderId, restricted, onBack }: RiderProfi
                 </button>
               )}
             </div>
+
+            {/* Account Sign Out Action */}
+            {onSignOut && (
+              <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-foreground">Account Session</div>
+                  <div className="text-[11px] text-muted-foreground truncate">Sign out of your session on this device</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 text-xs font-semibold transition shrink-0 cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign out
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

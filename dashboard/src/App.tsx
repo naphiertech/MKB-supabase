@@ -16,6 +16,7 @@ import { useRiderZone } from './context/RiderZoneContext';
 import { useHub } from './context/HubContext';
 
 import { useNotifications } from './hooks/useNotifications';
+import { useRiderSignOut } from './hooks/useRiderSignOut';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
@@ -123,6 +124,12 @@ export function App() {
 
   const { riders: allRiders, zones: allZones } = useRiderZone();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
+
+  const { requestSignOut: handleRiderSignOut, warningModal: riderWarningModal } = useRiderSignOut({
+    riderId: session?.riderId ?? undefined,
+    userId: user?.id,
+    onSignOut: signOut
+  });
 
   const refreshMfaGate = useCallback(async ({ blocking = false }: { blocking?: boolean } = {}) => {
     const sessionId = session?.id ?? null;
@@ -403,7 +410,7 @@ export function App() {
           unreadCount={unreadCount}
           onMarkAsRead={markAsRead}
           onMarkAllAsRead={markAllAsRead}
-          onSignOut={signOut} />
+          onSignOut={handleRiderSignOut} />
 
         <main className="flex min-w-0 flex-1">
           <AnimatePresence mode="wait">
@@ -431,11 +438,13 @@ export function App() {
                     userId={user.id}
                     riderId={riderId}
                     restricted={user.status === 'suspended'}
-                    onBack={() => setRiderPage('dashboard')} />
+                    onBack={() => setRiderPage('dashboard')}
+                    onSignOut={handleRiderSignOut} />
                 }
             </motion.div>
           </AnimatePresence>
         </main>
+        {riderWarningModal}
         <Toaster position="top-right" reverseOrder={false} />
       </div>);
 

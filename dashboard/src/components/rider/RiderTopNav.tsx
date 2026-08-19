@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
   LayoutDashboard,
@@ -18,6 +18,7 @@ import { NotificationDropdown } from '../common/NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
 import { useSyncQueueStatus } from '../../hooks/useSyncQueueStatus';
 import { SyncQueueDiagnosticsModal } from './SyncQueueDiagnosticsModal';
+import { RiderMobileDrawer } from './RiderMobileDrawer';
 export type RiderPageKey = 'dashboard' | 'attendance' | 'monitoring' | 'profile';
 interface RiderTopNavProps {
   current: RiderPageKey;
@@ -77,6 +78,7 @@ export function RiderTopNav({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [syncDiagnosticsOpen, setSyncDiagnosticsOpen] = useState(false);
+  const hamburgerButtonRef = useRef<HTMLButtonElement>(null);
   const syncStatus = useSyncQueueStatus();
   const queuedCount = syncStatus.pending + syncStatus.processing;
   return (
@@ -191,16 +193,38 @@ export function RiderTopNav({
 
         {/* Mobile menu toggle */}
         <button
+          ref={hamburgerButtonRef}
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
-          className="lg:hidden inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 transition"
-          aria-label="Toggle menu">
-          
-          {mobileOpen ?
-          <X className="w-4 h-4" /> :
-
-          <Menu className="w-4 h-4" />
-          }
+          className="lg:hidden relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 transition cursor-pointer"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="rider-mobile-drawer">
+          <AnimatePresence initial={false} mode="wait">
+            {mobileOpen ? (
+              <motion.span
+                key="close"
+                initial={{ opacity: 0, rotate: -90 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                exit={{ opacity: 0, rotate: 90 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </motion.span>
+            ) : (
+              <motion.span
+                key="menu"
+                initial={{ opacity: 0, rotate: 90 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                exit={{ opacity: 0, rotate: -90 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center justify-center"
+              >
+                <Menu className="w-4 h-4" />
+              </motion.span>
+            )}
+          </AnimatePresence>
         </button>
 
         {/* User pill */}
@@ -223,41 +247,29 @@ export function RiderTopNav({
             onClick={onSignOut}
             aria-label="Sign out"
             title="Sign out"
-            className="text-muted-foreground hover:text-[#DC2626] p-1.5 rounded-full hover:bg-white transition">
+            className="text-muted-foreground hover:text-[#DC2626] p-1.5 rounded-full hover:bg-white transition cursor-pointer">
             
             <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Mobile drawer */}
-      {mobileOpen &&
-      <div className="lg:hidden max-h-[calc(100dvh-4rem)] space-y-1 overflow-y-auto border-t border-border bg-white px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
-          {ITEMS.map(({ key, label, icon: Icon }) => {
-          const active = current === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => {
-                onNavigate(key);
-                setMobileOpen(false);
-              }}
-              aria-current={active ? 'page' : undefined}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition ${active ? 'bg-accent text-accent-foreground font-semibold' : 'text-foreground hover:bg-panel-bg'}`}>
-              
-                <Icon className={`w-4 h-4 ${active ? 'text-primary' : ''}`} />
-                {label}
-              </button>);
+      {/* Mobile Drawer */}
+      <RiderMobileDrawer
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        current={current}
+        onNavigate={onNavigate}
+        user={user}
+        onSignOut={onSignOut}
+        triggerRef={hamburgerButtonRef}
+      />
 
-        })}
-        </div>
-      }
       <SyncQueueDiagnosticsModal
         open={syncDiagnosticsOpen}
         failedCount={syncStatus.failed}
         onClose={() => setSyncDiagnosticsOpen(false)}
       />
-    </header>);
-
+    </header>
+  );
 }
