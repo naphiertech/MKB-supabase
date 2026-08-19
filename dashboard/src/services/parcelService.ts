@@ -812,8 +812,8 @@ export const getRiderPayrollMetrics = async (
   cutoffTo: string
 ): Promise<PayrollMetrics> => {
   const { data: attendance, error: attError } = await supabase
-    .from('attendance_logs')
-    .select('date, time_in, time_out, status')
+    .from('v_attendance_summary')
+    .select('date, time_in, time_out, raw_time_in, raw_time_out, log_status, hr_status')
     .eq('rider_id', riderId)
     .gte('date', cutoffFrom)
     .lte('date', cutoffTo);
@@ -832,15 +832,37 @@ export const getRiderPayrollMetrics = async (
 
   if (violError) throw violError;
 
-  const presentDays = (attendance ?? []).filter(a => a.status === 'present' || a.status === 'late').length;
-  const lateDays = (attendance ?? []).filter(a => a.status === 'late').length;
+  const rows = (attendance ?? []) as unknown as Array<{
+    date: string;
+    time_in: string | null;
+    time_out: string | null;
+    raw_time_in: string | null;
+    raw_time_out: string | null;
+    log_status: string | null;
+    hr_status: string | null;
+  }>;
+
+  const mappedAttendance = rows.map(row => {
+    const isLate = row.log_status === 'late' || row.hr_status === 'Late';
+    const isPresent = !!row.raw_time_in || !!row.time_in || row.log_status === 'present' || isLate;
+    const status = isLate ? 'late' : isPresent ? 'present' : (row.log_status === 'on_leave' ? 'on_leave' : 'absent');
+    return {
+      date: row.date,
+      time_in: row.raw_time_in || row.time_in || null,
+      time_out: row.raw_time_out || row.time_out || null,
+      status
+    };
+  });
+
+  const presentDays = mappedAttendance.filter(a => a.status === 'present' || a.status === 'late').length;
+  const lateDays = mappedAttendance.filter(a => a.status === 'late').length;
   const violationsCount = (violations ?? []).filter(v => v.type === 'boundary_exit' || v.type === 'idle_timeout').length;
 
   return {
     presentDays,
     lateDays,
     violationsCount,
-    attendanceLogs: attendance ?? [],
+    attendanceLogs: mappedAttendance,
     violations: violations ?? []
   };
 };
