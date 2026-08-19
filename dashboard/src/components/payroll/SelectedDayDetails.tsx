@@ -81,12 +81,24 @@ export function SelectedDayDetails({
           <div className="font-semibold font-mono text-foreground flex items-center gap-1">
             <Clock className="w-3.5 h-3.5 text-primary" />
             {selectedDayAtt?.time_out ? (
-              new Date(
-                selectedDayAtt.time_out.replace(" ", "T"),
-              ).toLocaleTimeString("en-PH", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
+              (() => {
+                const val = selectedDayAtt.time_out;
+                const d = new Date(val.replace(" ", "T"));
+                if (!isNaN(d.getTime())) {
+                  return d.toLocaleTimeString("en-PH", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                }
+                if (/^\d{1,2}:\d{2}$/.test(val)) {
+                  const [hStr, mStr] = val.split(':');
+                  let h = parseInt(hStr, 10);
+                  const ampm = h >= 12 ? 'PM' : 'AM';
+                  h = h % 12 || 12;
+                  return `${h}:${mStr} ${ampm}`;
+                }
+                return val;
+              })()
             ) : (
               <span className="text-subtle-text font-sans font-normal">
                 —
@@ -96,14 +108,16 @@ export function SelectedDayDetails({
         </div>
 
         <div>
-          <div className="text-muted-foreground mb-0.5">Late Time</div>
+          <div className="text-muted-foreground mb-0.5">Attendance Status</div>
           <div className="font-semibold text-foreground">
             {selectedDayAtt?.status === "late" ? (
               <span className="text-amber-600 font-semibold">
-                Flagged Late
+                Late
               </span>
             ) : selectedDayAtt?.status === "present" ? (
-              <span className="text-emerald-600">On Time</span>
+              <span className="text-emerald-600 font-semibold">
+                Present
+              </span>
             ) : (
               <span className="text-subtle-text font-normal">—</span>
             )}
