@@ -29,6 +29,7 @@ import {
   calculateDeliverySuccessRate,
   getParcelLogs,
   getPayrollDeliveryData,
+  getRiderPayrollMetrics,
   MissingPayrollSnapshotError,
   summarizeOperationalParcels,
   syncPayrollRecordsFromParcelLogs,
@@ -702,6 +703,80 @@ describe('payroll deletion & read purity tests', () => {
     const { initializeCutoffPayrollForFleet } = await import('./parcelService');
     await expect(initializeCutoffPayrollForFleet('2026-08-01', '2026-08-15')).rejects.toEqual({
       message: 'Failed to read parcel logs',
+    });
+  });
+});
+
+describe('getRiderPayrollMetrics authoritative attendance integration', () => {
+  it('queries v_attendance_summary and correctly derives late attendance (e.g. 10:31 AM clock in)', async () => {
+    const attendanceQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+    };
+    attendanceQuery.select.mockReturnValue(attendanceQuery);
+    attendanceQuery.eq.mockReturnValue(attendanceQuery);
+    attendanceQuery.gte.mockReturnValue(attendanceQuery);
+    attendanceQuery.lte.mockResolvedValue({
+      data: [
+        {
+          date: '2026-08-16',
+          time_in: '07:55',
+          time_out: '17:00',
+          raw_time_in: '2026-08-16T07:55:00.000Z',
+          raw_time_out: '2026-08-16T17:00:00.000Z',
+          log_status: 'present',
+          hr_status: 'Complete',
+        },
+        {
+          date: '2026-08-19',
+          time_in: '10:31',
+          time_out: '17:34',
+          raw_time_in: '2026-08-19T10:31:00.000Z',
+          raw_time_out: '2026-08-19T17:34:00.000Z',
+          log_status: 'present',
+          hr_status: 'Late',
+        },
+      ],
+      error: null,
+    });
+
+    const violationsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+    };
+    violationsQuery.select.mockReturnValue(violationsQuery);
+    violationsQuery.eq.mockReturnValue(violationsQuery);
+    violationsQuery.gte.mockReturnValue(violationsQuery);
+    violationsQuery.lte.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    mocks.from
+      .mockReturnValueOnce(attendanceQuery)
+      .mockReturnValueOnce(violationsQuery);
+
+    const metrics = await getRiderPayrollMetrics('rider-1', '2026-08-16', '2026-08-31');
+
+    expect(mocks.from).toHaveBeenNthCalledWith(1, 'v_attendance_summary');
+    expect(metrics.presentDays).toBe(2);
+    expect(metrics.lateDays).toBe(1);
+    expect(metrics.attendanceLogs).toHaveLength(2);
+    expect(metrics.attendanceLogs[0]).toEqual({
+      date: '2026-08-16',
+      time_in: '2026-08-16T07:55:00.000Z',
+      time_out: '2026-08-16T17:00:00.000Z',
+      status: 'present',
+    });
+    expect(metrics.attendanceLogs[1]).toEqual({
+      date: '2026-08-19',
+      time_in: '2026-08-19T10:31:00.000Z',
+      time_out: '2026-08-19T17:34:00.000Z',
+      status: 'late',
     });
   });
 });
