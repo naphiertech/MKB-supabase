@@ -41,6 +41,7 @@ import { PayslipSlipCard } from "./PayslipSlipCard";
 import { useParcelLogsRealtimeVersion } from "../../hooks/useParcelLogsRealtimeVersion";
 import { PayrollActorIdentity } from "./PayrollActorIdentity";
 import { RightDrawer } from "../common/RightDrawer";
+import { calculatePayrollAdjustmentTotals } from "../../lib/payroll/payrollAdjustments";
 
 export interface PayrollRecordShape {
   id: string;
@@ -409,10 +410,17 @@ export function PayrollDetailsModal({
   };
 
   // Payslip Slip - Option B: Dynamic calculations
-  const lateDeduction = lateOnhold + lateRemittance;
-  const totalEarnings = grossPay + otherEarnings + (fmPickupCount * 3);
-  const totalDeductions = deductions + lateDeduction;
-  const netSalary = totalEarnings - totalDeductions;
+  const {
+    totalEarnings,
+    totalDeductions,
+    netPay: netSalary,
+  } = calculatePayrollAdjustmentTotals(grossPay, {
+    otherEarnings,
+    fmPickupCount,
+    deductions,
+    lateOnhold,
+    lateRemittance,
+  });
 
   const isAdjustmentsChanged =
     otherEarnings !== Number(record.other_earnings ?? 0) ||
