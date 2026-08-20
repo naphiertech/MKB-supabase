@@ -1140,3 +1140,98 @@ export const bulkUpsertParcelLogs = async (
     console.warn('Post-bulk upsert log payroll sync warning:', syncErr);
   }
 };
+
+export interface ArchivedPayrollCutoff {
+  cutoffStart: string;
+  cutoffEnd: string;
+  label: string;
+  riderCount: number;
+  totalGross: number;
+  status: string;
+}
+
+export const getArchivedPayrollCutoffsSummary = async (
+  hubId?: string | null
+): Promise<ArchivedPayrollCutoff[]> => {
+  let query = supabase
+    .from('payroll_records')
+    .select(`
+      id,
+      cutoff_start,
+      cutoff_end,
+      gross_pay,
+      status,
+      rider_id,
+      riders!inner(id, hub_id, zone_id)
+    `)
+    .order('cutoff_start', { ascending: false });
+
+  if (hubId) {
+    query = query.eq('riders.hub_id', hubId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  const groups = new Map<string, {
+    cutoffStart: string;
+    cutoffEnd: string;
+    riderIds: Set<string>;
+    totalGross: number;
+    statuses: string[];
+  }>();
+
+  for (const row of data as any[]) {
+    const key = `${row.cutoff_start}_${row.cutoff_end}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        cutoffStart: row.cutoff_start,
+        cutoffEnd: row.cutoff_end,
+        riderIds: new Set(),
+        totalGross: 0,
+        statuses: [],
+      };
+      groups.set(key, group);
+    }
+    group.riderIds.add(row.rider_id);
+    group.totalGross += Number(row.gross_pay || 0);
+    group.statuses.push(row.status);
+  }
+
+  const MONTH_NAMES = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
+  const results: ArchivedPayrollCutoff[] = [];
+  for (const group of groups.values()) {
+    const [startYear, startMonth, startDay] = group.cutoffStart.split('-').map(Number);
+    const [, , endDay] = group.cutoffEnd.split('-').map(Number);
+    const monthName = MONTH_NAMES[(startMonth || 1) - 1] || 'Cutoff';
+    const label = `${monthName} ${startDay}–${endDay}, ${startYear}`;
+
+    const normalizedStatuses = group.statuses.map(s => (s === 'pending' ? 'submitted' : s));
+    const uniqueStatuses = new Set(normalizedStatuses);
+
+    let aggregateStatus = 'draft';
+    if (uniqueStatuses.size === 1) {
+      const [singleStatus] = Array.from(uniqueStatuses);
+      aggregateStatus = singleStatus;
+    } else if (uniqueStatuses.size > 1) {
+      aggregateStatus = 'mixed';
+    }
+
+    results.push({
+      cutoffStart: group.cutoffStart,
+      cutoffEnd: group.cutoffEnd,
+      label,
+      riderCount: group.riderIds.size,
+      totalGross: group.totalGross,
+      status: aggregateStatus,
+    });
+  }
+
+  return results;
+};
