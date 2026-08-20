@@ -27,6 +27,7 @@ vi.mock('./payrollBulkActions', () => ({
 
 import {
   calculateDeliverySuccessRate,
+  getArchivedPayrollCutoffsSummary,
   getParcelLogs,
   getPayrollDeliveryData,
   getRiderPayrollMetrics,
@@ -778,5 +779,119 @@ describe('getRiderPayrollMetrics authoritative attendance integration', () => {
       time_out: '2026-08-19T17:34:00.000Z',
       status: 'late',
     });
+  });
+});
+
+describe('getArchivedPayrollCutoffsSummary status aggregation', () => {
+  function mockPayrollRecordsQuery(rows: any[]) {
+    const query = {
+      select: vi.fn(),
+      order: vi.fn(),
+      eq: vi.fn(),
+    };
+    query.select.mockReturnValue(query);
+    query.order.mockResolvedValue({ data: rows, error: null });
+    query.eq.mockReturnValue(query);
+    mocks.from.mockReturnValue(query);
+  }
+
+  it('aggregates Paid only as paid', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'paid', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'paid', rider_id: 'r2' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('paid');
+  });
+
+  it('aggregates Approved only as approved', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'approved', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'approved', rider_id: 'r2' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('approved');
+  });
+
+  it('aggregates Submitted only as submitted', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'submitted', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'pending', rider_id: 'r2' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('submitted');
+  });
+
+  it('aggregates Draft only as draft', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'draft', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'draft', rider_id: 'r2' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('draft');
+  });
+
+  it('aggregates Rejected only as rejected', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'rejected', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'rejected', rider_id: 'r2' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('rejected');
+  });
+
+  it('aggregates Paid + Approved as mixed', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'paid', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'approved', rider_id: 'r2' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('mixed');
+  });
+
+  it('aggregates Paid + Draft as mixed', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'paid', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'draft', rider_id: 'r2' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('mixed');
+  });
+
+  it('aggregates Submitted + Rejected as mixed', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'submitted', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'rejected', rider_id: 'r2' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('mixed');
+  });
+
+  it('aggregates Paid + Approved + Rejected as mixed', async () => {
+    mockPayrollRecordsQuery([
+      { id: '1', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1000, status: 'paid', rider_id: 'r1' },
+      { id: '2', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 1200, status: 'approved', rider_id: 'r2' },
+      { id: '3', cutoff_start: '2026-08-01', cutoff_end: '2026-08-15', gross_pay: 800, status: 'rejected', rider_id: 'r3' },
+    ]);
+
+    const result = await getArchivedPayrollCutoffsSummary();
+    expect(result).toHaveLength(1);
+    expect(result[0].status).toBe('mixed');
   });
 });
