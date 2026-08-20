@@ -6,6 +6,7 @@ import {
   bulkApprovePayrollRecords,
   bulkMarkPayrollRecordsPaid,
 } from './payrollBulkActions';
+import { resolveAttendanceSummaryFacts } from './attendanceSummaryPolicy';
 
 export interface ParcelLog {
   id: string;
@@ -921,9 +922,18 @@ export const getRiderPayrollMetrics = async (
   }>;
 
   const mappedAttendance = rows.map(row => {
-    const isLate = row.log_status === 'late' || row.hr_status === 'Late';
-    const isPresent = !!row.raw_time_in || !!row.time_in || row.log_status === 'present' || isLate;
-    const status = isLate ? 'late' : isPresent ? 'present' : (row.log_status === 'on_leave' ? 'on_leave' : 'absent');
+    const summaryFacts = resolveAttendanceSummaryFacts({
+      timeIn: row.time_in,
+      rawTimeIn: row.raw_time_in,
+      logStatus: row.log_status,
+      hrStatus: row.hr_status,
+    });
+    const isPresent = summaryFacts.hasAnyTimeIn || summaryFacts.isLogPresent || summaryFacts.isLate;
+    const status = summaryFacts.isLate
+      ? 'late'
+      : isPresent
+      ? 'present'
+      : (summaryFacts.isLogLeave ? 'on_leave' : 'absent');
     return {
       date: row.date,
       time_in: row.raw_time_in || row.time_in || null,
