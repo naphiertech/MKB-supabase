@@ -9,6 +9,7 @@ import {
   resetDraftPayrollForCutoff,
   type ParcelLog
 } from '../services/parcelService';
+import { getParcelRateContextForDate, type ParcelRateContext } from '../services/operationsService';
 import { SearchableRiderComboboxModal } from '../components/payroll/SearchableRiderComboboxModal';
 import { useAuth } from '../hooks/useAuth';
 import { exportParcelPayslipPDF, exportParcelCSV, parcelLogsToPayslipDays, payslipAdjustmentsFromRecord, type PayslipSnapshotContext } from '../lib/exports/payrollExport';
@@ -26,7 +27,9 @@ import {
   Zap,
   Search as SearchIcon,
   RotateCcw,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  MoreHorizontal
 } from 'lucide-react';
 import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/RiderPayrollList';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
@@ -89,7 +92,31 @@ export function PayrollComputation() {
       ? `${MONTHS[month]} 1–15`
       : `${MONTHS[month]} 16–${new Date(currentYear, month + 1, 0).getDate()}`;
   }, [month, half, currentYear]);
+
   const parcelLogsVersion = useParcelLogsRealtimeVersion(selectedRiderId, cutoffFrom, cutoffTo);
+
+  // Dynamic Rate Rules Context (date-effective)
+  const [rateContext, setRateContext] = useState<ParcelRateContext | null>(null);
+
+  useEffect(() => {
+    if (!cutoffFrom) return;
+    let active = true;
+    getParcelRateContextForDate(cutoffFrom)
+      .then(ctx => {
+        if (active) setRateContext(ctx);
+      })
+      .catch(err => {
+        console.warn('Failed to load parcel rate context for cutoff date:', err);
+        if (active) setRateContext(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [cutoffFrom]);
+
+  // Dropdown UI states
+  const [cutoffMenuOpen, setCutoffMenuOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   // Details Modal States
   const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<PayrollRecordRow | null>(null);
@@ -357,61 +384,76 @@ export function PayrollComputation() {
     <div className="dashboard-page space-y-5">
 
       {/* Shared Cutoff Selection Header */}
-      <div className="bg-white border border-border rounded-xl p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
-              <Calendar className="w-4 h-4 text-primary" />
+      <div className="bg-white border border-border rounded-xl p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* Left: Cutoff Title & Range */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-accent ring-1 ring-primary/30 flex items-center justify-center shrink-0">
+              <Calendar className="w-5 h-5 text-primary" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
                 Cutoff Period
               </div>
-              <div className="text-sm font-semibold text-foreground">
+              <div className="text-base font-bold text-foreground truncate">
                 {cutoffLabel}, {currentYear}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={month}
-              onChange={e => setMonth(Number(e.target.value))}
-              disabled={!!activeRider}
-              className="h-9 px-3 pr-8 rounded-md bg-panel-bg border border-border text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono cursor-pointer disabled:opacity-50"
-            >
-              {MONTHS.map((m, idx) => (
-                <option key={m} value={idx}>
-                  {m} {currentYear}
-                </option>
-              ))}
-            </select>
+          {/* Right: Grouped Month Selector, Cutoff Half Toggles & Toolbar Actions */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Grouped Month & Half-month Selector */}
+            <div className="inline-flex items-center rounded-lg border border-border bg-panel-bg/70 p-0.5 gap-1 shadow-xs">
+              <select
+                value={month}
+                onChange={e => setMonth(Number(e.target.value))}
+                disabled={!!activeRider}
+                className="h-8 px-2.5 pr-7 rounded-md bg-white border border-border text-xs text-foreground font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer disabled:opacity-50"
+              >
+                {MONTHS.map((m, idx) => (
+                  <option key={m} value={idx}>
+                    {m} {currentYear}
+                  </option>
+                ))}
+              </select>
 
-            <div className="inline-flex rounded-md border border-border bg-panel-bg p-0.5">
-              <button
-                onClick={() => setHalf('first')}
-                disabled={!!activeRider}
-                className={`h-8 px-3 rounded text-xs font-semibold transition disabled:opacity-50 ${half === 'first' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                {MONTHS[month].slice(0, 3)} 1–15
-              </button>
-              <button
-                onClick={() => setHalf('second')}
-                disabled={!!activeRider}
-                className={`h-8 px-3 rounded text-xs font-semibold transition disabled:opacity-50 ${half === 'second' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                {MONTHS[month].slice(0, 3)} 16–{new Date(currentYear, month + 1, 0).getDate()}
-              </button>
+              <div className="inline-flex rounded-md bg-panel-bg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setHalf('first')}
+                  disabled={!!activeRider}
+                  className={`h-7 px-2.5 rounded text-xs font-semibold transition disabled:opacity-50 cursor-pointer ${
+                    half === 'first'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {MONTHS[month].slice(0, 3)} 1–15
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHalf('second')}
+                  disabled={!!activeRider}
+                  className={`h-7 px-2.5 rounded text-xs font-semibold transition disabled:opacity-50 cursor-pointer ${
+                    half === 'second'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {MONTHS[month].slice(0, 3)} 16–{new Date(currentYear, month + 1, 0).getDate()}
+                </button>
+              </div>
             </div>
 
-            {/* Fleet Initialization & Searchable Combobox Actions */}
+            {/* Cutoff Action Toolbar */}
             {!activeRider && (
-              <>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setConfirmInitOpen(true)}
                   disabled={initializingFleet || resettingFleet}
-                  className="h-9 px-3.5 rounded-lg bg-accent hover:bg-primary text-primary hover:text-white border border-primary/30 text-xs font-bold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+                  className="h-9 px-3.5 rounded-lg bg-accent hover:bg-primary text-primary hover:text-white border border-primary/30 text-xs font-bold transition inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
                   title="Create draft payroll rows for all active fleet riders for this cutoff"
                 >
                   {initializingFleet ? (
@@ -422,35 +464,58 @@ export function PayrollComputation() {
                   ) : (
                     <>
                       <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      Initialize Fleet Cutoff
+                      Initialize Cutoff
                     </>
                   )}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setConfirmResetOpen(true)}
-                  disabled={initializingFleet || resettingFleet}
-                  className="h-9 px-3 rounded-lg border border-red-200 bg-red-50/50 hover:bg-red-100 hover:text-red-700 text-red-600 text-xs font-semibold transition inline-flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
-                  title="Remove unedited 0-parcel draft records for this cutoff"
+                  onClick={() => setComboboxOpen(true)}
+                  className="h-9 px-3 rounded-lg bg-white border border-border hover:border-primary/40 hover:bg-panel-bg text-foreground text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  {resettingFleet ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  )}
-                  Reset Drafts
+                  <SearchIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                  Search Rider...
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setComboboxOpen(true)}
-                  className="h-9 px-3.5 rounded-lg bg-white border border-border hover:border-primary/40 hover:bg-panel-bg text-foreground text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <SearchIcon className="w-3.5 h-3.5 text-primary" />
-                  Search & Pick Rider...
-                </button>
-              </>
+                {/* Overflow Menu for Destructive / Secondary Actions */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setCutoffMenuOpen(prev => !prev)}
+                    className="h-9 w-9 rounded-lg border border-border bg-white hover:bg-panel-bg text-muted-foreground hover:text-foreground flex items-center justify-center transition cursor-pointer shadow-xs"
+                    title="More cutoff options"
+                    aria-label="More cutoff options"
+                    aria-haspopup="true"
+                    aria-expanded={cutoffMenuOpen}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+
+                  {cutoffMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-20"
+                        onClick={() => setCutoffMenuOpen(false)}
+                      />
+                      <div className="absolute right-0 mt-1.5 w-48 rounded-xl border border-border bg-white p-1 shadow-lg z-30 font-sans">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCutoffMenuOpen(false);
+                            setConfirmResetOpen(true);
+                          }}
+                          disabled={initializingFleet || resettingFleet}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50 transition cursor-pointer disabled:opacity-50 text-left"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                          <span>Reset Unedited Drafts</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             )}
 
           </div>
@@ -475,7 +540,7 @@ export function PayrollComputation() {
         /* View B: Active Rider Workspace */
         <div className="space-y-5">
           {/* Active Rider Header Navigation */}
-          <div className="flex items-center justify-between bg-white border border-border rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between bg-white border border-border rounded-xl p-4 shadow-xs">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setActiveRider(null)}
@@ -505,7 +570,7 @@ export function PayrollComputation() {
 
           {/* Selector and Settings Panel */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Left Panel: Selected Rider summary */}
+            {/* Left Panel: Selected Rider summary & Rate Rules */}
             <div className="bg-white border border-border rounded-xl p-5 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -536,30 +601,53 @@ export function PayrollComputation() {
 
                 {/* Dynamic Rate Rules Notice */}
                 <div className="mt-5 space-y-3.5">
-                  <div className="bg-panel-bg border border-border rounded-lg p-3.5 space-y-2">
-                    <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
-                      Dynamic Rate Rules
+                  <div className="bg-panel-bg border border-border rounded-lg p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground font-bold">
+                        Dynamic Rate Rules
+                      </div>
+                      {rateContext?.effectiveFrom && (
+                        <span className="text-[9.5px] font-mono text-muted-foreground bg-white px-1.5 py-0.5 rounded border border-border">
+                          Eff: {rateContext.effectiveFrom}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-xs space-y-1.5 text-foreground">
+                    <div className="text-xs space-y-1.5 text-foreground font-sans">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Early In (≤ 8:00 AM)</span>
-                        <span className="font-semibold font-mono text-emerald-600">₱12.00 / pc</span>
+                        <span className="font-semibold font-mono text-emerald-600">
+                          ₱{(rateContext?.earlyStandardRate ?? 12).toFixed(2)} / pc
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Standard (8:01–9:00 AM)</span>
-                        <span className="font-semibold font-mono text-amber-600">₱11.00 / pc</span>
+                        <span className="font-semibold font-mono text-amber-600">
+                          ₱{(rateContext?.regularStandardRate ?? 11).toFixed(2)} / pc
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Late / Fallback (≥ 9:01 AM)</span>
-                        <span className="font-semibold font-mono text-red-600">₱10.00 / pc</span>
+                        <span className="font-semibold font-mono text-red-600">
+                          ₱{(rateContext?.lateStandardRate ?? 10).toFixed(2)} / pc
+                        </span>
                       </div>
+                      {rateContext?.heavyParcelRate != null && (
+                        <div className="flex justify-between items-center pt-1.5 border-t border-border/60">
+                          <span className="text-muted-foreground">
+                            Heavy ({`>`} {rateContext.heavyThresholdKg ?? 3}kg)
+                          </span>
+                          <span className="font-semibold font-mono text-violet-700">
+                            ₱{rateContext.heavyParcelRate.toFixed(2)} / pc
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Panel: Computation & Summary */}
+            {/* Right Panel: Computation, Summary & Actions */}
             <div className="lg:col-span-2 bg-white border border-border rounded-xl overflow-hidden flex flex-col justify-between">
               <div>
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -601,7 +689,9 @@ export function PayrollComputation() {
                       Dynamic
                     </div>
                     <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                      ₱10.00 – ₱12.00 / pc
+                      {rateContext
+                        ? `₱${rateContext.lateStandardRate.toFixed(2)} – ₱${rateContext.earlyStandardRate.toFixed(2)} / pc`
+                        : '₱10.00 – ₱12.00 / pc'}
                     </div>
                   </div>
 
@@ -630,60 +720,86 @@ export function PayrollComputation() {
                 </div>
               </div>
 
-              <div className="px-5 pb-5 space-y-3">
-                {/* Action buttons */}
-                <div className="flex flex-col sm:flex-row gap-2.5">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleExportPDF}
-                    className="flex-1 h-11 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition inline-flex items-center justify-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+              {/* Compact Action Area */}
+              <div className="px-5 pb-5 pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-end gap-2.5">
+                {/* Export Dropdown */}
+                <div className="relative w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setExportMenuOpen(prev => !prev)}
+                    className="w-full sm:w-auto h-9 px-3.5 rounded-lg bg-white border border-border hover:border-primary/40 hover:bg-panel-bg text-foreground text-xs font-semibold transition inline-flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    aria-haspopup="true"
+                    aria-expanded={exportMenuOpen}
                   >
-                    <FileDown className="w-4 h-4" />
-                    Export PDF Payslip
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleExportCSV}
-                    className="flex-1 h-11 rounded-lg bg-white border border-border hover:border-primary/40 hover:bg-accent/40 text-foreground text-sm font-semibold transition inline-flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-primary" />
-                    Export CSV
-                  </motion.button>
+                    <FileDown className="w-3.5 h-3.5 text-primary" />
+                    <span>Export</span>
+                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                  </button>
+
+                  {exportMenuOpen && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-20"
+                        onClick={() => setExportMenuOpen(false)}
+                      />
+                      <div className="absolute left-0 sm:right-0 sm:left-auto bottom-full mb-1.5 w-44 rounded-xl border border-border bg-white p-1 shadow-lg z-30 font-sans">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExportMenuOpen(false);
+                            handleExportPDF();
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-panel-bg transition cursor-pointer text-left"
+                        >
+                          <FileDown className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span>PDF Payslip</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExportMenuOpen(false);
+                            handleExportCSV();
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-panel-bg transition cursor-pointer text-left"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>CSV Export</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                {/* Finalize row */}
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
+                {/* Finalize CTA */}
+                <button
+                  type="button"
                   onClick={handleFinalize}
                   disabled={savingAll || dayEntries.length === 0 || isReadOnly}
-                  className="w-full h-11 rounded-lg bg-foreground hover:bg-black text-white text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-full sm:w-auto h-9 px-4 rounded-lg bg-foreground hover:bg-black text-white text-xs font-semibold transition inline-flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {isReadOnly ? (
                     <>
-                      <Lock className="w-4 h-4 text-subtle-text" />
-                      Submitted & Read-Only
+                      <Lock className="w-3.5 h-3.5 text-subtle-text" />
+                      <span>Submitted & Read-Only</span>
                     </>
                   ) : savingAll ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Finalizing Cutoff...
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Finalizing Cutoff...</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 text-amber-400" />
-                      Finalize & Save Cutoff Record
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Finalize & Save</span>
                     </>
                   )}
-                </motion.button>
+                </button>
               </div>
             </div>
           </div>
 
           {/* Read-only operational context from parcel_logs */}
-          <div className="bg-white border border-border rounded-xl overflow-hidden">
+          <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold text-foreground">Operational Breakdown</div>
