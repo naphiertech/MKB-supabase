@@ -1,17 +1,12 @@
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import {
-  haversine,
-  type Rider,
-  type Zone } from
-'../services/types';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { haversine } from '../services/types';
 import {
   getRiderPayrollHistory,
   cacheRiderFaceDescriptor,
   getRiderViolationsForMonth
 } from '../services/riderService';
-import { fetchRiderDashboardWithSWR, updateCachedAttendanceState, type CachedDashboardPayload } from '../services/riderCacheService';
+import { updateCachedAttendanceState } from '../services/riderCacheService';
 import { recordTimeIn, recordTimeOut, isAttendanceFinalized } from '../services/attendanceService';
-import { useRiderZone } from '../context/RiderZoneContext';
 import { isPointInPolygon } from '../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../lib/riderGeolocation';
 import { logRiderLocation, updateRiderStatus } from '../services/monitoringService';
@@ -51,13 +46,12 @@ import {
   diffPretty,
   format12h,
   getLocalDateString,
-  mapCachedDashboardPayloadToState,
   nowHHMM,
   parseTime,
   toHHMM,
-  type DashboardAttendanceLog,
   type DashboardViolation,
 } from './rider-dashboard/riderDashboardModel';
+import { useRiderDashboardData } from './rider-dashboard/useRiderDashboardData';
 
 interface RiderDashboardProps {
   userId: string;
@@ -87,33 +81,20 @@ interface PayrollRecord {
 }
 
 export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardProps) {
-  const { zones: allZones } = useRiderZone();
-  const [actualRiderId, setActualRiderId] = useState<string>(riderId);
-  const [rider, setRider] = useState<(Rider & { faceDescriptor?: number[] | null }) | null>(null);
-  const [zone, setZone] = useState<Zone | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeViolation, setActiveViolation] = useState<{
-    lat: number;
-    lng: number;
-    zoneName: string;
-  } | null>(null);
-
-  const [attendance, setAttendance] = useState<{
-    id: string | null;
-    timeIn: string | null;
-    timeOut: string | null;
-  }>({ id: null, timeIn: null, timeOut: null });
+  const {
+    actualRiderId,
+    rider,
+    zone,
+    loading,
+    attendance,
+    activeViolation,
+    stats,
+    monthAttendanceLogs,
+    reload: loadRiderAndZone,
+    updateRiderFaceDescriptor,
+  } = useRiderDashboardData({ userId, riderId });
   const { timeIn, timeOut } = attendance;
   const attendanceRef = useRef(attendance);
-
-  // Real Stats from Database
-  const [stats, setStats] = useState({
-    daysPresent: 0,
-    hoursThisWeek: 0,
-    violationsThisMonth: 0
-  });
-
-  const [monthAttendanceLogs, setMonthAttendanceLogs] = useState<DashboardAttendanceLog[]>([]);
   const [violationsList, setViolationsList] = useState<DashboardViolation[]>([]);
   const [loadingViolations, setLoadingViolations] = useState(false);
   const [activeStatModal, setActiveStatModal] = useState<'days' | 'hours' | 'violations' | null>(null);
@@ -174,74 +155,12 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
         await cacheRiderFaceDescriptor(actualRiderId, descriptor);
         setCachedDescriptor(actualRiderId, descriptor, rider?.avatar);
         console.log('[RiderDashboard] Successfully cached face descriptor to Supabase.');
-        setRider(prev => prev ? { ...prev, faceDescriptor: descriptor } : null);
+        updateRiderFaceDescriptor(descriptor);
       } catch (err) {
         console.error('[RiderDashboard] Exception while caching face descriptor:', err);
       }
     }
   });
-
-  const loadRiderAndZone = useCallback(async () => {
-    try {
-      const todayStr = getLocalDateString();
-      const todayDate = new Date();
-      const firstDayOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
-      const firstDayStr = getLocalDateString(firstDayOfMonth);
-      
-      const dayOfWeek = todayDate.getDay();
-      const diff = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-      const firstDayOfWeek = new Date(todayDate.setDate(diff));
-      const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
-
-      const applyPayload = (payload: CachedDashboardPayload) => {
-        const mapped = mapCachedDashboardPayloadToState(payload, firstDayOfWeekStr);
-
-        setActualRiderId(mapped.resolvedRiderId);
-
-        if (mapped.rider) {
-          setRider(mapped.rider);
-          if (payload.dbRider?.face_descriptor && Array.isArray(payload.dbRider.face_descriptor) && payload.dbRider.face_descriptor.length === 128) {
-            setCachedDescriptor(payload.dbRider.id, payload.dbRider.face_descriptor, mapped.rider.avatar);
-          }
-        }
-
-        setAttendance(mapped.attendance);
-        setActiveViolation(mapped.activeViolation);
-        setMonthAttendanceLogs(mapped.monthAttendanceLogs);
-        setStats(mapped.stats);
-
-        setLoading(false);
-      };
-
-      await fetchRiderDashboardWithSWR(
-        userId,
-        riderId,
-        todayStr,
-        firstDayStr,
-        firstDayOfMonth.toISOString(),
-        {
-          onCacheLoaded: (cachedData) => {
-            applyPayload(cachedData);
-          },
-          onFreshDataLoaded: (freshData) => {
-            applyPayload(freshData);
-          }
-        }
-      );
-    } catch (err) {
-      console.error('Error loading rider dashboard data:', err);
-      setLoading(false);
-    }
-  }, [userId, riderId]);
-
-  useEffect(() => {
-    loadRiderAndZone();
-  }, [loadRiderAndZone]);
-
-  useEffect(() => {
-    const resolvedZone = allZones.find((candidate) => candidate.id === rider?.zoneId) || allZones[0];
-    if (resolvedZone) setZone(resolvedZone);
-  }, [allZones, rider?.zoneId]);
 
   // Background Biometrics Pre-warming (decoupled from initial page render)
   useEffect(() => {
