@@ -5,6 +5,10 @@ import { createSyncOperationId, getStorageAdapter, type QueueEnqueueInput } from
 import { dispatchNotificationSafe } from './notificationService';
 import { getRiderWorkforceDirectory } from './workforceDirectoryService';
 import { downloadCsv } from '../lib/exports/exportUtils';
+import {
+  resolveAttendancePunctuality,
+  resolveAttendanceSummaryFacts,
+} from './attendanceSummaryPolicy';
 
 // Helper to convert dynamic timestamps (timestamptz) back to HH:MM format in local timezone
 function toHHMM(dateStr: string | null): string | null {
@@ -162,10 +166,15 @@ export async function getAttendanceLogs(filters?: {
   let result: AttendanceLog[] = ((data as unknown as DbAttendanceViewRow[]) || []).map((row: DbAttendanceViewRow) => {
     const cached = getCachedAvatar(row.rider_id);
     const realPhoto = row.rider_avatar || cached || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.rider_name || '')}`;
-    const isLate = row.log_status === 'late' || row.hr_status === 'Late';
-    const isPresent = !!row.time_in || row.log_status === 'present' || isLate;
-    const presence = (row.log_status === 'on_leave' ? 'on_leave' : isPresent ? 'present' : 'absent');
-    const punctuality = (isLate ? 'late' : isPresent ? 'on_time' : 'none');
+    const summaryFacts = resolveAttendanceSummaryFacts({
+      timeIn: row.time_in,
+      rawTimeIn: row.raw_time_in,
+      logStatus: row.log_status,
+      hrStatus: row.hr_status,
+    });
+    const isPresent = summaryFacts.hasFormattedTimeIn || summaryFacts.isLogPresent || summaryFacts.isLate;
+    const presence = (summaryFacts.isLogLeave ? 'on_leave' : isPresent ? 'present' : 'absent');
+    const punctuality = resolveAttendancePunctuality(summaryFacts.isLate, isPresent);
 
     return {
       id: row.id,
@@ -181,7 +190,7 @@ export async function getAttendanceLogs(filters?: {
       hours: row.hours || 0,
       zoneId: row.zone_id || '',
       zoneName: row.zone_name || 'Unassigned',
-      status: (isLate ? 'late' : isPresent ? 'present' : 'absent') as AttendanceStatus,
+      status: (summaryFacts.isLate ? 'late' : isPresent ? 'present' : 'absent') as AttendanceStatus,
       presence: presence as AttendancePresence,
       punctuality: punctuality as PunctualityStatus,
       source: (row.source || 'face-scan') as 'face-scan' | 'manual',

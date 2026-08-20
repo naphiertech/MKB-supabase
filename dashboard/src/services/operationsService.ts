@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { getRiderWorkforceDirectory } from './workforceDirectoryService';
+import { resolveAttendanceSummaryFacts } from './attendanceSummaryPolicy';
 import { logActivity } from '../lib/apiService';
 import { getLocalDateString } from './attendanceService';
 import { syncPayrollRecordsFromParcelLogs, getCutoffRangeForDate } from './parcelService';
@@ -392,13 +393,21 @@ export async function getDailyParcelEntries(params: {
     const att = attLogs.find(a => a.rider_id === r.id);
     const existingLog = encodedRiderMap.get(r.id);
 
-    const isLate = att?.log_status === 'late' || att?.hr_status === 'Late';
-    const isPresent = !!att?.time_in || att?.log_status === 'present' || att?.hr_status === 'Present' || isLate;
-    const isLeave = att?.log_status === 'on_leave' || att?.hr_status === 'On Leave';
+    const summaryFacts = resolveAttendanceSummaryFacts({
+      timeIn: att?.time_in,
+      rawTimeIn: att?.raw_time_in,
+      logStatus: att?.log_status,
+      hrStatus: att?.hr_status,
+    });
+    const isPresent = summaryFacts.hasFormattedTimeIn
+      || summaryFacts.isLogPresent
+      || summaryFacts.isHrPresent
+      || summaryFacts.isLate;
+    const isLeave = summaryFacts.isLogLeave || summaryFacts.isHrLeave;
 
     const presenceStatus: DailyParcelRow['attendanceStatus'] = isLeave
       ? 'on_leave'
-      : isLate
+      : summaryFacts.isLate
       ? 'late'
       : isPresent
       ? 'present'
@@ -792,10 +801,15 @@ export async function getParcelHistory(filters: ParcelHistoryFilter): Promise<{
     const zoneObj = (Array.isArray(rider?.zones) ? rider?.zones[0] : rider?.zones) as { name: string } | null;
     const att = attLogs.find(a => a.rider_id === row.rider_id && a.date === row.date);
 
-    const isLate = att?.log_status === 'late' || att?.hr_status === 'Late';
-    const isPresent = !!att?.time_in || att?.log_status === 'present' || isLate;
+    const summaryFacts = resolveAttendanceSummaryFacts({
+      timeIn: att?.time_in,
+      rawTimeIn: att?.raw_time_in,
+      logStatus: att?.log_status,
+      hrStatus: att?.hr_status,
+    });
+    const isPresent = summaryFacts.hasFormattedTimeIn || summaryFacts.isLogPresent || summaryFacts.isLate;
     const presenceStatus: ParcelHistoryItem['attendanceStatus'] =
-      att?.log_status === 'on_leave' ? 'on_leave' : isLate ? 'late' : isPresent ? 'present' : 'absent';
+      summaryFacts.isLogLeave ? 'on_leave' : summaryFacts.isLate ? 'late' : isPresent ? 'present' : 'absent';
 
     const formattedTimeIn = formatTimeString(att?.raw_time_in, att?.time_in);
     const recorderInfo = formatRecorderIdentity(row.created_by, userMap);
