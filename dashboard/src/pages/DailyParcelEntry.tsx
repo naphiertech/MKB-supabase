@@ -7,24 +7,14 @@ import {
   RotateCcw,
   Save,
   Loader2,
-  Info,
-  Clock,
-  MapPin,
   Users,
   CheckCircle2,
-  UserX,
-  ChevronDown,
-  ChevronRight,
-  X,
-  Package,
-  FileText,
-  ShieldCheck
+  UserX
 } from 'lucide-react';
 import {
   getDailyParcelEntries,
   saveDailyParcelEntries,
   createParcelCorrectionRequest,
-  calculateParcelOperationalMetrics,
   isCutoffLockedForDate,
   type DailyParcelRow,
   type ParcelRateContext
@@ -36,32 +26,9 @@ import { useAuth } from '../hooks/useAuth';
 import { pushToast } from '../hooks/useToast';
 import { getLocalDateString } from '../services/attendanceService';
 import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
-import { RiderAvatar } from '../components/common/RiderAvatar';
-import { RightDrawer } from '../components/common/RightDrawer';
-import { StatusBadge as SemanticStatusBadge } from '../components/common/DashboardPrimitives';
-import { SkeletonTable } from '../components/common/SkeletonPrimitives';
-
-function StatusBadge({ status }: { status: DailyParcelRow['attendanceStatus'] }) {
-  switch (status) {
-    case 'present':
-      return (
-        <SemanticStatusBadge tone="success" dot size="md">Present</SemanticStatusBadge>
-      );
-    case 'late':
-      return (
-        <SemanticStatusBadge tone="warning" dot size="md">Late</SemanticStatusBadge>
-      );
-    case 'on_leave':
-      return (
-        <SemanticStatusBadge tone="info" dot size="md">On Leave</SemanticStatusBadge>
-      );
-    case 'absent':
-    default:
-      return (
-        <SemanticStatusBadge tone="danger" dot size="md">Absent</SemanticStatusBadge>
-      );
-  }
-}
+import { useDailyParcelDraft } from './daily-parcels/useDailyParcelDraft';
+import { DailyParcelEntryTable } from './daily-parcels/DailyParcelEntryTable';
+import { DailyParcelEntryDrawer } from './daily-parcels/DailyParcelEntryDrawer';
 
 export function DailyParcelEntry() {
   const { user } = useAuth();
@@ -73,14 +40,20 @@ export function DailyParcelEntry() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const [rows, setRows] = useState<DailyParcelRow[]>([]);
+  const {
+    rows,
+    modifiedRows,
+    selectedRiderDrawer,
+    drawerDraft,
+    replaceRows,
+    updateRowCount,
+    updateDrawerField,
+    openDrawer,
+    closeDrawer,
+    stageDrawerDraft,
+    reset,
+  } = useDailyParcelDraft(selectedDate);
   const [absentRows, setAbsentRows] = useState<DailyParcelRow[]>([]);
-  const [initialRows, setInitialRows] = useState<Record<string, {
-    standard: number;
-    heavy: number;
-    failed: number;
-    returned: number;
-  }>>({});
   const [rateContext, setRateContext] = useState<ParcelRateContext | null>(null);
   const [totalEligibleCount, setTotalEligibleCount] = useState<number>(0);
   const [encodedCount, setEncodedCount] = useState<number>(0);
@@ -92,26 +65,12 @@ export function DailyParcelEntry() {
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
 
-  // Right-side Drawer state for selected rider
-  const [selectedRiderDrawer, setSelectedRiderDrawer] = useState<DailyParcelRow | null>(null);
-  const [drawerDelivered, setDrawerDelivered] = useState<number>(0);
-  const [drawerHeavy, setDrawerHeavy] = useState<number>(0);
-  const [drawerAssigned, setDrawerAssigned] = useState<number>(0);
-  const [drawerFailed, setDrawerFailed] = useState<number>(0);
-  const [drawerReturned, setDrawerReturned] = useState<number>(0);
-  const [drawerNotes, setDrawerNotes] = useState<string>('');
   const [correctionReason, setCorrectionReason] = useState<string>('');
   const [submittingCorrection, setSubmittingCorrection] = useState<boolean>(false);
   const [isCutoffLocked, setIsCutoffLocked] = useState<boolean>(false);
 
   useEffect(() => {
     if (selectedRiderDrawer) {
-      setDrawerDelivered(selectedRiderDrawer.deliveredParcels);
-      setDrawerHeavy(selectedRiderDrawer.heavyParcels);
-      setDrawerAssigned(selectedRiderDrawer.assignedParcels || 0);
-      setDrawerFailed(selectedRiderDrawer.failedDeliveries || 0);
-      setDrawerReturned(selectedRiderDrawer.returnedParcels || 0);
-      setDrawerNotes(selectedRiderDrawer.notes || '');
       setCorrectionReason('');
 
       isCutoffLockedForDate(selectedDate)
@@ -155,23 +114,13 @@ export function DailyParcelEntry() {
         search: searchQuery,
         status: selectedStatus
       });
-      setRows(res.rows);
+      replaceRows(res.rows);
       setAbsentRows(res.absentRows);
       setTotalEligibleCount(res.totalEligibleCount);
       setEncodedCount(res.encodedCount);
       setAbsentCount(res.absentCount);
       setRateContext(res.rateContext);
 
-      const initMap: Record<string, { standard: number; heavy: number; failed: number; returned: number }> = {};
-      res.rows.forEach(r => {
-        initMap[r.riderId] = {
-          standard: r.deliveredParcels,
-          heavy: r.heavyParcels,
-          failed: r.failedDeliveries,
-          returned: r.returnedParcels
-        };
-      });
-      setInitialRows(initMap);
     } catch (err) {
       console.error('Error loading daily parcel entries:', err);
       pushToast({
@@ -182,7 +131,7 @@ export function DailyParcelEntry() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, selectedZone, searchQuery, selectedStatus]);
+  }, [selectedDate, selectedZone, searchQuery, selectedStatus, replaceRows]);
 
   useEffect(() => {
     loadEntries();
@@ -200,83 +149,8 @@ export function DailyParcelEntry() {
     return absentRows.filter(r => r.riderId === selectedRider);
   }, [absentRows, selectedRider]);
 
-  // Handle local inline edits
-  type ParcelCountField = 'deliveredParcels' | 'heavyParcels' | 'failedDeliveries' | 'returnedParcels';
-  const handleParcelChange = (riderId: string, field: ParcelCountField, value: number) => {
-    setRows(prev =>
-      prev.map(r => {
-        if (r.riderId === riderId) {
-          const next = { ...r, [field]: value };
-          const initial = initialRows[riderId];
-          const isModified = !initial
-            || next.deliveredParcels !== initial.standard
-            || next.heavyParcels !== initial.heavy
-            || next.failedDeliveries !== initial.failed
-            || next.returnedParcels !== initial.returned;
-          return { ...next, isModified };
-        }
-        return r;
-      })
-    );
-    setSelectedRiderDrawer(prev => {
-      if (prev && prev.riderId === riderId) {
-        const next = { ...prev, [field]: value };
-        const initial = initialRows[riderId];
-        const isModified = !initial
-          || next.deliveredParcels !== initial.standard
-          || next.heavyParcels !== initial.heavy
-          || next.failedDeliveries !== initial.failed
-          || next.returnedParcels !== initial.returned;
-        return { ...next, isModified };
-      }
-      return prev;
-    });
-  };
-
-  // Check unsaved modified rows
-  const modifiedRows = useMemo(() => {
-    return rows.filter(r => r.isModified);
-  }, [rows]);
-
-  const drawerMetrics = useMemo(() => {
-    if (!selectedRiderDrawer) return null;
-    const counts = [drawerDelivered, drawerHeavy, drawerFailed, drawerReturned];
-    if (!counts.every(value => Number.isInteger(value) && value >= 0)) return null;
-    return calculateParcelOperationalMetrics({
-      standardDelivered: drawerDelivered,
-      heavyDelivered: drawerHeavy,
-      failed: drawerFailed,
-      returned: drawerReturned,
-      standardRate: selectedRiderDrawer.standardRate,
-      heavyRate: selectedRiderDrawer.heavyRate
-    });
-  }, [drawerDelivered, drawerHeavy, drawerFailed, drawerReturned, selectedRiderDrawer]);
-
-  // Reset local changes
   const handleReset = () => {
-    setRows(prev =>
-      prev.map(r => ({
-        ...r,
-        deliveredParcels: initialRows[r.riderId]?.standard ?? 0,
-        heavyParcels: initialRows[r.riderId]?.heavy ?? 0,
-        failedDeliveries: initialRows[r.riderId]?.failed ?? 0,
-        returnedParcels: initialRows[r.riderId]?.returned ?? 0,
-        isModified: false
-      }))
-    );
-    setSelectedRiderDrawer(prev => {
-      if (prev) {
-        return {
-          ...prev,
-          deliveredParcels: initialRows[prev.riderId]?.standard ?? 0,
-          heavyParcels: initialRows[prev.riderId]?.heavy ?? 0,
-          failedDeliveries: initialRows[prev.riderId]?.failed ?? 0,
-          returnedParcels: initialRows[prev.riderId]?.returned ?? 0,
-          isModified: false
-        };
-      }
-      return prev;
-    });
+    reset();
     pushToast({
       title: 'Changes Reverted',
       description: 'Local edits have been restored to saved values.',
@@ -295,11 +169,11 @@ export function DailyParcelEntry() {
             riderId: row.riderId,
             date: selectedDate,
             parcels: row.deliveredParcels,
-            heavyParcels: isDrawerRow ? drawerHeavy : row.heavyParcels,
-            notes: isDrawerRow ? drawerNotes : row.notes,
-            assignedParcels: isDrawerRow ? drawerAssigned : row.assignedParcels,
-            failedDeliveries: isDrawerRow ? drawerFailed : row.failedDeliveries,
-            returnedParcels: isDrawerRow ? drawerReturned : row.returnedParcels
+            heavyParcels: isDrawerRow ? drawerDraft.heavyParcels : row.heavyParcels,
+            notes: isDrawerRow ? drawerDraft.notes : row.notes,
+            assignedParcels: isDrawerRow ? drawerDraft.assignedParcels : row.assignedParcels,
+            failedDeliveries: isDrawerRow ? drawerDraft.failedDeliveries : row.failedDeliveries,
+            returnedParcels: isDrawerRow ? drawerDraft.returnedParcels : row.returnedParcels
           }
         ],
         user?.id || user?.email || 'Operations'
@@ -315,7 +189,7 @@ export function DailyParcelEntry() {
       });
 
       if (isDrawerRow) {
-        setSelectedRiderDrawer(null);
+        closeDrawer();
       }
       // Reload queue to filter out saved rider
       await loadEntries();
@@ -374,165 +248,51 @@ export function DailyParcelEntry() {
     }
   };
 
-  const renderRiderTableRows = (riderList: DailyParcelRow[]) => {
-    return riderList.map(row => {
-      const isSavingThis = savingRowId === row.riderId;
-      const countsAreValid = [row.deliveredParcels, row.heavyParcels, row.failedDeliveries, row.returnedParcels]
-        .every(value => Number.isInteger(value) && value >= 0);
-      const metrics = countsAreValid
-        ? calculateParcelOperationalMetrics({
-            standardDelivered: row.deliveredParcels,
-            heavyDelivered: row.heavyParcels,
-            failed: row.failedDeliveries,
-            returned: row.returnedParcels,
-            standardRate: row.standardRate,
-            heavyRate: row.heavyRate
-          })
-        : null;
-      const countInput = (field: ParcelCountField, label: string) => (
-        <input
-          type="number"
-          min={0}
-          step={1}
-          aria-label={`${label} for ${row.riderName}`}
-          value={row[field]}
-          onChange={event => handleParcelChange(row.riderId, field, Number(event.target.value))}
-          className={`w-16 text-right px-2 py-1.5 rounded-lg font-mono text-xs font-bold transition outline-none ${
-            row.isModified
-              ? 'bg-white border-2 border-amber-500 text-foreground shadow-xs'
-              : 'bg-panel-bg border border-border text-foreground focus:border-primary focus:ring-2 focus:ring-primary/15'
-          }`}
-        />
-      );
-
-      return (
-        <tr
-          key={row.riderId}
-          className={`transition-colors hover:bg-panel-bg/80 ${
-            row.isModified ? 'bg-amber-50/40' : ''
-          }`}
-        >
-          {/* Rider */}
-          <td className="px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              <RiderAvatar src={row.riderAvatar} name={row.riderName} className="w-8 h-8" />
-              <div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedRiderDrawer(row);
-                    setDrawerNotes(row.notes || '');
-                    setDrawerHeavy(row.heavyParcels);
-                    setDrawerAssigned(row.assignedParcels || row.deliveredParcels);
-                    setDrawerFailed(row.failedDeliveries || 0);
-                    setDrawerReturned(row.returnedParcels || 0);
-                  }}
-                  className="font-bold text-foreground text-xs hover:text-primary transition text-left cursor-pointer"
-                >
-                  {row.riderName}
-                </button>
-                <div className="text-[10px] font-mono text-muted-foreground">{row.riderMkbId}</div>
-              </div>
-            </div>
-          </td>
-
-          {/* Zone */}
-          <td className="px-4 py-3 font-medium text-foreground">
-            <span className="inline-flex items-center gap-1 text-xs">
-              <MapPin className="w-3 h-3 text-muted-foreground" />
-              {row.zoneName}
-            </span>
-          </td>
-
-          {/* Attendance (Read-Only) */}
-          <td className="px-4 py-3">
-            <StatusBadge status={row.attendanceStatus} />
-          </td>
-
-          {/* Time In (Read-Only Context) */}
-          <td className="px-4 py-3 font-mono text-xs">
-            {row.timeIn ? (
-              <span className="inline-flex items-center gap-1 text-foreground font-medium">
-                <Clock className="w-3 h-3 text-primary" />
-                {row.timeIn}
-              </span>
-            ) : (
-              <span className="text-subtle-text italic text-[11px]">Not Clocked In</span>
-            )}
-          </td>
-
-          <td className="px-2 py-3 text-right">{countInput('deliveredParcels', 'Standard delivered')}</td>
-          <td className="px-2 py-3 text-right">{countInput('heavyParcels', 'Heavy delivered')}</td>
-          <td className="px-2 py-3 text-right">{countInput('failedDeliveries', 'Failed')}</td>
-          <td className="px-2 py-3 text-right">{countInput('returnedParcels', 'Returned')}</td>
-          <td className="px-4 py-3 text-right font-mono font-bold text-foreground whitespace-nowrap">
-            {metrics ? `₱${metrics.dailyGross.toLocaleString()}` : 'Invalid'}
-          </td>
-
-          {/* Last Updated */}
-          <td className="hidden">
-            {row.lastUpdated
-              ? new Date(row.lastUpdated).toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  hour12: true
-                })
-              : '—'}
-          </td>
-
-          {/* Recorded By */}
-          <td className="hidden">
-            <div className="font-semibold text-foreground text-[11.5px] leading-none">
-              {row.recordedByName || 'Operations Staff'}
-            </div>
-            {row.recordedByDetail && (
-              <div className="text-[10px] font-mono text-muted-foreground mt-0.5 leading-none">
-                {row.recordedByDetail}
-              </div>
-            )}
-          </td>
-
-          {/* Actions */}
-          <td className="px-4 py-3 text-right">
-            <div className="flex items-center justify-end gap-1.5">
-              {row.isModified && (
-                <button
-                  type="button"
-                  onClick={() => handleSaveRow(row)}
-                  disabled={isSavingThis || savingAll}
-                  className="h-7 px-2.5 rounded-md bg-primary hover:bg-primary-hover text-white text-[11px] font-semibold transition inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  title="Save changes for this rider"
-                >
-                  {isSavingThis ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Save className="w-3 h-3" />
-                  )}
-                  Save
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRiderDrawer(row);
-                  setDrawerNotes(row.notes || '');
-                  setDrawerHeavy(row.heavyParcels);
-                  setDrawerAssigned(row.assignedParcels || row.deliveredParcels);
-                  setDrawerFailed(row.failedDeliveries || 0);
-                  setDrawerReturned(row.returnedParcels || 0);
-                }}
-                className="h-7 px-2.5 rounded-md bg-white border border-border hover:bg-panel-bg text-foreground text-[11px] font-medium transition inline-flex items-center gap-1 cursor-pointer shadow-xs"
-                title="View rider operational drawer"
-              >
-                <Info className="w-3 h-3 text-primary" />
-                Details
-              </button>
-            </div>
-          </td>
-        </tr>
-      );
+  const handleStageDrawerEdits = () => {
+    stageDrawerDraft();
+    pushToast({
+      title: 'Operational Notes Staged',
+      description: 'Click "Save" or "Save All" to commit details to database.',
+      tone: 'info'
     });
+  };
+
+  const handleSubmitCorrection = async () => {
+    if (!selectedRiderDrawer?.parcelLogId) return;
+    setSubmittingCorrection(true);
+    try {
+      await createParcelCorrectionRequest({
+        parcelLogId: selectedRiderDrawer.parcelLogId,
+        riderId: selectedRiderDrawer.riderId,
+        date: selectedDate,
+        previousDelivered: selectedRiderDrawer.deliveredParcels,
+        previousHeavy: selectedRiderDrawer.heavyParcels,
+        previousFailed: selectedRiderDrawer.failedDeliveries || 0,
+        previousReturned: selectedRiderDrawer.returnedParcels || 0,
+        requestedDelivered: drawerDraft.deliveredParcels,
+        requestedHeavy: drawerDraft.heavyParcels,
+        requestedFailed: drawerDraft.failedDeliveries,
+        requestedReturned: drawerDraft.returnedParcels,
+        reason: correctionReason,
+        requestedBy: user?.id || user?.email || 'Operations',
+      });
+      pushToast({
+        title: 'Correction Request Submitted',
+        description: 'Submitted correction request for Admin review. Original log remains unchanged until approved.',
+        tone: 'success'
+      });
+      closeDrawer();
+      setCorrectionReason('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit request.';
+      pushToast({
+        title: 'Submission Failed',
+        description: msg,
+        tone: 'error'
+      });
+    } finally {
+      setSubmittingCorrection(false);
+    }
   };
 
   return (
@@ -743,547 +503,35 @@ export function DailyParcelEntry() {
         </div>
       </div>
 
-      {/* Main Active Encoding Queue Table */}
-      <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs space-y-0">
-        <div className="px-4 py-3 bg-panel-bg border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Eligible Encoding Queue ({displayRows.length} Pending)
-            </h3>
-          </div>
-          <span className="text-[11px] text-muted-foreground font-mono">Present &amp; Late On-Duty Riders</span>
-        </div>
+      <DailyParcelEntryTable
+        rows={displayRows}
+        absentRows={displayAbsentRows}
+        loading={loading}
+        totalEligibleCount={totalEligibleCount}
+        encodedCount={encodedCount}
+        selectedDate={selectedDate}
+        savingRowId={savingRowId}
+        savingAll={savingAll}
+        absentCollapsed={absentCollapsed}
+        onToggleAbsent={() => setAbsentCollapsed(previous => !previous)}
+        onParcelChange={updateRowCount}
+        onSaveRow={handleSaveRow}
+        onOpenDrawer={openDrawer}
+      />
 
-        {loading ? (
-          <SkeletonTable
-            rows={7}
-            columns={10}
-            columnWeights={[1.45, 1.1, 0.95, 0.75, 0.7, 0.65, 0.65, 0.7, 0.9, 0.55]}
-            className="rounded-none border-0 shadow-none"
-            minWidthClassName="data-table-extra-wide"
-            showToolbar={false}
-            mobileBreakpoint="lg"
-          />
-        ) : displayRows.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
-            <div className="p-3 rounded-full bg-accent text-primary w-fit mx-auto border border-primary/20">
-              <PackageCheck className="w-8 h-8" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-foreground">
-                {totalEligibleCount > 0 && encodedCount === totalEligibleCount
-                  ? 'All Eligible Riders Encoded!'
-                  : 'Eligible Encoding Queue Empty'}
-              </h4>
-              <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-                {totalEligibleCount > 0 && encodedCount === totalEligibleCount
-                  ? `All ${encodedCount} on-duty couriers for ${selectedDate} have completed parcel delivery logs recorded.`
-                  : `No Present or Late riders waiting in the queue for ${selectedDate}. Riders must clock in before daily parcel entry.`}
-              </p>
-            </div>
-            {encodedCount > 0 && (
-              <a
-                href="#parcel_history"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition cursor-pointer shadow-xs mt-2"
-              >
-                View Parcel History ({encodedCount} Encoded Logs) &rarr;
-              </a>
-            )}
-          </div>
-        ) : (
-          <>
-          <div className="table-scroll-region hidden lg:block" role="region" aria-label="Daily parcel rider records" tabIndex={0}>
-            <table className="data-table-extra-wide w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="bg-panel-bg/60 border-b border-border text-[10.5px] uppercase tracking-wider text-muted-foreground font-bold">
-                  <th className="px-4 py-3">Rider</th>
-                  <th className="px-4 py-3">Zone</th>
-                  <th className="px-4 py-3">Attendance</th>
-                  <th className="px-4 py-3">Time In</th>
-                  <th className="px-2 py-3 text-right">Standard</th>
-                  <th className="px-2 py-3 text-right">Heavy</th>
-                  <th className="px-2 py-3 text-right">Failed</th>
-                  <th className="px-2 py-3 text-right">Returned</th>
-                  <th className="px-4 py-3 text-right">Daily Gross</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {renderRiderTableRows(displayRows)}
-              </tbody>
-            </table>
-          </div>
-          <div className="grid gap-3 p-3 lg:hidden">
-            {displayRows.map(row => {
-              const counts = [row.deliveredParcels, row.heavyParcels, row.failedDeliveries, row.returnedParcels];
-              const valid = counts.every(value => Number.isInteger(value) && value >= 0);
-              const metrics = valid ? calculateParcelOperationalMetrics({
-                standardDelivered: row.deliveredParcels,
-                heavyDelivered: row.heavyParcels,
-                failed: row.failedDeliveries,
-                returned: row.returnedParcels,
-                standardRate: row.standardRate,
-                heavyRate: row.heavyRate
-              }) : null;
-              return (
-                <article key={row.riderId} className="rounded-xl border border-border bg-white p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <RiderAvatar src={row.riderAvatar} name={row.riderName} className="w-9 h-9" />
-                      <div className="min-w-0">
-                        <div className="font-bold text-xs text-foreground truncate">{row.riderName}</div>
-                        <div className="text-[10px] text-muted-foreground truncate">{row.zoneName} · {row.timeIn || 'No time in'}</div>
-                      </div>
-                    </div>
-                    <StatusBadge status={row.attendanceStatus} />
-                  </div>
-                  <div className="grid grid-cols-2 min-[420px]:grid-cols-4 gap-2 text-center">
-                    {[
-                      ['Standard', row.deliveredParcels],
-                      ['Heavy', row.heavyParcels],
-                      ['Failed', row.failedDeliveries],
-                      ['Returned', row.returnedParcels]
-                    ].map(([label, value]) => (
-                      <div key={label} className="rounded-lg bg-panel-bg border border-border p-2">
-                        <div className="text-[9px] uppercase text-muted-foreground font-semibold">{label}</div>
-                        <div className="text-sm font-bold font-mono text-foreground">{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground uppercase font-semibold">Daily Gross</div>
-                      <div className="text-sm font-bold font-mono text-foreground">{metrics ? `₱${metrics.dailyGross.toLocaleString()}` : 'Invalid counts'}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRiderDrawer(row)}
-                      className="h-8 px-3 rounded-lg border border-border bg-white text-xs font-semibold text-foreground"
-                    >
-                      Edit details
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-          </>
-        )}
-      </div>
-
-      {/* Section 2: Absent / Off-Duty Riders (Read-Only Operational View) */}
-      {!loading && displayAbsentRows.length > 0 && (
-        <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
-          <button
-            type="button"
-            onClick={() => setAbsentCollapsed(prev => !prev)}
-            className="w-full px-4 py-3 bg-panel-bg hover:bg-panel-bg/80 border-b border-border flex items-center justify-between text-left cursor-pointer transition"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-gray-400" />
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Absent / Off-Duty Riders ({displayAbsentRows.length})
-              </h3>
-              <span className="text-[10.5px] text-subtle-text font-mono font-normal">(Read-Only Monitoring)</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-              <span>{absentCollapsed ? 'Expand Section' : 'Collapse Section'}</span>
-              {absentCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </div>
-          </button>
-
-          {!absentCollapsed && (
-            <div className="table-scroll-region" role="region" aria-label="Absent rider parcel status" tabIndex={0}>
-              <table className="data-table w-full text-xs text-left border-collapse">
-                <thead>
-                  <tr className="bg-panel-bg/40 border-b border-border text-[10.5px] uppercase tracking-wider text-muted-foreground font-bold">
-                    <th className="px-4 py-3">Rider</th>
-                    <th className="px-4 py-3">Zone</th>
-                    <th className="px-4 py-3">Attendance Status</th>
-                    <th className="px-4 py-3">Time In</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {displayAbsentRows.map(row => (
-                    <tr key={row.riderId} className="hover:bg-panel-bg/60 transition-colors">
-                      <td className="px-4 py-3 font-medium text-foreground">
-                        <div className="flex items-center gap-2.5">
-                          <RiderAvatar src={row.riderAvatar} name={row.riderName} className="w-7 h-7" />
-                          <div>
-                            <div className="font-semibold text-foreground">{row.riderName}</div>
-                            <div className="text-[10px] text-muted-foreground font-mono">{row.riderMkbId}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-panel-bg text-muted-foreground border border-border">
-                          <MapPin className="w-3 h-3 text-subtle-text" />
-                          {row.zoneName}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={row.attendanceStatus} />
-                      </td>
-                      <td className="px-4 py-3 font-mono text-muted-foreground">
-                        {row.timeIn || '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Rider Central Operational View */}
-      <RightDrawer
-        open={Boolean(selectedRiderDrawer)}
-        onClose={() => setSelectedRiderDrawer(null)}
-        ariaLabel={selectedRiderDrawer ? `Parcel entry for ${selectedRiderDrawer.riderName}` : 'Parcel entry details'}
-        widthClassName="max-w-md"
-        panelClassName="font-sans"
-        closeLabel="Close parcel entry drawer"
-      >
-        {selectedRiderDrawer && (
-          <>
-                  {/* Drawer Header */}
-                  <div className="p-5 border-b border-border flex items-center justify-between bg-panel-bg">
-                    <div className="flex items-center gap-3">
-                      <RiderAvatar src={selectedRiderDrawer.riderAvatar} name={selectedRiderDrawer.riderName} className="w-10 h-10" />
-                      <div>
-                        <h3 className="font-bold text-foreground text-sm">{selectedRiderDrawer.riderName}</h3>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          MKB ID: {selectedRiderDrawer.riderMkbId} &bull; {selectedRiderDrawer.zoneName}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRiderDrawer(null)}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white transition cursor-pointer"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Drawer Content Body */}
-                  <div className="flex-1 overflow-y-auto p-5 space-y-5">
-                    {/* Attendance Summary Card (Read-Only Context) */}
-                    <div className="p-4 rounded-xl bg-panel-bg border border-border space-y-3">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-muted-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-primary" />
-                          Attendance Status (Read-Only)
-                        </span>
-                        <StatusBadge status={selectedRiderDrawer.attendanceStatus} />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border text-xs">
-                        <div>
-                          <div className="text-muted-foreground text-[11px] mb-0.5">Time In</div>
-                          <div className="font-semibold font-mono text-foreground">
-                            {selectedRiderDrawer.timeIn || 'Not Clocked In'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-muted-foreground text-[11px] mb-0.5">Time Out</div>
-                          <div className="font-semibold font-mono text-foreground">
-                            {selectedRiderDrawer.timeOut || 'Active / None'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-muted-foreground text-[11px] mb-0.5">Shift Hours</div>
-                          <div className="font-semibold font-mono text-foreground">
-                            {selectedRiderDrawer.hours ? `${selectedRiderDrawer.hours.toFixed(1)} hrs` : '0.0 hrs'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-muted-foreground text-[11px] mb-0.5">Shift Date</div>
-                          <div className="font-semibold font-mono text-foreground">{selectedDate}</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Delivered Parcels Input Section */}
-                    <div className="p-4 rounded-xl border border-primary/30 bg-accent/30 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-foreground text-xs flex items-center gap-1.5">
-                          <PackageCheck className="w-4 h-4 text-primary" />
-                          Applied Rate Context
-                        </span>
-                        <span className="text-[10px] font-mono text-primary font-semibold uppercase">
-                          Operational Input
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
-                        <div>
-                          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Standard rate</div>
-                          <div className="font-mono font-bold text-foreground">₱{selectedRiderDrawer.standardRate}</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase font-semibold text-muted-foreground">Heavy rate</div>
-                          <div className="font-mono font-bold text-foreground">₱{selectedRiderDrawer.heavyRate} / parcel</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Audit & Record Metadata */}
-                    <div className="p-3.5 rounded-xl bg-panel-bg border border-border space-y-2 text-xs">
-                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        Operator Identity
-                      </div>
-                      <div className="space-y-1 font-mono text-[11px]">
-                        <div>
-                          <span className="text-muted-foreground">Recorded By:</span>{' '}
-                          <span className="text-foreground font-semibold">
-                            {selectedRiderDrawer.recordedByName || 'Operations Staff'}
-                          </span>
-                        </div>
-                        {selectedRiderDrawer.recordedByDetail && (
-                          <div className="text-[10px] text-muted-foreground">
-                            ({selectedRiderDrawer.recordedByDetail})
-                          </div>
-                        )}
-                        <div>
-                          <span className="text-muted-foreground">Last Updated:</span>{' '}
-                          <span className="text-foreground font-semibold tabular-nums">
-                            {selectedRiderDrawer.lastUpdated
-                              ? new Date(selectedRiderDrawer.lastUpdated).toLocaleTimeString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                })
-                              : '—'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Operational outcome inputs */}
-                    <div className="border-t border-border pt-4 space-y-4">
-                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <Package className="w-3.5 h-3.5 text-primary" />
-                        Parcel Outcomes
-                      </h4>
-
-                      <div>
-                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                          Standard Delivered
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={drawerDelivered}
-                          onChange={e => setDrawerDelivered(Number(e.target.value))}
-                          className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground font-bold text-primary"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                            Heavy Delivered
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={drawerHeavy}
-                            onChange={e => setDrawerHeavy(Number(e.target.value))}
-                            className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground font-bold text-primary"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                            Assigned Parcels
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={drawerAssigned}
-                            onChange={e => setDrawerAssigned(Number(e.target.value))}
-                            className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                            Failed Deliveries
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={drawerFailed}
-                            onChange={e => setDrawerFailed(Number(e.target.value))}
-                            className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">
-                          Returned Parcels
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={drawerReturned}
-                          onChange={e => setDrawerReturned(Number(e.target.value))}
-                          className="w-full h-8 px-2.5 rounded-lg bg-panel-bg border border-border font-mono text-xs text-foreground"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 rounded-xl border border-border bg-panel-bg p-3 text-xs">
-                        <div>
-                          <div className="text-[9px] uppercase font-semibold text-muted-foreground">Standard earnings</div>
-                          <div className="font-mono font-bold text-foreground">{drawerMetrics ? `₱${drawerMetrics.standardEarnings.toLocaleString()}` : 'Invalid'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] uppercase font-semibold text-muted-foreground">Heavy earnings</div>
-                          <div className="font-mono font-bold text-foreground">{drawerMetrics ? `₱${drawerMetrics.heavyEarnings.toLocaleString()}` : 'Invalid'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] uppercase font-semibold text-muted-foreground">Daily gross</div>
-                          <div className="font-mono font-bold text-primary">{drawerMetrics ? `₱${drawerMetrics.dailyGross.toLocaleString()}` : 'Invalid'}</div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                          <FileText className="w-3 h-3 text-muted-foreground" />
-                          Operational Shift Notes
-                        </label>
-                        <textarea
-                          rows={3}
-                          value={drawerNotes}
-                          onChange={e => setDrawerNotes(e.target.value)}
-                          placeholder="Enter hub exceptions, weather delays, or dispatch notes..."
-                          className="w-full p-2.5 rounded-lg bg-panel-bg border border-border text-xs text-foreground outline-none focus:border-primary"
-                        />
-                      </div>
-
-                      {selectedRiderDrawer.parcelLogId && isCutoffLocked ? (
-                        <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 space-y-2 text-xs">
-                          <div className="flex items-center gap-1.5 font-bold text-amber-900 uppercase text-[10.5px]">
-                            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
-                            Locked Payroll Period — Correction Request Required
-                          </div>
-                          <p className="text-[11px] text-amber-800 leading-snug">
-                            The payroll cutoff for this shift has been submitted for review. Direct edits are disabled. All modifications must go through an official Correction Request and Admin approval.
-                          </p>
-                          <div>
-                            <label className="block text-[11px] font-semibold text-amber-900 mb-1">
-                              Reason for Correction *
-                            </label>
-                            <textarea
-                              rows={2}
-                              value={correctionReason}
-                              onChange={e => setCorrectionReason(e.target.value)}
-                              placeholder="Describe the discrepancy or reason for modifying this log..."
-                              className="w-full p-2 rounded-lg bg-white border border-amber-300 text-xs text-amber-950 outline-none focus:border-amber-600 font-sans"
-                            />
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {/* Drawer Footer */}
-                  <div className="p-4 border-t border-border bg-panel-bg flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRiderDrawer(null)}
-                      className="px-3.5 py-2 rounded-lg bg-white border border-border hover:bg-panel-bg text-xs font-semibold text-muted-foreground cursor-pointer shadow-xs"
-                    >
-                      Close Drawer
-                    </button>
-                    {selectedRiderDrawer.parcelLogId && isCutoffLocked ? (
-                      <button
-                        type="button"
-                        disabled={submittingCorrection || !correctionReason.trim()}
-                        onClick={async () => {
-                          setSubmittingCorrection(true);
-                          try {
-                            await createParcelCorrectionRequest({
-                              parcelLogId: selectedRiderDrawer.parcelLogId!,
-                              riderId: selectedRiderDrawer.riderId,
-                              date: selectedDate,
-                              previousDelivered: selectedRiderDrawer.deliveredParcels,
-                              previousHeavy: selectedRiderDrawer.heavyParcels,
-                              previousFailed: selectedRiderDrawer.failedDeliveries || 0,
-                              previousReturned: selectedRiderDrawer.returnedParcels || 0,
-                              requestedDelivered: drawerDelivered,
-                              requestedHeavy: drawerHeavy,
-                              requestedFailed: drawerFailed,
-                              requestedReturned: drawerReturned,
-                              reason: correctionReason,
-                              requestedBy: user?.id || user?.email || 'Operations',
-                            });
-                            pushToast({
-                              title: 'Correction Request Submitted',
-                              description: 'Submitted correction request for Admin review. Original log remains unchanged until approved.',
-                              tone: 'success'
-                            });
-                            setSelectedRiderDrawer(null);
-                            setCorrectionReason('');
-                          } catch (err: unknown) {
-                            const msg = err instanceof Error ? err.message : 'Failed to submit request.';
-                            pushToast({
-                              title: 'Submission Failed',
-                              description: msg,
-                              tone: 'error'
-                            });
-                          } finally {
-                            setSubmittingCorrection(false);
-                          }
-                        }}
-                        className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-xs font-semibold text-white cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        {submittingCorrection ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-                        Submit Correction Request
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRows(prev =>
-                            prev.map(r =>
-                              r.riderId === selectedRiderDrawer.riderId
-                                ? {
-                                    ...r,
-                                    deliveredParcels: drawerDelivered,
-                                    heavyParcels: drawerHeavy,
-                                    notes: drawerNotes,
-                                    assignedParcels: drawerAssigned,
-                                    failedDeliveries: drawerFailed,
-                                    returnedParcels: drawerReturned,
-                                    isModified: true
-                                  }
-                                : r
-                            )
-                          );
-                          setSelectedRiderDrawer(null);
-                          pushToast({
-                            title: 'Operational Notes Staged',
-                            description: 'Click "Save" or "Save All" to commit details to database.',
-                            tone: 'info'
-                          });
-                        }}
-                        className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-xs font-semibold text-white cursor-pointer shadow-xs"
-                      >
-                        Apply &amp; Stage Edits
-                      </button>
-                    )}
-                  </div>
-          </>
-        )}
-      </RightDrawer>
+      <DailyParcelEntryDrawer
+        row={selectedRiderDrawer}
+        selectedDate={selectedDate}
+        draft={drawerDraft}
+        requiresCorrection={Boolean(selectedRiderDrawer?.parcelLogId && isCutoffLocked)}
+        correctionReason={correctionReason}
+        submittingCorrection={submittingCorrection}
+        onClose={closeDrawer}
+        onDraftChange={updateDrawerField}
+        onCorrectionReasonChange={setCorrectionReason}
+        onStageEdits={handleStageDrawerEdits}
+        onSubmitCorrection={handleSubmitCorrection}
+      />
     </motion.div>
   );
 }
