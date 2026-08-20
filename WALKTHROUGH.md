@@ -1,6 +1,6 @@
 # MKBRiderTrack Engineering Walkthrough & Codex Handoff
 
-This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent bug fixes, and deferred features as of **August 15, 2026**.
+This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent bug fixes, and deferred features as of **August 20, 2026**.
 
 This walkthrough is derived directly from the active repository source code, Supabase database migrations, test suites, and production build verification.
 
@@ -266,6 +266,20 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
    - Individual Approve and Mark as Paid actions route a one-record payload through these same RPCs. They do not maintain a separate client-side transition path.
    - Approval/payment activity logs and notifications are created inside the authoritative transaction. Paid remains immutable under the existing payroll workflow trigger and finalized payroll continues to use stored `payroll_delivery_lines`, never live `parcel_logs` recalculation.
    - Payroll Bulk Export remains a separate read-only action and cannot approve, pay, or otherwise mutate payroll.
+
+7. **Coverage-Based Cutoff Readiness Engine (`getCutoffPreparationCoverage`)**:
+   - Replaced naive `count > 0` checks with exact coverage calculations comparing existing `payroll_records` against date-effective eligible fleet riders from RPC `get_payroll_eligible_rider_ids`.
+   - Supports 4 discrete readiness states: `no_riders` (`No eligible riders`), `unprepared` (`Cutoff not prepared`), `partial` (`Partial · X/N prepared`), and `ready` (`Cutoff Ready`).
+   - Contextual `[ Prepare Cutoff ]` action is idempotent: only missing draft records are generated; existing records are preserved.
+   - Respects `selectedHubId` and `All Hubs` scope; resets to `Partial` or `Cutoff not prepared` when unedited drafts are removed via `resetDraftPayrollForCutoff`.
+
+8. **Authoritative Attendance Punctuality Integration (`v_attendance_summary.hr_status`)**:
+   - `getRiderPayrollMetrics` queries `v_attendance_summary.hr_status` to evaluate punctuality authoritatively against the 8:15 AM (Asia/Manila) HR rule.
+   - Displays exact late minutes in Day Details without conflating with or altering the separate parcel delivery rate tier matrix (≤8:00 AM, 8:01–9:00 AM, ≥9:01 AM).
+
+9. **Authoritative Cutoff Archive Aggregation (`getArchivedPayrollCutoffsSummary`)**:
+   - Aggregates multi-rider historical cutoffs strictly by status uniformity: all Paid → `Paid`, all Approved → `Approved`, all Submitted → `Submitted`, all Draft → `Draft`, all Rejected → `Rejected`, and any combination of differing statuses → `Mixed`.
+   - `Mixed` status badge is UI-derived only, preserving PostgreSQL enum purity without schema mutations.
 
 The Payroll Bulk Actions batch passed **57 / 57 database assertions** and **130 / 130 application tests** at the time that batch was completed. The current repository-wide application count is recorded in Section 16.
 
@@ -548,17 +562,17 @@ An operational test data reset was previously conducted on the staging database.
 
 ## 16. Current Test & Build Verification
 
-Verification executed against active repository state:
+Verification executed against active repository state as of **August 20, 2026**:
 
-- **TypeScript Type-Check (`npm run typecheck`)**: **PASS (0 errors)**
+- **TypeScript Type-Check (`npm run typecheck`)**: **PASS (0 errors)** across `dashboard` and `landing`
 - **Violations Database Lifecycle/RLS Suite**: **PASS (27 / 27 transactional assertions)**
-- **Payroll Bulk Actions Database Suite**: **PASS (57 / 57 transactional assertions; latest completed batch result)**
+- **Payroll Bulk Actions Database Suite**: **PASS (57 / 57 transactional assertions)**
 - **Employee Archive Database Lifecycle/RLS Suite**: **PASS (40 / 40 transactional assertions)**
-- **Automated Test Suite (`npm test -- --run`)**: **PASS (241 / 241 tests passed across 60 test files)**
+- **Automated Application Test Suite (`npm test -- --run`)**: **PASS (352 / 352 tests passed across 83 test files)**
 - **Account-Security Database Suite**: **PASS (14 / 14 transactional assertions)**
 - **Session-Control RLS Suite**: **PASS (5 / 5 transactional assertions)**
-- **ESLint Linting (`npm run lint`)**: **PASS (0 errors, 8 pre-existing warnings)**
-- **Production Build (`npm run build`)**: **PASS (the existing Vite large-chunk advisory remains)**
+- **ESLint Linting (`npm run lint:dashboard`)**: **PASS (0 errors, 0 warnings)**
+- **Production Build (`npm run build`)**: **PASS** across `dashboard` (Vite) and `landing` (Next.js 16.1.6 Turbopack)
 - **Diff Validation (`git diff --check`)**: **PASS**
 
 `jsdom@26.1.0` is installed as a **test-only development dependency** for real DOM focus, portal positioning, and interaction regression tests. It is not part of the application runtime architecture.
@@ -594,6 +608,11 @@ Verification executed against active repository state:
 15. **PostgREST Multi-FK Embed Ambiguity**: Resolved. Workforce queries explicitly select `user_hub_access!user_hub_access_user_id_fkey(...)`; Rider operational screens explicitly select `zones!riders_zone_id_fkey(...)`, while permanent Home Zone displays intentionally use `zones!riders_home_zone_id_fkey(...)`.
 16. **Controlled Rider Assignments**: Implemented for Admin and authorized HR with permanent transfers, temporary deployments, extension, early end, assignment history, Home/Operational Hub visibility, and server-side attendance, overlap, authorization, and Hub/Zone consistency checks.
 17. **Dashboard UI Consistency and Dense-Control Regressions**: Resolved with shared card/control/state/table primitives, compact Users and Payroll filter widths, and responsive Rider Assignments table behavior without changing backend workflows.
+18. **Payroll Details Attendance Punctuality Reconciliation**: Resolved. Connected `getRiderPayrollMetrics` to `v_attendance_summary.hr_status` so late clock-ins (> 8:15 AM) accurately show Late and exact late minutes in Day Details without altering the delivery parcel rate matrix.
+19. **Salary Computation UI Hierarchy & Action Consolidation**: Resolved. Grouped month selector and half-month buttons into a unified segment container, moved destructive Reset Drafts into an overflow `...` menu, replaced oversized export buttons with a compact `Export ▾` dropdown, added date-effective `Dynamic Rate Rules`, and moved `Search & Pick Rider...` into the Rider Payroll List header.
+20. **Coverage-Based Cutoff Readiness Engine**: Resolved. Replaced the naive `count > 0` binary check with `getCutoffPreparationCoverage`, accurately resolving date-effective eligible fleet riders, Hub scoping, partial preparation counts, and draft-reset recalculations.
+21. **Payroll Reports Mock Data Purge & Hub Scoping**: Resolved. Completely removed mock archive arrays, wired `Payroll History & Archives` to live Supabase data via `getArchivedPayrollCutoffsSummary`, fixed the `Load` action, and modernized the 3-way segmented report-type selector.
+22. **Authoritative Archive Cutoff Status Aggregation & `Mixed` Badge**: Resolved. Multi-rider cutoff rows in Payroll Reports now accurately display `Paid`, `Approved`, `Submitted`, `Draft`, `Rejected`, or `Mixed` based on strict status uniformity.
 
 ---
 
@@ -647,15 +666,56 @@ This was an earlier full-stack implementation and is already committed. It is se
 - The desktop Actions column is a compact sticky right-side three-dot menu rendered through the existing portal/overlay pattern. It remains visible during horizontal scrolling and supports tooltip/accessible labeling, keyboard navigation, Escape, outside-click dismissal, focus restoration, and the existing drawers and eligibility rules.
 - Normal/Home rows expose Transfer Permanently, Deploy Temporarily, and View Assignment History. Active temporary deployments expose Extend Deployment, End Deployment Early, and View Assignment History.
 
+### August 20, 2026 — Salary Computation, Attendance Punctuality, and Payroll Reports Overhaul
+
+This release implemented critical data-integrity reconciliations, UX hierarchy improvements, and coverage-based readiness logic across the payroll and reports domains:
+
+1. **Attendance Punctuality vs Parcel Rate Separation**:
+   - Reconciled `getRiderPayrollMetrics` with `v_attendance_summary.hr_status` so late clock-ins (> 8:15 AM Asia/Manila) authoritatively display Late and exact late minutes in the Payroll Details drawer.
+   - Preserved strict separation from the independent 8:00 AM / 9:00 AM delivery parcel rate tier matrix.
+
+2. **Salary Computation Cutoff Toolbar & Workspace UX**:
+   - Grouped the Month selector dropdown and Half-month button toggles (`1–15` and `16–end`) into a single segmented control container.
+   - Relocated the destructive `Reset Unedited Drafts` button into a discreet `...` overflow menu.
+   - Moved `Search & Pick Rider...` out of the cutoff toolbar and placed it directly inside the `RiderPayrollList` table header.
+   - Replaced oversized export CTAs with a compact `Export ▾` dropdown (PDF Payslip & CSV Export) and primary `Finalize & Save` CTA.
+   - Replaced static hardcoded rate cards with date-effective `Dynamic Rate Rules` loaded from `getParcelRateContextForDate(cutoffFrom)`.
+
+3. **Coverage-Based Cutoff Readiness Engine (`getCutoffPreparationCoverage`)**:
+   - Replaced the naive `count > 0` binary check with comprehensive coverage resolution.
+   - Queries date-effective eligible fleet riders via database RPC `get_payroll_eligible_rider_ids`.
+   - Filters riders by `selectedHubId` (or all authorized hubs in All Hubs mode).
+   - Tallies existing `payroll_records` across all valid statuses (`draft`, `submitted`, `approved`, `paid`, `rejected`).
+   - Renders 4 explicit states: `No eligible riders`, `Cutoff not prepared` + `[ ⚡ Prepare Cutoff ]`, `Partial · X/N prepared` + `[ ⚡ Prepare Cutoff ]`, and `Cutoff Ready` (emerald badge).
+   - Re-evaluates automatically on Hub toggle, cutoff selection, fleet initialization, or draft reset.
+
+4. **Payroll Reports Cleanup & Live Archives**:
+   - Purged all hardcoded prototype arrays (`Jul 1–15, 2026`, etc.).
+   - Connected `Payroll History & Archives` to live Supabase data via `getArchivedPayrollCutoffsSummary(selectedHubId)`.
+   - Converted old report cards into a sleek 3-way segmented report-type selector (`[ Cutoff Summary ]`, `[ Individual Payslips ]`, `[ Parcel Log ]`).
+   - Connected active `useHub()` context so switching hubs filters riders, zones, parcel logs, telemetry, and archives across the page.
+   - Fixed the `Load` action to set active date ranges from real Supabase records and trigger live UI refresh.
+
+5. **Authoritative Archive Status Aggregation (`Mixed` Badge)**:
+   - Aggregates multi-rider historical cutoffs: all Paid → `Paid`, all Approved → `Approved`, all Submitted → `Submitted`, all Draft → `Draft`, all Rejected → `Rejected`, and differing combinations → `Mixed`.
+   - Styled with a neutral purple badge without altering PostgreSQL enum types.
+
+### Preserved Invariants (What Was NOT Changed)
+- **Zero changes to payroll calculations**: Gross pay formulas, standard parcel pay, heavy parcel surcharges, attendance deductions, and net pay equations remain 100% untouched.
+- **Zero changes to parcel rate matrix**: Tiered rate windows and heavy threshold definitions remain unchanged.
+- **Zero schema or RLS mutations**: No tables, columns, constraints, or RLS policies were modified. `mixed` remains strictly UI-derived.
+- **Zero changes to approval workflows**: Status gates (`draft` → `submitted` → `approved` → `paid`) remain intact.
+- **Complete immutability of historical data**: Approved and paid historical cutoffs remained completely locked.
+- **Zero export template changes**: Official `.xlsx` templates and PDF engines were preserved.
+- **DTR and attendance ingestion untouched**: Biometric scan ingestion, time-in/out logging, and attendance tables remain untouched.
+
 ### Latest Verification
 
-- Responsive browser matrix: **86 checks passed** from 320px through 3840px, including effective widths representative of 1080p, 1440p, 2K, 4K, ultrawide, and zoomed-out desktop usage.
-- TypeScript: **PASS**.
-- Automated tests: **241 / 241 PASS across 60 files**.
-- ESLint: **PASS with 0 errors and 8 pre-existing warnings**.
-- Production build: **PASS**; the existing Vite large-chunk advisory remains.
+- Automated tests: **352 / 352 PASS across 83 files**.
+- TypeScript (`npm run typecheck`): **PASS (0 errors)** across `dashboard` and `landing`.
+- ESLint (`npm run lint:dashboard`): **PASS (0 errors, 0 warnings)**.
+- Production build (`npm run build`): **PASS** for Vite dashboard (21.61s) and Next.js landing (4.1s).
 - `git diff --check`: **PASS**.
-- All task-generated implementation changes are inside `dashboard/`; no task-generated `landing/` changes remain.
 
 ---
 
@@ -711,3 +771,6 @@ This was an earlier full-stack implementation and is already committed. It is se
 13. **Preserve Home vs Operational Rider Assignments**: `riders.home_hub_id` / `home_zone_id` are permanent; `riders.hub_id` / `zone_id` are operational. Use the assignment RPCs, never rewrite historical operational snapshots, never create overlapping deployments, and return temporary deployments to the exact current Home pair on expiry or early end.
 14. **Disambiguate PostgREST Embeds**: Because `users` has multiple relationships to `user_hub_access` and `riders` has both current and Home relationships to `zones`, always name the intended FK in embedded selects. Operational Rider screens use `zones!riders_zone_id_fkey`; Home assignment displays use `zones!riders_home_zone_id_fkey`.
 15. **Preserve One Payroll per Rider per Cutoff**: Multi-Hub work contributes to the Rider's single payroll record and official MKB payslip. Hub attribution remains internal; do not split payroll or alter the official payslip format by Hub.
+16. **Coverage-Based Cutoff Readiness**: Never revert to binary `count > 0` queries for cutoff preparation. Always resolve date-effective eligible fleet riders via `getCutoffPreparationCoverage` with `selectedHubId` scoping, and keep `Prepare Cutoff` available during partial states.
+17. **Strict Separation of Punctuality vs Parcel Rates**: Attendance punctuality (8:15 AM late threshold) must remain evaluated through `v_attendance_summary.hr_status`. Never conflate or modify attendance punctuality with the separate delivery parcel rate tier matrix (≤8:00 AM, 8:01–9:00 AM, ≥9:01 AM).
+18. **Authoritative Archive Status Aggregation**: Cutoff summary rows in Payroll Reports must aggregate strictly by status uniformity (`Paid`, `Approved`, `Submitted`, `Draft`, `Rejected`, `Mixed`). `Mixed` must remain UI-derived without polluting the database enum.
