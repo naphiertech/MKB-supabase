@@ -1,4 +1,4 @@
-import { useState, useEffect, ComponentType } from 'react';
+import { useState, useEffect, useMemo, ComponentType } from 'react';
 import { motion } from 'framer-motion';
 import {
   CalendarRange,
@@ -8,10 +8,13 @@ import {
   Loader2,
   AlertCircle,
   FileText,
-  ArrowUpRight,
   Users,
-  Package
+  Package,
+  CheckCircle2,
+  Building2,
+  Calendar
 } from 'lucide-react';
+import { useHub } from '../context/HubContext';
 import { getZones } from '../services/geofenceService';
 import { getAllRiders } from '../services/monitoringService';
 import type { Rider, Zone } from '../services/types';
@@ -20,7 +23,9 @@ import {
   getParcelLogsSummary,
   getPayrollRecordsSummary,
   getParcelLogsDetails,
-  getPayrollRecords
+  getPayrollRecords,
+  getArchivedPayrollCutoffsSummary,
+  type ArchivedPayrollCutoff
 } from '../services/parcelService';
 import {
   buildPayslipDocumentData,
@@ -48,31 +53,27 @@ const TEMPLATES: {
   description: string;
   meta: string;
   icon: ComponentType<{ className?: string }>;
-  accent: string;
 }[] = [
   {
     key: 'cutoff_summary',
     title: 'Cutoff Summary',
     description: 'All riders with gross pay totals for the selected cutoff period.',
-    meta: 'Per-cutoff · PDF/CSV/XLSX',
+    meta: 'PDF · CSV · XLSX',
     icon: CalendarRange,
-    accent: '#db6c00'
   },
   {
     key: 'individual_payslips',
     title: 'Individual Payslips',
     description: 'Generate a payslip per rider — single rider or bulk export for all riders.',
-    meta: 'Per-rider · PDF/Official XLSX',
+    meta: 'PDF · Official XLSX',
     icon: Receipt,
-    accent: '#b85a00'
   },
   {
     key: 'parcel_logs',
     title: 'Parcel Log',
     description: 'Raw daily parcel logs export by rider and date for the selected range.',
-    meta: 'Raw data · CSV/XLSX',
+    meta: 'CSV · XLSX',
     icon: Layers,
-    accent: '#db6c00'
   }
 ];
 
@@ -105,6 +106,8 @@ function friendlyExportError(error: unknown): string {
 }
 
 export function PayrollReports() {
+  const { selectedHubId, selectedHub, isReady: hubReady, workspaceKey } = useHub();
+
   const [ridersList, setRidersList] = useState<Rider[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [singleRiderId, setSingleRiderId] = useState<string>('');
@@ -125,15 +128,63 @@ export function PayrollReports() {
   }
   const [exportHistory, setExportHistory] = useState<ExportLog[]>([]);
 
+  // Real historical archives from Supabase
+  const [archives, setArchives] = useState<ArchivedPayrollCutoff[]>([]);
+  const [loadingArchives, setLoadingArchives] = useState(false);
+
+  // Load Riders, Zones & Archives respecting Hub scope
   useEffect(() => {
-    Promise.all([getAllRiders({ scope: 'historical' }), getZones()]).then(([r, z]) => {
-      setRidersList(r);
-      setZonesList(z);
-      if (r.length > 0) {
-        setSingleRiderId(r[0].id);
+    if (!hubReady) return;
+    let active = true;
+
+    const loadScopeData = async () => {
+      try {
+        const [r, z] = await Promise.all([
+          getAllRiders({ scope: 'historical' }),
+          getZones()
+        ]);
+        if (active) {
+          setRidersList(r);
+          setZonesList(z);
+          if (r.length > 0) {
+            setSingleRiderId(r[0].id);
+          } else {
+            setSingleRiderId('');
+          }
+        }
+      } catch (err) {
+        console.error('Error loading riders and zones in PayrollReports:', err);
       }
-    });
-  }, []);
+    };
+
+    loadScopeData();
+    return () => {
+      active = false;
+    };
+  }, [hubReady, workspaceKey, selectedHubId]);
+
+  // Load real historical payroll archives from Supabase
+  useEffect(() => {
+    if (!hubReady) return;
+    let active = true;
+    setLoadingArchives(true);
+
+    getArchivedPayrollCutoffsSummary(selectedHubId)
+      .then(data => {
+        if (active) setArchives(data);
+      })
+      .catch(err => {
+        console.error('Error fetching archived payroll cutoffs:', err);
+        if (active) setArchives([]);
+      })
+      .finally(() => {
+        if (active) setLoadingArchives(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hubReady, workspaceKey, selectedHubId]);
 
   interface ParcelLogRow {
     parcels: number;
@@ -161,7 +212,7 @@ export function PayrollReports() {
 
   // Fetch live cutoff logs for the summary card and bar chart
   useEffect(() => {
-    if (!from || !to) return;
+    if (!from || !to || !hubReady) return;
     let active = true;
 
     const fetchSummaryData = async () => {
@@ -183,11 +234,11 @@ export function PayrollReports() {
     return () => {
       active = false;
     };
-  }, [from, to]);
+  }, [from, to, hubReady, workspaceKey, selectedHubId]);
 
   // Fetch finalized records to calculate processed vs pending verification counts
   useEffect(() => {
-    if (!from || !to) return;
+    if (!from || !to || !hubReady) return;
     let active = true;
 
     const fetchFinalized = async () => {
@@ -206,12 +257,22 @@ export function PayrollReports() {
     return () => {
       active = false;
     };
-  }, [from, to]);
+  }, [from, to, hubReady, workspaceKey, selectedHubId]);
 
   // Deterministic cutoff summary derived from the selected records.
-  const filteredLogs = selectedZones.length === 0
-    ? cutoffLogs
-    : cutoffLogs.filter(log => log.riders?.zone_id && selectedZones.includes(log.riders.zone_id));
+  const authorizedRiderIds = useMemo(() => new Set(ridersList.map(r => r.id)), [ridersList]);
+
+  const filteredLogs = useMemo(() => {
+    return cutoffLogs.filter(log => {
+      // Must be authorized in current hub scope
+      if (!authorizedRiderIds.has(log.rider_id)) return false;
+      // Filter by selected zones if specified
+      if (selectedZones.length > 0) {
+        return log.riders?.zone_id && selectedZones.includes(log.riders.zone_id);
+      }
+      return true;
+    });
+  }, [cutoffLogs, authorizedRiderIds, selectedZones]);
 
   const totalStandardParcels = filteredLogs.reduce((sum, log) => sum + Number(log.parcels || 0), 0);
   const totalHeavyParcels = filteredLogs.reduce((sum, log) => sum + Number(log.heavy_parcels || 0), 0);
@@ -220,15 +281,12 @@ export function PayrollReports() {
   const distinctRiders = new Set(filteredLogs.map(log => log.rider_id));
   const totalRiders = distinctRiders.size;
 
-  const flaggedRiders = new Set(
-    filteredLogs.filter(log => Number(log.parcels || 0) + Number(log.heavy_parcels || 0) > 100).map(log => log.rider_id)
-  ).size;
-
   const activeRidersCount = selectedZones.length === 0
     ? ridersList.length
     : ridersList.filter(r => r.zoneId && selectedZones.includes(r.zoneId)).length;
 
   const processedCount = finalizedRecords.filter(rec => {
+    if (!authorizedRiderIds.has(rec.rider_id)) return false;
     if (selectedZones.length > 0) {
       const rider = ridersList.find(r => r.id === rec.rider_id);
       return rider?.zoneId && selectedZones.includes(rider.zoneId);
@@ -291,228 +349,234 @@ export function PayrollReports() {
 
         if (template === 'cutoff_summary') {
           setProgress('Loading finalized payroll snapshots…');
-        const records = await getPayrollRecords(from, to);
-        const finalizedRecords = records.filter(r => isReadOnlyStatus(r.status));
-        const filteredRecords = selectedZones.length === 0
-          ? finalizedRecords
-          : finalizedRecords.filter(r => r.riders?.zone_id && selectedZones.includes(r.riders.zone_id));
-
-        if (filteredRecords.length === 0) {
-          pushToast({
-            title: 'No finalized records found',
-            description: 'No finalized payroll entries in Supabase for this range.',
-            tone: 'info'
+          const records = await getPayrollRecords(from, to);
+          const finalizedRecords = records.filter(r => isReadOnlyStatus(r.status));
+          const filteredRecords = finalizedRecords.filter(r => {
+            if (!authorizedRiderIds.has(r.rider_id)) return false;
+            if (selectedZones.length > 0) {
+              return r.riders?.zone_id && selectedZones.includes(r.riders.zone_id);
+            }
+            return true;
           });
-          return;
-        }
 
-        const recordsWithDelivery = await Promise.all(filteredRecords.map(async record => ({
-          record,
-          delivery: await getPayrollDeliveryData(record),
-        })));
-        const rows = recordsWithDelivery.map(({ record: r, delivery }) => {
-          const zName = r.riders?.zones?.name || '—';
-          const computedGross = Number(r.gross_pay ?? 0);
-          return {
-            riderName: r.riders?.name || 'Unknown Rider',
-            riderId: r.riders?.mkb_id || '—',
-            zone: zName,
-            totalParcels: r.total_parcels,
-            standardParcels: delivery.summary.standardDelivered,
-            heavyParcels: delivery.summary.heavyDelivered,
-            failedParcels: delivery.summary.failed,
-            returnedParcels: delivery.summary.returned,
-            standardEarnings: delivery.summary.standardEarnings,
-            heavyEarnings: delivery.summary.heavyEarnings,
-            calculationVersion: delivery.calculationVersion,
-            flagged: r.status === 'flagged' ? 'YES' : 'NO',
-            grossPay: computedGross
-          };
-        });
-
-        if (format === 'csv') {
-          setProgress('Generating CSV cutoff summary…');
-          exportCutoffSummaryCSV(
-            rows.map(r => ({
-              riderName: r.riderName,
-              zone: r.zone,
-              totalParcels: r.totalParcels,
-              standardParcels: r.standardParcels,
-              heavyParcels: r.heavyParcels,
-              failedParcels: r.failedParcels,
-              returnedParcels: r.returnedParcels,
-              standardEarnings: r.standardEarnings,
-              heavyEarnings: r.heavyEarnings,
-              calculationVersion: r.calculationVersion,
-              grossPay: r.grossPay
-            })),
-            { label: cutoffLabel, from, to }
-          );
-        } else if (format === 'xlsx') {
-          setProgress('Generating XLSX cutoff summary…');
-          await exportCutoffSummaryXLSX(rows, { label: cutoffLabel, from, to });
-        } else {
-          setProgress('Generating PDF cutoff summary…');
-          exportCutoffSummaryPDF(rows, { label: cutoffLabel, from, to });
-        }
-
-        completedExport = {
-          filename: buildExportFilename({ prefix: 'payroll_cutoff', from, to, extension: format }),
-          format,
-          time: 'Just now',
-        };
-
-        pushToast({
-          title: 'Cutoff Summary exported',
-          description: `${rows.length} records · ${format.toUpperCase()}`,
-          tone: 'success'
-        });
-
-      } else if (template === 'individual_payslips') {
-        const targets = bulkMode === 'single'
-          ? targetRiders.filter(r => r.id === singleRiderId)
-          : targetRiders;
-
-        if (targets.length === 0) {
-          pushToast({
-            title: 'No Rider selected',
-            tone: 'warning'
-          });
-          return;
-        }
-
-        setProgress('Loading finalized payroll snapshots…');
-        const payrollRecords = (await getPayrollRecords(from, to)).filter(record => isReadOnlyStatus(record.status));
-        const documents: PayslipDocumentData[] = [];
-        const preparationFailures: Array<{ riderName: string; message: string }> = [];
-        for (let index = 0; index < targets.length; index += 1) {
-          const rider = targets[index];
-          setProgress(`Preparing ${index + 1} of ${targets.length} payslips…`);
-          const payrollRecord = payrollRecords.find(record => record.rider_id === rider.id);
-          if (!payrollRecord) {
-            preparationFailures.push({ riderName: rider.name, message: 'No finalized payroll snapshot found.' });
-            continue;
+          if (filteredRecords.length === 0) {
+            pushToast({
+              title: 'No finalized records found',
+              description: 'No finalized payroll entries in Supabase for this range and scope.',
+              tone: 'info'
+            });
+            return;
           }
-          try {
-            const deliveryData = await getPayrollDeliveryData(payrollRecord);
-            const snapshot: PayslipSnapshotContext = {
-              source: deliveryData.source, calculationVersion: deliveryData.calculationVersion,
-              standardParcels: deliveryData.summary.standardDelivered, heavyParcels: deliveryData.summary.heavyDelivered,
-              failedParcels: deliveryData.summary.failed, returnedParcels: deliveryData.summary.returned,
-              standardEarnings: deliveryData.summary.standardEarnings, heavyEarnings: deliveryData.summary.heavyEarnings,
-              grossDeliveryPay: deliveryData.summary.grossDeliveryPay,
+
+          const recordsWithDelivery = await Promise.all(filteredRecords.map(async record => ({
+            record,
+            delivery: await getPayrollDeliveryData(record),
+          })));
+          const rows = recordsWithDelivery.map(({ record: r, delivery }) => {
+            const zName = r.riders?.zones?.name || '—';
+            const computedGross = Number(r.gross_pay ?? 0);
+            return {
+              riderName: r.riders?.name || 'Unknown Rider',
+              riderId: r.riders?.mkb_id || '—',
+              zone: zName,
+              totalParcels: r.total_parcels,
+              standardParcels: delivery.summary.standardDelivered,
+              heavyParcels: delivery.summary.heavyDelivered,
+              failedParcels: delivery.summary.failed,
+              returnedParcels: delivery.summary.returned,
+              standardEarnings: delivery.summary.standardEarnings,
+              heavyEarnings: delivery.summary.heavyEarnings,
+              calculationVersion: delivery.calculationVersion,
+              flagged: r.status === 'flagged' ? 'YES' : 'NO',
+              grossPay: computedGross
             };
-            documents.push(buildPayslipDocumentData({
-              riderName: rider.name,
-              mkbId: rider.riderCode || 'MKB-RIDER',
-              zoneName: zonesList.find(zone => zone.id === rider.zoneId)?.name || '—',
-              cutoffFrom: from,
-              cutoffTo: to,
-              dayEntries: parcelLogsToPayslipDays(deliveryData.lines),
-              snapshot,
-              adjustments: payslipAdjustmentsFromRecord(payrollRecord),
-            }));
-          } catch (error) {
-            preparationFailures.push({
-              riderName: rider.name,
-              message: error instanceof Error ? error.message : 'Payroll snapshot could not be loaded.',
+          });
+
+          if (format === 'csv') {
+            setProgress('Generating CSV cutoff summary…');
+            exportCutoffSummaryCSV(
+              rows.map(r => ({
+                riderName: r.riderName,
+                zone: r.zone,
+                totalParcels: r.totalParcels,
+                standardParcels: r.standardParcels,
+                heavyParcels: r.heavyParcels,
+                failedParcels: r.failedParcels,
+                returnedParcels: r.returnedParcels,
+                standardEarnings: r.standardEarnings,
+                heavyEarnings: r.heavyEarnings,
+                calculationVersion: r.calculationVersion,
+                grossPay: r.grossPay
+              })),
+              { label: cutoffLabel, from, to }
+            );
+          } else if (format === 'xlsx') {
+            setProgress('Generating XLSX cutoff summary…');
+            await exportCutoffSummaryXLSX(rows, { label: cutoffLabel, from, to });
+          } else {
+            setProgress('Generating PDF cutoff summary…');
+            exportCutoffSummaryPDF(rows, { label: cutoffLabel, from, to });
+          }
+
+          completedExport = {
+            filename: buildExportFilename({ prefix: 'payroll_cutoff', from, to, extension: format }),
+            format,
+            time: 'Just now',
+          };
+
+          pushToast({
+            title: 'Cutoff Summary exported',
+            description: `${rows.length} records · ${format.toUpperCase()}`,
+            tone: 'success'
+          });
+
+        } else if (template === 'individual_payslips') {
+          const targets = bulkMode === 'single'
+            ? targetRiders.filter(r => r.id === singleRiderId)
+            : targetRiders;
+
+          if (targets.length === 0) {
+            pushToast({
+              title: 'No Rider selected',
+              tone: 'warning'
+            });
+            return;
+          }
+
+          setProgress('Loading finalized payroll snapshots…');
+          const payrollRecords = (await getPayrollRecords(from, to)).filter(record => isReadOnlyStatus(record.status));
+          const documents: PayslipDocumentData[] = [];
+          const preparationFailures: Array<{ riderName: string; message: string }> = [];
+          for (let index = 0; index < targets.length; index += 1) {
+            const rider = targets[index];
+            setProgress(`Preparing ${index + 1} of ${targets.length} payslips…`);
+            const payrollRecord = payrollRecords.find(record => record.rider_id === rider.id);
+            if (!payrollRecord) {
+              preparationFailures.push({ riderName: rider.name, message: 'No finalized payroll snapshot found.' });
+              continue;
+            }
+            try {
+              const deliveryData = await getPayrollDeliveryData(payrollRecord);
+              const snapshot: PayslipSnapshotContext = {
+                source: deliveryData.source, calculationVersion: deliveryData.calculationVersion,
+                standardParcels: deliveryData.summary.standardDelivered, heavyParcels: deliveryData.summary.heavyDelivered,
+                failedParcels: deliveryData.summary.failed, returnedParcels: deliveryData.summary.returned,
+                standardEarnings: deliveryData.summary.standardEarnings, heavyEarnings: deliveryData.summary.heavyEarnings,
+                grossDeliveryPay: deliveryData.summary.grossDeliveryPay,
+              };
+              documents.push(buildPayslipDocumentData({
+                riderName: rider.name,
+                mkbId: rider.riderCode || 'MKB-RIDER',
+                zoneName: zonesList.find(zone => zone.id === rider.zoneId)?.name || '—',
+                cutoffFrom: from,
+                cutoffTo: to,
+                dayEntries: parcelLogsToPayslipDays(deliveryData.lines),
+                snapshot,
+                adjustments: payslipAdjustmentsFromRecord(payrollRecord),
+              }));
+            } catch (error) {
+              preparationFailures.push({
+                riderName: rider.name,
+                message: error instanceof Error ? error.message : 'Payroll snapshot could not be loaded.',
+              });
+            }
+          }
+
+          if (documents.length === 0) {
+            throw new Error(`No payslips could be generated. ${preparationFailures.map(failure => failure.riderName).join(', ')} have no usable finalized snapshot.`);
+          }
+          const packageResult = await downloadPayslipPackage(documents, {
+            format: format === 'xlsx' ? 'xlsx' : 'pdf',
+            from,
+            to,
+            forceArchive: targets.length > 1,
+            onProgress: setProgress,
+          });
+          const failures = [...preparationFailures, ...packageResult.failures];
+          completedExport = { filename: packageResult.filename, format: packageResult.archive ? 'zip' : format, time: 'Just now' };
+          if (failures.length > 0) {
+            pushToast({
+              title: `${packageResult.generatedCount} payslip${packageResult.generatedCount === 1 ? '' : 's'} downloaded with ${failures.length} skipped`,
+              description: failures.map(failure => failure.riderName).join(', '),
+              tone: 'warning',
+              duration: 6000,
+            });
+          } else {
+            pushToast({
+              title: packageResult.archive ? `${packageResult.generatedCount} payslips downloaded in one ZIP` : 'Payslip downloaded',
+              description: `${format.toUpperCase()} · ${cutoffLabel}`,
+              tone: 'success',
             });
           }
-        }
 
-        if (documents.length === 0) {
-          throw new Error(`No payslips could be generated. ${preparationFailures.map(failure => failure.riderName).join(', ')} have no usable finalized snapshot.`);
-        }
-        const packageResult = await downloadPayslipPackage(documents, {
-          format: format === 'xlsx' ? 'xlsx' : 'pdf',
-          from,
-          to,
-          forceArchive: targets.length > 1,
-          onProgress: setProgress,
-        });
-        const failures = [...preparationFailures, ...packageResult.failures];
-        completedExport = { filename: packageResult.filename, format: packageResult.archive ? 'zip' : format, time: 'Just now' };
-        if (failures.length > 0) {
+        } else if (template === 'parcel_logs') {
+          setProgress('Loading parcel logs…');
+          const filterOpts: { riderId?: string; riderIds?: string[] } = {};
+          if (bulkMode === 'single' && singleRiderId) {
+            filterOpts.riderId = singleRiderId;
+          } else if (selectedZones.length > 0) {
+            filterOpts.riderIds = targetRiders.map(r => r.id);
+          } else {
+            filterOpts.riderIds = Array.from(authorizedRiderIds);
+          }
+
+          const data = await getParcelLogsDetails(from, to, filterOpts);
+
+          if (!data || data.length === 0) {
+            pushToast({
+              title: 'No raw logs found',
+              description: 'No daily parcel entries exist for this cutoff and scope.',
+              tone: 'info'
+            });
+            return;
+          }
+
+          const cols = ['Rider', 'Rider ID', 'Zone', 'Date', 'Standard', 'Heavy', 'Failed', 'Returned', 'Standard Rate', 'Heavy Rate', 'Standard Earnings', 'Heavy Earnings', 'Gross Delivery Pay', 'Rate Configuration'];
+          const rows = data.map(log => [
+            log.riders?.name || 'Unknown Rider',
+            log.riders?.mkb_id || '—',
+            log.riders?.zones?.name || '—',
+            log.date,
+            log.parcels,
+            Number(log.heavy_parcels ?? 0),
+            Number(log.failed_parcels ?? 0),
+            Number(log.returned_parcels ?? 0),
+            Number(log.rate),
+            Number(log.heavy_rate),
+            Number(log.standard_earnings),
+            Number(log.heavy_earnings),
+            Number(log.daily_gross),
+            log.rate_configuration_id,
+          ]);
+
+          if (format === 'xlsx') {
+            setProgress('Generating XLSX parcel log…');
+            await exportXLSXFile(
+              'Parcel Log',
+              cols,
+              rows,
+              buildExportFilename({ prefix: 'parcel_logs', from, to, extension: 'xlsx' }).replace(/\.xlsx$/, '')
+            );
+          } else {
+            setProgress('Generating CSV parcel log…');
+            downloadCsv([cols, ...rows], buildExportFilename({
+              prefix: 'parcel_logs', from, to, extension: 'csv',
+            }));
+          }
+
+          const actualFormat = format === 'xlsx' ? 'xlsx' : 'csv';
+          completedExport = {
+            filename: buildExportFilename({ prefix: 'parcel_logs', from, to, extension: actualFormat }),
+            format: actualFormat,
+            time: 'Just now',
+          };
+
           pushToast({
-            title: `${packageResult.generatedCount} payslip${packageResult.generatedCount === 1 ? '' : 's'} downloaded with ${failures.length} skipped`,
-            description: failures.map(failure => failure.riderName).join(', '),
-            tone: 'warning',
-            duration: 6000,
-          });
-        } else {
-          pushToast({
-            title: packageResult.archive ? `${packageResult.generatedCount} payslips downloaded in one ZIP` : 'Payslip downloaded',
-            description: `${format.toUpperCase()} · ${cutoffLabel}`,
-            tone: 'success',
+            title: 'Parcel Logs exported',
+            description: `${rows.length} entries · ${actualFormat.toUpperCase()}`,
+            tone: 'success'
           });
         }
-
-      } else if (template === 'parcel_logs') {
-        setProgress('Loading parcel logs…');
-        const filterOpts: { riderId?: string; riderIds?: string[] } = {};
-        if (bulkMode === 'single' && singleRiderId) {
-          filterOpts.riderId = singleRiderId;
-        } else if (selectedZones.length > 0) {
-          filterOpts.riderIds = targetRiders.map(r => r.id);
-        }
- 
-        const data = await getParcelLogsDetails(from, to, filterOpts);
-
-        if (!data || data.length === 0) {
-          pushToast({
-            title: 'No raw logs found',
-            description: 'No daily parcel entries exist for this cutoff.',
-            tone: 'info'
-          });
-          return;
-        }
-
-        const cols = ['Rider', 'Rider ID', 'Zone', 'Date', 'Standard', 'Heavy', 'Failed', 'Returned', 'Standard Rate', 'Heavy Rate', 'Standard Earnings', 'Heavy Earnings', 'Gross Delivery Pay', 'Rate Configuration'];
-        const rows = data.map(log => [
-          log.riders?.name || 'Unknown Rider',
-          log.riders?.mkb_id || '—',
-          log.riders?.zones?.name || '—',
-          log.date,
-          log.parcels,
-          Number(log.heavy_parcels ?? 0),
-          Number(log.failed_parcels ?? 0),
-          Number(log.returned_parcels ?? 0),
-          Number(log.rate),
-          Number(log.heavy_rate),
-          Number(log.standard_earnings),
-          Number(log.heavy_earnings),
-          Number(log.daily_gross),
-          log.rate_configuration_id,
-        ]);
-
-        if (format === 'xlsx') {
-          setProgress('Generating XLSX parcel log…');
-          await exportXLSXFile(
-            'Parcel Log',
-            cols,
-            rows,
-            buildExportFilename({ prefix: 'parcel_logs', from, to, extension: 'xlsx' }).replace(/\.xlsx$/, '')
-          );
-        } else {
-          setProgress('Generating CSV parcel log…');
-          downloadCsv([cols, ...rows], buildExportFilename({
-            prefix: 'parcel_logs', from, to, extension: 'csv',
-          }));
-        }
-
-        const actualFormat = format === 'xlsx' ? 'xlsx' : 'csv';
-        completedExport = {
-          filename: buildExportFilename({ prefix: 'parcel_logs', from, to, extension: actualFormat }),
-          format: actualFormat,
-          time: 'Just now',
-        };
-
-        pushToast({
-          title: 'Parcel Logs exported',
-          description: `${rows.length} entries · ${actualFormat.toUpperCase()}`,
-          tone: 'success'
-        });
-      }
 
         if (completedExport) setExportHistory(previous => [completedExport!, ...previous]);
       });
@@ -526,62 +590,74 @@ export function PayrollReports() {
     }
   };
 
+  const scopeLabel = selectedHub ? selectedHub.name : 'All authorized Hubs';
+  const selectedTemplate = TEMPLATES.find(t => t.key === template);
+
   return (
     <div className="dashboard-page space-y-5">
-      {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {TEMPLATES.map(t => {
-          const Icon = t.icon;
-          const active = template === t.key;
-          return (
-            <button
-              key={t.key}
-              onClick={() => {
-                setTemplate(t.key);
-                if (t.key === 'cutoff_summary') setFormat('pdf');
-                if (t.key === 'individual_payslips') setFormat('pdf');
-                if (t.key === 'parcel_logs') setFormat('csv');
-              }}
-              className={`group text-left bg-white border rounded-xl p-5 transition relative overflow-hidden ar-card-hover ${active ? 'border-primary ring-2 ring-primary/15' : 'border-border hover:border-primary/30'}`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center animate-fade-in bg-accent text-accent-foreground border border-primary/20">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <ArrowUpRight
-                  className={`w-4 h-4 transition ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-primary group-hover:-translate-y-0.5 group-hover:translate-x-0.5'}`}
-                />
-              </div>
-              <div className="text-sm font-semibold text-foreground">{t.title}</div>
-              <div className="text-xs text-muted-foreground mt-1 leading-relaxed">{t.description}</div>
-              <div className="mt-4 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
-                <FileText className="w-3 h-3" />
-                {t.meta}
-              </div>
-              {active && <span className="absolute top-0 left-0 right-0 h-[2px] bg-primary" />}
-            </button>
-          );
-        })}
+      {/* Scope Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-panel-bg px-3 py-2 text-[11px] text-muted-foreground shadow-2xs">
+        <div className="flex items-center gap-1.5">
+          <Building2 className="w-3.5 h-3.5 text-primary" />
+          <span><strong className="text-foreground">Scope:</strong> {scopeLabel}</span>
+        </div>
+        <div className="flex items-center gap-1.5 font-mono">
+          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+          <span><strong className="text-foreground">Selected Range:</strong> {from} to {to}</span>
+        </div>
       </div>
 
-      {/* Main Content Grid: Left Column is Inputs Panel, Right Column is AI Summary */}
+      {/* Main Content Grid: Left Column is Inputs Panel, Right Column is Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
-          {/* Inputs Panel */}
-          <div className="bg-white border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary" />
+          {/* Inputs Panel with Compact Report-Type Selector */}
+          <div className="bg-white border border-border rounded-xl p-5 shadow-xs space-y-4">
+            {/* Modern Compact Report-Type Selector (Matching Admin Reports) */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {TEMPLATES.map(t => {
+                  const Icon = t.icon;
+                  const active = template === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => {
+                        setTemplate(t.key);
+                        if (t.key === 'cutoff_summary') setFormat('pdf');
+                        if (t.key === 'individual_payslips') setFormat('pdf');
+                        if (t.key === 'parcel_logs') setFormat('csv');
+                      }}
+                      className={`inline-flex cursor-pointer items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                        active
+                          ? 'bg-primary text-white shadow-2xs'
+                          : 'border border-border bg-panel-bg text-muted-foreground hover:bg-white hover:text-foreground'
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span>{t.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline-block">
+                {selectedTemplate?.meta}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <div className="w-7 h-7 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
               </div>
               <div>
                 <div className="text-sm font-semibold text-foreground">
-                  {TEMPLATES.find(t => t.key === template)?.title}
+                  {selectedTemplate?.title}
                 </div>
-                <div className="text-[11px] text-muted-foreground font-mono">Configure parameters & export</div>
+                <div className="text-[11px] text-muted-foreground font-mono">{selectedTemplate?.description}</div>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 pt-1">
               {/* Range */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
@@ -593,7 +669,7 @@ export function PayrollReports() {
                       setFrom(e.target.value);
                       if (error) setError(null);
                     }}
-                    className="w-full h-10 px-3 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    className="w-full h-9 px-3 rounded-lg bg-panel-bg border border-border text-xs text-foreground font-mono outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                   />
                 </div>
                 <div>
@@ -605,7 +681,7 @@ export function PayrollReports() {
                       setTo(e.target.value);
                       if (error) setError(null);
                     }}
-                    className="w-full h-10 px-3 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                    className="w-full h-9 px-3 rounded-lg bg-panel-bg border border-border text-xs text-foreground font-mono outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                   />
                 </div>
               </div>
@@ -635,8 +711,13 @@ export function PayrollReports() {
                     return (
                       <button
                         key={z.id}
+                        type="button"
                         onClick={() => toggleZone(z.id)}
-                        className={`px-2.5 py-1 rounded text-[11px] border transition ${on ? 'bg-accent border-primary/40 text-accent-foreground font-semibold' : 'bg-panel-bg border-border text-muted-foreground hover:text-foreground'}`}
+                        className={`px-2.5 py-1 rounded text-[11px] border transition cursor-pointer ${
+                          on
+                            ? 'bg-accent border-primary/40 text-accent-foreground font-semibold'
+                            : 'bg-panel-bg border-border text-muted-foreground hover:text-foreground'
+                        }`}
                       >
                         {z.name}
                       </button>
@@ -651,15 +732,21 @@ export function PayrollReports() {
                   <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">Mode</div>
                   <div className="inline-flex rounded-md border border-border bg-panel-bg p-0.5 mb-3">
                     <button
+                      type="button"
                       onClick={() => setBulkMode('single')}
-                      className={`h-8 px-3 rounded text-xs font-semibold transition inline-flex items-center gap-1.5 ${bulkMode === 'single' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`h-7 px-3 rounded text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer ${
+                        bulkMode === 'single' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                      }`}
                     >
                       <Receipt className="w-3.5 h-3.5" />
                       Single rider
                     </button>
                     <button
+                      type="button"
                       onClick={() => setBulkMode('bulk')}
-                      className={`h-8 px-3 rounded text-xs font-semibold transition inline-flex items-center gap-1.5 ${bulkMode === 'bulk' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`h-7 px-3 rounded text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer ${
+                        bulkMode === 'bulk' ? 'bg-primary text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                      }`}
                     >
                       <Users className="w-3.5 h-3.5" />
                       All riders ({filteredRiders().length})
@@ -670,7 +757,7 @@ export function PayrollReports() {
                     <select
                       value={singleRiderId}
                       onChange={e => setSingleRiderId(e.target.value)}
-                      className="w-full h-10 px-3 pr-8 rounded-lg bg-panel-bg border border-border text-sm text-foreground font-mono outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer"
+                      className="w-full h-9 px-3 pr-8 rounded-lg bg-panel-bg border border-border text-xs text-foreground font-mono outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 cursor-pointer"
                     >
                       {filteredRiders().map(r => (
                         <option key={r.id} value={r.id}>
@@ -694,9 +781,16 @@ export function PayrollReports() {
                     return (
                       <button
                         key={f}
+                        type="button"
                         onClick={() => !disabled && setFormat(f)}
                         disabled={disabled}
-                        className={`h-9 rounded-md border text-xs uppercase transition ${selected && !disabled ? 'bg-accent border-primary text-accent-foreground font-bold' : disabled ? 'bg-panel-bg border-border text-muted-foreground/30 cursor-not-allowed' : 'bg-panel-bg border-border text-muted-foreground hover:text-foreground'}`}
+                        className={`h-8 rounded-md border text-xs uppercase transition cursor-pointer ${
+                          selected && !disabled
+                            ? 'bg-accent border-primary text-accent-foreground font-bold'
+                            : disabled
+                            ? 'bg-panel-bg border-border text-muted-foreground/30 cursor-not-allowed'
+                            : 'bg-panel-bg border-border text-muted-foreground hover:text-foreground'
+                        }`}
                       >
                         {f}
                       </button>
@@ -706,17 +800,21 @@ export function PayrollReports() {
               </div>
 
               <button
+                type="button"
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="w-full h-11 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full h-10 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-xs disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    {exportJob.message ?? 'Generating export…'}
+                    <span>{exportJob.message ?? 'Generating export…'}</span>
                   </>
                 ) : (
-                  'Generate Report'
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Generate Report</span>
+                  </>
                 )}
               </button>
             </div>
@@ -725,7 +823,7 @@ export function PayrollReports() {
 
         <div>
           {/* Deterministic Payroll Summary Card */}
-          <div className="bg-white border border-border rounded-xl p-5 flex flex-col justify-between h-full">
+          <div className="bg-white border border-border rounded-xl p-5 flex flex-col justify-between h-full shadow-xs">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
@@ -733,7 +831,7 @@ export function PayrollReports() {
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-foreground">Payroll Snapshot Summary</div>
-                  <div className="text-[11px] text-muted-foreground font-mono">Calculated from selected cutoff records</div>
+                  <div className="text-[11px] text-muted-foreground font-mono">Calculated from authorized cutoff records</div>
                 </div>
               </div>
 
@@ -746,16 +844,11 @@ export function PayrollReports() {
               ) : (
                 <div className="text-xs text-muted-foreground leading-relaxed space-y-4">
                   <p>
-                    This cutoff has <span className="font-semibold text-foreground">{totalRiders} active riders</span> who delivered a total of{' '}
+                    This cutoff has <span className="font-semibold text-foreground">{totalRiders} active rider{totalRiders === 1 ? '' : 's'}</span> who delivered a total of{' '}
                     <span className="font-semibold text-foreground">{totalParcels.toLocaleString()} parcels</span> ({totalStandardParcels.toLocaleString()} standard, {totalHeavyParcels.toLocaleString()} heavy).
                   </p>
                   <p>
                     Total gross payroll calculated at <span className="font-semibold text-primary">₱{totalGross.toLocaleString()}</span>.{' '}
-                    {flaggedRiders > 0 && (
-                      <span className="text-amber-600 font-medium">
-                        {flaggedRiders} rider{flaggedRiders > 1 ? 's are' : ' is'} flagged for unusual delivery counts (&gt;100 parcels/day).{' '}
-                      </span>
-                    )}
                     {pendingCount > 0 ? (
                       <span>{pendingCount} rider{pendingCount > 1 ? 's are' : ' is'} pending supervisor verification. </span>
                     ) : (
@@ -788,7 +881,7 @@ export function PayrollReports() {
       {/* Bottom Chart Row */}
       <div className="w-full">
         {/* Parcels Delivered per Rider Chart */}
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-xl border border-border bg-white p-4 shadow-xs sm:p-5">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent ring-1 ring-primary/30">
@@ -908,70 +1001,95 @@ export function PayrollReports() {
         </div>
       </div>
 
-      {/* Expanded Sections: History, archives, and exports */}
+      {/* Expanded Sections: Real History & Archives from Supabase, and Export History */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-5">
-        {/* Previous Cutoffs & Payroll History */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
+        {/* Real Previous Cutoffs & Payroll History */}
+        <div className="bg-white border border-border rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
               <CalendarRange className="w-4 h-4 text-primary" />
             </div>
             <div>
               <div className="text-sm font-semibold text-foreground">Payroll History & Archives</div>
-              <div className="text-[11px] text-muted-foreground font-mono">Load previous cutoff dates into generator</div>
+              <div className="text-[11px] text-muted-foreground font-mono">Real historical cutoff records in Supabase</div>
             </div>
           </div>
 
           <div className="table-scroll-region" role="region" aria-label="Payroll report history" tabIndex={0}>
-            <table className="data-table w-full text-xs">
-              <thead className="bg-panel-bg border-b border-border text-[10px] uppercase font-bold text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 text-left">Period</th>
-                  <th className="px-3 py-2 text-right">Riders</th>
-                  <th className="px-3 py-2 text-right">Gross Total</th>
-                  <th className="px-3 py-2 text-center">Status</th>
-                  <th className="px-3 py-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { start: '2026-07-01', end: '2026-07-15', label: 'Jul 1–15, 2026', riders: 1, gross: 480, status: 'Flagged' },
-                  { start: '2026-06-16', end: '2026-06-30', label: 'Jun 16–30, 2026', riders: 24, gross: 11450, status: 'Paid' },
-                  { start: '2026-06-01', end: '2026-06-15', label: 'Jun 1–15, 2026', riders: 22, gross: 9820, status: 'Paid' },
-                  { start: '2026-05-16', end: '2026-05-31', label: 'May 16–31, 2026', riders: 25, gross: 12400, status: 'Paid' },
-                ].map((item, idx) => (
-                  <tr key={idx} className="border-b border-border hover:bg-panel-bg transition-colors">
-                    <td className="px-3 py-2.5 font-semibold text-foreground">{item.label}</td>
-                    <td className="px-3 py-2.5 text-right font-mono tabular-nums">{item.riders}</td>
-                    <td className="px-3 py-2.5 text-right font-mono tabular-nums">₱{item.gross.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-center">
-                      <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold border ${
-                        item.status === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <button
-                        onClick={() => {
-                          setFrom(item.start);
-                          setTo(item.end);
-                          pushToast({ title: 'Cutoff Dates Loaded', description: `${item.label} set.`, tone: 'success' });
-                        }}
-                        className="px-2.5 py-1 text-[10px] font-bold text-accent-foreground hover:text-white bg-accent hover:bg-primary rounded transition cursor-pointer"
-                      >
-                        Load
-                      </button>
-                    </td>
-                  </tr>
+            {loadingArchives ? (
+              <div className="space-y-2 py-4 animate-pulse">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-8 bg-panel-bg rounded w-full" />
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ) : archives.length === 0 ? (
+              <div className="py-8 text-center text-xs text-muted-foreground italic border border-dashed border-border rounded-lg">
+                No historical payroll cutoffs found.
+              </div>
+            ) : (
+              <table className="data-table w-full text-xs">
+                <thead className="bg-panel-bg border-b border-border text-[10px] uppercase font-bold text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Period</th>
+                    <th className="px-3 py-2 text-right">Riders</th>
+                    <th className="px-3 py-2 text-right">Gross Total</th>
+                    <th className="px-3 py-2 text-center">Status</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {archives.map((item, idx) => {
+                    const statusTone =
+                      item.status === 'paid'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : item.status === 'approved'
+                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : item.status === 'submitted'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : item.status === 'rejected'
+                        ? 'bg-red-50 text-red-700 border-red-200'
+                        : item.status === 'mixed'
+                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                        : 'bg-gray-50 text-gray-600 border-gray-200';
+
+                    return (
+                      <tr key={`${item.cutoffStart}_${idx}`} className="border-b border-border hover:bg-panel-bg transition-colors">
+                        <td className="px-3 py-2.5 font-semibold text-foreground">{item.label}</td>
+                        <td className="px-3 py-2.5 text-right font-mono tabular-nums">{item.riderCount}</td>
+                        <td className="px-3 py-2.5 text-right font-mono tabular-nums">₱{item.totalGross.toLocaleString()}</td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider border ${statusTone}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFrom(item.cutoffStart);
+                              setTo(item.cutoffEnd);
+                              pushToast({
+                                title: 'Cutoff Loaded',
+                                description: `${item.label} (${item.riderCount} riders · ₱${item.totalGross.toLocaleString()}) loaded into generator.`,
+                                tone: 'success'
+                              });
+                            }}
+                            className="px-2.5 py-1 text-[10px] font-bold text-accent-foreground hover:text-white bg-accent hover:bg-primary rounded transition cursor-pointer"
+                          >
+                            Load
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
-        {/* Generated Reports & Export History */}
-        <div className="bg-white border border-border rounded-xl p-5 shadow-sm space-y-4">
+        {/* Generated Reports & Export History (Session Only) */}
+        <div className="bg-white border border-border rounded-xl p-5 shadow-xs space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/30 flex items-center justify-center">
               <FileText className="w-4 h-4 text-primary" />
