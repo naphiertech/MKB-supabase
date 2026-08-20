@@ -45,54 +45,24 @@ import { pushToast } from '../hooks/useToast';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
 import { AnimatePresence } from 'framer-motion';
+import {
+  buildWeeklyBreakdown,
+  deriveAttendanceAction,
+  diffPretty,
+  format12h,
+  getLocalDateString,
+  mapCachedDashboardPayloadToState,
+  nowHHMM,
+  parseTime,
+  toHHMM,
+  type DashboardAttendanceLog,
+  type DashboardViolation,
+} from './rider-dashboard/riderDashboardModel';
 
 interface RiderDashboardProps {
   userId: string;
   riderId: string;
   restricted: boolean;
-}
-
-function nowHHMM(d: Date = new Date()) {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-function toHHMM(dateStr: string | null): string | null {
-  if (!dateStr) return null;
-  try {
-    const formatted = dateStr.includes(' ') && !dateStr.includes('T')
-      ? dateStr.replace(' ', 'T')
-      : dateStr;
-    const d = new Date(formatted);
-    if (isNaN(d.getTime())) return null;
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  } catch {
-    return null;
-  }
-}
-
-function format12h(hhmm: string) {
-  const [h, m] = hhmm.split(':').map(Number);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = (h + 11) % 12 + 1;
-  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
-}
-
-function diffPretty(fromHHMM: string, to: Date = new Date()) {
-  const [h, m] = fromHHMM.split(':').map(Number);
-  const start = new Date();
-  start.setHours(h, m, 0, 0);
-  let diff = Math.max(0, to.getTime() - start.getTime());
-  const hours = Math.floor(diff / 3600000);
-  diff -= hours * 3600000;
-  const mins = Math.floor(diff / 60000);
-  return `${hours}h ${String(mins).padStart(2, '0')}m`;
-}
-
-function getLocalDateString(d: Date = new Date()) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 interface PayrollRecord {
@@ -143,31 +113,8 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
     violationsThisMonth: 0
   });
 
-  interface DBAttendanceLog {
-    id: string;
-    rider_id: string;
-    date: string;
-    time_in: string | null;
-    time_out: string | null;
-    hours: number | null;
-    status: string;
-    source?: string | null;
-  }
-
-  interface DBViolation {
-    id: string;
-    rider_id: string;
-    zone_name: string;
-    type: string;
-    lat: number;
-    lng: number;
-    created_at: string;
-    read: boolean;
-    resolved: boolean;
-  }
-
-  const [monthAttendanceLogs, setMonthAttendanceLogs] = useState<DBAttendanceLog[]>([]);
-  const [violationsList, setViolationsList] = useState<DBViolation[]>([]);
+  const [monthAttendanceLogs, setMonthAttendanceLogs] = useState<DashboardAttendanceLog[]>([]);
+  const [violationsList, setViolationsList] = useState<DashboardViolation[]>([]);
   const [loadingViolations, setLoadingViolations] = useState(false);
   const [activeStatModal, setActiveStatModal] = useState<'days' | 'hours' | 'violations' | null>(null);
 
@@ -212,31 +159,6 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
     }
   };
 
-  const getWeeklyBreakdown = () => {
-    const todayDate = new Date();
-    const dayOfWeek = todayDate.getDay();
-    const diff = todayDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    
-    // Create new Date objects to avoid mutating reference in loop
-    const monday = new Date(todayDate.getFullYear(), todayDate.getMonth(), diff);
-    
-    const days = [];
-    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const dateStr = getLocalDateString(d);
-      const log = monthAttendanceLogs.find(l => l.date === dateStr);
-      days.push({
-        name: weekdays[i],
-        dateLabel: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        hours: log ? (log.hours || 0) : 0,
-        status: log ? log.status : 'no_log'
-      });
-    }
-    return days;
-  };
   const [scanOpen, setScanOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
   const finishUserPerceivedTimingRef = useRef<(() => number) | null>(null);
@@ -272,81 +194,21 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
       const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
 
       const applyPayload = (payload: CachedDashboardPayload) => {
-        const {
-          resolvedRiderId,
-          dbRider,
-          todayAttendance: attLog,
-          latestViolation: violationData,
-          monthAttendance: monthLogs,
-          monthViolationCount: violationCount
-        } = payload;
+        const mapped = mapCachedDashboardPayloadToState(payload, firstDayOfWeekStr);
 
-        setActualRiderId(resolvedRiderId);
+        setActualRiderId(mapped.resolvedRiderId);
 
-        if (dbRider) {
-          const mappedRider: Rider & { faceDescriptor?: number[] | null } = {
-            id: dbRider.id,
-            name: dbRider.name,
-            avatar: dbRider.face_image_url || dbRider.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(dbRider.name)}`,
-            zoneId: dbRider.zone_id,
-            status: dbRider.status,
-            lat: dbRider.lat || 0,
-            lng: dbRider.lng || 0,
-            speed: dbRider.speed || 0,
-            shift: (dbRider.shift || 'Morning').toLowerCase() as 'morning' | 'afternoon' | 'evening',
-            lastPing: dbRider.last_ping ? new Date(dbRider.last_ping).getTime() : 0,
-            phone: dbRider.contact || '',
-            riderCode: dbRider.mkb_id,
-            faceDescriptor: dbRider.face_descriptor || null
-          };
-          setRider(mappedRider);
-          if (dbRider.face_descriptor && Array.isArray(dbRider.face_descriptor) && dbRider.face_descriptor.length === 128) {
-            setCachedDescriptor(dbRider.id, dbRider.face_descriptor, mappedRider.avatar);
+        if (mapped.rider) {
+          setRider(mapped.rider);
+          if (payload.dbRider?.face_descriptor && Array.isArray(payload.dbRider.face_descriptor) && payload.dbRider.face_descriptor.length === 128) {
+            setCachedDescriptor(payload.dbRider.id, payload.dbRider.face_descriptor, mapped.rider.avatar);
           }
-
         }
 
-        if (attLog) {
-          setAttendance({
-            id: attLog.id,
-            timeIn: attLog.time_in ? toHHMM(attLog.time_in) : null,
-            timeOut: attLog.time_out ? toHHMM(attLog.time_out) : null,
-          });
-        } else {
-          setAttendance({ id: null, timeIn: null, timeOut: null });
-        }
-
-        if (violationData && !violationData.resolved && violationData.lat && violationData.lng) {
-          setActiveViolation({
-            lat: violationData.lat,
-            lng: violationData.lng,
-            zoneName: violationData.zone_name || 'Talon-Talon'
-          });
-        } else {
-          setActiveViolation(null);
-        }
-
-        let presentCount = 0;
-        let weekHours = 0;
-        
-        if (monthLogs) {
-           const typedLogs = monthLogs as { status: string; date: string; hours: number | null }[];
-           for (const log of typedLogs) {
-             if (log.status === 'present' || log.status === 'late') {
-               presentCount++;
-             }
-             if (log.date >= firstDayOfWeekStr) {
-               weekHours += (log.hours || 0);
-             }
-           }
-        }
-
-        setMonthAttendanceLogs(monthLogs || []);
-        setStats({
-          daysPresent: presentCount,
-          hoursThisWeek: Number(weekHours.toFixed(1)),
-          violationsThisMonth: violationCount || 0
-        });
+        setAttendance(mapped.attendance);
+        setActiveViolation(mapped.activeViolation);
+        setMonthAttendanceLogs(mapped.monthAttendanceLogs);
+        setStats(mapped.stats);
 
         setLoading(false);
       };
@@ -500,13 +362,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
   const inZone = inZoneToUse;
 
   const isClosed = isAttendanceFinalized() && !timeIn;
-  const action: AttendanceAction = isClosed
-    ? 'closed'
-    : timeIn && timeOut
-      ? 'completed'
-      : timeIn
-        ? 'time-out'
-        : 'time-in';
+  const action: AttendanceAction = deriveAttendanceAction(isClosed, timeIn, timeOut);
 
   const [events, setEvents] = useState<ActivityEvent[]>([]);
 
@@ -858,13 +714,6 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
       timeIn && timeOut ?
         diffPretty(timeIn, parseTime(timeOut)) :
         null;
-
-  function parseTime(hhmm: string) {
-    const [h, m] = hhmm.split(':').map(Number);
-    const d = new Date();
-    d.setHours(h, m, 0, 0);
-    return d;
-  }
 
   if (loading || !rider || !zone) {
     return <DashboardSkeleton page="dashboard" role="rider" />;
@@ -1291,7 +1140,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
           </div>
 
           <div className="space-y-3.5">
-            {getWeeklyBreakdown().map((day, idx) => {
+            {buildWeeklyBreakdown(monthAttendanceLogs).map((day, idx) => {
               const isFutureOrEmpty = day.hours === 0 && day.status === 'no_log';
               return (
                 <div key={idx} className="space-y-1">
