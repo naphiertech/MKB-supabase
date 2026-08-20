@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { AttendanceAction } from '../../components/attendance/AttendanceButton';
 import type { ActivityEvent } from '../../components/rider/ActivityTimeline';
 import { useFaceRecognition } from '../../hooks/useFaceRecognition';
@@ -50,11 +50,26 @@ export function useRiderShiftController({
   setEvents,
 }: UseRiderShiftControllerInput) {
   const { timeIn, timeOut } = attendance;
-  const [scanOpen, setScanOpen] = useState(false);
+  const [scanOpen, setScanOpenState] = useState(false);
   const [pendingAction, setPendingAction] = useState<'time-in' | 'time-out'>('time-in');
   const finishUserPerceivedTimingRef = useRef<(() => number) | null>(null);
+  const scannerStartTimeoutRef = useRef<number | null>(null);
+  const scanSessionRef = useRef(0);
+  const handledScanSessionRef = useRef<number | null>(null);
+  const attendanceWriteInFlightRef = useRef(false);
   const setEventsRef = useRef(setEvents);
   setEventsRef.current = setEvents;
+
+  const cancelScannerStart = useCallback(() => {
+    if (scannerStartTimeoutRef.current === null) return;
+    window.clearTimeout(scannerStartTimeoutRef.current);
+    scannerStartTimeoutRef.current = null;
+  }, []);
+
+  const setScanOpen = useCallback((open: boolean) => {
+    if (!open) cancelScannerStart();
+    setScanOpenState(open);
+  }, [cancelScannerStart]);
 
   const zoneCenterLat = zone?.center[0] ?? 6.9214;
   const zoneCenterLng = zone?.center[1] ?? 122.0790;
@@ -198,6 +213,7 @@ export function useRiderShiftController({
   // Background Geolocation Synchronization Loop
   useEffect(() => {
     if (restricted || loading || locationLoading || !hasVerifiedPosition || !timeIn || timeOut || !actualRiderId) return;
+    let active = true;
 
     const syncLocation = async () => {
       const currentRiderId = actualRiderIdRef.current;
@@ -208,18 +224,24 @@ export function useRiderShiftController({
       const status: 'active' | 'violation' = currentInZone ? 'active' : 'violation';
       try {
         await logRiderLocation(currentRiderId, currentPosition.lat, currentPosition.lng, status);
+        if (!active) return;
         console.log(`[RiderDashboard] Location synced to Supabase: Lat = ${currentPosition.lat}, Lng = ${currentPosition.lng}`);
       } catch (err) {
+        if (!active) return;
         console.error('[RiderDashboard] Failed to sync location to database:', err);
       }
     };
 
     syncLocation();
     const id = setInterval(syncLocation, 30000);
-    return () => clearInterval(id);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
   }, [timeIn, timeOut, loading, locationLoading, hasVerifiedPosition, actualRiderId, restricted]);
 
   function openScan(next: 'time-in' | 'time-out') {
+    if (attendanceWriteInFlightRef.current) return;
     if (restricted) {
       pushToast({
         title: 'Account restricted',
@@ -238,6 +260,7 @@ export function useRiderShiftController({
       retryLocation();
       return;
     }
+    scanSessionRef.current += 1;
     setPendingAction(next);
     reset();
     const telemetryAction = next === 'time-in' ? 'time_in' : 'time_out';
@@ -245,7 +268,11 @@ export function useRiderShiftController({
       BIOMETRIC_TIMING_NAMES.userPerceivedTotal(telemetryAction),
     );
     setScanOpen(true);
-    window.setTimeout(start, 220);
+    cancelScannerStart();
+    scannerStartTimeoutRef.current = window.setTimeout(() => {
+      scannerStartTimeoutRef.current = null;
+      start();
+    }, 220);
   }
 
   const {
@@ -265,9 +292,18 @@ export function useRiderShiftController({
     onDescriptorCalculated,
   });
 
+  useEffect(() => () => cancelScannerStart(), [cancelScannerStart]);
+
   // Face-match attendance orchestration remains last in the controller effect order.
   useEffect(() => {
     if (phase !== 'matched' || !result?.matched) return;
+    const scanSession = scanSessionRef.current;
+    if (
+      scanSession === 0
+      || handledScanSessionRef.current === scanSession
+      || attendanceWriteInFlightRef.current
+    ) return;
+    handledScanSessionRef.current = scanSession;
     if (restricted) {
       setScanOpen(false);
       return;
@@ -298,6 +334,7 @@ export function useRiderShiftController({
       const finishAttendancePersistence = biometricTelemetry.start(
         BIOMETRIC_TIMING_NAMES.attendancePersistence('time_in'),
       );
+      attendanceWriteInFlightRef.current = true;
       recordTimeIn(currentRiderId).then(async (newLog) => {
         finishAttendancePersistence();
         if (!newLog) {
@@ -367,6 +404,8 @@ export function useRiderShiftController({
           description: 'Database clock-in failed. Please try again.',
           tone: 'error',
         });
+      }).finally(() => {
+        attendanceWriteInFlightRef.current = false;
       });
     } else {
       const activeLogId = attendanceRef.current.id;
@@ -383,6 +422,7 @@ export function useRiderShiftController({
       const finishAttendancePersistence = biometricTelemetry.start(
         BIOMETRIC_TIMING_NAMES.attendancePersistence('time_out'),
       );
+      attendanceWriteInFlightRef.current = true;
       recordTimeOut(activeLogId, {
         riderId: currentRiderId,
         date: getLocalDateString(),
@@ -462,11 +502,13 @@ export function useRiderShiftController({
           description: 'Database clock-out failed. Please try again.',
           tone: 'error',
         });
+      }).finally(() => {
+        attendanceWriteInFlightRef.current = false;
       });
     }
     const t = window.setTimeout(() => setScanOpen(false), 1200);
     return () => window.clearTimeout(t);
-  }, [phase, result, reload, retryLocation, restricted, userId]);
+  }, [phase, result, reload, retryLocation, restricted, setScanOpen, userId]);
 
   const isClosed = isAttendanceFinalized() && !timeIn;
   const action: AttendanceAction = deriveAttendanceAction(isClosed, timeIn, timeOut);

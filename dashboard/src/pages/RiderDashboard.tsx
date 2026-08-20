@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   getRiderPayrollHistory,
   cacheRiderFaceDescriptor,
@@ -86,6 +86,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
   const [violationsList, setViolationsList] = useState<DashboardViolation[]>([]);
   const [loadingViolations, setLoadingViolations] = useState(false);
   const [activeStatModal, setActiveStatModal] = useState<'days' | 'hours' | 'violations' | null>(null);
+  const violationRequestRef = useRef(0);
 
   // Rider Payroll States
   const [myPayrollRecords, setMyPayrollRecords] = useState<PayrollRecord[]>([]);
@@ -100,31 +101,45 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
       setIsPayslipOpen(false);
       return;
     }
+    let active = true;
     const loadPayroll = async () => {
       try {
         const data = await getRiderPayrollHistory(actualRiderId);
+        if (!active) return;
         setMyPayrollRecords(data as unknown as PayrollRecord[]);
       } catch (err) {
+        if (!active) return;
         console.error('Failed to load payroll records:', err);
       }
     };
     loadPayroll();
+    return () => {
+      active = false;
+    };
   }, [actualRiderId, restricted]);
+
+  useEffect(() => () => {
+    violationRequestRef.current += 1;
+  }, [actualRiderId]);
 
   const handleViolationsClick = async () => {
     setActiveStatModal('violations');
     if (!actualRiderId) return;
+    const requestId = ++violationRequestRef.current;
+    const ownsRequest = () => violationRequestRef.current === requestId;
     try {
       setLoadingViolations(true);
       const todayDate = new Date();
       const firstDayOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
       const firstDayStr = getLocalDateString(firstDayOfMonth);
       const data = await getRiderViolationsForMonth(actualRiderId, firstDayStr);
+      if (!ownsRequest()) return;
       setViolationsList(data);
     } catch (err) {
+      if (!ownsRequest()) return;
       console.error('Failed to load violations:', err);
     } finally {
-      setLoadingViolations(false);
+      if (ownsRequest()) setLoadingViolations(false);
     }
   };
 

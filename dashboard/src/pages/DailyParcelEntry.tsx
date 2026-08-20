@@ -163,17 +163,27 @@ export function DailyParcelEntry() {
     setSavingRowId(row.riderId);
     try {
       const isDrawerRow = selectedRiderDrawer?.riderId === row.riderId;
+      const rowDraft = isDrawerRow
+        ? {
+            deliveredParcels: drawerDraft.deliveredParcels,
+            heavyParcels: drawerDraft.heavyParcels,
+            notes: drawerDraft.notes,
+            assignedParcels: drawerDraft.assignedParcels,
+            failedDeliveries: drawerDraft.failedDeliveries,
+            returnedParcels: drawerDraft.returnedParcels
+          }
+        : row;
       await saveDailyParcelEntries(
         [
           {
             riderId: row.riderId,
             date: selectedDate,
-            parcels: row.deliveredParcels,
-            heavyParcels: isDrawerRow ? drawerDraft.heavyParcels : row.heavyParcels,
-            notes: isDrawerRow ? drawerDraft.notes : row.notes,
-            assignedParcels: isDrawerRow ? drawerDraft.assignedParcels : row.assignedParcels,
-            failedDeliveries: isDrawerRow ? drawerDraft.failedDeliveries : row.failedDeliveries,
-            returnedParcels: isDrawerRow ? drawerDraft.returnedParcels : row.returnedParcels
+            parcels: rowDraft.deliveredParcels,
+            heavyParcels: rowDraft.heavyParcels,
+            notes: rowDraft.notes,
+            assignedParcels: rowDraft.assignedParcels,
+            failedDeliveries: rowDraft.failedDeliveries,
+            returnedParcels: rowDraft.returnedParcels
           }
         ],
         user?.id || user?.email || 'Operations'

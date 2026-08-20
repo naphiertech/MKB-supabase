@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRiderZone } from '../../context/RiderZoneContext';
 import { setCachedDescriptor } from '../../lib/descriptorCache';
 import {
@@ -55,8 +55,13 @@ export function useRiderDashboardData({
     violationsThisMonth: 0,
   });
   const [monthAttendanceLogs, setMonthAttendanceLogs] = useState<DashboardAttendanceLog[]>([]);
+  const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   const reload = useCallback(async () => {
+    if (!mountedRef.current) return;
+    const requestId = ++requestIdRef.current;
+    const ownsRequest = () => mountedRef.current && requestIdRef.current === requestId;
     try {
       const todayStr = getLocalDateString();
       const todayDate = new Date();
@@ -69,6 +74,7 @@ export function useRiderDashboardData({
       const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
 
       const applyPayload = (payload: CachedDashboardPayload) => {
+        if (!ownsRequest()) return;
         const mapped = mapCachedDashboardPayloadToState(payload, firstDayOfWeekStr);
 
         setActualRiderId(mapped.resolvedRiderId);
@@ -103,13 +109,25 @@ export function useRiderDashboardData({
         },
       );
     } catch (err) {
+      if (!ownsRequest()) return;
       console.error('Error loading rider dashboard data:', err);
       setLoading(false);
     }
   }, [userId, riderId]);
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      requestIdRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
     reload();
+    return () => {
+      requestIdRef.current += 1;
+    };
   }, [reload]);
 
   useEffect(() => {

@@ -209,10 +209,54 @@ describe('useRiderShiftController characterization', () => {
     expect(mocks.recordTimeIn).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the existing uncancelled 220ms scanner timing', async () => {
+  it('keeps the existing 220ms scanner timing', async () => {
     await renderController(); act(() => latest!.scanner.openScan('time-in'));
     await vi.advanceTimersByTimeAsync(219); expect(mocks.faceState.start).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1); expect(mocks.faceState.start).toHaveBeenCalledOnce();
+  });
+
+  it('cancels an obsolete scanner start when the scanner closes before 220ms', async () => {
+    await renderController();
+    act(() => latest!.scanner.openScan('time-in'));
+    act(() => latest!.scanner.setOpen(false));
+
+    await vi.advanceTimersByTimeAsync(220);
+    expect(mocks.faceState.start).not.toHaveBeenCalled();
+  });
+
+  it('executes Time In once when matched results change during an in-flight write', async () => {
+    let resolveTimeIn!: (value: { id: string; date: string; rawTimeIn: string }) => void;
+    mocks.recordTimeIn.mockReturnValue(new Promise(resolve => { resolveTimeIn = resolve; }));
+    await renderController();
+    await openAndMatch('time-in');
+
+    mocks.faceState = {
+      ...mocks.faceState,
+      result: { matched: true, confidence: 0.99, capturedAt: 1_000_001 },
+    };
+    await rerenderController();
+    expect(mocks.recordTimeIn).toHaveBeenCalledTimes(1);
+
+    resolveTimeIn({ id: 'attendance-1', date: '1970-01-01', rawTimeIn: 'raw-in' });
+    await act(async () => { await flushAsyncWork(); });
+  });
+
+  it('executes Time Out once when matched results change during an in-flight write', async () => {
+    currentInput.attendance = { id: 'attendance-current', timeIn: '08:00', timeOut: null };
+    let resolveTimeOut!: (value: boolean) => void;
+    mocks.recordTimeOut.mockReturnValue(new Promise(resolve => { resolveTimeOut = resolve; }));
+    await renderController();
+    await openAndMatch('time-out');
+
+    mocks.faceState = {
+      ...mocks.faceState,
+      result: { matched: true, confidence: 0.99, capturedAt: 1_000_001 },
+    };
+    await rerenderController();
+    expect(mocks.recordTimeOut).toHaveBeenCalledTimes(1);
+
+    resolveTimeOut(true);
+    await act(async () => { await flushAsyncWork(); });
   });
 
   it('syncs immediately and the 30-second sync uses latest refs', async () => {
@@ -230,6 +274,22 @@ describe('useRiderShiftController characterization', () => {
     await renderController(); await act(async () => { await flushAsyncWork(); }); mocks.logRiderLocation.mockClear();
     act(() => root.unmount()); await vi.advanceTimersByTimeAsync(60_000);
     expect(mocks.logRiderLocation).not.toHaveBeenCalled(); root = createRoot(container);
+  });
+
+  it('does not run location-sync follow-up effects after cleanup', async () => {
+    currentInput.attendance = { id: 'attendance-current', timeIn: '08:00', timeOut: null };
+    let resolveLocation!: () => void;
+    mocks.logRiderLocation.mockReturnValue(new Promise<void>(resolve => { resolveLocation = resolve; }));
+    const successLog = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await renderController();
+    expect(mocks.logRiderLocation).toHaveBeenCalledOnce();
+
+    act(() => root.unmount());
+    resolveLocation();
+    await act(async () => { await flushAsyncWork(); });
+    expect(successLog).not.toHaveBeenCalled();
+    successLog.mockRestore();
+    root = createRoot(container);
   });
 
   it('preserves circle and polygon geofence interpretation', async () => {
