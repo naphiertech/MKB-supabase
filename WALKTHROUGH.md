@@ -117,14 +117,25 @@ src/pages/
 └── Users.tsx                # Employee management, user onboarding, & role assignments
 ```
 
+### Current Page-Level Boundaries
+
+- `RiderDashboard.tsx` remains the Rider-home coordinator. Pure mapping and calculations live in `pages/rider-dashboard/riderDashboardModel.ts`; cache-first dashboard loading and reload ownership live in `useRiderDashboardData.ts`; GPS/geofence state, scanner orchestration, Time In/Out persistence, offline attendance follow-up, and active-shift location synchronization live together in `useRiderShiftController.ts`.
+- `DailyParcelEntry.tsx` remains the parcel-entry coordinator for loading, filters, rate context, cutoff-lock checks, persistence routing, reloads, and correction requests. Editable draft state lives in `pages/daily-parcels/useDailyParcelDraft.ts`; table/mobile presentation lives in `DailyParcelEntryTable.tsx`; selected-Rider drawer presentation lives in `DailyParcelEntryDrawer.tsx`.
+- These boundaries are behavior-preserving. They do not replace the existing services, Supabase/RLS authority, or business workflows.
+
 ---
 
 ## 5. Attendance & Biometric Architecture
 
 ### Attendance Rules & Workflow
-- **Time-In / Time-Out**: Rider captures a live camera snapshot on mobile.
+- **Time In**: Rider captures a live camera snapshot on mobile and must have a fresh, verified GPS position. GPS freshness is validated when the scanner opens and checked again after successful face verification before attendance is written.
+- **Time Out**: Uses the current attendance record and may succeed without GPS. A current verified position is included when available, but GPS is not required to end the shift.
+- **Attendance-coordinate boundary**: Display-only or violation fallback map coordinates are never treated as verified attendance coordinates.
+- **Offline ordering**: Offline attendance continues to use the existing attendance queue, Rider status/location attempt, dashboard-cache patch, and dashboard reload sequence.
 - **Shift & Cutoff Rules**: Automatically checks Manila time (`Asia/Manila`). On-time vs Late status determined by schedule thresholds.
 - **Automatic Absent Handling**: System marks missing Time-Ins at shift cutoff.
+- **Shared attendance-summary facts**: `services/attendanceSummaryPolicy.ts` centralizes `time_in` / `raw_time_in`, normalized status aliases, leave evidence, presence evidence, late detection, and punctuality facts used by attendance, parcel operations, and payroll metrics. Consumer-specific precedence and formatting remain unchanged; the refactor did not impose a new canonical business precedence.
+- **Execution reliability**: Each face scan owns at most one Time In/Out execution through per-scan and in-flight guards. Obsolete scanner-start callbacks are cancelled while the normal **220 ms** scanner timing is preserved.
 
 ### Biometric Verification Architecture (`dashboard/src/lib/faceAi.ts`)
 - **Production pipeline remains unchanged**:
@@ -194,6 +205,18 @@ The following are not implemented: a Tiny Face Detector production switch, Media
 - **Parcel Categories**: Standard Delivered, Heavy Delivered, Failed, Returned, Notes.
 - **Audit & Correction**: Edits create append-only audit entries in `parcel_log_audit`. Corrections submit entries to `parcel_correction_requests` requiring HR/Admin approval.
 - **Source of Truth**: `parcel_logs` is the operational source of truth, but it is not strictly immutable. Approved correction workflows may update operational parcel records while `parcel_correction_requests` and append-only `parcel_log_audit` history preserve accountability.
+- **Persistence routing**: Unlocked parcel periods use the normal `saveDailyParcelEntries()` workflow. Locked historical periods use the correction-request workflow instead of direct editing; table and drawer presentation do not bypass the page coordinator to choose a persistence path.
+- **Draft consistency**: Table edits and drawer staging share the page draft model. A single-row save uses one authoritative edit source for that Rider, preventing standard parcel counts from being combined with unrelated drawer values. Bulk-save changed-row behavior is unchanged.
+
+### Parcel Service Compatibility Façade
+
+`services/operationsService.ts` remains the stable public import path and re-exports the same API from three focused modules:
+
+- `parcelOperationsPolicy.ts`: parcel validation, pure operational calculations, and effective-dated rate resolution.
+- `parcelOperationsRecords.ts`: daily queue loading, parcel save ordering, history, enrichment, audit writes, and payroll-cutoff synchronization calls.
+- `parcelCorrectionWorkflow.ts`: cutoff-lock checks, correction request creation/review, and correction audit history.
+
+Existing page imports, service signatures, save/audit ordering, payroll synchronization ownership, and correction approval behavior remain unchanged.
 
 ### Effective-Dated Rate Engine (`parcel_rate_configurations`)
 - Rates are effective-dated based on work date (`date`) and attendance Time-In.
@@ -274,12 +297,17 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
    - Respects `selectedHubId` and `All Hubs` scope; resets to `Partial` or `Cutoff not prepared` when unedited drafts are removed via `resetDraftPayrollForCutoff`.
 
 8. **Authoritative Attendance Punctuality Integration (`v_attendance_summary.hr_status`)**:
-   - `getRiderPayrollMetrics` queries `v_attendance_summary.hr_status` to evaluate punctuality authoritatively against the 8:15 AM (Asia/Manila) HR rule.
+   - Shared facts from `attendanceSummaryPolicy.ts` normalize attendance-summary evidence once, while `getRiderPayrollMetrics` retains its existing consumer-specific precedence and evaluates punctuality against the 8:15 AM (Asia/Manila) HR rule.
    - Displays exact late minutes in Day Details without conflating with or altering the separate parcel delivery rate tier matrix (≤8:00 AM, 8:01–9:00 AM, ≥9:01 AM).
 
 9. **Authoritative Cutoff Archive Aggregation (`getArchivedPayrollCutoffsSummary`)**:
    - Aggregates multi-rider historical cutoffs strictly by status uniformity: all Paid → `Paid`, all Approved → `Approved`, all Submitted → `Submitted`, all Draft → `Draft`, all Rejected → `Rejected`, and any combination of differing statuses → `Mixed`.
    - `Mixed` status badge is UI-derived only, preserving PostgreSQL enum purity without schema mutations.
+
+10. **Shared Payroll Adjustment Totals (`lib/payroll/payrollAdjustments.ts`)**:
+   - Payroll pages, Rider payroll lists, details, and export code use one pure utility for numeric normalization and adjustment totals.
+   - The existing formula is unchanged: gross pay plus other earnings plus FM pickup earnings (**FM pickups × ₱3**), less deductions, late on-hold, and late remittance.
+   - Historical snapshots, approval state, export architecture, official MKB Payslip XLSX mappings/formulas, and the official template adapter remain unchanged.
 
 The Payroll Bulk Actions batch passed **57 / 57 database assertions** and **130 / 130 application tests** at the time that batch was completed. The current repository-wide application count is recorded in Section 16.
 
@@ -292,6 +320,8 @@ The Payroll Bulk Actions batch passed **57 / 57 database assertions** and **130 
 - **Idempotency & Replay**: Assigns a unique `idempotencyKey` and original `eventTimestamp`. Replay retains original event time.
 - **Identity Trust**: Offline trust is bound to the canonical rider ID linked to the authenticated auth user.
 - **Diagnostics**: Rider UI includes queue status and diagnostics modal for un-synced or failed events.
+- **Request ownership**: Older Rider Dashboard cache/revalidation callbacks cannot overwrite state owned by a newer reload. Rider payroll and violation requests likewise ignore obsolete responses.
+- **Location cleanup**: The active-shift interval still synchronizes immediately and every 30 seconds using the latest mirrored values. After its owning effect is cleaned up, an in-flight request cannot run obsolete success/error follow-up effects.
 
 > [!IMPORTANT]
 > **Native Capacitor Background Location Tracking** is **PLANNED / DEFERRED**. Currently, mobile rider features run as a responsive web app / PWA in mobile browsers.
@@ -568,14 +598,33 @@ Verification executed against active repository state as of **August 20, 2026**:
 - **Violations Database Lifecycle/RLS Suite**: **PASS (27 / 27 transactional assertions)**
 - **Payroll Bulk Actions Database Suite**: **PASS (57 / 57 transactional assertions)**
 - **Employee Archive Database Lifecycle/RLS Suite**: **PASS (40 / 40 transactional assertions)**
-- **Automated Application Test Suite (`npm test -- --run`)**: **PASS (352 / 352 tests passed across 83 test files)**
+- **Automated Application Test Suite (`npm test`)**: **PASS (458 / 458 tests passed across 94 test files)**
 - **Account-Security Database Suite**: **PASS (14 / 14 transactional assertions)**
 - **Session-Control RLS Suite**: **PASS (5 / 5 transactional assertions)**
-- **ESLint Linting (`npm run lint:dashboard`)**: **PASS (0 errors, 0 warnings)**
-- **Production Build (`npm run build`)**: **PASS** across `dashboard` (Vite) and `landing` (Next.js 16.1.6 Turbopack)
+- **ESLint Linting (`npm run lint:dashboard`)**: **PASS (0 errors, 17 existing warnings)**
+- **Dashboard Production Build**: **PASS** (`dashboard`, Vite)
+- **Landing Production Build**: **PASS** (`landing`, Next.js 16.1.6 Turbopack)
 - **Diff Validation (`git diff --check`)**: **PASS**
 
 `jsdom@26.1.0` is installed as a **test-only development dependency** for real DOM focus, portal positioning, and interaction regression tests. It is not part of the application runtime architecture.
+
+### Manual Smoke Test
+
+Use this focused checklist after Rider attendance, parcel-entry, payroll, or shared-policy changes:
+
+1. **Rider dashboard loading**: Open the Rider Dashboard and confirm cached data may appear first, fresh data replaces it, and the correct Rider, Zone, attendance, statistics, violations, and payroll data remain aligned.
+2. **Time In**: With fresh verified GPS, complete face/liveness verification and confirm GPS is checked again before one Time In is written.
+3. **Time Out**: Complete face verification with GPS unavailable and confirm Time Out still succeeds against the current attendance record.
+4. **Scanner close-before-start**: Open the scanner and close it before **220 ms**; confirm the obsolete camera/scanner start does not run. A normal open must still start after the existing delay.
+5. **GPS and geofence**: Confirm circle/polygon status and fresh-position updates remain correct. Display/fallback map coordinates must never be used as Time In evidence.
+6. **Logout while Time In**: Attempt logout during an active shift and confirm the existing active-shift warning/controlled logout path appears; logout must not fabricate or silently write Time Out.
+7. **Parcel table editing**: Change standard/heavy/failed/returned values and confirm dirty highlighting, validation feedback, reset, and per-row save behavior.
+8. **Parcel drawer editing/staging**: Edit drawer counts/notes, apply staging, and confirm the table receives the staged draft without an immediate database write.
+9. **Row ↔ drawer synchronization**: Edit a table row, open its drawer, then stage drawer changes back; confirm the same Rider draft is used in both directions.
+10. **Bulk parcel save**: Modify multiple eligible rows and confirm Save All persists only changed rows through the normal save workflow.
+11. **Locked-cutoff correction**: Open a saved row in a locked historical cutoff, supply a reason, and confirm a correction request is created instead of a direct parcel update.
+12. **Payroll sanity**: Compare one known record across the list, details, payslip/export, and history. Confirm FM pickup earnings remain **count × ₱3** and net pay uses the unchanged shared adjustment formula.
+13. **Payroll → Admin/HR approval**: Submit a valid payroll record, approve it as Admin/authorized HR, and verify the existing status gates, immutable snapshots, activity/audit records, and official payslip behavior remain intact.
 
 ### Known Remaining Risks
 - Stale rider status is evaluated on a one-minute schedule after a two-minute freshness threshold, so the visible transition may take approximately **2–3 minutes**.
@@ -613,10 +662,15 @@ Verification executed against active repository state as of **August 20, 2026**:
 20. **Coverage-Based Cutoff Readiness Engine**: Resolved. Replaced the naive `count > 0` binary check with `getCutoffPreparationCoverage`, accurately resolving date-effective eligible fleet riders, Hub scoping, partial preparation counts, and draft-reset recalculations.
 21. **Payroll Reports Mock Data Purge & Hub Scoping**: Resolved. Completely removed mock archive arrays, wired `Payroll History & Archives` to live Supabase data via `getArchivedPayrollCutoffsSummary`, fixed the `Load` action, and modernized the 3-way segmented report-type selector.
 22. **Authoritative Archive Cutoff Status Aggregation & `Mixed` Badge**: Resolved. Multi-rider cutoff rows in Payroll Reports now accurately display `Paid`, `Approved`, `Submitted`, `Draft`, `Rejected`, or `Mixed` based on strict status uniformity.
+23. **Duplicated Payroll Adjustment Calculations**: Resolved. Normalization, FM pickup earnings, total earnings/deductions, and net pay now use `lib/payroll/payrollAdjustments.ts` without changing formulas or export/template behavior.
+24. **Attendance-Summary Rule Drift**: Resolved structurally. Attendance, parcel operations, and payroll metrics share `attendanceSummaryPolicy.ts` facts while retaining their established consumer-specific precedence.
+25. **Parcel Operations Service Bottleneck**: Resolved behind the unchanged `operationsService.ts` compatibility façade through `parcelOperationsPolicy.ts`, `parcelOperationsRecords.ts`, and `parcelCorrectionWorkflow.ts`.
+26. **Rider Dashboard and Daily Parcel Mixed Responsibilities**: Resolved through the page-level model/hook/presentation boundaries listed in Section 4 while keeping both pages as workflow coordinators.
+27. **Post-Refactor Reliability Risks**: Resolved. Added per-scan attendance execution ownership, obsolete 220 ms timeout cleanup, stale dashboard/payroll/violation response protection, location-sync cleanup guards, and authoritative single-row parcel drafts.
 
 ---
 
-## 18. Latest Implemented Work — Multi-Hub and Dashboard UI Polish
+## 18. Latest Implemented Work — Multi-Hub, Dashboard UI, and Reliability
 
 ### August 12, 2026 — Multi-Hub Foundation and Workspace
 
@@ -700,6 +754,15 @@ This release implemented critical data-integrity reconciliations, UX hierarchy i
    - Aggregates multi-rider historical cutoffs: all Paid → `Paid`, all Approved → `Approved`, all Submitted → `Submitted`, all Draft → `Draft`, all Rejected → `Rejected`, and differing combinations → `Mixed`.
    - Styled with a neutral purple badge without altering PostgreSQL enum types.
 
+### August 20, 2026 — Behavior-Preserving Refactor and Reliability Hardening
+
+- Centralized payroll adjustment totals in `lib/payroll/payrollAdjustments.ts` and attendance-summary facts in `services/attendanceSummaryPolicy.ts` without changing business formulas or existing consumer precedence.
+- Split parcel policy, record/history, and correction responsibilities behind the unchanged `operationsService.ts` compatibility façade.
+- Kept `RiderDashboard.tsx` as coordinator while moving pure calculations to `riderDashboardModel.ts`, primary SWR-backed data loading to `useRiderDashboardData.ts`, and the coupled GPS/geofence/scanner/attendance/location workflow to `useRiderShiftController.ts`.
+- Kept `DailyParcelEntry.tsx` as coordinator while moving draft state to `useDailyParcelDraft.ts`, queue/table/mobile presentation to `DailyParcelEntryTable.tsx`, and selected-Rider drawer presentation to `DailyParcelEntryDrawer.tsx`.
+- Hardened attendance execution with per-scan/in-flight ownership, cleaned up obsolete scanner-start callbacks without changing the 220 ms delay, rejected stale Rider Dashboard/payroll/violation responses, suppressed obsolete location-sync follow-up after cleanup, and made single-row parcel saves use one authoritative draft.
+- Time In still requires fresh verified GPS and repeats the freshness check after face verification; Time Out still works without GPS; fallback map coordinates remain display-only; offline attendance ordering remains unchanged.
+
 ### Preserved Invariants (What Was NOT Changed)
 - **Zero changes to payroll calculations**: Gross pay formulas, standard parcel pay, heavy parcel surcharges, attendance deductions, and net pay equations remain 100% untouched.
 - **Zero changes to parcel rate matrix**: Tiered rate windows and heavy threshold definitions remain unchanged.
@@ -707,14 +770,14 @@ This release implemented critical data-integrity reconciliations, UX hierarchy i
 - **Zero changes to approval workflows**: Status gates (`draft` → `submitted` → `approved` → `paid`) remain intact.
 - **Complete immutability of historical data**: Approved and paid historical cutoffs remained completely locked.
 - **Zero export template changes**: Official `.xlsx` templates and PDF engines were preserved.
-- **DTR and attendance ingestion untouched**: Biometric scan ingestion, time-in/out logging, and attendance tables remain untouched.
+- **Attendance business rules unchanged**: DTR ingestion, lateness/finalization rules, attendance persistence service APIs, and attendance tables remain unchanged. Client orchestration gained execution/request guards only; it did not introduce a new attendance rule.
 
 ### Latest Verification
 
-- Automated tests: **352 / 352 PASS across 83 files**.
+- Automated tests: **458 / 458 PASS across 94 files**.
 - TypeScript (`npm run typecheck`): **PASS (0 errors)** across `dashboard` and `landing`.
-- ESLint (`npm run lint:dashboard`): **PASS (0 errors, 0 warnings)**.
-- Production build (`npm run build`): **PASS** for Vite dashboard (21.61s) and Next.js landing (4.1s).
+- ESLint (`npm run lint:dashboard`): **PASS (0 errors, 17 existing warnings)**.
+- Production builds: **PASS** for the Vite dashboard and Next.js landing.
 - `git diff --check`: **PASS**.
 
 ---
@@ -774,3 +837,5 @@ This release implemented critical data-integrity reconciliations, UX hierarchy i
 16. **Coverage-Based Cutoff Readiness**: Never revert to binary `count > 0` queries for cutoff preparation. Always resolve date-effective eligible fleet riders via `getCutoffPreparationCoverage` with `selectedHubId` scoping, and keep `Prepare Cutoff` available during partial states.
 17. **Strict Separation of Punctuality vs Parcel Rates**: Attendance punctuality (8:15 AM late threshold) must remain evaluated through `v_attendance_summary.hr_status`. Never conflate or modify attendance punctuality with the separate delivery parcel rate tier matrix (≤8:00 AM, 8:01–9:00 AM, ≥9:01 AM).
 18. **Authoritative Archive Status Aggregation**: Cutoff summary rows in Payroll Reports must aggregate strictly by status uniformity (`Paid`, `Approved`, `Submitted`, `Draft`, `Rejected`, `Mixed`). `Mixed` must remain UI-derived without polluting the database enum.
+19. **Preserve Shared Calculation and Policy Seams**: Keep payroll adjustments centralized in `payrollAdjustments.ts`, attendance-summary facts centralized in `attendanceSummaryPolicy.ts`, and parcel consumers importing the stable `operationsService.ts` façade unless an explicitly approved migration changes that public boundary.
+20. **Preserve Rider Attendance Safety Boundaries**: Time In requires current verified GPS both before scanning and after face match; Time Out may proceed without GPS; display/fallback coordinates are never attendance evidence; offline queue/cache/reload ordering and per-scan execution ownership must remain intact.
