@@ -138,6 +138,7 @@ interface RiderPayrollListProps {
   onStatusUpdated?: () => void;
   onComputeRider?: (record: PayrollRecordRow) => void;
   onOpenDetails: (record: PayrollRecordRow, allRecordsInPage: PayrollRecordRow[]) => void;
+  onSearchRider?: () => void;
 }
 
 export function RiderPayrollList({
@@ -148,7 +149,8 @@ export function RiderPayrollList({
   pendingReviewRequest = 0,
   onStatusUpdated,
   onComputeRider,
-  onOpenDetails
+  onOpenDetails,
+  onSearchRider
 }: RiderPayrollListProps) {
   const isAdminOrHr = role === 'admin' || role === 'hr';
   const { user } = useAuth();
@@ -613,7 +615,7 @@ export function RiderPayrollList({
 
       {/* Main Table Container */}
       <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-foreground">Rider Payroll List</span>
@@ -625,6 +627,16 @@ export function RiderPayrollList({
               {totalCount} records · {cutoffLabel} · Click rows or chevron to inspect daily breakdowns
             </div>
           </div>
+          {onSearchRider && (
+            <button
+              type="button"
+              onClick={onSearchRider}
+              className="h-8 px-3 rounded-lg bg-white border border-border hover:border-primary/40 hover:bg-panel-bg text-foreground text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+            >
+              <Search className="w-3.5 h-3.5 text-muted-foreground" />
+              <span>Search &amp; Pick Rider...</span>
+            </button>
+          )}
         </div>
 
         {/* Table Control Bar */}

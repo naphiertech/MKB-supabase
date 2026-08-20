@@ -28,6 +28,7 @@ vi.mock('./payrollBulkActions', () => ({
 import {
   calculateDeliverySuccessRate,
   getArchivedPayrollCutoffsSummary,
+  getCutoffPreparationCoverage,
   getParcelLogs,
   getPayrollDeliveryData,
   getRiderPayrollMetrics,
@@ -893,5 +894,260 @@ describe('getArchivedPayrollCutoffsSummary status aggregation', () => {
     const result = await getArchivedPayrollCutoffsSummary();
     expect(result).toHaveLength(1);
     expect(result[0].status).toBe('mixed');
+  });
+});
+
+describe('getCutoffPreparationCoverage tests', () => {
+  const setupCoverageMocks = ({
+    eligibleRiderIds,
+    riders,
+    existingPayrollRecords,
+  }: {
+    eligibleRiderIds: string[];
+    riders: Array<{ id: string; hub_id: string }>;
+    existingPayrollRecords: Array<{ rider_id: string }>;
+  }) => {
+    mocks.rpc.mockResolvedValue({
+      data: eligibleRiderIds.map((id) => ({ rider_id: id })),
+      error: null,
+    });
+
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'riders') {
+        let currentRiders = riders;
+        const query: any = {
+          select: vi.fn().mockReturnThis(),
+          in: vi.fn().mockImplementation((field: string, ids: string[]) => {
+            const idSet = new Set(ids);
+            currentRiders = currentRiders.filter((r) => idSet.has((r as any)[field]));
+            return query;
+          }),
+          eq: vi.fn().mockImplementation((field: string, val: string) => {
+            currentRiders = currentRiders.filter((r) => (r as any)[field] === val);
+            return query;
+          }),
+          then: (resolve: any, reject: any) =>
+            Promise.resolve({ data: currentRiders, error: null }).then(resolve, reject),
+        };
+        return query;
+      }
+
+      if (table === 'payroll_records') {
+        let currentRecords = existingPayrollRecords;
+        const query: any = {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockImplementation((_field: string, scopedIds: string[]) => {
+            const scopedSet = new Set(scopedIds);
+            currentRecords = currentRecords.filter((rec) =>
+              scopedSet.has(rec.rider_id)
+            );
+            return query;
+          }),
+          then: (resolve: any, reject: any) =>
+            Promise.resolve({ data: currentRecords, error: null }).then(resolve, reject),
+        };
+        return query;
+      }
+
+      return {
+        select: vi.fn().mockReturnThis(),
+      };
+    });
+  };
+
+  it('returns no_riders state when 0 eligible riders exist', async () => {
+    setupCoverageMocks({
+      eligibleRiderIds: [],
+      riders: [],
+      existingPayrollRecords: [],
+    });
+
+    const res = await getCutoffPreparationCoverage('2026-08-01', '2026-08-15');
+    expect(res).toEqual({
+      totalEligible: 0,
+      preparedCount: 0,
+      missingCount: 0,
+      state: 'no_riders',
+    });
+  });
+
+  it('returns unprepared state when none of the eligible riders are prepared (0 / N)', async () => {
+    setupCoverageMocks({
+      eligibleRiderIds: ['r1', 'r2', 'r3'],
+      riders: [
+        { id: 'r1', hub_id: 'hub-1' },
+        { id: 'r2', hub_id: 'hub-1' },
+        { id: 'r3', hub_id: 'hub-1' },
+      ],
+      existingPayrollRecords: [],
+    });
+
+    const res = await getCutoffPreparationCoverage('2026-08-01', '2026-08-15');
+    expect(res).toEqual({
+      totalEligible: 3,
+      preparedCount: 0,
+      missingCount: 3,
+      state: 'unprepared',
+    });
+  });
+
+  it('returns partial state when only some eligible riders are prepared (X / N)', async () => {
+    setupCoverageMocks({
+      eligibleRiderIds: ['r1', 'r2', 'r3', 'r4', 'r5'],
+      riders: [
+        { id: 'r1', hub_id: 'hub-1' },
+        { id: 'r2', hub_id: 'hub-1' },
+        { id: 'r3', hub_id: 'hub-1' },
+        { id: 'r4', hub_id: 'hub-1' },
+        { id: 'r5', hub_id: 'hub-1' },
+      ],
+      existingPayrollRecords: [{ rider_id: 'r1' }, { rider_id: 'r3' }],
+    });
+
+    const res = await getCutoffPreparationCoverage('2026-08-01', '2026-08-15');
+    expect(res).toEqual({
+      totalEligible: 5,
+      preparedCount: 2,
+      missingCount: 3,
+      state: 'partial',
+    });
+  });
+
+  it('returns ready state when all eligible riders are prepared (N / N)', async () => {
+    setupCoverageMocks({
+      eligibleRiderIds: ['r1', 'r2', 'r3'],
+      riders: [
+        { id: 'r1', hub_id: 'hub-1' },
+        { id: 'r2', hub_id: 'hub-1' },
+        { id: 'r3', hub_id: 'hub-1' },
+      ],
+      existingPayrollRecords: [
+        { rider_id: 'r1' },
+        { rider_id: 'r2' },
+        { rider_id: 'r3' },
+      ],
+    });
+
+    const res = await getCutoffPreparationCoverage('2026-08-01', '2026-08-15');
+    expect(res).toEqual({
+      totalEligible: 3,
+      preparedCount: 3,
+      missingCount: 0,
+      state: 'ready',
+    });
+  });
+
+  it('respects single Hub scope filtering by hub_id', async () => {
+    setupCoverageMocks({
+      eligibleRiderIds: ['r1', 'r2', 'r3', 'r4'],
+      riders: [
+        { id: 'r1', hub_id: 'hub-A' },
+        { id: 'r2', hub_id: 'hub-A' },
+        { id: 'r3', hub_id: 'hub-B' },
+        { id: 'r4', hub_id: 'hub-B' },
+      ],
+      existingPayrollRecords: [{ rider_id: 'r1' }, { rider_id: 'r2' }],
+    });
+
+    // Checking for Hub A (both r1 and r2 are prepared -> ready)
+    const resHubA = await getCutoffPreparationCoverage(
+      '2026-08-01',
+      '2026-08-15',
+      'hub-A'
+    );
+    expect(resHubA).toEqual({
+      totalEligible: 2,
+      preparedCount: 2,
+      missingCount: 0,
+      state: 'ready',
+    });
+
+    // Checking for Hub B (neither r3 nor r4 is prepared -> unprepared)
+    const resHubB = await getCutoffPreparationCoverage(
+      '2026-08-01',
+      '2026-08-15',
+      'hub-B'
+    );
+    expect(resHubB).toEqual({
+      totalEligible: 2,
+      preparedCount: 0,
+      missingCount: 2,
+      state: 'unprepared',
+    });
+  });
+
+  it('evaluates all eligible riders when hubId is null (All Hubs)', async () => {
+    setupCoverageMocks({
+      eligibleRiderIds: ['r1', 'r2', 'r3', 'r4'],
+      riders: [
+        { id: 'r1', hub_id: 'hub-A' },
+        { id: 'r2', hub_id: 'hub-A' },
+        { id: 'r3', hub_id: 'hub-B' },
+        { id: 'r4', hub_id: 'hub-B' },
+      ],
+      existingPayrollRecords: [{ rider_id: 'r1' }, { rider_id: 'r2' }],
+    });
+
+    const resAll = await getCutoffPreparationCoverage('2026-08-01', '2026-08-15', null);
+    expect(resAll).toEqual({
+      totalEligible: 4,
+      preparedCount: 2,
+      missingCount: 2,
+      state: 'partial',
+    });
+  });
+
+  it('counts mixed payroll statuses (draft, submitted, approved, paid, rejected) as prepared', async () => {
+    setupCoverageMocks({
+      eligibleRiderIds: ['r1', 'r2', 'r3', 'r4', 'r5'],
+      riders: [
+        { id: 'r1', hub_id: 'hub-1' },
+        { id: 'r2', hub_id: 'hub-1' },
+        { id: 'r3', hub_id: 'hub-1' },
+        { id: 'r4', hub_id: 'hub-1' },
+        { id: 'r5', hub_id: 'hub-1' },
+      ],
+      existingPayrollRecords: [
+        { rider_id: 'r1' }, // e.g. draft
+        { rider_id: 'r2' }, // e.g. submitted
+        { rider_id: 'r3' }, // e.g. approved
+        { rider_id: 'r4' }, // e.g. paid
+        { rider_id: 'r5' }, // e.g. rejected
+      ],
+    });
+
+    const res = await getCutoffPreparationCoverage('2026-08-01', '2026-08-15');
+    expect(res.state).toBe('ready');
+    expect(res.preparedCount).toBe(5);
+    expect(res.totalEligible).toBe(5);
+  });
+
+  it('returns partial state after Reset Drafts removes unedited draft records', async () => {
+    // Before reset: 5 riders, 5 prepared (ready)
+    // After reset: 2 unedited drafts deleted, leaving 3 records -> partial (3/5)
+    setupCoverageMocks({
+      eligibleRiderIds: ['r1', 'r2', 'r3', 'r4', 'r5'],
+      riders: [
+        { id: 'r1', hub_id: 'hub-1' },
+        { id: 'r2', hub_id: 'hub-1' },
+        { id: 'r3', hub_id: 'hub-1' },
+        { id: 'r4', hub_id: 'hub-1' },
+        { id: 'r5', hub_id: 'hub-1' },
+      ],
+      existingPayrollRecords: [
+        { rider_id: 'r1' },
+        { rider_id: 'r2' },
+        { rider_id: 'r3' },
+      ],
+    });
+
+    const res = await getCutoffPreparationCoverage('2026-08-01', '2026-08-15');
+    expect(res).toEqual({
+      totalEligible: 5,
+      preparedCount: 3,
+      missingCount: 2,
+      state: 'partial',
+    });
   });
 });

@@ -10,10 +10,21 @@ const mocks = vi.hoisted(() => ({
   savePayrollRecord: vi.fn(),
   initializeCutoffPayrollForFleet: vi.fn(),
   resetDraftPayrollForCutoff: vi.fn(),
+  getCutoffPreparationCoverage: vi.fn(),
   getParcelRateContextForDate: vi.fn(),
   exportParcelPayslipPDF: vi.fn(),
   exportParcelCSV: vi.fn(),
   pushToast: vi.fn(),
+  selectedHubId: null as string | null,
+}));
+
+vi.mock('../context/HubContext', () => ({
+  useHub: () => ({
+    selectedHubId: mocks.selectedHubId,
+    selectedHub: null,
+    isReady: true,
+    workspaceKey: mocks.selectedHubId || 'all',
+  }),
 }));
 
 vi.mock('../hooks/useAuth', () => ({
@@ -41,6 +52,7 @@ vi.mock('../services/parcelService', () => ({
   savePayrollRecord: mocks.savePayrollRecord,
   initializeCutoffPayrollForFleet: mocks.initializeCutoffPayrollForFleet,
   resetDraftPayrollForCutoff: mocks.resetDraftPayrollForCutoff,
+  getCutoffPreparationCoverage: mocks.getCutoffPreparationCoverage,
 }));
 
 vi.mock('../services/operationsService', () => ({
@@ -55,7 +67,13 @@ vi.mock('../lib/exports/payrollExport', () => ({
 }));
 
 vi.mock('../components/payroll/RiderPayrollList', () => ({
-  RiderPayrollList: ({ onComputeRider }: { onComputeRider: (record: any) => void }) => (
+  RiderPayrollList: ({
+    onComputeRider,
+    onSearchRider,
+  }: {
+    onComputeRider: (record: any) => void;
+    onSearchRider?: () => void;
+  }) => (
     <div data-testid="rider-payroll-list">
       <button
         type="button"
@@ -82,13 +100,18 @@ vi.mock('../components/payroll/RiderPayrollList', () => ({
       >
         Select John Doe
       </button>
+      {onSearchRider && (
+        <button type="button" onClick={onSearchRider}>
+          Search &amp; Pick Rider...
+        </button>
+      )}
     </div>
   ),
 }));
 
 import { PayrollComputation } from './PayrollComputation';
 
-describe('PayrollComputation Page UI Enhancements', () => {
+describe('PayrollComputation Page UI & Coverage Enhancements', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -97,6 +120,13 @@ describe('PayrollComputation Page UI Enhancements', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+
+    mocks.getCutoffPreparationCoverage.mockResolvedValue({
+      totalEligible: 5,
+      preparedCount: 0,
+      missingCount: 5,
+      state: 'unprepared',
+    });
 
     mocks.getRidersLookup.mockResolvedValue([
       { id: 'rider-1', name: 'John Doe', mkb_id: 'MKB-001', zones: { name: 'Zone Central' } },
@@ -150,7 +180,31 @@ describe('PayrollComputation Page UI Enhancements', () => {
     Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
   });
 
-  it('renders cleaned up Cutoff Period section with renamed Initialize Cutoff and overflow menu for reset drafts', async () => {
+  it('renders "No eligible riders" when coverage state is no_riders', async () => {
+    mocks.getCutoffPreparationCoverage.mockResolvedValue({
+      totalEligible: 0,
+      preparedCount: 0,
+      missingCount: 0,
+      state: 'no_riders',
+    });
+
+    await act(async () => {
+      root.render(<PayrollComputation />);
+    });
+
+    expect(container.textContent).toContain('No eligible riders');
+    expect(container.textContent).not.toContain('Prepare Cutoff');
+    expect(container.textContent).not.toContain('Cutoff Ready');
+  });
+
+  it('renders contextual "Cutoff not prepared" and "Prepare Cutoff" button when none are prepared (0 / N)', async () => {
+    mocks.getCutoffPreparationCoverage.mockResolvedValue({
+      totalEligible: 5,
+      preparedCount: 0,
+      missingCount: 5,
+      state: 'unprepared',
+    });
+
     await act(async () => {
       root.render(<PayrollComputation />);
     });
@@ -158,18 +212,12 @@ describe('PayrollComputation Page UI Enhancements', () => {
     // Check Cutoff Period title
     expect(container.textContent).toContain('Cutoff Period');
 
-    // Check button renamed to "Initialize Cutoff"
-    const initBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Initialize Cutoff')
+    // Check contextual Prepare Cutoff action
+    expect(container.textContent).toContain('Cutoff not prepared');
+    const prepareBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Prepare Cutoff')
     );
-    expect(initBtn).toBeDefined();
-    expect(container.textContent).not.toContain('Initialize Fleet Cutoff');
-
-    // Check Search Rider button
-    const searchBtn = Array.from(container.querySelectorAll('button')).find((b) =>
-      b.textContent?.includes('Search Rider')
-    );
-    expect(searchBtn).toBeDefined();
+    expect(prepareBtn).toBeDefined();
 
     // Check overflow menu toggle button
     const overflowBtn = container.querySelector('button[aria-label="More cutoff options"]');
@@ -181,6 +229,52 @@ describe('PayrollComputation Page UI Enhancements', () => {
     });
 
     expect(container.textContent).toContain('Reset Unedited Drafts');
+  });
+
+  it('renders "Partial · 2/5 prepared" and "Prepare Cutoff" button when partially prepared (X / N)', async () => {
+    mocks.getCutoffPreparationCoverage.mockResolvedValue({
+      totalEligible: 5,
+      preparedCount: 2,
+      missingCount: 3,
+      state: 'partial',
+    });
+
+    await act(async () => {
+      root.render(<PayrollComputation />);
+    });
+
+    expect(container.textContent).toContain('Partial • 2/5 prepared');
+    const prepareBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Prepare Cutoff')
+    );
+    expect(prepareBtn).toBeDefined();
+  });
+
+  it('renders "Cutoff Ready" status indicator when all eligible riders are prepared (N / N)', async () => {
+    mocks.getCutoffPreparationCoverage.mockResolvedValue({
+      totalEligible: 5,
+      preparedCount: 5,
+      missingCount: 0,
+      state: 'ready',
+    });
+
+    await act(async () => {
+      root.render(<PayrollComputation />);
+    });
+
+    expect(container.textContent).toContain('Cutoff Ready');
+    expect(container.textContent).not.toContain('Prepare Cutoff');
+  });
+
+  it('renders Rider search/pick button within RiderPayrollList header', async () => {
+    await act(async () => {
+      root.render(<PayrollComputation />);
+    });
+
+    const searchPickBtn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Search & Pick Rider')
+    );
+    expect(searchPickBtn).toBeDefined();
   });
 
   it('loads and displays date-effective Dynamic Rate Rules and compact Export / Finalize actions in active rider view', async () => {

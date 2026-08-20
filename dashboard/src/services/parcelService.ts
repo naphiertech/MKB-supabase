@@ -411,6 +411,84 @@ export const initializeCutoffPayrollForFleet = async (
   };
 };
 
+export interface CutoffPreparationCoverage {
+  totalEligible: number;
+  preparedCount: number;
+  missingCount: number;
+  state: 'no_riders' | 'unprepared' | 'partial' | 'ready';
+}
+
+/**
+ * Checks coverage-based preparation readiness for a cutoff period and Hub scope.
+ * Determines how many eligible active riders already have payroll records.
+ */
+export const getCutoffPreparationCoverage = async (
+  cutoffFrom: string,
+  cutoffTo: string,
+  hubId?: string | null
+): Promise<CutoffPreparationCoverage> => {
+  // 1. Resolve date-effective employment eligibility authoritatively
+  const { data: eligibleRows, error: eligibilityError } = await supabase.rpc('get_payroll_eligible_rider_ids', {
+    p_cutoff_start: cutoffFrom,
+    p_cutoff_end: cutoffTo,
+  });
+  if (eligibilityError) throw eligibilityError;
+  const eligibleIds = (eligibleRows || []).map((row: { rider_id: string }) => row.rider_id);
+  if (eligibleIds.length === 0) {
+    return { totalEligible: 0, preparedCount: 0, missingCount: 0, state: 'no_riders' };
+  }
+
+  // 2. Fetch scoped riders
+  let riderQuery = supabase
+    .from('riders')
+    .select('id, hub_id')
+    .in('id', eligibleIds);
+
+  if (hubId) {
+    riderQuery = riderQuery.eq('hub_id', hubId);
+  }
+
+  const { data: riders, error: riderErr } = await riderQuery;
+  if (riderErr) throw riderErr;
+  if (!riders || riders.length === 0) {
+    return { totalEligible: 0, preparedCount: 0, missingCount: 0, state: 'no_riders' };
+  }
+
+  const scopedEligibleIds = riders.map(r => r.id);
+  const totalEligible = scopedEligibleIds.length;
+
+  // 3. Fetch existing payroll records for these eligible riders for this cutoff period
+  const { data: existingRecords, error: recordErr } = await supabase
+    .from('payroll_records')
+    .select('rider_id')
+    .eq('cutoff_start', cutoffFrom)
+    .in('rider_id', scopedEligibleIds);
+
+  if (recordErr) throw recordErr;
+
+  const existingRiderIds = new Set((existingRecords || []).map(r => r.rider_id));
+  const preparedCount = existingRiderIds.size;
+  const missingCount = Math.max(0, totalEligible - preparedCount);
+
+  let state: 'no_riders' | 'unprepared' | 'partial' | 'ready' = 'ready';
+  if (totalEligible === 0) {
+    state = 'no_riders';
+  } else if (preparedCount === 0) {
+    state = 'unprepared';
+  } else if (preparedCount < totalEligible) {
+    state = 'partial';
+  } else {
+    state = 'ready';
+  }
+
+  return {
+    totalEligible,
+    preparedCount,
+    missingCount,
+    state,
+  };
+};
+
 /**
  * Deletes unedited draft payroll records (0 parcels and status 'draft') for a specific cutoff period.
  * Preserves any records that have parcels logged or status updated (submitted/approved/paid).

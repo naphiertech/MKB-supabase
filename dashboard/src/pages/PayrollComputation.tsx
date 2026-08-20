@@ -2,11 +2,14 @@ import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRidersLookup } from '../services/riderService';
 import { getRiderAttendanceInDateRange } from '../services/attendanceService';
+import { useHub } from '../context/HubContext';
 import {
   getPayrollDeliveryData,
   savePayrollRecord,
   initializeCutoffPayrollForFleet,
   resetDraftPayrollForCutoff,
+  getCutoffPreparationCoverage,
+  type CutoffPreparationCoverage,
   type ParcelLog
 } from '../services/parcelService';
 import { getParcelRateContextForDate, type ParcelRateContext } from '../services/operationsService';
@@ -25,11 +28,11 @@ import {
   Loader2,
   Calendar,
   Zap,
-  Search as SearchIcon,
   RotateCcw,
   AlertTriangle,
   ChevronDown,
-  MoreHorizontal
+  MoreHorizontal,
+  CheckCircle2
 } from 'lucide-react';
 import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/RiderPayrollList';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
@@ -151,6 +154,7 @@ export function PayrollComputation() {
     source: 'live', calculationVersion: 2, standardParcels: 0, heavyParcels: 0,
     failedParcels: 0, returnedParcels: 0, standardEarnings: 0, heavyEarnings: 0, grossDeliveryPay: 0,
   });
+  const { selectedHubId, isReady: hubReady, workspaceKey } = useHub();
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
@@ -158,6 +162,31 @@ export function PayrollComputation() {
   const [resettingFleet, setResettingFleet] = useState(false);
   const [confirmInitOpen, setConfirmInitOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [coverage, setCoverage] = useState<CutoffPreparationCoverage | null>(null);
+  const [checkingCoverage, setCheckingCoverage] = useState(false);
+
+  // Check coverage-based cutoff preparation readiness respecting Hub scope
+  useEffect(() => {
+    if (!cutoffFrom || !cutoffTo || !hubReady) return;
+    let active = true;
+    setCheckingCoverage(true);
+
+    getCutoffPreparationCoverage(cutoffFrom, cutoffTo, selectedHubId)
+      .then(cov => {
+        if (active) setCoverage(cov);
+      })
+      .catch(err => {
+        console.error('Error checking cutoff preparation coverage:', err);
+        if (active) setCoverage(null);
+      })
+      .finally(() => {
+        if (active) setCheckingCoverage(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [cutoffFrom, cutoffTo, hubReady, workspaceKey, selectedHubId, reloadTrigger]);
 
   const handleInitializeFleet = async () => {
     setInitializingFleet(true);
@@ -165,22 +194,22 @@ export function PayrollComputation() {
       const res = await initializeCutoffPayrollForFleet(cutoffFrom, cutoffTo, user?.id);
       if (res.initializedCount > 0) {
         pushToast({
-          title: "Fleet Cutoff Initialized",
+          title: "Fleet Cutoff Prepared",
           description: `Created draft payroll records for ${res.initializedCount} rider(s) (${res.totalRiders} total in fleet).`,
           tone: "success"
         });
       } else {
         pushToast({
-          title: "Cutoff Already Initialized",
+          title: "Cutoff Already Prepared",
           description: `All ${res.totalRiders} fleet riders already have payroll records for this cutoff.`,
           tone: "info"
         });
       }
       setReloadTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to initialize fleet payroll:", err);
+      console.error("Failed to prepare fleet payroll:", err);
       pushToast({
-        title: "Initialization Failed",
+        title: "Preparation Failed",
         description: "Failed to create draft payroll entries for fleet.",
         tone: "error"
       });
@@ -449,41 +478,66 @@ export function PayrollComputation() {
             {/* Cutoff Action Toolbar */}
             {!activeRider && (
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirmInitOpen(true)}
-                  disabled={initializingFleet || resettingFleet}
-                  className="h-9 px-3.5 rounded-lg bg-accent hover:bg-primary text-primary hover:text-white border border-primary/30 text-xs font-bold transition inline-flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
-                  title="Create draft payroll rows for all active fleet riders for this cutoff"
-                >
-                  {initializingFleet ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Initializing...
-                    </>
-                  ) : (
-                    <>
+                {/* Readiness State / Preparation Action */}
+                {initializingFleet ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent text-primary text-xs font-semibold border border-primary/20">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Preparing...</span>
+                  </span>
+                ) : checkingCoverage ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-panel-bg text-muted-foreground text-xs font-medium border border-border">
+                    <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                    <span className="text-[11px]">Checking...</span>
+                  </span>
+                ) : coverage?.state === 'no_riders' ? (
+                  <span className="text-[11px] text-muted-foreground italic px-2">
+                    No eligible riders
+                  </span>
+                ) : coverage?.state === 'ready' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200 shadow-2xs">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Cutoff Ready</span>
+                  </span>
+                ) : coverage?.state === 'partial' ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground hidden sm:inline-block">
+                      Partial &bull; {coverage.preparedCount}/{coverage.totalEligible} prepared
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmInitOpen(true)}
+                      disabled={initializingFleet || resettingFleet}
+                      className="h-8 px-3 rounded-lg bg-accent hover:bg-primary text-primary hover:text-white border border-primary/30 text-xs font-bold transition inline-flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+                      title="Prepare draft payroll records for missing active fleet riders"
+                    >
                       <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      Initialize Cutoff
-                    </>
-                  )}
-                </button>
+                      <span>Prepare Cutoff</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground hidden sm:inline-block">
+                      Cutoff not prepared
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmInitOpen(true)}
+                      disabled={initializingFleet || resettingFleet}
+                      className="h-8 px-3 rounded-lg bg-accent hover:bg-primary text-primary hover:text-white border border-primary/30 text-xs font-bold transition inline-flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+                      title="Prepare draft payroll records for active fleet riders"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                      <span>Prepare Cutoff</span>
+                    </button>
+                  </div>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setComboboxOpen(true)}
-                  className="h-9 px-3 rounded-lg bg-white border border-border hover:border-primary/40 hover:bg-panel-bg text-foreground text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <SearchIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                  Search Rider...
-                </button>
-
-                {/* Overflow Menu for Destructive / Secondary Actions */}
+                {/* Overflow Menu for Rare / Secondary Actions */}
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setCutoffMenuOpen(prev => !prev)}
-                    className="h-9 w-9 rounded-lg border border-border bg-white hover:bg-panel-bg text-muted-foreground hover:text-foreground flex items-center justify-center transition cursor-pointer shadow-xs"
+                    className="h-8 w-8 rounded-lg border border-border bg-white hover:bg-panel-bg text-muted-foreground hover:text-foreground flex items-center justify-center transition cursor-pointer shadow-2xs"
                     title="More cutoff options"
                     aria-label="More cutoff options"
                     aria-haspopup="true"
@@ -535,6 +589,7 @@ export function PayrollComputation() {
             setActiveRider(record);
           }}
           onOpenDetails={handleOpenDetails}
+          onSearchRider={() => setComboboxOpen(true)}
         />
       ) : (
         /* View B: Active Rider Workspace */
@@ -979,7 +1034,7 @@ export function PayrollComputation() {
                   <Zap className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-foreground">Initialize Fleet Cutoff?</h3>
+                  <h3 className="text-base font-bold text-foreground">Prepare Fleet Cutoff?</h3>
                   <p className="text-[11px] text-muted-foreground mt-0.5">Period: {cutoffLabel}, {currentYear}</p>
                 </div>
               </div>
@@ -1008,10 +1063,10 @@ export function PayrollComputation() {
                   {initializingFleet ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Initializing...
+                      Preparing...
                     </>
                   ) : (
-                    'Yes, Initialize Fleet'
+                    'Yes, Prepare Cutoff'
                   )}
                 </button>
               </div>
