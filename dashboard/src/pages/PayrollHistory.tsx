@@ -31,6 +31,10 @@ import type { PageKey } from '../components/common/Sidebar';
 import { PayrollActorIdentity } from '../components/payroll/PayrollActorIdentity';
 import { RightDrawer } from '../components/common/RightDrawer';
 import { PayrollHistorySkeleton } from '../components/payroll/PayrollDashboardSkeleton';
+import {
+  calculatePayrollRecordTotals,
+  payslipAdjustmentsFromRecord,
+} from '../lib/payroll/payrollAdjustments';
 
 export interface HistoricalRecord {
   id: string;
@@ -121,11 +125,7 @@ function phpFmt(n: number) {
 }
 
 function computeNetPay(r: HistoricalRecord): number {
-  const gross = Number(r.gross_pay || 0);
-  const other = Number(r.other_earnings || 0);
-  const fm = Number(r.fm_pickup_count || 0) * 3;
-  const deduct = Number(r.deductions || 0) + Number(r.late_onhold || 0) + Number(r.late_remittance || 0);
-  return gross + other + fm - deduct;
+  return calculatePayrollRecordTotals(r).netPay;
 }
 
 function historicalRecordToPayslipDocumentData(record: HistoricalRecord): PayslipDocumentData {
@@ -163,13 +163,7 @@ function historicalRecordToPayslipDocumentData(record: HistoricalRecord): Paysli
       heavyEarnings: Number(record.heavy_earnings ?? 0),
       grossDeliveryPay: Number(record.gross_pay ?? 0),
     },
-    adjustments: {
-      otherEarnings: Number(record.other_earnings ?? 0),
-      fmPickupCount: Number(record.fm_pickup_count ?? 0),
-      deductions: Number(record.deductions ?? 0),
-      lateOnhold: Number(record.late_onhold ?? 0),
-      lateRemittance: Number(record.late_remittance ?? 0),
-    },
+    adjustments: payslipAdjustmentsFromRecord(record),
   });
 }
 
@@ -743,8 +737,9 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                   </tr>
                 ) : (
                   filteredRecords.map(r => {
-                    const net = computeNetPay(r);
-                    const deduct = Number(r.deductions || 0) + Number(r.late_onhold || 0) + Number(r.late_remittance || 0);
+                    const calculated = calculatePayrollRecordTotals(r);
+                    const net = calculated.netPay;
+                    const deduct = calculated.totalDeductions;
 
                     return (
                       <tr key={r.id} className="hover:bg-panel-bg/60 transition">
@@ -1104,7 +1099,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                 {Number(selectedRiderRecord.fm_pickup_count || 0) > 0 && (
                   <div className="flex justify-between border-b border-border pb-1 text-emerald-700">
                     <span>FM Pickups Bonus ({selectedRiderRecord.fm_pickup_count} @ ₱3):</span>
-                    <span className="font-bold">+₱{(selectedRiderRecord.fm_pickup_count || 0) * 3}</span>
+                    <span className="font-bold">+₱{calculatePayrollRecordTotals(selectedRiderRecord).fmPickupEarnings}</span>
                   </div>
                 )}
                 {Number(selectedRiderRecord.other_earnings || 0) > 0 && (

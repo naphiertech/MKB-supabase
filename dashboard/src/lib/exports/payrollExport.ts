@@ -21,6 +21,19 @@ import {
   formatManilaDateTime,
   printPdfBlob,
 } from './exportUtils';
+import {
+  calculatePayrollAdjustmentTotals,
+  type PayslipAdjustments,
+} from '../payroll/payrollAdjustments';
+
+export {
+  calculatePayslipNetPay,
+  payslipAdjustmentsFromRecord,
+} from '../payroll/payrollAdjustments';
+export type {
+  PayrollAdjustmentRecord,
+  PayslipAdjustments,
+} from '../payroll/payrollAdjustments';
 
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable: { finalY: number };
@@ -53,48 +66,6 @@ export interface PayslipSnapshotContext {
   grossDeliveryPay: number;
 }
 
-export interface PayslipAdjustments {
-  otherEarnings?: number;
-  fmPickupCount?: number;
-  deductions?: number;
-  lateOnhold?: number;
-  lateRemittance?: number;
-}
-
-export interface PayrollAdjustmentRecord {
-  other_earnings?: number | string | null;
-  fm_pickup_count?: number | string | null;
-  deductions?: number | string | null;
-  late_onhold?: number | string | null;
-  late_remittance?: number | string | null;
-}
-
-export function payslipAdjustmentsFromRecord(record: PayrollAdjustmentRecord): Required<PayslipAdjustments> {
-  return {
-    otherEarnings: Number(record.other_earnings ?? 0),
-    fmPickupCount: Number(record.fm_pickup_count ?? 0),
-    deductions: Number(record.deductions ?? 0),
-    lateOnhold: Number(record.late_onhold ?? 0),
-    lateRemittance: Number(record.late_remittance ?? 0),
-  };
-}
-
-function normalizedAdjustments(adjustments: PayslipAdjustments): Required<PayslipAdjustments> {
-  return {
-    otherEarnings: Number(adjustments.otherEarnings ?? 0),
-    fmPickupCount: Number(adjustments.fmPickupCount ?? 0),
-    deductions: Number(adjustments.deductions ?? 0),
-    lateOnhold: Number(adjustments.lateOnhold ?? 0),
-    lateRemittance: Number(adjustments.lateRemittance ?? 0),
-  };
-}
-
-export function calculatePayslipNetPay(grossPay: number, adjustments: PayslipAdjustments): number {
-  const values = normalizedAdjustments(adjustments);
-  return Number(grossPay) + values.otherEarnings + values.fmPickupCount * 3
-    - values.deductions - values.lateOnhold - values.lateRemittance;
-}
-
 export interface PayslipDocumentData {
   rider: { name: string; mkbId: string; zoneName: string };
   cutoff: { from: string; to: string };
@@ -114,16 +85,22 @@ export function buildPayslipDocumentData(input: {
   snapshot: PayslipSnapshotContext;
   adjustments?: PayslipAdjustments;
 }): PayslipDocumentData {
-  const adjustments = normalizedAdjustments(input.adjustments ?? {});
-  const totalEarnings = input.snapshot.grossDeliveryPay + adjustments.otherEarnings + adjustments.fmPickupCount * 3;
-  const totalDeductions = adjustments.deductions + adjustments.lateOnhold + adjustments.lateRemittance;
+  const calculated = calculatePayrollAdjustmentTotals(
+    input.snapshot.grossDeliveryPay,
+    input.adjustments,
+  );
+  const adjustments = calculated.adjustments;
   return {
     rider: { name: input.riderName, mkbId: input.mkbId, zoneName: input.zoneName },
     cutoff: { from: input.cutoffFrom, to: input.cutoffTo },
     days: input.dayEntries,
     snapshot: input.snapshot,
     adjustments,
-    totals: { totalEarnings, totalDeductions, netPay: totalEarnings - totalDeductions },
+    totals: {
+      totalEarnings: calculated.totalEarnings,
+      totalDeductions: calculated.totalDeductions,
+      netPay: calculated.netPay,
+    },
   };
 }
 
@@ -172,10 +149,11 @@ export const exportParcelPayslipPDF = (
 
 export function createParcelPayslipPdf(data: PayslipDocumentData): jsPDF {
   const { rider, cutoff, days, snapshot, adjustments } = data;
+  const calculated = calculatePayrollAdjustmentTotals(snapshot.grossDeliveryPay, adjustments);
   const doc = createBusinessPdf({ orientation: 'portrait', format: 'a4' });
   const generatedAt = formatManilaDateTime(new Date());
   const totalParcels = snapshot.standardParcels + snapshot.heavyParcels;
-  const adjustmentTotal = adjustments.otherEarnings + adjustments.fmPickupCount * 3;
+  const adjustmentTotal = calculated.otherEarnings + calculated.fmPickupEarnings;
 
   autoTable(doc, {
     ...businessTableStyles(),
@@ -252,7 +230,7 @@ export function createParcelPayslipPdf(data: PayslipDocumentData): jsPDF {
   const reconciliationRows: Array<[string, string]> = [
     ['Gross Delivery Pay', formatPdfCurrency(snapshot.grossDeliveryPay)],
     ['Other Earnings', formatPdfCurrency(adjustments.otherEarnings)],
-    [`FM Pickup Bonus (${adjustments.fmPickupCount} pcs x PHP 3)`, formatPdfCurrency(adjustments.fmPickupCount * 3)],
+    [`FM Pickup Bonus (${adjustments.fmPickupCount} pcs x PHP 3)`, formatPdfCurrency(calculated.fmPickupEarnings)],
     ['TOTAL EARNINGS', formatPdfCurrency(data.totals.totalEarnings)],
     ['General Deductions', formatPdfCurrency(adjustments.deductions)],
     ['Late Onhold', formatPdfCurrency(adjustments.lateOnhold)],
@@ -333,12 +311,13 @@ export const exportParcelCSV = (
 
 export function renderParcelPayslipCsv(data: PayslipDocumentData): void {
   const { rider, cutoff, days: dayEntries, snapshot, adjustments: values } = data;
+  const calculated = calculatePayrollAdjustmentTotals(snapshot.grossDeliveryPay, values);
   const totalParcels = snapshot.standardParcels + snapshot.heavyParcels;
   const grossPay = snapshot.grossDeliveryPay;
 
   const otherEarnings = values.otherEarnings;
   const fmPickupCount = values.fmPickupCount;
-  const fmPickupPay = fmPickupCount * 3;
+  const fmPickupPay = calculated.fmPickupEarnings;
   const totalEarnings = data.totals.totalEarnings;
   const generalDeductions = values.deductions;
   const lateOnhold = values.lateOnhold;

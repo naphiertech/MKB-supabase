@@ -24,6 +24,7 @@ import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/R
 import { getActivityLogs, type ActivityLog } from '../lib/apiService';
 import { PayrollStatus } from '../types/payroll';
 import { supabase } from '../lib/supabaseClient';
+import { calculatePayrollRecordTotals } from '../lib/payroll/payrollAdjustments';
 
 const MONTHS = [
   'January',
@@ -204,12 +205,10 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
   // Compute fleet totals and Work Queue statistics
   const totals = useMemo(() => {
     const totalGross = allCutoffRecords.reduce((s, r) => s + (r.gross_pay ?? 0), 0);
-    const totalNet = allCutoffRecords.reduce((s, r) => {
-      const other = Number(r.other_earnings ?? 0);
-      const fm = Number(r.fm_pickup_count ?? 0) * 3;
-      const deduct = Number(r.deductions ?? 0) + Number(r.late_onhold ?? 0) + Number(r.late_remittance ?? 0);
-      return s + ((r.gross_pay ?? 0) + other + fm - deduct);
-    }, 0);
+    const totalNet = allCutoffRecords.reduce(
+      (sum, record) => sum + calculatePayrollRecordTotals(record).netPay,
+      0,
+    );
     const totalParcels = allCutoffRecords.reduce((s, r) => s + (r.total_parcels || 0), 0);
     const standardParcels = allCutoffRecords.reduce((s, r) => s + Number(r.standard_parcels ?? r.total_parcels ?? 0), 0);
     const heavyParcels = allCutoffRecords.reduce((s, r) => s + Number(r.heavy_parcels ?? 0), 0);

@@ -33,6 +33,7 @@ import {
   bulkMarkPayrollRecordsPaid,
   getPayrollBulkSelectionState,
 } from '../../services/payrollBulkActions';
+import { calculatePayrollRecordTotals } from '../../lib/payroll/payrollAdjustments';
 
 function phpFmt(val: number) {
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -381,13 +382,7 @@ export function RiderPayrollList({
       const sortedRecords = [...records];
       if (sortBy === 'net_pay') {
         sortedRecords.sort((a, b) => {
-          const getNet = (r: PayrollRecordRow) => {
-            const gross = r.gross_pay ?? 0;
-            const other = Number(r.other_earnings ?? 0);
-            const fm = Number(r.fm_pickup_count ?? 0) * 3;
-            const deduct = Number(r.deductions ?? 0) + Number(r.late_onhold ?? 0) + Number(r.late_remittance ?? 0);
-            return gross + other + fm - deduct;
-          };
+          const getNet = (record: PayrollRecordRow) => calculatePayrollRecordTotals(record).netPay;
           const netA = getNet(a);
           const netB = getNet(b);
           return sortOrder === 'asc' ? netA - netB : netB - netA;
@@ -795,11 +790,10 @@ export function RiderPayrollList({
                   const zone = r.riders?.zones?.name || '—';
                   const ratePerParcel = r.rate_per_parcel;
 
-                  const grossPay = r.gross_pay ?? 0;
-                  const otherEarnings = Number(r.other_earnings ?? 0);
-                  const fmPickupPay = Number(r.fm_pickup_count ?? 0) * 3;
-                  const totalDeductions = Number(r.deductions ?? 0) + Number(r.late_onhold ?? 0) + Number(r.late_remittance ?? 0);
-                  const netPay = grossPay + otherEarnings + fmPickupPay - totalDeductions;
+                  const {
+                    grossPay,
+                    netPay,
+                  } = calculatePayrollRecordTotals(r);
 
                   return (
                     <Fragment key={r.id}>
