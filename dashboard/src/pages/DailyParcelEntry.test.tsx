@@ -202,4 +202,32 @@ describe('DailyParcelEntry persistence characterization', () => {
     });
     expect(returned!.value).toBe('-1');
   });
+
+  it('uses one authoritative drawer draft for every field in a single-row save', async () => {
+    const standard = document.querySelector<HTMLInputElement>('input[aria-label="Standard delivered for Juan Rider"]');
+    expect(standard).toBeTruthy();
+    changeInput(standard!, '12');
+    clickButton('Details');
+    await flushAsyncWork();
+
+    const drawer = document.querySelector<HTMLElement>('[role="dialog"]');
+    const drawerNumbers = drawer?.querySelectorAll<HTMLInputElement>('input[type="number"]');
+    expect(drawerNumbers?.length).toBeGreaterThanOrEqual(2);
+    changeInput(drawerNumbers![0], '20');
+    changeInput(drawerNumbers![1], '6');
+    clickButton('Save', true);
+    await flushAsyncWork();
+
+    expect(mocks.saveDailyParcelEntries).toHaveBeenCalledWith([
+      expect.objectContaining({
+        riderId: 'rider-1',
+        parcels: 20,
+        heavyParcels: 6,
+        assignedParcels: 15,
+        failedDeliveries: 1,
+        returnedParcels: 2,
+        notes: 'Saved note',
+      }),
+    ], 'user-1');
+  });
 });

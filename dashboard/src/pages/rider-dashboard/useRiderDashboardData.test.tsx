@@ -254,6 +254,32 @@ describe('useRiderDashboardData characterization', () => {
     expect(latest).toMatchObject({ rider: { name: 'Fresh Rider' }, attendance: { id: 'attendance-fresh' } });
   });
 
+  it('ignores callbacks from an older reload after a newer reload owns the state', async () => {
+    await renderHook(useRiderDashboardData as UseDataHook);
+    const olderCallbacks = mocks.callbacks[0] as DashboardCallbacks;
+
+    await act(async () => {
+      await latest!.reload();
+      await flushAsyncWork();
+    });
+    const newerCallbacks = mocks.callbacks[1] as DashboardCallbacks;
+
+    await act(async () => {
+      newerCallbacks.onFreshDataLoaded?.(freshPayload);
+      await flushAsyncWork();
+    });
+    await act(async () => {
+      olderCallbacks.onFreshDataLoaded?.(cachedPayload);
+      await flushAsyncWork();
+    });
+
+    expect(latest).toMatchObject({
+      rider: { name: 'Fresh Rider' },
+      attendance: { id: 'attendance-fresh' },
+      stats: { violationsThisMonth: 2 },
+    });
+  });
+
   it('updates only local Rider state when the face descriptor action is used', async () => {
     await renderHook(useRiderDashboardData as UseDataHook);
     const callbacks = mocks.callbacks[0] as DashboardCallbacks;
