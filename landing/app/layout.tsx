@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { DM_Sans, Playfair_Display } from "next/font/google"
+import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
@@ -9,14 +9,22 @@ import { ScrollProgress } from "@/components/animations/scroll-progress"
 import { siteConfig } from "@/lib/data"
 import "./globals.css"
 
-const dmSans = DM_Sans({
+const geistSans = Geist({
   subsets: ["latin"],
-  variable: "--font-dm-sans",
+  variable: "--font-sans",
+  display: "swap",
 })
 
-const playfairDisplay = Playfair_Display({
+const geistMono = Geist_Mono({
   subsets: ["latin"],
-  variable: "--font-playfair",
+  variable: "--font-mono",
+  display: "swap",
+})
+
+const sourceSerif = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
 })
 
 export const metadata: Metadata = {
@@ -84,7 +92,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#18181b",
+  themeColor: "#0c0c0f",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -96,8 +104,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${playfairDisplay.variable}`} suppressHydrationWarning>
-      <body className="font-sans antialiased">
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="font-sans antialiased bg-background text-foreground selection:bg-accent selection:text-accent-foreground">
         <GSAPProvider>
           <SmoothScroll>
             <ScrollProgress />

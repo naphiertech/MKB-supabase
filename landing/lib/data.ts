@@ -103,90 +103,31 @@ export const teamMembers: TeamMember[] = [
   },
 ]
 
-export interface GeofenceZone {
-  id: string
-  name: string
-  boundaryType: "Polygon Boundary" | "Circular Perimeter" | "Transit Corridor"
-  zoneType: "polygon" | "circle"
-  polygonCoordinates?: [number, number][]
-  center?: [number, number]
-  radius?: number
-  color: string
-  purpose: string
-  description: string
-  status: "Active" | "Configured"
-}
-
-export interface HubCapability {
-  name: string
-  description: string
-  category: string
-}
-
-export interface Location {
-  slug: string
-  name: string
-  shortName: string
+export interface HubMarketingMeta {
   tagline: string
   description: string
   district: string
   city: string
-  hubCoordinates: [number, number]
   image: string
   gallery: string[]
-  zones: GeofenceZone[]
-  hubCapabilities: HubCapability[]
+  hubCapabilities: Array<{ name: string; description: string; category: string }>
 }
 
-export const locations: Location[] = [
-  {
-    slug: "talon-talon-zone",
-    name: "Talon-Talon Hub",
-    shortName: "Talon-Talon Hub",
+/**
+ * Marketing and presentation metadata for operational hubs.
+ * Operational data (Names, Active Status, Geofence Zones, Coordinates) is retrieved directly from Supabase.
+ */
+export const hubMarketingMeta: Record<string, HubMarketingMeta> = {
+  "talon-talon": {
     tagline: "Eastern Operations Center",
     description:
       "Serving as the primary operational dispatch and logistics center for eastern Zamboanga City, Talon-Talon Hub manages assigned courier fleets and multi-zone geofence perimeters.",
     district: "Talon-Talon District",
     city: "Zamboanga City, 7000",
-    hubCoordinates: [6.8920, 122.0955],
     image: "https://images.pexels.com/photos/7019213/pexels-photo-7019213.jpeg?auto=compress&cs=tinysrgb&w=1200",
     gallery: [
       "https://images.pexels.com/photos/10834810/pexels-photo-10834810.jpeg?auto=compress&cs=tinysrgb&w=800",
       "https://images.pexels.com/photos/4487363/pexels-photo-4487363.jpeg?auto=compress&cs=tinysrgb&w=800",
-    ],
-    zones: [
-      {
-        id: "tt-central",
-        name: "Talon-Talon Central Zone",
-        boundaryType: "Polygon Boundary",
-        zoneType: "polygon",
-        polygonCoordinates: [
-          [6.8850, 122.0900],
-          [6.9020, 122.0880],
-          [6.9050, 122.1020],
-          [6.8880, 122.1050],
-        ],
-        color: "#f59e0b",
-        purpose: "High-Density Commercial & Residential Distribution",
-        description: "Primary delivery sector covering core urban streets, retail drop points, and high-frequency parcel recipients.",
-        status: "Active",
-      },
-      {
-        id: "tt-coastal",
-        name: "Talon-Talon Coastal Perimeter",
-        boundaryType: "Transit Corridor",
-        zoneType: "polygon",
-        polygonCoordinates: [
-          [6.8780, 122.0920],
-          [6.8870, 122.1060],
-          [6.8820, 122.1150],
-          [6.8720, 122.1020],
-        ],
-        color: "#3b82f6",
-        purpose: "Coastal Route Transit & Corridor Monitoring",
-        description: "Enforces route compliance and delivery bounds along eastern arterial access ways.",
-        status: "Active",
-      },
     ],
     hubCapabilities: [
       {
@@ -206,50 +147,16 @@ export const locations: Location[] = [
       },
     ],
   },
-  {
-    slug: "cabaluay-zone",
-    name: "Cabaluay Hub",
-    shortName: "Cabaluay Hub",
+  "cabaluay": {
     tagline: "Northern Operations Center",
     description:
       "Serving northern transit corridors and regional logistics distribution, Cabaluay Hub oversees extended courier routes and perimeter geofence sectors across northern Zamboanga City.",
     district: "Cabaluay District",
     city: "Zamboanga City, 7000",
-    hubCoordinates: [6.9960, 122.1840],
     image: "https://images.pexels.com/photos/31112250/pexels-photo-31112250.jpeg?auto=compress&cs=tinysrgb&w=1200",
     gallery: [
       "https://images.pexels.com/photos/4483610/pexels-photo-4483610.jpeg?auto=compress&cs=tinysrgb&w=800",
       "https://images.pexels.com/photos/4487382/pexels-photo-4487382.jpeg?auto=compress&cs=tinysrgb&w=800",
-    ],
-    zones: [
-      {
-        id: "cab-highway",
-        name: "Cabaluay Highway Corridor",
-        boundaryType: "Transit Corridor",
-        zoneType: "polygon",
-        polygonCoordinates: [
-          [6.9850, 122.1700],
-          [7.0120, 122.1950],
-          [7.0080, 122.2050],
-          [6.9800, 122.1800],
-        ],
-        color: "#10b981",
-        purpose: "Northern Arterial Transit Monitoring",
-        description: "Tracks transit times, detour pacing, and corridor integrity along the primary northern highway.",
-        status: "Active",
-      },
-      {
-        id: "cab-sector",
-        name: "Cabaluay Sector Perimeter",
-        boundaryType: "Circular Perimeter",
-        zoneType: "circle",
-        center: [6.9950, 122.1860],
-        radius: 1400,
-        color: "#f59e0b",
-        purpose: "Regional Drop & Logistics Enclosure",
-        description: "Defined spatial boundary encompassing northern barangay logistics routes and distribution checkpoints.",
-        status: "Active",
-      },
     ],
     hubCapabilities: [
       {
@@ -269,54 +176,16 @@ export const locations: Location[] = [
       },
     ],
   },
-  {
-    slug: "baliwasan-zone",
-    name: "Baliwasan Hub",
-    shortName: "Baliwasan Hub",
+  "baliwasan": {
     tagline: "Western Urban Center",
     description:
       "A high-tempo commercial dispatch terminal handling heavy delivery volume, port vicinity freight, and dense commercial zones across western Zamboanga City.",
     district: "Baliwasan District",
     city: "Zamboanga City, 7000",
-    hubCoordinates: [6.9175, 122.0625],
     image: "https://images.pexels.com/photos/7019259/pexels-photo-7019259.jpeg?auto=compress&cs=tinysrgb&w=1200",
     gallery: [
       "https://images.pexels.com/photos/15016531/pexels-photo-15016531.jpeg?auto=compress&cs=tinysrgb&w=800",
       "https://images.pexels.com/photos/30625283/pexels-photo-30625283.jpeg?auto=compress&cs=tinysrgb&w=800",
-    ],
-    zones: [
-      {
-        id: "bal-urban",
-        name: "Baliwasan Urban Sector",
-        boundaryType: "Polygon Boundary",
-        zoneType: "polygon",
-        polygonCoordinates: [
-          [6.9100, 122.0550],
-          [6.9250, 122.0520],
-          [6.9280, 122.0720],
-          [6.9120, 122.0700],
-        ],
-        color: "#f59e0b",
-        purpose: "Commercial District & Retail Distribution",
-        description: "Dense commercial geofence perimeter covering central business and retail distribution networks.",
-        status: "Active",
-      },
-      {
-        id: "bal-port",
-        name: "Baliwasan Port Access Corridor",
-        boundaryType: "Transit Corridor",
-        zoneType: "polygon",
-        polygonCoordinates: [
-          [6.9050, 122.0650],
-          [6.9150, 122.0620],
-          [6.9180, 122.0780],
-          [6.9070, 122.0800],
-        ],
-        color: "#8b5cf6",
-        purpose: "Maritime Freight & Logistics Transit",
-        description: "Calibrated corridor connecting maritime port facilities with central fulfillment facilities.",
-        status: "Active",
-      },
     ],
     hubCapabilities: [
       {
@@ -336,50 +205,16 @@ export const locations: Location[] = [
       },
     ],
   },
-  {
-    slug: "ayala-zone",
-    name: "Ayala Hub",
-    shortName: "Ayala Hub",
+  "ayala": {
     tagline: "Western Boundary Operations Center",
     description:
       "The western operations terminal managing boundary perimeter enforcement, industrial logistics accounts, and western suburban distribution corridors.",
     district: "Ayala District",
     city: "Zamboanga City, 7000",
-    hubCoordinates: [6.9560, 121.9640],
     image: "https://images.pexels.com/photos/4484042/pexels-photo-4484042.jpeg?auto=compress&cs=tinysrgb&w=1200",
     gallery: [
       "https://images.pexels.com/photos/4628583/pexels-photo-4628583.jpeg?auto=compress&cs=tinysrgb&w=800",
       "https://images.pexels.com/photos/5775099/pexels-photo-5775099.jpeg?auto=compress&cs=tinysrgb&w=800",
-    ],
-    zones: [
-      {
-        id: "ay-industrial",
-        name: "Ayala Industrial Perimeter",
-        boundaryType: "Polygon Boundary",
-        zoneType: "polygon",
-        polygonCoordinates: [
-          [6.9450, 121.9520],
-          [6.9680, 121.9500],
-          [6.9700, 121.9750],
-          [6.9480, 121.9780],
-        ],
-        color: "#f59e0b",
-        purpose: "Industrial & Warehouse Enclosure",
-        description: "Monitors courier distribution and cargo transfers within western industrial facilities.",
-        status: "Active",
-      },
-      {
-        id: "ay-corridor",
-        name: "Ayala Western Corridor",
-        boundaryType: "Circular Perimeter",
-        zoneType: "circle",
-        center: [6.9580, 121.9680],
-        radius: 1200,
-        color: "#ec4899",
-        purpose: "Terminal Boundary & Route Control",
-        description: "Boundary perimeter alerting dispatchers to unapproved departures from authorized logistics territory.",
-        status: "Active",
-      },
     ],
     hubCapabilities: [
       {
@@ -399,6 +234,58 @@ export const locations: Location[] = [
       },
     ],
   },
+}
+
+/**
+ * Dynamically resolves marketing metadata for any Hub slug or name with generic fallback.
+ */
+export function getHubMarketingMeta(slug: string, hubName?: string): HubMarketingMeta {
+  const cleanKey = slug.toLowerCase().replace(/-zone$/i, "").replace(/-hub$/i, "").trim()
+
+  if (hubMarketingMeta[cleanKey]) {
+    return hubMarketingMeta[cleanKey]
+  }
+  if (hubMarketingMeta[slug]) {
+    return hubMarketingMeta[slug]
+  }
+
+  // Generic fallback for any newly added hub
+  const districtName = hubName ? hubName.replace(/\s*Hub\s*/i, "").trim() : "Operational"
+  return {
+    tagline: `${districtName} Operations Center`,
+    description: `Fulfillment and courier dispatch terminal managing assigned delivery fleets and geofence perimeters in ${districtName} District.`,
+    district: `${districtName} District`,
+    city: "Zamboanga City, 7000",
+    image: "https://images.pexels.com/photos/7019213/pexels-photo-7019213.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    gallery: [],
+    hubCapabilities: [
+      {
+        name: "Fleet Dispatch & Rostering",
+        description: "Local shift management and courier assignment tracking.",
+        category: "Fleet Management",
+      },
+      {
+        name: "Geofence Boundary Monitoring",
+        description: "Real-time departure, idle, and detour event telemetry.",
+        category: "Spatial Telemetry",
+      },
+    ],
+  }
+}
+
+// Fallback hub descriptors for static nav references
+export interface StaticHubNav {
+  slug: string
+  name: string
+  shortName: string
+  district: string
+}
+
+export const staticHubsList: StaticHubNav[] = [
+  { slug: "talon-talon", name: "Talon-Talon Hub", shortName: "Talon-Talon Hub", district: "Talon-Talon District" },
+  { slug: "cabaluay", name: "Cabaluay Hub", shortName: "Cabaluay Hub", district: "Cabaluay District" },
+  { slug: "baliwasan", name: "Baliwasan Hub", shortName: "Baliwasan Hub", district: "Baliwasan District" },
+  { slug: "ayala", name: "Ayala Hub", shortName: "Ayala Hub", district: "Ayala District" },
 ]
 
 export interface SystemModule {
@@ -427,7 +314,7 @@ export const systemModules: SystemModule[] = [
       "Duplicate Timestamp Guarding",
     ],
     badge: "Biometric Engine",
-    image: "https://images.pexels.com/photos/8090298/pexels-photo-8090298.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/8566472/pexels-photo-8566472.jpeg?auto=compress&cs=tinysrgb&w=1200",
   },
   {
     id: "geofence-telemetry",
@@ -443,7 +330,7 @@ export const systemModules: SystemModule[] = [
       "Asia/Manila (PHT) Event-Time Validation",
     ],
     badge: "Spatial Intelligence",
-    image: "https://images.pexels.com/photos/4480987/pexels-photo-4480987.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/10697106/pexels-photo-10697106.jpeg?auto=compress&cs=tinysrgb&w=1200",
   },
   {
     id: "fleet-operations",
@@ -459,7 +346,7 @@ export const systemModules: SystemModule[] = [
       "Historical Telemetry Trail Audit",
     ],
     badge: "Fleet Operations",
-    image: "https://images.pexels.com/photos/281260/pexels-photo-281260.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/6169169/pexels-photo-6169169.jpeg?auto=compress&cs=tinysrgb&w=1200",
   },
   {
     id: "parcel-operations",
@@ -475,7 +362,7 @@ export const systemModules: SystemModule[] = [
       "Supervisor Correction Workflows",
     ],
     badge: "Operations & Rates",
-    image: "https://images.pexels.com/photos/4481260/pexels-photo-4481260.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/4483610/pexels-photo-4483610.jpeg?auto=compress&cs=tinysrgb&w=1200",
   },
   {
     id: "salary-payroll",
@@ -491,7 +378,7 @@ export const systemModules: SystemModule[] = [
       "Itemized Courier Payslip Generation",
     ],
     badge: "Payroll Engine",
-    image: "https://images.pexels.com/photos/5498230/pexels-photo-5498230.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/6863201/pexels-photo-6863201.jpeg?auto=compress&cs=tinysrgb&w=1200",
   },
   {
     id: "offline-pwa",
@@ -507,7 +394,7 @@ export const systemModules: SystemModule[] = [
       "Mobile Camera Liveness Pipeline",
     ],
     badge: "Mobile Resilience",
-    image: "https://images.pexels.com/photos/8090299/pexels-photo-8090299.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/7706596/pexels-photo-7706596.jpeg?auto=compress&cs=tinysrgb&w=1200",
   },
   {
     id: "security-governance",
@@ -523,7 +410,7 @@ export const systemModules: SystemModule[] = [
       "Immutable Audit Log Tracking",
     ],
     badge: "Enterprise Security",
-    image: "https://images.pexels.com/photos/7857526/pexels-photo-7857526.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/5380642/pexels-photo-5380642.jpeg?auto=compress&cs=tinysrgb&w=1200",
   },
 ]
 
@@ -534,7 +421,7 @@ export const featuredCapabilities = [
     category: "Attendance & Identity",
     description: "Sub-second facial landmark matching and 3D liveness detection with GPS freshness verification on every shift.",
     status: "Production Ready",
-    image: "https://images.pexels.com/photos/8090298/pexels-photo-8090298.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/8566472/pexels-photo-8566472.jpeg?auto=compress&cs=tinysrgb&w=1200",
     href: "/modules#attendance-biometrics",
   },
   {
@@ -543,7 +430,7 @@ export const featuredCapabilities = [
     category: "Geofencing & Telemetry",
     description: "Strict sector perimeter monitoring with real-time boundary breach, idle timeout, and detour alerts.",
     status: "Live Active",
-    image: "https://images.pexels.com/photos/4480987/pexels-photo-4480987.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/10697106/pexels-photo-10697106.jpeg?auto=compress&cs=tinysrgb&w=1200",
     href: "/modules#geofence-telemetry",
   },
   {
@@ -552,7 +439,7 @@ export const featuredCapabilities = [
     category: "Parcel Operations",
     description: "Standard and heavy parcel tracking with effective-dated rates, surcharges, and append-only audit trails.",
     status: "Operational",
-    image: "https://images.pexels.com/photos/4481260/pexels-photo-4481260.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/4483610/pexels-photo-4483610.jpeg?auto=compress&cs=tinysrgb&w=1200",
     href: "/modules#parcel-operations",
   },
   {
@@ -561,7 +448,7 @@ export const featuredCapabilities = [
     category: "Payroll & Payslips",
     description: "Coverage-based cutoff readiness, DTR hydration, and server-authoritative multi-tier approval flows.",
     status: "Integrated",
-    image: "https://images.pexels.com/photos/5498230/pexels-photo-5498230.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/6863201/pexels-photo-6863201.jpeg?auto=compress&cs=tinysrgb&w=1200",
     href: "/modules#salary-payroll",
   },
   {
@@ -570,7 +457,7 @@ export const featuredCapabilities = [
     category: "Hub & Fleet Operations",
     description: "Interactive real-time map visualization, duty status indicators, and multi-hub operational tracking.",
     status: "Live Tracking",
-    image: "https://images.pexels.com/photos/281260/pexels-photo-281260.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/6169169/pexels-photo-6169169.jpeg?auto=compress&cs=tinysrgb&w=1200",
     href: "/modules#fleet-operations",
   },
   {
@@ -580,7 +467,7 @@ export const featuredCapabilities = [
     tagline: "Zero Data Loss",
     description: "IndexedDB transaction queuing and automatic background replay for continuous field operations.",
     status: "Reliability Hardened",
-    image: "https://images.pexels.com/photos/8090299/pexels-photo-8090299.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/7706596/pexels-photo-7706596.jpeg?auto=compress&cs=tinysrgb&w=1200",
     href: "/modules#offline-pwa",
   },
 ]

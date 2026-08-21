@@ -1,157 +1,141 @@
 "use client"
 
-import { useEffect, useRef, useState, useMemo } from "react"
-import "leaflet/dist/leaflet.css"
-import { Building2, Compass, Layers, Maximize2, ShieldCheck, Check } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useRef, useState } from "react"
+import { MapPin, Layers, RotateCcw, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { Location, GeofenceZone } from "@/lib/data"
+import type { OperationalHub, OperationalZone } from "@/lib/supabase/operations"
+import "leaflet/dist/leaflet.css"
 
 interface HubZoneMapProps {
-  hub: Location
-}
-
-const TILE_LAYER = {
-  url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-  attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> &copy; <a href="https://carto.com/" target="_blank" rel="noopener noreferrer">CARTO</a>',
-  subdomains: "abcd",
+  hub: OperationalHub
 }
 
 export function HubZoneMap({ hub }: HubZoneMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
-  const layerGroupRef = useRef<any>(null)
   const zoneLayersMapRef = useRef<Map<string, any>>(new Map())
-
-  const [isMounted, setIsMounted] = useState(false)
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
-
-  const selectedZone = useMemo(
-    () => hub.zones.find((z) => z.id === selectedZoneId) || null,
-    [hub.zones, selectedZoneId]
-  )
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // Initialize Map with dynamically imported Leaflet
   useEffect(() => {
     if (!isMounted || !mapContainerRef.current) return
 
     let isCleanedUp = false
 
-    async function initMap() {
-      const L = (await import("leaflet")).default
+    const initMap = async () => {
+      const L = await import("leaflet")
 
       if (isCleanedUp || !mapContainerRef.current) return
 
-      // Clean up previous map instance
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
       }
 
+      // Initialize Leaflet map
       const map = L.map(mapContainerRef.current, {
-        center: hub.hubCoordinates,
-        zoom: 14,
-        zoomControl: true,
         scrollWheelZoom: false,
+        zoomControl: true,
+        attributionControl: false,
       })
 
-      L.tileLayer(TILE_LAYER.url, {
-        attribution: TILE_LAYER.attribution,
-        subdomains: TILE_LAYER.subdomains,
-        maxZoom: 19,
+      mapInstanceRef.current = map
+
+      // OpenStreetMap clean tile layer
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map)
 
       const layerGroup = L.layerGroup().addTo(map)
-      layerGroupRef.current = layerGroup
-      mapInstanceRef.current = map
-
-      const bounds = L.latLngBounds([hub.hubCoordinates])
-
-      // 1. Render Hub Operational Marker
-      const hubIcon = L.divIcon({
-        className: "hub-marker-custom",
-        html: `
-          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 cursor-pointer group">
-            <div class="absolute size-9 rounded-full bg-amber-500/30 animate-ping opacity-75"></div>
-            <div class="relative flex items-center justify-center size-8 rounded-full bg-amber-500 text-slate-950 shadow-lg border-2 border-slate-900">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
-            </div>
-            <div class="absolute top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900/95 border border-slate-700 px-2 py-0.5 text-[11px] font-bold text-slate-100 shadow-md pointer-events-none">
-              ${hub.shortName}
-            </div>
-          </div>
-        `,
-        iconSize: [0, 0],
-      })
-
-      const hubMarker = L.marker(hub.hubCoordinates, { icon: hubIcon }).addTo(layerGroup)
-      hubMarker.bindPopup(`
-        <div class="p-1 min-w-[200px]">
-          <p class="text-[10px] font-mono uppercase tracking-wider text-amber-500 font-bold">Operational Center</p>
-          <h4 class="font-serif text-base font-bold text-slate-100 mt-0.5">${hub.name}</h4>
-          <p class="text-xs text-slate-300 mt-1">${hub.district}, ${hub.city}</p>
-          <p class="text-[11px] text-slate-400 mt-2 border-t border-slate-700 pt-1.5 font-medium">${hub.zones.length} Assigned Geofence Zones</p>
-        </div>
-      `)
-
-      // 2. Render Zone Overlays
       zoneLayersMapRef.current.clear()
 
+      const bounds = L.latLngBounds([])
+
+      // 1. Render all assigned Geofence Zones
       hub.zones.forEach((zone) => {
-        const color = zone.color || "#f59e0b"
+        const color = zone.color || "#2563EB"
 
-        if (zone.zoneType === "polygon" && zone.polygonCoordinates && zone.polygonCoordinates.length >= 3) {
-          zone.polygonCoordinates.forEach((coord) => bounds.extend(coord))
+        if (zone.zoneType === "polygon" && zone.polygonCoordinates && zone.polygonCoordinates.length > 0) {
+          const latLngs = zone.polygonCoordinates.map((c) => [c[0], c[1]] as [number, number])
 
-          const polygon = L.polygon(zone.polygonCoordinates, {
-            color,
-            weight: 2,
-            opacity: 0.85,
+          const polygon = L.polygon(latLngs, {
+            color: color,
+            weight: 2.5,
+            opacity: 0.9,
             fillColor: color,
-            fillOpacity: 0.14,
+            fillOpacity: 0.22,
+            dashArray: "3, 6",
           }).addTo(layerGroup)
 
-          polygon.bindPopup(`
-            <div class="p-1 min-w-[210px]">
-              <span class="inline-block text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">${zone.boundaryType}</span>
-              <h4 class="font-serif text-sm font-bold text-slate-100 mt-1.5">${zone.name}</h4>
-              <p class="text-[11px] text-slate-300 mt-1">${zone.purpose}</p>
+          latLngs.forEach((coord) => bounds.extend(coord))
+
+          polygon.bindPopup(
+            `
+            <div style="background-color: #0c0c0f; color: #f4f4f5; padding: 12px 14px; border-radius: 8px; min-width: 220px; font-family: system-ui, -apple-system, sans-serif; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.6); border: 1px solid #2a2a30;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+                <span style="font-size: 9px; font-family: monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                  Polygon Geofence
+                </span>
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${color};"></span>
+              </div>
+              <h4 style="font-family: system-ui, sans-serif; font-size: 14px; font-weight: 700; color: #ffffff; margin: 0 0 4px 0;">
+                ${zone.name}
+              </h4>
+              <p style="font-size: 11px; color: #a0a0a8; margin: 0 0 6px 0;">
+                Assigned to <strong>${hub.name}</strong>
+              </p>
+              <div style="border-top: 1px solid #2a2a30; padding-top: 6px; font-family: monospace; font-size: 10px; color: #fbbf24;">
+                ${zone.polygonCoordinates.length} perimeter vertices calibrated
+              </div>
             </div>
-          `)
+          `,
+            { className: "custom-hub-popup" }
+          )
 
           polygon.on("click", () => {
             setSelectedZoneId(zone.id)
           })
 
           zoneLayersMapRef.current.set(zone.id, polygon)
-        } else if (zone.zoneType === "circle" && zone.center && zone.radius) {
-          bounds.extend(zone.center)
-          const radiusInDeg = zone.radius / 111300
-          bounds.extend([zone.center[0] + radiusInDeg, zone.center[1] + radiusInDeg])
-          bounds.extend([zone.center[0] - radiusInDeg, zone.center[1] - radiusInDeg])
-
+        } else if (zone.zoneType === "circle" && zone.center) {
           const circle = L.circle(zone.center, {
-            radius: zone.radius,
-            color,
-            weight: 2,
-            opacity: 0.85,
+            color: color,
+            weight: 2.5,
+            opacity: 0.9,
             fillColor: color,
-            fillOpacity: 0.14,
-            dashArray: "6 6",
+            fillOpacity: 0.22,
+            radius: zone.radius || 1500,
           }).addTo(layerGroup)
 
-          circle.bindPopup(`
-            <div class="p-1 min-w-[210px]">
-              <span class="inline-block text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">${zone.boundaryType} (${zone.radius}m)</span>
-              <h4 class="font-serif text-sm font-bold text-slate-100 mt-1.5">${zone.name}</h4>
-              <p class="text-[11px] text-slate-300 mt-1">${zone.purpose}</p>
+          bounds.extend(circle.getBounds())
+
+          circle.bindPopup(
+            `
+            <div style="background-color: #0c0c0f; color: #f4f4f5; padding: 12px 14px; border-radius: 8px; min-width: 220px; font-family: system-ui, -apple-system, sans-serif; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.6); border: 1px solid #2a2a30;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;">
+                <span style="font-size: 9px; font-family: monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                  Radial Geofence
+                </span>
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: ${color};"></span>
+              </div>
+              <h4 style="font-family: system-ui, sans-serif; font-size: 14px; font-weight: 700; color: #ffffff; margin: 0 0 4px 0;">
+                ${zone.name}
+              </h4>
+              <p style="font-size: 11px; color: #a0a0a8; margin: 0 0 6px 0;">
+                Assigned to <strong>${hub.name}</strong>
+              </p>
+              <div style="border-top: 1px solid #2a2a30; padding-top: 6px; font-family: monospace; font-size: 10px; color: #fbbf24;">
+                Radius: ${zone.radius || 1500}m
+              </div>
             </div>
-          `)
+          `,
+            { className: "custom-hub-popup" }
+          )
 
           circle.on("click", () => {
             setSelectedZoneId(zone.id)
@@ -161,270 +145,167 @@ export function HubZoneMap({ hub }: HubZoneMapProps) {
         }
       })
 
+      // 2. Render Physical Hub Marker if representative point available
+      const hubCenter = hub.zones.find((z) => z.center)?.center ||
+        (hub.zones[0]?.polygonCoordinates?.[0] ? hub.zones[0].polygonCoordinates[0] : null)
+
+      if (hubCenter) {
+        bounds.extend(hubCenter)
+
+        const customHubIcon = L.divIcon({
+          className: "hub-marker-custom",
+          html: `
+            <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;">
+              <div style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background-color: rgba(245, 158, 11, 0.3); animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+              <div style="position: relative; width: 28px; height: 28px; border-radius: 8px; background-color: #f59e0b; border: 2px solid #0a0a0a; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.5);">
+                <span style="color: #0a0a0a; font-family: monospace; font-weight: 900; font-size: 12px;">M</span>
+              </div>
+            </div>
+          `,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+          popupAnchor: [0, -18],
+        })
+
+        const hubMarker = L.marker(hubCenter, { icon: customHubIcon }).addTo(layerGroup)
+
+        hubMarker.bindPopup(
+          `
+          <div style="background-color: #0c0c0f; color: #f4f4f5; padding: 12px 14px; border-radius: 8px; min-width: 220px; font-family: system-ui, -apple-system, sans-serif; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.6); border: 1px solid rgba(245, 158, 11, 0.4);">
+            <span style="font-size: 9px; font-family: monospace; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.3); display: inline-block; margin-bottom: 4px;">
+              Operational Center
+            </span>
+            <h4 style="font-family: system-ui, sans-serif; font-size: 14px; font-weight: 700; color: #ffffff; margin: 4px 0 2px 0;">
+              ${hub.name}
+            </h4>
+            <p style="font-size: 11px; color: #a0a0a8; margin: 2px 0 0 0;">
+              ${hub.district}, ${hub.city}
+            </p>
+          </div>
+        `,
+          { className: "custom-hub-popup" }
+        )
+      }
+
+      // Auto-fit to all geometries
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [45, 45], maxZoom: 15 })
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
       }
     }
 
     initMap()
 
-    const container = mapContainerRef.current
-    let resizeObserver: ResizeObserver | null = null
-
-    if (container) {
-      resizeObserver = new ResizeObserver(() => {
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.invalidateSize()
-        }
-      })
-      resizeObserver.observe(container)
-    }
-
     return () => {
       isCleanedUp = true
-      if (resizeObserver) resizeObserver.disconnect()
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
       }
-      layerGroupRef.current = null
-      zoneLayersMapRef.current.clear()
     }
   }, [isMounted, hub])
 
-  // Update styles on zone selection changes
-  useEffect(() => {
-    zoneLayersMapRef.current.forEach((layer, zoneId) => {
-      const zone = hub.zones.find((z) => z.id === zoneId)
-      if (!zone) return
-
-      const isSelected = selectedZoneId === zoneId
-      const isAnySelected = selectedZoneId !== null
-
-      const color = zone.color || "#f59e0b"
-      const weight = isSelected ? 3.5 : isAnySelected ? 1.5 : 2
-      const opacity = isSelected ? 1 : isAnySelected ? 0.45 : 0.85
-      const fillOpacity = isSelected ? 0.32 : isAnySelected ? 0.06 : 0.14
-
-      layer.setStyle({
-        color,
-        weight,
-        opacity,
-        fillColor: color,
-        fillOpacity,
-      })
-
-      if (isSelected) {
-        layer.bringToFront()
-      }
-    })
-  }, [selectedZoneId, hub.zones])
-
-  const handleSelectZone = async (zone: GeofenceZone) => {
-    const map = mapInstanceRef.current
-    if (!map) return
-
-    if (selectedZoneId === zone.id) {
-      setSelectedZoneId(null)
-      handleFitAll()
-      return
-    }
-
+  const handleSelectZone = (zone: OperationalZone) => {
     setSelectedZoneId(zone.id)
-
     const layer = zoneLayersMapRef.current.get(zone.id)
-    if (layer) {
-      const L = (await import("leaflet")).default
-      if (zone.zoneType === "polygon" && zone.polygonCoordinates) {
-        const polyBounds = L.latLngBounds(zone.polygonCoordinates)
-        map.fitBounds(polyBounds, { padding: [60, 60], maxZoom: 16 })
-      } else if (zone.zoneType === "circle" && zone.center) {
-        map.flyTo(zone.center, 15, { duration: 0.8 })
+    if (layer && mapInstanceRef.current) {
+      if (layer.getBounds) {
+        mapInstanceRef.current.fitBounds(layer.getBounds(), { padding: [50, 50], maxZoom: 16 })
+      } else if (layer.getLatLng) {
+        mapInstanceRef.current.setView(layer.getLatLng(), 15)
       }
       layer.openPopup()
     }
   }
 
-  const handleFitAll = async () => {
+  const handleResetView = () => {
     setSelectedZoneId(null)
-    const map = mapInstanceRef.current
-    if (!map) return
+    if (!mapInstanceRef.current) return
 
-    const L = (await import("leaflet")).default
-    const bounds = L.latLngBounds([hub.hubCoordinates])
-    hub.zones.forEach((z) => {
-      if (z.zoneType === "polygon" && z.polygonCoordinates) {
-        z.polygonCoordinates.forEach((c) => bounds.extend(c))
-      } else if (z.zoneType === "circle" && z.center && z.radius) {
-        const radiusInDeg = z.radius / 111300
-        bounds.extend([z.center[0] + radiusInDeg, z.center[1] + radiusInDeg])
-        bounds.extend([z.center[0] - radiusInDeg, z.center[1] - radiusInDeg])
+    import("leaflet").then((L) => {
+      const bounds = L.latLngBounds([])
+      hub.zones.forEach((zone) => {
+        if (zone.polygonCoordinates) {
+          zone.polygonCoordinates.forEach((c) => bounds.extend(c))
+        } else if (zone.center) {
+          bounds.extend(zone.center)
+        }
+      })
+      if (bounds.isValid()) {
+        mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
       }
     })
-
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [45, 45], maxZoom: 15 })
-    }
-  }
-
-  if (!isMounted) {
-    return (
-      <div className="flex h-[420px] sm:h-[480px] lg:h-[560px] w-full items-center justify-center rounded-2xl border border-border/80 bg-card shadow-xl">
-        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <div className="size-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-          <p className="text-xs font-mono uppercase tracking-wider">Loading Hub Geofence Map...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Map Main Container */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xl">
-        {/* Map Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-muted/40 px-5 py-3.5">
-          <div className="flex items-center gap-2.5">
-            <Building2 className="size-4 text-accent" />
-            <span className="text-sm font-bold text-foreground">{hub.name}</span>
-            <span className="text-muted-foreground">&middot;</span>
-            <span className="text-xs font-mono text-muted-foreground">{hub.district}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[11px] font-mono border-accent/40 text-accent font-semibold">
-              {hub.zones.length} Active Zones
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleFitAll}
-              className="h-7 text-xs gap-1 border-border/70 hover:border-accent/40"
-            >
-              <Maximize2 className="size-3 text-accent" />
-              <span>Fit Overview</span>
-            </Button>
-          </div>
+    <div className="flex flex-col gap-5">
+      {/* Zone Selector Chips & Legend Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-bryl">
+        <div className="flex items-center gap-2">
+          <Layers className="size-4 text-accent" />
+          <span className="font-mono text-xs font-semibold text-foreground uppercase tracking-wider">
+            Assigned Zones ({hub.zones.length})
+          </span>
         </div>
 
-        {/* Map Canvas with Floating Navigator on Desktop */}
-        <div className="relative h-[420px] sm:h-[480px] lg:h-[560px] w-full">
-          <div ref={mapContainerRef} className="h-full w-full z-0 bg-slate-900" />
-
-          {/* Floating Zone Legend (Desktop / Tablet) */}
-          <div className="absolute top-4 right-4 z-[400] hidden md:flex flex-col gap-2 max-w-[280px] w-full pointer-events-auto">
-            <div className="rounded-xl border border-border/80 bg-card/90 backdrop-blur-md p-3.5 shadow-lg">
-              <div className="flex items-center justify-between border-b border-border/60 pb-2 mb-2.5">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Layers className="size-3.5 text-accent" />
-                  Hub Geofence Zones
-                </p>
-                {selectedZoneId && (
-                  <button
-                    onClick={handleFitAll}
-                    className="text-[10px] text-accent hover:underline font-semibold cursor-pointer"
-                  >
-                    Clear Filter
-                  </button>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                {hub.zones.map((zone) => {
-                  const isSelected = selectedZoneId === zone.id
-                  return (
-                    <button
-                      key={zone.id}
-                      onClick={() => handleSelectZone(zone)}
-                      className={`group/item text-left flex flex-col rounded-lg p-2.5 transition-all border cursor-pointer ${
-                        isSelected
-                          ? "border-accent bg-accent/10 shadow-xs"
-                          : "border-border/60 bg-card/60 hover:border-accent/40 hover:bg-card"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-2 truncate">
-                          <span
-                            className="size-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: zone.color || "#f59e0b" }}
-                          />
-                          <span className="text-xs font-bold text-foreground truncate group-hover/item:text-accent">
-                            {zone.name}
-                          </span>
-                        </div>
-                        {isSelected && <Check className="size-3 text-accent shrink-0" />}
-                      </div>
-
-                      <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-                        <span>{zone.boundaryType}</span>
-                        <span className="text-emerald-500 font-semibold">{zone.status}</span>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Selected Zone Focus Bar */}
-        {selectedZone && (
-          <div className="flex items-center justify-between border-t border-border/70 bg-accent/5 px-5 py-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Compass className="size-4 text-accent shrink-0" />
-              <span className="font-semibold text-foreground">{selectedZone.name}:</span>
-              <span className="text-muted-foreground hidden sm:inline">{selectedZone.purpose}</span>
-            </div>
-            <Badge variant="outline" className="text-[10px] font-mono border-accent/40 text-accent font-semibold">
-              {selectedZone.boundaryType}
-            </Badge>
-          </div>
-        )}
-      </div>
-
-      {/* Mobile Zone Selector (Visible on Small Screens) */}
-      <div className="flex flex-col gap-3 md:hidden">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <Layers className="size-3.5 text-accent" />
-          Assigned Geofence Perimeters ({hub.zones.length})
-        </p>
-
-        <div className="grid gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           {hub.zones.map((zone) => {
             const isSelected = selectedZoneId === zone.id
             return (
               <button
                 key={zone.id}
+                type="button"
                 onClick={() => handleSelectZone(zone)}
-                className={`text-left rounded-xl p-3.5 border transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-mono text-xs transition-all cursor-pointer ${
                   isSelected
-                    ? "border-accent bg-accent/10"
-                    : "border-border bg-card hover:border-accent/40"
+                    ? "border-accent bg-accent/15 text-foreground font-bold shadow-2xs"
+                    : "border-border bg-secondary/50 text-muted-foreground hover:border-accent/40 hover:text-foreground"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="size-3 rounded-full shrink-0"
-                      style={{ backgroundColor: zone.color || "#f59e0b" }}
-                    />
-                    <span className="text-sm font-bold text-foreground">{zone.name}</span>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] font-mono border-accent/40 text-accent">
-                    {zone.boundaryType}
-                  </Badge>
-                </div>
-                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{zone.description}</p>
-                <div className="mt-2.5 flex items-center justify-between pt-2 border-t border-border/50 text-[11px] text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck className="size-3 text-accent" />
-                    {zone.purpose}
-                  </span>
-                  <span className="font-semibold text-accent">{isSelected ? "Viewing on Map" : "Focus on Map →"}</span>
-                </div>
+                <span
+                  className="size-2 rounded-full shrink-0"
+                  style={{ backgroundColor: zone.color || "#2563EB" }}
+                />
+                <span>{zone.name}</span>
               </button>
             )
           })}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetView}
+            className="h-7 text-xs border-border bg-card hover:bg-secondary text-muted-foreground hover:text-foreground px-2.5 rounded-lg ml-1 font-mono cursor-pointer"
+          >
+            <RotateCcw className="size-3 mr-1 text-accent" />
+            <span>Reset View</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Map Container */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-border shadow-bryl bg-secondary/30">
+        {!isMounted ? (
+          <div className="flex h-full w-full items-center justify-center bg-secondary font-mono text-xs text-muted-foreground">
+            Loading Spatial Map Engine...
+          </div>
+        ) : hub.zones.length === 0 ? (
+          <div className="flex h-full w-full flex-col items-center justify-center p-6 text-center">
+            <AlertTriangle className="size-8 text-accent mb-2" />
+            <h4 className="font-sans text-base font-bold text-foreground">No Geofence Zones Found</h4>
+            <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+              No calibrated polygon or circle geofence boundaries are currently assigned to this hub in Supabase.
+            </p>
+          </div>
+        ) : (
+          <div ref={mapContainerRef} className="h-full w-full z-0" />
+        )}
+
+        {/* Live Database Overlay Badge */}
+        <div className="absolute bottom-3 left-3 z-10 rounded-lg border border-border bg-background/95 px-2.5 py-1 shadow-xs backdrop-blur-md">
+          <div className="flex items-center gap-1.5 font-mono text-[10px] text-foreground">
+            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Supabase Verified Geofences</span>
+          </div>
         </div>
       </div>
     </div>

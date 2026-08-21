@@ -3,11 +3,11 @@ import { ContactSection } from "@/components/contact/contact-section"
 import { siteConfig } from "@/lib/data"
 
 export const metadata: Metadata = {
-  title: "Contact",
+  title: "Contact & Inquiries",
   description:
     "Get in touch with the MKBRiderTrack team. Request an operational demo, discuss multi-hub deployment, or contact technical support.",
   openGraph: {
-    title: `Contact | ${siteConfig.name}`,
+    title: `Contact & Inquiries | ${siteConfig.name}`,
     description:
       "Get in touch with the MKBRiderTrack team. Request a demo or reach out.",
     url: `${siteConfig.url}/contact`,
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `Contact | ${siteConfig.name}`,
+    title: `Contact & Inquiries | ${siteConfig.name}`,
     description:
       "Get in touch with the MKBRiderTrack team. Request a demo or reach out.",
   },
@@ -26,27 +26,31 @@ export default function ContactPage() {
   return (
     <>
       {/* Hero */}
-      <section className="relative flex min-h-[46vh] items-center overflow-hidden bg-primary">
-        <div className="absolute inset-0">
+      <section className="relative flex min-h-[42vh] items-center overflow-hidden border-b border-border bg-background">
+        <div className="absolute inset-0 z-0">
           <video
             autoPlay
             loop
             muted
             playsInline
-            className="h-full w-full object-cover opacity-30"
+            className="h-full w-full object-cover opacity-25"
           >
             <source src="https://www.pexels.com/download/video/4292902/" type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/60 to-primary/30" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/85 to-background" />
+          <div className="absolute inset-0 bg-halftone-radial opacity-50 pointer-events-none" />
         </div>
-        <div className="relative z-10 mx-auto max-w-7xl px-4 py-24 lg:px-8">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-            Contact & Inquiries
-          </p>
-          <h1 className="max-w-3xl font-serif text-4xl font-bold leading-tight tracking-tight text-primary-foreground md:text-6xl lg:text-7xl">
+        <div className="relative z-10 mx-auto max-w-7xl px-4 py-20 lg:px-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3.5 py-1 mb-4 shadow-xs backdrop-blur-md">
+            <span className="size-1.5 rounded-full bg-accent animate-pulse" />
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
+              [ 05 // OPERATIONS & INQUIRIES ]
+            </p>
+          </div>
+          <h1 className="max-w-3xl font-sans text-3xl font-bold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl">
             Connect with MKBRiderTrack
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-primary-foreground/80 md:text-lg">
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base">
             Whether you want to request an enterprise demo, plan a multi-hub deployment, or consult with our operations specialists, we are ready to assist.
           </p>
         </div>

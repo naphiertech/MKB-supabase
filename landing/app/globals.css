@@ -3,90 +3,84 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* MKBRiderTrack Design System: High-contrast fleet intelligence palette with clean slate base, rich amber accent, and crisp status tokens */
+/* ============================================================
+   bryl-minimal Design System × MKBRiderTrack Color Identity
+   Neutral foundation (85-90%) with purposeful amber brand accent (10-15%)
+   ============================================================ */
+
 :root {
-  --background: oklch(0.985 0.003 90);
-  --foreground: oklch(0.18 0.015 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.015 260);
+  --background: oklch(1 0 0);                 /* pure white #ffffff */
+  --foreground: oklch(0.14 0.005 260);        /* true ink #0a0a0a */
+  --card: oklch(1 0 0);                       /* #ffffff */
+  --card-foreground: oklch(0.14 0.005 260);   /* #0a0a0a */
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.015 260);
-  --primary: oklch(0.18 0.015 260);
-  --primary-foreground: oklch(0.985 0.003 90);
-  --secondary: oklch(0.95 0.005 90);
-  --secondary-foreground: oklch(0.18 0.015 260);
-  --muted: oklch(0.95 0.005 90);
-  --muted-foreground: oklch(0.50 0.015 260);
-  --accent: oklch(0.65 0.17 55);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0.003 90);
-  --border: oklch(0.89 0.008 90);
-  --input: oklch(0.89 0.008 90);
-  --ring: oklch(0.65 0.17 55);
-  --chart-1: oklch(0.65 0.17 55);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --status-active: oklch(0.65 0.18 150);
-  --status-alert: oklch(0.60 0.22 25);
-  --status-tracking: oklch(0.60 0.18 250);
-  --status-warning: oklch(0.75 0.18 80);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.18 0.015 260);
-  --sidebar-primary: oklch(0.18 0.015 260);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.95 0.005 90);
-  --sidebar-accent-foreground: oklch(0.18 0.015 260);
-  --sidebar-border: oklch(0.89 0.008 90);
-  --sidebar-ring: oklch(0.65 0.17 55);
+  --popover-foreground: oklch(0.14 0.005 260);
+  --primary: oklch(0.14 0.005 260);           /* solid ink #0a0a0a */
+  --primary-foreground: oklch(1 0 0);         /* pure white #ffffff */
+  --secondary: oklch(0.97 0.002 90);          /* subtle fill #f5f5f5 */
+  --secondary-foreground: oklch(0.14 0.005 260);
+  --muted: oklch(0.97 0.002 90);              /* #f5f5f5 */
+  --muted-foreground: oklch(0.55 0.01 260);   /* gray-500 #737373 */
+  --accent: oklch(0.72 0.17 65);              /* MKBRiderTrack Amber #f59e0b */
+  --accent-foreground: oklch(0.14 0.005 260); /* dark ink on amber */
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.92 0.003 90);             /* hairline #e9e9e9 */
+  --input: oklch(0.92 0.003 90);              /* hairline #e9e9e9 */
+  --ring: oklch(0.72 0.17 65);                /* amber ring */
+  --status-active: oklch(0.65 0.18 150);      /* emerald */
+  --status-warning: oklch(0.75 0.18 65);      /* amber */
+  --status-alert: oklch(0.60 0.22 25);        /* rose */
+  --status-tracking: oklch(0.60 0.18 250);    /* blue */
+  --radius: 0.75rem;                          /* 12px default */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.14 0.005 260);
+  --sidebar-primary: oklch(0.72 0.17 65);
+  --sidebar-primary-foreground: oklch(0.14 0.005 260);
+  --sidebar-accent: oklch(0.97 0.002 90);
+  --sidebar-accent-foreground: oklch(0.14 0.005 260);
+  --sidebar-border: oklch(0.92 0.003 90);
+  --sidebar-ring: oklch(0.72 0.17 65);
 }
 
 .dark {
-  --background: oklch(0.13 0.015 260);
-  --foreground: oklch(0.96 0.005 90);
-  --card: oklch(0.17 0.015 260);
-  --card-foreground: oklch(0.96 0.005 90);
-  --popover: oklch(0.17 0.015 260);
-  --popover-foreground: oklch(0.96 0.005 90);
-  --primary: oklch(0.96 0.005 90);
-  --primary-foreground: oklch(0.13 0.015 260);
-  --secondary: oklch(0.22 0.015 260);
-  --secondary-foreground: oklch(0.96 0.005 90);
-  --muted: oklch(0.22 0.015 260);
-  --muted-foreground: oklch(0.65 0.015 260);
-  --accent: oklch(0.65 0.17 55);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.25 0.015 260);
-  --input: oklch(0.25 0.015 260);
-  --ring: oklch(0.65 0.17 55);
-  --chart-1: oklch(0.65 0.17 55);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --status-active: oklch(0.65 0.18 150);
-  --status-alert: oklch(0.60 0.22 25);
-  --status-tracking: oklch(0.60 0.18 250);
-  --status-warning: oklch(0.75 0.18 80);
-  --sidebar: oklch(0.17 0.015 260);
-  --sidebar-foreground: oklch(0.96 0.005 90);
-  --sidebar-primary: oklch(0.65 0.17 55);
-  --sidebar-primary-foreground: oklch(0.96 0.005 90);
-  --sidebar-accent: oklch(0.22 0.015 260);
-  --sidebar-accent-foreground: oklch(0.96 0.005 90);
-  --sidebar-border: oklch(0.25 0.015 260);
-  --sidebar-ring: oklch(0.65 0.17 55);
+  --background: oklch(0.12 0.01 260);         /* near-black with blue cast #0c0c0f */
+  --foreground: oklch(0.97 0.002 90);         /* off-white #f4f4f5 */
+  --card: oklch(0.15 0.01 260);               /* gray-50 #121216 */
+  --card-foreground: oklch(0.97 0.002 90);
+  --popover: oklch(0.15 0.01 260);
+  --popover-foreground: oklch(0.97 0.002 90);
+  --primary: oklch(0.97 0.002 90);            /* off-white ink #f4f4f5 */
+  --primary-foreground: oklch(0.12 0.01 260);  /* #0c0c0f */
+  --secondary: oklch(0.18 0.01 260);          /* subtle fill #1e1e22 */
+  --secondary-foreground: oklch(0.97 0.002 90);
+  --muted: oklch(0.18 0.01 260);
+  --muted-foreground: oklch(0.68 0.01 260);   /* gray-500 #a0a0a8 */
+  --accent: oklch(0.75 0.18 65);              /* MKBRiderTrack Amber #fbbf24 */
+  --accent-foreground: oklch(0.12 0.01 260);
+  --destructive: oklch(0.50 0.20 25);
+  --destructive-foreground: oklch(0.97 0.002 90);
+  --border: oklch(0.24 0.01 260);             /* hairline #2a2a30 */
+  --input: oklch(0.24 0.01 260);
+  --ring: oklch(0.75 0.18 65);
+  --status-active: oklch(0.68 0.18 150);
+  --status-warning: oklch(0.75 0.18 65);
+  --status-alert: oklch(0.62 0.22 25);
+  --status-tracking: oklch(0.65 0.18 250);
+  --sidebar: oklch(0.15 0.01 260);
+  --sidebar-foreground: oklch(0.97 0.002 90);
+  --sidebar-primary: oklch(0.75 0.18 65);
+  --sidebar-primary-foreground: oklch(0.12 0.01 260);
+  --sidebar-accent: oklch(0.18 0.01 260);
+  --sidebar-accent-foreground: oklch(0.97 0.002 90);
+  --sidebar-border: oklch(0.24 0.01 260);
+  --sidebar-ring: oklch(0.75 0.18 65);
 }
 
 @theme inline {
-  --font-sans: 'DM Sans', 'DM Sans Fallback', sans-serif;
-  --font-serif: 'Playfair Display', 'Playfair Display Fallback', serif;
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  --font-sans: var(--font-sans), system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+  --font-serif: var(--font-serif), Georgia, serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -106,19 +100,15 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --color-status-active: var(--status-active);
+  --color-status-warning: var(--status-warning);
   --color-status-alert: var(--status-alert);
   --color-status-tracking: var(--status-tracking);
-  --color-status-warning: var(--status-warning);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-sm: 0.375rem;                      /* 6px minimal/inputs */
+  --radius-md: 0.5rem;                        /* 8px small */
+  --radius-lg: 0.75rem;                       /* 12px medium */
+  --radius-xl: 1rem;                          /* 16px large cards/maps */
+  --radius-2xl: 1.25rem;                      /* 20px panels */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -127,15 +117,6 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-
-  @keyframes shimmer {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(100%);
-    }
-  }
 }
 
 @layer base {
@@ -143,8 +124,74 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground selection:bg-accent selection:text-accent-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+}
+
+/* ============================================================
+   Halftone Dot Pattern (Monochrome technical texture)
+   ============================================================ */
+
+.bg-halftone {
+  background-image: radial-gradient(circle, rgba(10, 10, 10, 0.12) 1px, transparent 1px);
+  background-size: 9px 9px;
+}
+
+.dark .bg-halftone {
+  background-image: radial-gradient(circle, rgba(244, 244, 245, 0.08) 1px, transparent 1px);
+  background-size: 9px 9px;
+}
+
+.bg-halftone-radial {
+  background-image: radial-gradient(circle, rgba(10, 10, 10, 0.15) 1px, transparent 1px);
+  background-size: 9px 9px;
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 75%);
+}
+
+.dark .bg-halftone-radial {
+  background-image: radial-gradient(circle, rgba(244, 244, 245, 0.1) 1px, transparent 1px);
+  background-size: 9px 9px;
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 75%);
+}
+
+/* ============================================================
+   bryl-minimal Component Recipes
+   ============================================================ */
+
+/* Restrained soft ground-contact shadow */
+.shadow-bryl {
+  box-shadow: 0 8px 22px -14px rgba(0, 0, 0, 0.25);
+}
+
+.shadow-bryl-hover {
+  box-shadow: 0 18px 36px -20px rgba(0, 0, 0, 0.35);
+}
+
+.dark .shadow-bryl,
+.dark .shadow-bryl-hover {
+  box-shadow: none;
+}
+
+/* Slim Minimal Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
 }
 
 /* Lenis smooth scrolling styles */
@@ -169,56 +216,82 @@ html.lenis body {
   pointer-events: none;
 }
 
-/* Leaflet Map Custom Styling */
+/* ============================================================
+   Leaflet Map Styling (Monochrome container & high-contrast UI)
+   ============================================================ */
+
 .leaflet-container {
-  font-family: inherit;
-  background-color: #0f172a;
+  font-family: var(--font-sans), system-ui, sans-serif !important;
+  background-color: #e2e8f0 !important;
+  outline: none !important;
 }
 
-.leaflet-popup-content-wrapper {
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
-  color: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-  padding: 4px;
+.leaflet-tile {
+  image-rendering: -webkit-optimize-contrast;
+  outline: none !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-.leaflet-popup-tip {
-  background: rgba(15, 23, 42, 0.95);
+.leaflet-tile-pane img,
+.leaflet-tile-container img {
+  max-width: none !important;
+  max-height: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
-.leaflet-popup-content {
-  margin: 10px 14px;
-  line-height: 1.5;
+/* Custom Hub Popup (Clean card with amber accent & high-contrast text) */
+.custom-hub-popup .leaflet-popup-content-wrapper {
+  background: #0c0c0f !important;
+  color: #f4f4f5 !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  box-shadow: 0 14px 35px -4px rgba(0, 0, 0, 0.7) !important;
+  padding: 0 !important;
 }
 
-.leaflet-popup-close-button {
-  color: #94a3b8 !important;
-  padding: 6px !important;
+.custom-hub-popup .leaflet-popup-tip {
+  background: #0c0c0f !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  box-shadow: none !important;
 }
 
-.leaflet-popup-close-button:hover {
-  color: #f59e0b !important;
+.custom-hub-popup .leaflet-popup-content {
+  margin: 0 !important;
+}
+
+.custom-hub-popup a.leaflet-popup-close-button {
+  color: #a0a0a8 !important;
+  top: 8px !important;
+  right: 8px !important;
+  z-index: 30 !important;
+}
+
+.custom-hub-popup a.leaflet-popup-close-button:hover {
+  color: #fbbf24 !important;
 }
 
 .leaflet-control-zoom {
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 8px !important;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
 
 .leaflet-control-zoom a {
-  background-color: rgba(15, 23, 42, 0.9) !important;
-  color: #f8fafc !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+  border-bottom: 1px solid var(--border) !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background-color: rgba(245, 158, 11, 0.2) !important;
-  color: #f59e0b !important;
+  background-color: var(--secondary) !important;
+  color: var(--foreground) !important;
 }
 
 .hub-marker-custom {

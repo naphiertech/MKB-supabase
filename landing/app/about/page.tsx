@@ -8,11 +8,11 @@ import { TimelineSection } from "@/components/about/timeline-section"
 import { siteConfig } from "@/lib/data"
 
 export const metadata: Metadata = {
-  title: "About System",
+  title: "Platform Overview",
   description:
     "Learn about the architectural evolution of the MKBRiderTrack workforce platform — from biometric facial verification to spatial geofencing and automated cutoff payroll.",
   openGraph: {
-    title: `About System | ${siteConfig.name}`,
+    title: `Platform Overview | ${siteConfig.name}`,
     description:
       "Learn about the architectural evolution of the MKBRiderTrack workforce platform.",
     url: `${siteConfig.url}/about`,
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `About System | ${siteConfig.name}`,
+    title: `Platform Overview | ${siteConfig.name}`,
     description:
       "Learn about the architectural evolution of the MKBRiderTrack workforce platform.",
   },
@@ -28,41 +28,47 @@ export const metadata: Metadata = {
 }
 
 export default function AboutPage() {
+  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"
+
   return (
     <>
       {/* Hero */}
-      <section className="relative flex min-h-[46vh] items-center overflow-hidden bg-primary">
-        <div className="absolute inset-0">
+      <section className="relative flex min-h-[42vh] items-center overflow-hidden border-b border-border bg-background">
+        <div className="absolute inset-0 z-0">
           <video
             autoPlay
             loop
             muted
             playsInline
-            className="h-full w-full object-cover opacity-30"
+            className="h-full w-full object-cover opacity-25"
           >
             <source src="https://www.pexels.com/download/video/32750417/" type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/60 to-primary/30" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/85 to-background" />
+          <div className="absolute inset-0 bg-halftone-radial opacity-50 pointer-events-none" />
         </div>
-        <div className="relative z-10 mx-auto max-w-7xl px-4 py-24 lg:px-8">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-            System Overview
-          </p>
-          <h1 className="max-w-3xl font-serif text-4xl font-bold leading-tight tracking-tight text-primary-foreground md:text-6xl lg:text-7xl">
+        <div className="relative z-10 mx-auto max-w-7xl px-4 py-20 lg:px-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3.5 py-1 mb-4 shadow-xs backdrop-blur-md">
+            <span className="size-1.5 rounded-full bg-accent animate-pulse" />
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
+              [ 01 // PLATFORM OVERVIEW ]
+            </p>
+          </div>
+          <h1 className="max-w-3xl font-sans text-3xl font-bold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl">
             Built on Operational Integrity & Intelligence
           </h1>
-          <p className="mt-6 max-w-2xl text-base leading-relaxed text-primary-foreground/80 md:text-lg">
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
             Every critical platform evolves from a tangible operational bottleneck. MKBRiderTrack was built to solve last-mile courier visibility, eliminate attendance disputes, and automate complex parcel compensation.
           </p>
         </div>
       </section>
 
       {/* The Origin & Evolution */}
-      <section className="bg-background py-20 lg:py-28">
+      <section className="border-b border-border bg-background py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-4 lg:px-8">
-          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
             <div className="relative">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-muted shadow-xl">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-secondary shadow-bryl">
                 <Image
                   src="https://images.pexels.com/photos/6169169/pexels-photo-6169169.jpeg?auto=compress&cs=tinysrgb&w=1200"
                   alt="Operations team monitoring workforce dispatch metrics"
@@ -71,22 +77,22 @@ export default function AboutPage() {
                   sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </div>
-              <div className="absolute -bottom-6 -right-6 rounded-xl bg-accent px-6 py-4 shadow-lg">
-                <p className="font-serif text-3xl font-bold text-accent-foreground">
+              <div className="absolute -bottom-4 -right-4 rounded-xl border border-accent/30 bg-background p-4 shadow-bryl">
+                <p className="font-mono text-xl font-bold text-accent">
                   Phased
                 </p>
-                <p className="text-xs font-medium text-accent-foreground/90 uppercase tracking-wider">
-                  Evolution
+                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Evolution Model
                 </p>
               </div>
             </div>
             <div>
               <SectionHeader
-                label="The Progression"
+                label="01 // THE PROGRESSION"
                 title="From Biometric Attendance to Complete Logistics Oversight"
                 align="left"
               />
-              <div className="mt-6 space-y-4 text-sm md:text-base leading-relaxed text-muted-foreground">
+              <div className="mt-6 space-y-4 text-xs md:text-sm leading-relaxed text-muted-foreground">
                 <p>
                   Third-party courier fleets have traditionally struggled with proxy attendance, ghost shifts, and disjointed delivery logs. The inception of MKBRiderTrack began by deploying on-device facial landmark verification with 3D liveness detection to create an airtight, biometric-authenticated attendance record.
                 </p>
@@ -103,14 +109,14 @@ export default function AboutPage() {
       </section>
 
       {/* Philosophy */}
-      <section className="bg-secondary py-20 lg:py-28 border-y border-border/40">
+      <section className="border-b border-border bg-background py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-4 lg:px-8">
           <SectionHeader
-            label="Core Philosophy"
+            label="02 // CORE PHILOSOPHY"
             title="Guiding Architectural Principles"
             description="Four core pillars govern every feature, workflow, and safeguard engineered into MKBRiderTrack."
           />
-          <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 title: "Biometric Truth",
@@ -137,21 +143,24 @@ export default function AboutPage() {
                 image: "https://images.pexels.com/photos/5498230/pexels-photo-5498230.jpeg?auto=compress&cs=tinysrgb&w=800",
               },
             ].map((item) => (
-              <div key={item.title} className="group flex flex-col justify-between overflow-hidden rounded-xl border border-border bg-card p-5 transition-all duration-300 hover:border-accent/40 hover:shadow-lg hover:-translate-y-1">
+              <div
+                key={item.title}
+                className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-4.5 shadow-bryl transition-all duration-300 hover:border-accent/50 hover:-translate-y-1"
+              >
                 <div>
-                  <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-muted">
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-secondary">
                     <Image
                       src={item.image}
                       alt={item.title}
                       fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                       sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
                     />
                   </div>
-                  <h3 className="mt-5 font-serif text-lg font-bold text-foreground group-hover:text-accent transition-colors">
+                  <h3 className="mt-4 font-sans text-sm font-bold text-foreground transition-colors group-hover:text-accent">
                     {item.title}
                   </h3>
-                  <p className="mt-2 text-xs md:text-sm leading-relaxed text-muted-foreground">
+                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                     {item.description}
                   </p>
                 </div>
@@ -161,36 +170,24 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Timeline */}
+      {/* Timeline Section */}
       <TimelineSection />
 
-      {/* CTA */}
-      <section className="bg-primary py-20 text-center lg:py-28 text-primary-foreground border-t border-border/20">
-        <div className="mx-auto max-w-2xl px-4 lg:px-8">
-          <h2 className="font-serif text-3xl font-bold text-primary-foreground md:text-4xl">
-            Experience the MKBRiderTrack Platform
+      {/* Access Portal CTA */}
+      <section className="border-t border-border bg-background py-16 text-center">
+        <div className="mx-auto max-w-xl px-4">
+          <h2 className="font-sans text-2xl font-bold tracking-tight text-foreground">
+            Explore the Live Workforce Portal
           </h2>
-          <p className="mt-4 text-sm md:text-base leading-relaxed text-primary-foreground/75">
-            Ready to upgrade your logistics workforce and payroll infrastructure? Schedule a demonstration with our engineering team.
+          <p className="mt-2 text-xs text-muted-foreground">
+            Log in with authorized dispatch, HR, or payroll credentials.
           </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Button
-              asChild
-              size="lg"
-              className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-md px-7"
-            >
-              <Link href="/contact">
-                <span>Request a Demo</span>
-                <ArrowRight className="size-4 ml-1" />
-              </Link>
+          <div className="mt-6 flex justify-center gap-3">
+            <Button asChild size="sm" className="h-9 bg-accent text-accent-foreground hover:bg-accent/90 text-xs font-mono uppercase shadow-xs">
+              <Link href={dashboardUrl}>Access Portal &rarr;</Link>
             </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground px-7"
-            >
-              <Link href="/team">Meet the Team</Link>
+            <Button asChild variant="outline" size="sm" className="h-9 border-border hover:bg-secondary text-xs">
+              <Link href="/contact">Request System Demo</Link>
             </Button>
           </div>
         </div>

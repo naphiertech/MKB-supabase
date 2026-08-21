@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { ArrowRight, MapPin, Building2, Compass } from "lucide-react"
+import { ArrowRight, MapPin } from "lucide-react"
 import { useRef } from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { SectionHeader } from "@/components/section-header"
 import { AnimateIn } from "@/components/animations/animate-in"
 import { Magnetic } from "@/components/animations/magnetic"
-import { locations } from "@/lib/data"
+import { staticHubsList, hubMarketingMeta } from "@/lib/data"
 
 export function LocationsPreview() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -24,13 +24,13 @@ export function LocationsPreview() {
         cards,
         {
           opacity: 0,
-          y: 40,
+          y: 30,
         },
         {
           opacity: 1,
           y: 0,
-          duration: 0.9,
-          stagger: 0.12,
+          duration: 0.8,
+          stagger: 0.1,
           ease: "power3.out",
           scrollTrigger: {
             trigger: containerRef.current,
@@ -44,73 +44,80 @@ export function LocationsPreview() {
   )
 
   return (
-    <section ref={containerRef} className="bg-background pt-24 pb-20 lg:pt-32 lg:pb-28">
+    <section ref={containerRef} className="border-b border-border bg-background py-20 lg:py-28">
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <SectionHeader
-          label="MKB Operations Network"
+          label="04 // OPERATIONS NETWORK"
           title="Four Operational Hubs"
           description="MKBRiderTrack coordinates last-mile fleet logistics through four dedicated fulfillment hubs, each managing calibrated geofence zones across Zamboanga City."
         />
 
-        <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          {locations.map((hub) => (
-            <Link
-              key={hub.slug}
-              href={`/locations/${hub.slug}`}
-              className="location-card group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border/80 bg-card transition-all duration-300 hover:border-accent/50 hover:shadow-xl hover:-translate-y-1"
-            >
-              <div>
-                <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                  <Image
-                    src={hub.image}
-                    alt={hub.name}
-                    fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-105"
-                    sizes="(max-width: 1024px) 100vw, 25vw"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                </div>
-                <div className="p-5">
-                  <div className="mb-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
-                      {hub.tagline}
-                    </p>
-                    <h3 className="mt-1 font-serif text-xl font-bold text-foreground group-hover:text-accent transition-colors">
-                      {hub.shortName}
-                    </h3>
-                  </div>
-                  <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
-                    {hub.description}
-                  </p>
-                  <div className="mt-4 flex flex-col gap-1.5 border-t border-border/50 pt-3">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <MapPin className="size-3.5 shrink-0 text-accent" />
-                      <span>{hub.district}, {hub.city}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Compass className="size-3.5 shrink-0 text-accent" />
-                      <span>{hub.zones.length} Assigned Geofence Zones</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {staticHubsList.map((hub) => {
+            const meta = hubMarketingMeta[hub.slug] || {
+              tagline: "Operational Center",
+              description: "Fulfillment and courier dispatch terminal in Zamboanga City.",
+              image: "https://images.pexels.com/photos/7019213/pexels-photo-7019213.jpeg?auto=compress&cs=tinysrgb&w=1200",
+              city: "Zamboanga City, 7000",
+            }
 
-              <div className="p-5 pt-0">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-accent transition-colors group-hover:text-accent/80">
-                  <span>View Hub Details</span>
-                  <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+            return (
+              <Link
+                key={hub.slug}
+                href={`/locations/${hub.slug}`}
+                className="location-card group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card shadow-bryl transition-all duration-300 hover:border-accent/50 hover:-translate-y-1"
+              >
+                <div>
+                  <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
+                    <Image
+                      src={meta.image}
+                      alt={hub.name}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                      sizes="(max-width: 1024px) 100vw, 25vw"
+                    />
+                  </div>
+                  <div className="p-4.5">
+                    <div className="mb-2">
+                      <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-accent">
+                        {meta.tagline}
+                      </p>
+                      <h3 className="mt-0.5 font-sans text-base font-bold text-foreground transition-colors group-hover:text-accent">
+                        {hub.shortName}
+                      </h3>
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                      {meta.description}
+                    </p>
+                    <div className="mt-3.5 flex items-center gap-1.5 border-t border-border pt-3 text-[11px] text-muted-foreground font-mono">
+                      <MapPin className="size-3 shrink-0 text-accent" />
+                      <span className="truncate">{hub.district}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+
+                <div className="p-4.5 pt-0">
+                  <div className="flex items-center gap-1 font-mono text-[11px] font-semibold text-accent transition-colors">
+                    <span>View Hub</span>
+                    <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
         </div>
 
-        <AnimateIn delay={0.4} className="mt-14 text-center flex justify-center">
+        <AnimateIn delay={0.3} className="mt-12 text-center flex justify-center">
           <Magnetic>
-            <Button asChild variant="outline" size="lg" className="border-border hover:border-accent/40">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="h-10 border-border bg-background hover:bg-secondary hover:border-accent/40 text-foreground font-medium text-xs rounded-md px-5 shadow-xs"
+            >
               <Link href="/locations">
                 <span>View All Operational Hubs</span>
-                <ArrowRight className="size-4 ml-1" />
+                <ArrowRight className="size-3.5 ml-1.5" />
               </Link>
             </Button>
           </Magnetic>

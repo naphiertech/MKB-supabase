@@ -29,15 +29,25 @@ export function SectionHeader({
       )}
     >
       {label && (
-        <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-accent">
-          {label}
+        <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
+          {label.startsWith("//") || label.startsWith("[") ? label : `// ${label}`}
         </p>
       )}
-      <h2 className={cn("text-balance font-serif text-3xl font-bold tracking-tight text-foreground md:text-4xl lg:text-5xl", titleClassName)}>
+      <h2
+        className={cn(
+          "text-balance font-sans text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-4xl",
+          titleClassName
+        )}
+      >
         {title}
       </h2>
       {description && (
-        <p className={cn("mt-6 text-pretty text-base leading-relaxed text-muted-foreground md:text-lg", descriptionClassName)}>
+        <p
+          className={cn(
+            "mt-4 text-pretty text-sm leading-relaxed text-muted-foreground md:text-base",
+            descriptionClassName
+          )}
+        >
           {description}
         </p>
       )}

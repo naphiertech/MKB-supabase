@@ -1,81 +1,64 @@
-"use client";
+"use client"
 
-import { useRef } from "react";
-import Link from "next/link";
-import { ArrowRight, ShieldCheck, MapPin, Package, CreditCard } from "lucide-react";
-import gsap from "gsap";
-import { useGSAP } from "@gsap/react";
-import { Button } from "@/components/ui/button";
-import { siteConfig } from "@/lib/data";
-import { Magnetic } from "@/components/animations/magnetic";
+import { useRef } from "react"
+import Link from "next/link"
+import { ArrowRight, ShieldCheck, MapPin, Package, CreditCard, ArrowUpRight } from "lucide-react"
+import gsap from "gsap"
+import { useGSAP } from "@gsap/react"
+import { Button } from "@/components/ui/button"
+import { siteConfig } from "@/lib/data"
+import { Magnetic } from "@/components/animations/magnetic"
 
 export function HeroSection() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const textRef = useRef<HTMLParagraphElement>(null);
-  const buttonContainerRef = useRef<HTMLDivElement>(null);
-  const badgeRef = useRef<HTMLDivElement>(null);
-  const bgRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const textRef = useRef<HTMLParagraphElement>(null)
+  const buttonContainerRef = useRef<HTMLDivElement>(null)
+  const badgeRef = useRef<HTMLDivElement>(null)
+  const bgRef = useRef<HTMLDivElement>(null)
 
   useGSAP(
     () => {
-      if (!titleRef.current || !textRef.current) return;
+      if (!titleRef.current || !textRef.current) return
 
       const tl = gsap.timeline({
         defaults: { ease: "power4.out" },
-      });
+      })
 
-      // Background scale entry
+      // Background video subtle scale
       tl.to(bgRef.current, {
         scale: 1,
-        duration: 3,
+        duration: 2.5,
         ease: "power2.out",
-      });
+      })
 
       // Badge reveal
       tl.fromTo(
         badgeRef.current,
-        { y: -20, opacity: 0 },
-        { y: 0, opacity: 1, duration: 1 },
-        "-=2.8"
-      );
+        { y: -15, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.8 },
+        "-=2.2"
+      )
 
-      // Title animation - animate the words in and reveal container
-      tl.to(titleRef.current, { opacity: 1, duration: 0.1 }, "-=2.6").fromTo(
+      // Title animation - clean upward fade
+      tl.to(titleRef.current, { opacity: 1, duration: 0.1 }, "-=2.0").fromTo(
         gsap.utils.toArray(titleRef.current.children),
         {
-          y: 80,
+          y: 40,
           opacity: 0,
-          rotateX: -15,
         },
         {
           y: 0,
           opacity: 1,
-          rotateX: 0,
-          stagger: 0.12,
-          duration: 1.3,
+          stagger: 0.1,
+          duration: 1.0,
         },
-        "-=2.4",
-      );
+        "-=1.9"
+      )
 
-      // Text animation
+      // Subtitle animation
       tl.fromTo(
         textRef.current,
-        {
-          y: 30,
-          opacity: 0,
-        },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 1.1,
-        },
-        "-=1.4",
-      );
-
-      // Button container animation
-      tl.fromTo(
-        buttonContainerRef.current,
         {
           y: 20,
           opacity: 0,
@@ -83,15 +66,29 @@ export function HeroSection() {
         {
           y: 0,
           opacity: 1,
-          duration: 1.1,
+          duration: 0.9,
         },
-        "-=1.0",
-      );
+        "-=1.2"
+      )
 
-      // Parallax effect on scroll
+      // Buttons animation
+      tl.fromTo(
+        buttonContainerRef.current,
+        {
+          y: 15,
+          opacity: 0,
+        },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.9,
+        },
+        "-=0.9"
+      )
+
+      // Subtle parallax on scroll
       gsap.to(bgRef.current, {
-        yPercent: 25,
-        scale: 1.15,
+        yPercent: 20,
         ease: "none",
         scrollTrigger: {
           trigger: containerRef.current,
@@ -99,144 +96,140 @@ export function HeroSection() {
           end: "bottom top",
           scrub: true,
         },
-      });
+      })
     },
-    { scope: containerRef },
-  );
+    { scope: containerRef }
+  )
 
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173";
+  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"
 
   return (
     <section
       ref={containerRef}
-      className="relative flex min-h-[92vh] items-center overflow-hidden bg-primary"
+      className="relative flex min-h-[88vh] items-center overflow-hidden border-b border-border bg-background"
     >
-      {/* Background Video */}
-      <div ref={bgRef} className="absolute inset-0">
+      {/* Background Video in Natural Color with Subtle Overlay & Halftone Dissolution */}
+      <div ref={bgRef} className="absolute inset-0 z-0">
         <video
           autoPlay
           muted
           loop
           playsInline
-          className="h-full w-full object-cover opacity-35"
+          className="h-full w-full object-cover opacity-25 dark:opacity-30"
         >
           <source
             src="https://www.pexels.com/download/video/4281405/"
             type="video/mp4"
           />
         </video>
-        <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/60 to-primary/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/85 to-background" />
+        <div className="absolute inset-0 bg-halftone-radial opacity-50 pointer-events-none" />
       </div>
 
-      {/* Content */}
+      {/* Hero Content */}
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-20 lg:px-8 flex justify-center text-center">
-        <div className="max-w-4xl flex flex-col items-center">
-          <div ref={badgeRef} className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-4 py-1.5 backdrop-blur-md">
-            <span className="flex size-2 rounded-full bg-accent animate-pulse" />
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
-              Biometric Attendance &middot; Spatial Geofencing &middot; Automated Payroll
+        <div className="max-w-3xl flex flex-col items-center">
+          {/* Micro Tag Status Badge */}
+          <div
+            ref={badgeRef}
+            className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3.5 py-1 shadow-xs backdrop-blur-md"
+          >
+            <span className="size-1.5 rounded-full bg-accent animate-pulse" />
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
+              [ 01 // FLEET WORKFORCE INTELLIGENCE ]
             </p>
           </div>
 
+          {/* Title */}
           <h1
             ref={titleRef}
-            className="font-serif text-5xl font-bold leading-[1.08] tracking-tight text-primary-foreground opacity-0 md:text-7xl lg:text-8xl text-center"
+            className="font-sans text-4xl font-bold leading-[1.1] tracking-tight text-foreground opacity-0 sm:text-5xl md:text-6xl text-center"
           >
-            {siteConfig.name.split(" ").map((word, i) => (
-              <span key={i} className="block overflow-hidden">
-                <span className="block text-center">
-                  {word.startsWith("MKB") ? (
-                    <span>
-                      <span className="italic text-accent">{word.slice(0, 3)}</span>
-                      {word.slice(3)}
-                    </span>
-                  ) : (
-                    word
-                  )}
-                </span>
-              </span>
-            ))}
+            <span className="block">Biometric Verification,</span>
+            <span className="block text-muted-foreground font-normal">Spatial Fleet Geofencing &</span>
+            <span className="block">Automated Logistics Payroll</span>
           </h1>
 
+          {/* Subtitle */}
           <p
             ref={textRef}
-            className="mt-6 mx-auto max-w-2xl text-base leading-relaxed text-primary-foreground/85 opacity-0 md:text-lg text-center"
+            className="mt-6 mx-auto max-w-xl text-sm leading-relaxed text-muted-foreground opacity-0 md:text-base text-center"
           >
-            Enterprise workforce intelligence engineered for last-mile courier logistics. Sub-second 3D biometric verification, polygon geofence tracking, daily parcel rate calculations, and server-authoritative cutoff payroll.
+            Enterprise workforce intelligence engineered for last-mile courier logistics. Sub-second 3D biometric verification, polygon geofence tracking, daily parcel rate matrices, and server-authoritative cutoff payroll.
           </p>
 
+          {/* Action Buttons */}
           <div
             ref={buttonContainerRef}
-            className="mt-9 flex flex-col gap-4 sm:flex-row justify-center items-center opacity-0"
+            className="mt-8 flex flex-col gap-3 sm:flex-row justify-center items-center opacity-0"
           >
             <Magnetic>
               <Button
                 asChild
-                size="lg"
-                className="bg-accent text-accent-foreground hover:bg-accent/90 cursor-pointer shadow-lg px-7"
+                size="sm"
+                className="h-10 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold text-xs rounded-md px-5 shadow-sm cursor-pointer"
               >
                 <Link href="/modules">
                   <span>Explore Capabilities</span>
-                  <ArrowRight className="size-4 ml-1" />
+                  <ArrowRight className="size-3.5 ml-1.5" />
                 </Link>
               </Button>
             </Magnetic>
             <Magnetic>
               <Button
                 asChild
-                size="lg"
-                className="border border-primary-foreground/25 !bg-transparent text-primary-foreground hover:!bg-primary-foreground hover:!text-primary transition-all duration-300 cursor-pointer px-7"
+                variant="outline"
+                size="sm"
+                className="h-10 border-border bg-background/80 hover:bg-secondary text-foreground font-medium text-xs rounded-md px-5 cursor-pointer"
               >
                 <Link href={dashboardUrl}>
-                  Access Portal
+                  <span>Access Portal</span>
+                  <ArrowUpRight className="size-3.5 ml-1" />
                 </Link>
               </Button>
             </Magnetic>
           </div>
 
-          {/* System Capability Highlight Badges */}
-          <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4 max-w-3xl w-full border-t border-primary-foreground/15 pt-8 text-left">
-            <div className="flex items-center gap-2.5 rounded-lg border border-primary-foreground/10 bg-primary-foreground/5 p-3 backdrop-blur-sm">
-              <ShieldCheck className="size-4 shrink-0 text-accent" />
-              <div>
-                <p className="text-xs font-semibold text-primary-foreground">Biometric Engine</p>
-                <p className="text-[11px] text-primary-foreground/60">128-D + 3D Liveness</p>
+          {/* System Highlights 4-Pillar Grid */}
+          <div className="mt-12 grid grid-cols-2 gap-2.5 sm:grid-cols-4 max-w-3xl w-full border-t border-border pt-8 text-left">
+            <div className="rounded-xl border border-border bg-card/70 p-3.5 shadow-bryl">
+              <div className="flex items-center gap-2 text-accent mb-1">
+                <ShieldCheck className="size-3.5 shrink-0 text-accent" />
+                <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-accent">Biometrics</p>
               </div>
+              <p className="text-xs font-semibold text-foreground">128-D + 3D Liveness</p>
+              <p className="font-mono text-[10px] text-muted-foreground mt-0.5">Sub-second match</p>
             </div>
-            <div className="flex items-center gap-2.5 rounded-lg border border-primary-foreground/10 bg-primary-foreground/5 p-3 backdrop-blur-sm">
-              <MapPin className="size-4 shrink-0 text-accent" />
-              <div>
-                <p className="text-xs font-semibold text-primary-foreground">Spatial Geofence</p>
-                <p className="text-[11px] text-primary-foreground/60">Polygon Boundary Sync</p>
+
+            <div className="rounded-xl border border-border bg-card/70 p-3.5 shadow-bryl">
+              <div className="flex items-center gap-2 text-accent mb-1">
+                <MapPin className="size-3.5 shrink-0 text-accent" />
+                <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-accent">Geofencing</p>
               </div>
+              <p className="text-xs font-semibold text-foreground">Polygon Perimeter</p>
+              <p className="font-mono text-[10px] text-muted-foreground mt-0.5">Real-time alerts</p>
             </div>
-            <div className="flex items-center gap-2.5 rounded-lg border border-primary-foreground/10 bg-primary-foreground/5 p-3 backdrop-blur-sm">
-              <Package className="size-4 shrink-0 text-accent" />
-              <div>
-                <p className="text-xs font-semibold text-primary-foreground">Parcel Rates</p>
-                <p className="text-[11px] text-primary-foreground/60">Heavy Matrix & Surcharges</p>
+
+            <div className="rounded-xl border border-border bg-card/70 p-3.5 shadow-bryl">
+              <div className="flex items-center gap-2 text-accent mb-1">
+                <Package className="size-3.5 shrink-0 text-accent" />
+                <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-accent">Parcel Rates</p>
               </div>
+              <p className="text-xs font-semibold text-foreground">Daily Rate Matrix</p>
+              <p className="font-mono text-[10px] text-muted-foreground mt-0.5">&gt;4kg Surcharges</p>
             </div>
-            <div className="flex items-center gap-2.5 rounded-lg border border-primary-foreground/10 bg-primary-foreground/5 p-3 backdrop-blur-sm">
-              <CreditCard className="size-4 shrink-0 text-accent" />
-              <div>
-                <p className="text-xs font-semibold text-primary-foreground">Cutoff Payroll</p>
-                <p className="text-[11px] text-primary-foreground/60">Coverage-Based Readiness</p>
+
+            <div className="rounded-xl border border-border bg-card/70 p-3.5 shadow-bryl">
+              <div className="flex items-center gap-2 text-accent mb-1">
+                <CreditCard className="size-3.5 shrink-0 text-accent" />
+                <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-accent">Payroll</p>
               </div>
+              <p className="text-xs font-semibold text-foreground">Cutoff Readiness</p>
+              <p className="font-mono text-[10px] text-muted-foreground mt-0.5">Server-validated</p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Scroll indicator */}
-      <div className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
-        <div className="flex flex-col items-center gap-2">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-primary-foreground/40">
-            Scroll
-          </span>
-          <div className="h-8 w-px bg-gradient-to-b from-primary-foreground/40 to-transparent" />
-        </div>
-      </div>
     </section>
-  );
+  )
 }
