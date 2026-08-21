@@ -30,7 +30,7 @@ export function SectionHeader({
     >
       {label && (
         <p className="mb-3 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-          {label.startsWith("//") || label.startsWith("[") ? label : `// ${label}`}
+          {label.startsWith("//") || label.startsWith("[") || label.includes("//") ? label : `// ${label}`}
         </p>
       )}
       <h2

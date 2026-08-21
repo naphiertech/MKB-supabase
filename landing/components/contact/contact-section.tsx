@@ -212,31 +212,49 @@ export function ContactSection() {
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {staticHubsList.map((hub) => {
               const meta = hubMarketingMeta[hub.slug] || {
+                tagline: "Operational Center",
+                description: "Fulfillment and courier dispatch terminal in Zamboanga City.",
                 image: "https://images.pexels.com/photos/7019213/pexels-photo-7019213.jpeg?auto=compress&cs=tinysrgb&w=1200",
               }
               return (
                 <Link
                   key={hub.slug}
                   href={`/locations/${hub.slug}`}
-                  className="contact-map-item group relative overflow-hidden rounded-2xl border border-border bg-card shadow-bryl"
+                  className="contact-map-item group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card shadow-bryl transition-all duration-300 hover:border-accent/50 hover:-translate-y-1"
                 >
-                  <div className="relative aspect-video overflow-hidden">
-                    <Image
-                      src={meta.image}
-                      alt={`Map area for ${hub.name}`}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                      sizes="(max-width: 768px) 100vw, 25vw"
-                    />
-                    <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] transition-colors group-hover:bg-background/30" />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                      <Building2 className="mb-1.5 size-4 text-accent" />
-                      <h3 className="font-sans text-sm font-bold text-foreground">{hub.shortName}</h3>
-                      <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{hub.district}</p>
-                      <span className="mt-2 flex items-center gap-1 font-mono text-[9px] font-semibold uppercase text-accent opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span>View Hub</span>
-                        <ArrowRight className="size-2.5" />
-                      </span>
+                  <div>
+                    <div className="relative aspect-[16/10] overflow-hidden bg-secondary">
+                      <Image
+                        src={meta.image}
+                        alt={hub.name}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                        sizes="(max-width: 768px) 100vw, 25vw"
+                      />
+                    </div>
+                    <div className="p-4">
+                      <div className="mb-2">
+                        <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-accent">
+                          {meta.tagline || "Operational Hub"}
+                        </p>
+                        <h3 className="mt-0.5 font-sans text-base font-bold text-foreground transition-colors group-hover:text-accent">
+                          {hub.shortName}
+                        </h3>
+                      </div>
+                      <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                        {meta.description || hub.district}
+                      </p>
+                      <div className="mt-3.5 flex items-center gap-1.5 border-t border-border pt-3 text-[11px] text-muted-foreground font-mono">
+                        <MapPin className="size-3 shrink-0 text-accent" />
+                        <span className="truncate">{hub.district}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 pt-0">
+                    <div className="flex items-center gap-1 font-mono text-[11px] font-semibold text-accent transition-colors">
+                      <span>View Hub</span>
+                      <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
                     </div>
                   </div>
                 </Link>

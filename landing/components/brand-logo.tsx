@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { siteConfig } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
@@ -19,15 +20,16 @@ export function BrandLogo({
 }: BrandLogoProps) {
   const content = (
     <div className={cn("inline-flex items-center gap-2.5 group select-none", className)}>
-      {/* Amber Monogram Badge */}
-      <div
-        className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground font-mono font-bold text-xs tracking-tight shadow-xs transition-transform group-hover:scale-105",
-          badgeClassName
-        )}
-        aria-hidden="true"
-      >
-        M
+      {/* Official Dashboard Favicon / Emblem */}
+      <div className={cn("relative size-7 shrink-0 transition-transform group-hover:scale-105", badgeClassName)}>
+        <Image
+          src="/favicon.svg"
+          alt="MKBRiderTrack Emblem"
+          width={28}
+          height={28}
+          className="size-7 object-contain drop-shadow-xs"
+          priority
+        />
       </div>
 
       {/* Neutral Wordmark */}
