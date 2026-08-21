@@ -27,12 +27,16 @@ export const metadata: Metadata = {
   description: siteConfig.description,
   metadataBase: new URL(siteConfig.url),
   keywords: [
+    "MKBRiderTrack",
+    "MKB Corporation",
     "geofencing",
     "biometric attendance",
+    "fleet logistics",
     "workforce intelligence",
     "rider monitoring",
-    "AttenRider",
-    "TensorFlow FaceNet",
+    "parcel operations",
+    "automated payroll",
+    "offline outbox",
   ],
   authors: [{ name: siteConfig.name }],
   openGraph: {
@@ -80,7 +84,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#2a2016",
+  themeColor: "#18181b",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,

@@ -7,11 +7,11 @@ import { siteConfig } from "@/lib/data"
 export const metadata: Metadata = {
   title: "Core Team",
   description:
-    "Meet the developers, engineers, and AI experts who built the AttenRider Attendance Monitoring System.",
+    "Meet the developers, engineers, and operations specialists who built the MKBRiderTrack workforce platform.",
   openGraph: {
     title: `Core Team | ${siteConfig.name}`,
     description:
-      "Meet the developers, engineers, and AI experts who built the AttenRider Attendance Monitoring System.",
+      "Meet the developers, engineers, and operations specialists who built the MKBRiderTrack workforce platform.",
     url: `${siteConfig.url}/team`,
     images: [{ url: "/images/og-image.jpg", width: 1200, height: 630 }],
   },
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: `Core Team | ${siteConfig.name}`,
     description:
-      "Meet the developers, engineers, and AI experts who built the AttenRider Attendance Monitoring System.",
+      "Meet the developers, engineers, and operations specialists who built the MKBRiderTrack workforce platform.",
   },
   alternates: { canonical: `${siteConfig.url}/team` },
 }
@@ -28,7 +28,7 @@ export default function TeamPage() {
   return (
     <>
       {/* Hero */}
-      <section className="relative flex min-h-[40vh] items-center overflow-hidden bg-primary">
+      <section className="relative flex min-h-[44vh] items-center overflow-hidden bg-primary">
         <div className="absolute inset-0">
           <video
             autoPlay
@@ -43,8 +43,8 @@ export default function TeamPage() {
         </div>
         <TeamHero
           label="Core Team"
-          title="The Architects of Modern Monitoring"
-          subtitle="Passionate, innovative, and deeply technical. Meet the individuals driving the AttenRider ecosystem forward."
+          title="Engineers & Fleet Specialists"
+          subtitle="Passionate, innovative, and deeply technical. Meet the individuals driving the MKBRiderTrack platform forward."
         />
       </section>
 

@@ -6,20 +6,13 @@ import Image from "next/image"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { SectionHeader } from "@/components/section-header"
 import { AnimateIn } from "@/components/animations/animate-in"
 import { Magnetic } from "@/components/animations/magnetic"
-import { locations } from "@/lib/data"
-
-// Pull one featured module from each zone
-const featuredCapabilities = [
-  { ...locations[0].capabilities.find((m) => m.name === "Biometric Time-In")!, locationSlug: locations[0].slug, locationName: locations[0].shortName },
-  { ...locations[1].capabilities.find((m) => m.name === "Boundary Detection")!, locationSlug: locations[1].slug, locationName: locations[1].shortName },
-  { ...locations[2].capabilities.find((m) => m.name === "Live Rider Map")!, locationSlug: locations[2].slug, locationName: locations[2].shortName },
-]
+import { featuredCapabilities } from "@/lib/data"
 
 export function CoreCapabilities() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -29,7 +22,7 @@ export function CoreCapabilities() {
       gsap.registerPlugin(ScrollTrigger)
 
       gsap.to(".parallax-bg", {
-        yPercent: 20,
+        yPercent: 15,
         ease: "none",
         scrollTrigger: {
           trigger: containerRef.current,
@@ -52,56 +45,66 @@ export function CoreCapabilities() {
       </div>
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <SectionHeader
-          label="System Modules"
-          title="Core Monitoring Capabilities"
-          description="Discover the AI-driven features powering workforce intelligence and attendance monitoring."
+          label="System Capabilities"
+          title="Engineered for Operational Integrity"
+          description="Discover the core capabilities powering courier attendance verification, live route geofencing, parcel delivery rates, and automated payroll."
         />
 
         <AnimateIn
-          from={{ opacity: 0, y: 50 }}
-          stagger={0.2}
-          className="mt-14 grid gap-8 md:grid-cols-3"
+          from={{ opacity: 0, y: 40 }}
+          stagger={0.15}
+          className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
         >
           {featuredCapabilities.map((capability) => (
             <Link
-              key={capability.name}
-              href={`/locations/${capability.locationSlug}`}
-              className="group"
+              key={capability.id}
+              href={capability.href}
+              className="group flex flex-col justify-between overflow-hidden rounded-xl border border-border/80 bg-card p-6 transition-all duration-300 hover:border-accent/50 hover:shadow-lg hover:-translate-y-1"
             >
-              <div className="relative aspect-[4/5] overflow-hidden rounded-lg">
-                <Image
-                  src={capability.image || "/placeholder.jpg"}
-                  alt={capability.name}
-                  fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-110"
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <Badge variant="secondary" className="mb-3 text-xs">
-                    {capability.locationName}
-                  </Badge>
-                  <h3 className="font-serif text-2xl font-bold text-primary-foreground">
-                    {capability.name}
-                  </h3>
-                  <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-primary-foreground/70">
-                    {capability.description}
-                  </p>
-                  <p className="mt-3 text-sm font-semibold text-accent">
-                    {capability.status}
-                  </p>
+              <div>
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg border border-border/60 bg-muted">
+                  <Image
+                    src={capability.image || "/placeholder.jpg"}
+                    alt={capability.name}
+                    fill
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary/60 via-transparent to-transparent" />
+                  <div className="absolute top-3 left-3">
+                    <Badge variant="secondary" className="bg-background/90 text-foreground backdrop-blur-md text-[11px] font-semibold">
+                      {capability.category}
+                    </Badge>
+                  </div>
                 </div>
+
+                <h3 className="mt-5 font-serif text-xl font-bold text-foreground group-hover:text-accent transition-colors">
+                  {capability.name}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground line-clamp-3">
+                  {capability.description}
+                </p>
+              </div>
+
+              <div className="mt-6 flex items-center justify-between border-t border-border/60 pt-4">
+                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-accent">
+                  {capability.status}
+                </span>
+                <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground group-hover:text-accent transition-colors">
+                  Explore module
+                  <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+                </span>
               </div>
             </Link>
           ))}
         </AnimateIn>
 
-        <AnimateIn delay={0.6} className="mt-12 text-center flex justify-center">
+        <AnimateIn delay={0.4} className="mt-14 text-center flex justify-center">
           <Magnetic>
-            <Button asChild variant="outline">
-              <Link href="/locations">
-                Explore All Zones
-                <ArrowRight className="size-4" />
+            <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-md">
+              <Link href="/modules">
+                <span>View All System Modules</span>
+                <ArrowRight className="size-4 ml-1" />
               </Link>
             </Button>
           </Magnetic>

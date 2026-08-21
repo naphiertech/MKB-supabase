@@ -1,16 +1,16 @@
 // ============================================================
-// ATTENRIDER SITE DATA - Biometric & Geofencing System
+// MKBRIDERTRACK SITE DATA - Fleet Logistics & Payroll System
 // ============================================================
 
 export const siteConfig = {
   name: "MKBRiderTrack",
-  tagline: "Geofencing-Based Rider Attendance & Monitoring",
+  tagline: "Fleet Logistics, Biometric Attendance & Automated Payroll",
   description:
-    "An advanced workforce intelligence system for logistics couriers, combining real-time geofencing validation and biometric facial recognition to ensure operational transparency.",
+    "An enterprise workforce intelligence and fleet management platform for last-mile logistics couriers, combining biometric facial verification, real-time geofencing validation, parcel operations tracking, and automated payroll computation.",
   url: "https://mkbsystem.com",
   ogImage: "/images/og-image.jpg",
-  email: "contact@mkbsystem.com",
-  phone: "(555) 123-4567",
+  email: "operations@mkbsystem.com",
+  phone: "(062) 991-2345",
   socials: {
     instagram: "https://instagram.com/mkbsystem",
     facebook: "https://facebook.com/mkbsystem",
@@ -27,33 +27,33 @@ export interface TimelineEvent {
 export const storyTimeline: TimelineEvent[] = [
   {
     year: "Phase 1",
-    title: "System Conceptualization",
+    title: "System Architecture & Problem Scoping",
     description:
-      "Identified critical gaps in third-party logistics rider monitoring and designed the architecture for a tamper-proof attendance system.",
+      "Identified critical inefficiencies in third-party courier monitoring, time-theft, and delivery reconciliation, designing a tamper-proof attendance and dispatch architecture.",
   },
   {
     year: "Phase 2",
-    title: "Facial Recognition Integration",
+    title: "Biometric Facial Verification",
     description:
-      "Implemented OpenCV and TensorFlow FaceNet to facilitate accurate rider time-in and time-out, effectively eliminating buddy punching.",
+      "Integrated neural facial landmark recognition and 3D liveness detection to ensure authenticated, GPS-verified courier Time-In and Time-Out, eliminating buddy punching.",
   },
   {
     year: "Phase 3",
-    title: "Geofencing Deployment",
+    title: "Spatial Geofencing & Zone Enforcement",
     description:
-      "Established strict geographical boundaries for operational zones, allowing the system to validate rider locations against their assigned areas.",
+      "Established strict geographical polygon boundaries and event-time Manila processing to detect boundary breaches, idle delays, and unauthorized operational detours.",
   },
   {
     year: "Phase 4",
-    title: "Live Workforce Monitoring",
+    title: "Multi-Hub Fleet Telemetry & Mobile PWA",
     description:
-      "Rolled out the centralized HR and Admin dashboard for real-time tracking of active riders and automatic boundary violation detection.",
+      "Deployed centralized Admin/HR monitoring with role-based hub scoping, real-time WebSocket coordinate tracking, and an offline-first mobile outbox with idempotency replay.",
   },
   {
     year: "Phase 5",
-    title: "Payroll Support & Analytics",
+    title: "Parcel Operations & Automated Payroll",
     description:
-      "Integrated automated attendance history and basic payroll computation features to streamline administrative workflows.",
+      "Integrated daily standard and heavy parcel tracking, effective-dated rate matrices, coverage-based cutoff readiness, and server-authoritative bulk approval workflows.",
   },
 ]
 
@@ -68,48 +68,59 @@ export const teamMembers: TeamMember[] = [
   {
     name: "Dr. Alan Reyes",
     role: "Lead AI Engineer",
-    bio: "Alan heads the development of our biometric modules, leveraging TensorFlow to ensure sub-second facial verification accuracy.",
+    bio: "Alan heads the development of biometric verification pipelines, utilizing facial landmark embeddings and liveness checks for sub-second on-device authentication.",
     image: "https://images.pexels.com/photos/30496628/pexels-photo-30496628.jpeg?auto=compress&cs=tinysrgb&w=400",
   },
   {
     name: "Sarah Chen",
     role: "Human Resources Director",
-    bio: "Sarah designs our dashboard metrics, ensuring that HR and Admin personnel have clear visibility into workforce attendance and payroll data.",
+    bio: "Sarah shapes our workforce metrics and attendance validation policies, ensuring HR and Operations staff maintain complete visibility over daily shifts and compliance.",
     image: "https://images.pexels.com/photos/7109065/pexels-photo-7109065.jpeg?auto=compress&cs=tinysrgb&w=400",
   },
   {
     name: "Marcus Johansson",
     role: "Systems Architect",
-    bio: "Marcus built the real-time geolocation tracking engine that handles thousands of simultaneous rider coordinates for boundary validation.",
+    bio: "Marcus architected the real-time geolocation streaming engine, PostgreSQL geofence spatial triggers, and offline outbox synchronization for the mobile fleet.",
     image: "https://images.pexels.com/photos/6149787/pexels-photo-6149787.jpeg?auto=compress&cs=tinysrgb&w=400",
   },
   {
     name: "Elena Rodriguez",
     role: "UI/UX Specialist",
-    bio: "Elena crafts intuitive interfaces for both the administrative dashboard and the rider-facing mobile attendance portal.",
+    bio: "Elena crafts responsive interfaces for both the operations control dashboard and the mobile courier console, prioritizing clarity under high operational tempo.",
     image: "https://images.pexels.com/photos/9304685/pexels-photo-9304685.jpeg?auto=compress&cs=tinysrgb&w=400",
   },
   {
     name: "David Okafor",
     role: "Geofencing Coordinator",
-    bio: "David maps and maintains the precise coordinates for our operational zones, configuring the logic for out-of-bound alerts.",
+    bio: "David maps and maintains precise polygon boundaries for operational delivery sectors, calibrating spatial parameters for automated out-of-zone incident alerts.",
     image: "https://images.pexels.com/photos/31282368/pexels-photo-31282368.jpeg?auto=compress&cs=tinysrgb&w=400",
   },
   {
     name: "Maya Patel",
     role: "Data Analytics Lead",
-    bio: "Maya analyzes violation logs and attendance trends to help management optimize third-party logistics deployments.",
+    bio: "Maya analyzes operational parcel throughput, attendance punctuality trends, and delivery rates to help logistics leadership optimize fleet allocations.",
     image: "https://images.pexels.com/photos/7148059/pexels-photo-7148059.jpeg?auto=compress&cs=tinysrgb&w=400",
   },
 ]
 
-export interface Capability {
+export interface GeofenceZone {
+  id: string
+  name: string
+  boundaryType: "Polygon Boundary" | "Circular Perimeter" | "Transit Corridor"
+  zoneType: "polygon" | "circle"
+  polygonCoordinates?: [number, number][]
+  center?: [number, number]
+  radius?: number
+  color: string
+  purpose: string
+  description: string
+  status: "Active" | "Configured"
+}
+
+export interface HubCapability {
   name: string
   description: string
-  status: string
   category: string
-  tags?: string[]
-  image?: string
 }
 
 export interface Location {
@@ -118,155 +129,459 @@ export interface Location {
   shortName: string
   tagline: string
   description: string
-  address: string
+  district: string
   city: string
-  phone: string
-  hours: { days: string; time: string }[]
+  hubCoordinates: [number, number]
   image: string
   gallery: string[]
-  features: string[]
-  capabilities: Capability[]
+  zones: GeofenceZone[]
+  hubCapabilities: HubCapability[]
 }
 
 export const locations: Location[] = [
   {
     slug: "talon-talon-zone",
-    name: "Talon-Talon Geofence",
-    shortName: "Talon-Talon Zone",
-    tagline: "Eastern Monitoring Sector",
+    name: "Talon-Talon Hub",
+    shortName: "Talon-Talon Hub",
+    tagline: "Eastern Operations Center",
     description:
-      "A high-density operational zone. Riders assigned to this area are closely monitored using tight radius-based geofences to ensure compliance and rapid response times.",
-    address: "Talon-Talon District",
+      "Serving as the primary operational dispatch and logistics center for eastern Zamboanga City, Talon-Talon Hub manages assigned courier fleets and multi-zone geofence perimeters.",
+    district: "Talon-Talon District",
     city: "Zamboanga City, 7000",
-    phone: "(555) 100-0001",
-    hours: [
-      { days: "Monitoring", time: "24/7 Active" },
-    ],
+    hubCoordinates: [6.8920, 122.0955],
     image: "https://images.pexels.com/photos/7019213/pexels-photo-7019213.jpeg?auto=compress&cs=tinysrgb&w=1200",
     gallery: [
       "https://images.pexels.com/photos/10834810/pexels-photo-10834810.jpeg?auto=compress&cs=tinysrgb&w=800",
       "https://images.pexels.com/photos/4487363/pexels-photo-4487363.jpeg?auto=compress&cs=tinysrgb&w=800",
     ],
-    features: [
-      "Strict Boundary Enforcement",
-      "High-Traffic Monitoring",
-      "Immediate Violation Alerts",
-      "Live Coordinate Sync",
-    ],
-    capabilities: [
+    zones: [
       {
-        name: "Biometric Time-In",
-        description: "TensorFlow-powered facial recognition verification.",
+        id: "tt-central",
+        name: "Talon-Talon Central Zone",
+        boundaryType: "Polygon Boundary",
+        zoneType: "polygon",
+        polygonCoordinates: [
+          [6.8850, 122.0900],
+          [6.9020, 122.0880],
+          [6.9050, 122.1020],
+          [6.8880, 122.1050],
+        ],
+        color: "#f59e0b",
+        purpose: "High-Density Commercial & Residential Distribution",
+        description: "Primary delivery sector covering core urban streets, retail drop points, and high-frequency parcel recipients.",
         status: "Active",
-        category: "Attendance",
-        tags: ["Verified"],
-        image: "https://images.pexels.com/photos/8090298/pexels-photo-8090298.jpeg?auto=compress&cs=tinysrgb&w=800",
+      },
+      {
+        id: "tt-coastal",
+        name: "Talon-Talon Coastal Perimeter",
+        boundaryType: "Transit Corridor",
+        zoneType: "polygon",
+        polygonCoordinates: [
+          [6.8780, 122.0920],
+          [6.8870, 122.1060],
+          [6.8820, 122.1150],
+          [6.8720, 122.1020],
+        ],
+        color: "#3b82f6",
+        purpose: "Coastal Route Transit & Corridor Monitoring",
+        description: "Enforces route compliance and delivery bounds along eastern arterial access ways.",
+        status: "Active",
+      },
+    ],
+    hubCapabilities: [
+      {
+        name: "Local Fleet Dispatch",
+        description: "Coordinates day-to-day courier rosters, vehicle allocations, and shift attendance within the eastern sector.",
+        category: "Fleet Management",
+      },
+      {
+        name: "Geofence Enforcement",
+        description: "Monitors assigned polygon perimeters with automated departure, idle, and detour alerts.",
+        category: "Spatial Telemetry",
+      },
+      {
+        name: "Parcel Drop Consolidation",
+        description: "Local package intake, sorting, and daily delivery record reconciliation.",
+        category: "Operations",
       },
     ],
   },
   {
     slug: "cabaluay-zone",
-    name: "Cabaluay Geofence",
-    shortName: "Cabaluay Zone",
-    tagline: "Northern Operations Area",
+    name: "Cabaluay Hub",
+    shortName: "Cabaluay Hub",
+    tagline: "Northern Operations Center",
     description:
-      "Covering extensive northern routes, the Cabaluay zone utilizes broader dome-based monitoring to accommodate longer transit times while maintaining strict boundary alerts.",
-    address: "Cabaluay District",
+      "Serving northern transit corridors and regional logistics distribution, Cabaluay Hub oversees extended courier routes and perimeter geofence sectors across northern Zamboanga City.",
+    district: "Cabaluay District",
     city: "Zamboanga City, 7000",
-    phone: "(555) 200-0002",
-    hours: [
-      { days: "Monitoring", time: "24/7 Active" },
-    ],
+    hubCoordinates: [6.9960, 122.1840],
     image: "https://images.pexels.com/photos/31112250/pexels-photo-31112250.jpeg?auto=compress&cs=tinysrgb&w=1200",
     gallery: [
       "https://images.pexels.com/photos/4483610/pexels-photo-4483610.jpeg?auto=compress&cs=tinysrgb&w=800",
       "https://images.pexels.com/photos/4487382/pexels-photo-4487382.jpeg?auto=compress&cs=tinysrgb&w=800",
     ],
-    features: [
-      "Extended Boundary Mapping",
-      "Long-Range Tracking",
-      "Offline Status Detection",
-      "Payroll Data Sync",
-    ],
-    capabilities: [
+    zones: [
       {
-        name: "Boundary Detection",
-        description: "Real-time coordinate comparison against assigned zone.",
+        id: "cab-highway",
+        name: "Cabaluay Highway Corridor",
+        boundaryType: "Transit Corridor",
+        zoneType: "polygon",
+        polygonCoordinates: [
+          [6.9850, 122.1700],
+          [7.0120, 122.1950],
+          [7.0080, 122.2050],
+          [6.9800, 122.1800],
+        ],
+        color: "#10b981",
+        purpose: "Northern Arterial Transit Monitoring",
+        description: "Tracks transit times, detour pacing, and corridor integrity along the primary northern highway.",
         status: "Active",
-        category: "Security",
-        tags: ["Alerts"],
-        image: "https://images.pexels.com/photos/4480987/pexels-photo-4480987.jpeg?auto=compress&cs=tinysrgb&w=800",
+      },
+      {
+        id: "cab-sector",
+        name: "Cabaluay Sector Perimeter",
+        boundaryType: "Circular Perimeter",
+        zoneType: "circle",
+        center: [6.9950, 122.1860],
+        radius: 1400,
+        color: "#f59e0b",
+        purpose: "Regional Drop & Logistics Enclosure",
+        description: "Defined spatial boundary encompassing northern barangay logistics routes and distribution checkpoints.",
+        status: "Active",
+      },
+    ],
+    hubCapabilities: [
+      {
+        name: "Corridor Monitoring",
+        description: "Extended-range tracking for couriers servicing long-distance northern routes.",
+        category: "Spatial Telemetry",
+      },
+      {
+        name: "Transit Checkpoints",
+        description: "Automated waypoint tracking ensuring on-schedule freight and parcel movement.",
+        category: "Operations",
+      },
+      {
+        name: "Regional Fleet Support",
+        description: "Dedicated operational base for couriers covering northern territories.",
+        category: "Fleet Management",
       },
     ],
   },
   {
     slug: "baliwasan-zone",
-    name: "Baliwasan Geofence",
-    shortName: "Baliwasan Zone",
-    tagline: "Western Urban Sector",
+    name: "Baliwasan Hub",
+    shortName: "Baliwasan Hub",
+    tagline: "Western Urban Center",
     description:
-      "A dynamic urban zone where real-time rider maps are crucial. Admin and HR teams heavily monitor this area for unauthorized detours during active shifts.",
-    address: "Baliwasan District",
+      "A high-tempo commercial dispatch terminal handling heavy delivery volume, port vicinity freight, and dense commercial zones across western Zamboanga City.",
+    district: "Baliwasan District",
     city: "Zamboanga City, 7000",
-    phone: "(555) 300-0003",
-    hours: [
-      { days: "Monitoring", time: "24/7 Active" },
-    ],
+    hubCoordinates: [6.9175, 122.0625],
     image: "https://images.pexels.com/photos/7019259/pexels-photo-7019259.jpeg?auto=compress&cs=tinysrgb&w=1200",
     gallery: [
       "https://images.pexels.com/photos/15016531/pexels-photo-15016531.jpeg?auto=compress&cs=tinysrgb&w=800",
       "https://images.pexels.com/photos/30625283/pexels-photo-30625283.jpeg?auto=compress&cs=tinysrgb&w=800",
     ],
-    features: [
-      "Urban Density Mapping",
-      "Real-Time Dashboard Sync",
-      "Attendance Validation",
-      "Active Shift Logs",
-    ],
-    capabilities: [
+    zones: [
       {
-        name: "Live Rider Map",
-        description: "Interactive dashboard displaying current rider locations.",
+        id: "bal-urban",
+        name: "Baliwasan Urban Sector",
+        boundaryType: "Polygon Boundary",
+        zoneType: "polygon",
+        polygonCoordinates: [
+          [6.9100, 122.0550],
+          [6.9250, 122.0520],
+          [6.9280, 122.0720],
+          [6.9120, 122.0700],
+        ],
+        color: "#f59e0b",
+        purpose: "Commercial District & Retail Distribution",
+        description: "Dense commercial geofence perimeter covering central business and retail distribution networks.",
         status: "Active",
-        category: "Monitoring",
-        image: "https://images.pexels.com/photos/281260/pexels-photo-281260.jpeg?auto=compress&cs=tinysrgb&w=800",
+      },
+      {
+        id: "bal-port",
+        name: "Baliwasan Port Access Corridor",
+        boundaryType: "Transit Corridor",
+        zoneType: "polygon",
+        polygonCoordinates: [
+          [6.9050, 122.0650],
+          [6.9150, 122.0620],
+          [6.9180, 122.0780],
+          [6.9070, 122.0800],
+        ],
+        color: "#8b5cf6",
+        purpose: "Maritime Freight & Logistics Transit",
+        description: "Calibrated corridor connecting maritime port facilities with central fulfillment facilities.",
+        status: "Active",
+      },
+    ],
+    hubCapabilities: [
+      {
+        name: "High-Volume Dispatch",
+        description: "Optimized for dense delivery intervals and peak parcel dispatch schedules.",
+        category: "Operations",
+      },
+      {
+        name: "Urban Geofence Tracking",
+        description: "Precision spatial alerts calibrated for high-density city navigation.",
+        category: "Spatial Telemetry",
+      },
+      {
+        name: "Commercial Routing",
+        description: "Priority dispatch sequencing for commercial enterprise accounts.",
+        category: "Fleet Management",
       },
     ],
   },
   {
     slug: "ayala-zone",
-    name: "Ayala Geofence",
-    shortName: "Ayala Zone",
-    tagline: "Western Boundary Sector",
+    name: "Ayala Hub",
+    shortName: "Ayala Hub",
+    tagline: "Western Boundary Operations Center",
     description:
-      "The farthest western monitoring zone. This area relies on the notification and alert module to immediately signal administrators if riders exit the city limits.",
-    address: "Ayala District",
+      "The western operations terminal managing boundary perimeter enforcement, industrial logistics accounts, and western suburban distribution corridors.",
+    district: "Ayala District",
     city: "Zamboanga City, 7000",
-    phone: "(555) 400-0004",
-    hours: [
-      { days: "Monitoring", time: "24/7 Active" },
-    ],
+    hubCoordinates: [6.9560, 121.9640],
     image: "https://images.pexels.com/photos/4484042/pexels-photo-4484042.jpeg?auto=compress&cs=tinysrgb&w=1200",
     gallery: [
       "https://images.pexels.com/photos/4628583/pexels-photo-4628583.jpeg?auto=compress&cs=tinysrgb&w=800",
       "https://images.pexels.com/photos/5775099/pexels-photo-5775099.jpeg?auto=compress&cs=tinysrgb&w=800",
     ],
-    features: [
-      "Limit Perimeter Alerts",
-      "Offline Grace Period",
-      "Activity Logging",
-      "Historical Route Data",
-    ],
-    capabilities: [
+    zones: [
       {
-        name: "Violation Logging",
-        description: "Automated recording of all geofence breaches.",
+        id: "ay-industrial",
+        name: "Ayala Industrial Perimeter",
+        boundaryType: "Polygon Boundary",
+        zoneType: "polygon",
+        polygonCoordinates: [
+          [6.9450, 121.9520],
+          [6.9680, 121.9500],
+          [6.9700, 121.9750],
+          [6.9480, 121.9780],
+        ],
+        color: "#f59e0b",
+        purpose: "Industrial & Warehouse Enclosure",
+        description: "Monitors courier distribution and cargo transfers within western industrial facilities.",
         status: "Active",
-        category: "Security",
-        tags: ["Audit"],
-        image: "https://images.pexels.com/photos/7857526/pexels-photo-7857526.jpeg?auto=compress&cs=tinysrgb&w=800",
+      },
+      {
+        id: "ay-corridor",
+        name: "Ayala Western Corridor",
+        boundaryType: "Circular Perimeter",
+        zoneType: "circle",
+        center: [6.9580, 121.9680],
+        radius: 1200,
+        color: "#ec4899",
+        purpose: "Terminal Boundary & Route Control",
+        description: "Boundary perimeter alerting dispatchers to unapproved departures from authorized logistics territory.",
+        status: "Active",
       },
     ],
+    hubCapabilities: [
+      {
+        name: "Perimeter Alerting",
+        description: "Instantaneous notifications when couriers traverse terminal boundary limits.",
+        category: "Spatial Telemetry",
+      },
+      {
+        name: "Industrial Dispatch",
+        description: "Handles heavy parcel operations and scheduled freight transfers.",
+        category: "Operations",
+      },
+      {
+        name: "Fleet Safety Oversight",
+        description: "Continuous telemetry monitoring for outer perimeter route security.",
+        category: "Fleet Management",
+      },
+    ],
+  },
+]
+
+export interface SystemModule {
+  id: string
+  title: string
+  category: string
+  tagline: string
+  description: string
+  features: string[]
+  badge: string
+  image: string
+}
+
+export const systemModules: SystemModule[] = [
+  {
+    id: "attendance-biometrics",
+    title: "Biometric Facial Recognition & Liveness",
+    category: "Attendance & Identity",
+    tagline: "Zero Time-Theft Authentication",
+    description:
+      "On-device neural face matching paired with 3D liveness detection. Eliminates buddy punching and verifies mandatory GPS coordinate freshness on every Time In and Time Out event.",
+    features: [
+      "128-Dimensional Facial Vector Matching",
+      "MediaPipe 3D Liveness Detection",
+      "Mandatory GPS Freshness Validation",
+      "Duplicate Timestamp Guarding",
+    ],
+    badge: "Biometric Engine",
+    image: "https://images.pexels.com/photos/8090298/pexels-photo-8090298.jpeg?auto=compress&cs=tinysrgb&w=800",
+  },
+  {
+    id: "geofence-telemetry",
+    title: "Spatial Geofencing & Boundary Alerts",
+    category: "Geofencing & Telemetry",
+    tagline: "Real-Time Boundary Adherence",
+    description:
+      "Precision polygon boundaries mapped across operational delivery sectors. Real-time spatial triggers immediately record boundary exits, idle delays, and unauthorized detours.",
+    features: [
+      "Custom Sector Polygon Mapping",
+      "Automated Boundary Breach Alerts",
+      "Idle Duration & Timeout Tracking",
+      "Asia/Manila (PHT) Event-Time Validation",
+    ],
+    badge: "Spatial Intelligence",
+    image: "https://images.pexels.com/photos/4480987/pexels-photo-4480987.jpeg?auto=compress&cs=tinysrgb&w=800",
+  },
+  {
+    id: "fleet-operations",
+    title: "Multi-Hub Dispatch & Real-Time Monitoring",
+    category: "Hub & Fleet Operations",
+    tagline: "Live Operational Visibility",
+    description:
+      "Centralized dispatcher console displaying real-time courier locations, active shift duty statuses, and operational hub assignments across Zamboanga City sectors.",
+    features: [
+      "Live Interactive Fleet Map",
+      "Home vs Operational Hub Scoping",
+      "Real-Time Active Duty Badging",
+      "Historical Telemetry Trail Audit",
+    ],
+    badge: "Fleet Operations",
+    image: "https://images.pexels.com/photos/281260/pexels-photo-281260.jpeg?auto=compress&cs=tinysrgb&w=800",
+  },
+  {
+    id: "parcel-operations",
+    title: "Daily Parcel Operations & Rate Engine",
+    category: "Parcel Operations",
+    tagline: "Auditable Delivery Reconciliation",
+    description:
+      "Daily courier delivery logging with effective-dated rate matrices, heavy parcel surcharge calculations (>4kg packages), append-only audit trails, and supervisor correction workflows.",
+    features: [
+      "Effective-Dated Courier Rate Matrices",
+      ">4kg Heavy Parcel Surcharges",
+      "Append-Only Audit History",
+      "Supervisor Correction Workflows",
+    ],
+    badge: "Operations & Rates",
+    image: "https://images.pexels.com/photos/4481260/pexels-photo-4481260.jpeg?auto=compress&cs=tinysrgb&w=800",
+  },
+  {
+    id: "salary-payroll",
+    title: "Automated Cutoff Salary Computation",
+    category: "Payroll & Payslips",
+    tagline: "Server-Authoritative Compensation",
+    description:
+      "Automated payroll calculation syncing biometric DTR attendance with daily parcel delivery logs. Features coverage-based cutoff readiness and multi-status archive reporting.",
+    features: [
+      "Coverage-Based Readiness Calculation",
+      "DTR Attendance & Punctuality Sync",
+      "Draft, Submitted, Approved, Paid States",
+      "Itemized Courier Payslip Generation",
+    ],
+    badge: "Payroll Engine",
+    image: "https://images.pexels.com/photos/5498230/pexels-photo-5498230.jpeg?auto=compress&cs=tinysrgb&w=800",
+  },
+  {
+    id: "offline-pwa",
+    title: "Offline-First Mobile PWA Architecture",
+    category: "Offline Rider Support",
+    tagline: "Uninterrupted Field Resilience",
+    description:
+      "Field-resilient mobile app utilizing IndexedDB local outbox queuing. Couriers can record attendance and deliveries offline, replaying transactions seamlessly upon network reconnection.",
+    features: [
+      "Local IndexedDB Outbox Storage",
+      "Idempotency Key Replay Protection",
+      "Background Sync Safeguards",
+      "Mobile Camera Liveness Pipeline",
+    ],
+    badge: "Mobile Resilience",
+    image: "https://images.pexels.com/photos/8090299/pexels-photo-8090299.jpeg?auto=compress&cs=tinysrgb&w=800",
+  },
+  {
+    id: "security-governance",
+    title: "Row Level Security & Access Governance",
+    category: "Security & Governance",
+    tagline: "Zero-Trust Infrastructure",
+    description:
+      "Granular PostgreSQL Row Level Security enforcing strict multi-hub isolation. Role-scoped access controls for Admin, HR, Payroll, and Couriers backed by TOTP Multi-Factor Authentication.",
+    features: [
+      "PostgreSQL Row Level Security (RLS)",
+      "Role Scoping (Admin / HR / Payroll / Rider)",
+      "TOTP Multi-Factor Authentication",
+      "Immutable Audit Log Tracking",
+    ],
+    badge: "Enterprise Security",
+    image: "https://images.pexels.com/photos/7857526/pexels-photo-7857526.jpeg?auto=compress&cs=tinysrgb&w=800",
+  },
+]
+
+export const featuredCapabilities = [
+  {
+    id: "biometric-verification",
+    name: "Biometric Facial Recognition",
+    category: "Attendance & Identity",
+    description: "Sub-second facial landmark matching and 3D liveness detection with GPS freshness verification on every shift.",
+    status: "Production Ready",
+    image: "https://images.pexels.com/photos/8090298/pexels-photo-8090298.jpeg?auto=compress&cs=tinysrgb&w=800",
+    href: "/modules#attendance-biometrics",
+  },
+  {
+    id: "spatial-geofencing",
+    name: "Spatial Polygon Geofencing",
+    category: "Geofencing & Telemetry",
+    description: "Strict sector perimeter monitoring with real-time boundary breach, idle timeout, and detour alerts.",
+    status: "Live Active",
+    image: "https://images.pexels.com/photos/4480987/pexels-photo-4480987.jpeg?auto=compress&cs=tinysrgb&w=800",
+    href: "/modules#geofence-telemetry",
+  },
+  {
+    id: "parcel-rates",
+    name: "Daily Parcel Rate Matrix",
+    category: "Parcel Operations",
+    description: "Standard and heavy parcel tracking with effective-dated rates, surcharges, and append-only audit trails.",
+    status: "Operational",
+    image: "https://images.pexels.com/photos/4481260/pexels-photo-4481260.jpeg?auto=compress&cs=tinysrgb&w=800",
+    href: "/modules#parcel-operations",
+  },
+  {
+    id: "salary-computation",
+    name: "Automated Cutoff Payroll",
+    category: "Payroll & Payslips",
+    description: "Coverage-based cutoff readiness, DTR hydration, and server-authoritative multi-tier approval flows.",
+    status: "Integrated",
+    image: "https://images.pexels.com/photos/5498230/pexels-photo-5498230.jpeg?auto=compress&cs=tinysrgb&w=800",
+    href: "/modules#salary-payroll",
+  },
+  {
+    id: "fleet-telemetry",
+    name: "Live Dispatch Telemetry",
+    category: "Hub & Fleet Operations",
+    description: "Interactive real-time map visualization, duty status indicators, and multi-hub operational tracking.",
+    status: "Live Tracking",
+    image: "https://images.pexels.com/photos/281260/pexels-photo-281260.jpeg?auto=compress&cs=tinysrgb&w=800",
+    href: "/modules#fleet-operations",
+  },
+  {
+    id: "offline-resilience",
+    name: "Offline Outbox & Idempotency",
+    category: "Offline Rider Support",
+    tagline: "Zero Data Loss",
+    description: "IndexedDB transaction queuing and automatic background replay for continuous field operations.",
+    status: "Reliability Hardened",
+    image: "https://images.pexels.com/photos/8090299/pexels-photo-8090299.jpeg?auto=compress&cs=tinysrgb&w=800",
+    href: "/modules#offline-pwa",
   },
 ]
 

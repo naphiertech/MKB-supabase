@@ -1,20 +1,20 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, ShieldCheck, MapPin, Package, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SectionHeader } from "@/components/section-header"
 import { TimelineSection } from "@/components/about/timeline-section"
-import { siteConfig, storyTimeline } from "@/lib/data"
+import { siteConfig } from "@/lib/data"
 
 export const metadata: Metadata = {
   title: "About System",
   description:
-    "Learn about the evolution of the AttenRider Attendance Monitoring System and the philosophy driving our innovation.",
+    "Learn about the architectural evolution of the MKBRiderTrack workforce platform — from biometric facial verification to spatial geofencing and automated cutoff payroll.",
   openGraph: {
     title: `About System | ${siteConfig.name}`,
     description:
-      "Learn about the evolution of the AttenRider Attendance Monitoring System.",
+      "Learn about the architectural evolution of the MKBRiderTrack workforce platform.",
     url: `${siteConfig.url}/about`,
     images: [{ url: siteConfig.ogImage, width: 1200, height: 630 }],
   },
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: `About System | ${siteConfig.name}`,
     description:
-      "Learn about the evolution of the AttenRider Attendance Monitoring System.",
+      "Learn about the architectural evolution of the MKBRiderTrack workforce platform.",
   },
   alternates: { canonical: `${siteConfig.url}/about` },
 }
@@ -31,7 +31,7 @@ export default function AboutPage() {
   return (
     <>
       {/* Hero */}
-      <section className="relative flex min-h-[50vh] items-center overflow-hidden bg-primary">
+      <section className="relative flex min-h-[46vh] items-center overflow-hidden bg-primary">
         <div className="absolute inset-0">
           <video
             autoPlay
@@ -49,52 +49,52 @@ export default function AboutPage() {
             System Overview
           </p>
           <h1 className="max-w-3xl font-serif text-4xl font-bold leading-tight tracking-tight text-primary-foreground md:text-6xl lg:text-7xl">
-            A Legacy Built on Transparency and Intelligence
+            Built on Operational Integrity & Intelligence
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-primary-foreground/80">
-            Every great enterprise system stems from a critical operational bottleneck. Ours began with the fundamental need for visibility and accountability in rider workforce operations.
+          <p className="mt-6 max-w-2xl text-base leading-relaxed text-primary-foreground/80 md:text-lg">
+            Every critical platform evolves from a tangible operational bottleneck. MKBRiderTrack was built to solve last-mile courier visibility, eliminate attendance disputes, and automate complex parcel compensation.
           </p>
         </div>
       </section>
 
-      {/* The Origin */}
+      {/* The Origin & Evolution */}
       <section className="bg-background py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-4 lg:px-8">
           <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
             <div className="relative">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-lg">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-muted shadow-xl">
                 <Image
                   src="https://images.pexels.com/photos/6169169/pexels-photo-6169169.jpeg?auto=compress&cs=tinysrgb&w=1200"
-                  alt="HR team monitoring the first iteration of the AttenRider dashboard"
+                  alt="Operations team monitoring workforce dispatch metrics"
                   fill
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 50vw"
                 />
               </div>
-              <div className="absolute -bottom-6 -right-6 rounded-lg bg-accent px-6 py-4">
+              <div className="absolute -bottom-6 -right-6 rounded-xl bg-accent px-6 py-4 shadow-lg">
                 <p className="font-serif text-3xl font-bold text-accent-foreground">
-                  Phase 1
+                  Phased
                 </p>
-                <p className="text-xs font-medium text-accent-foreground/80">
-                  Conception
+                <p className="text-xs font-medium text-accent-foreground/90 uppercase tracking-wider">
+                  Evolution
                 </p>
               </div>
             </div>
             <div>
               <SectionHeader
-                label="Where It Began"
-                title="From Buddy Punching to Biometric AI"
+                label="The Progression"
+                title="From Biometric Attendance to Complete Logistics Oversight"
                 align="left"
               />
-              <div className="mt-6 space-y-4 text-base leading-relaxed text-muted-foreground">
+              <div className="mt-6 space-y-4 text-sm md:text-base leading-relaxed text-muted-foreground">
                 <p>
-                  Traditional third-party logistics operations frequently struggle with buddy punching, inaccurate attendance, and inconsistent field visibility. The development of AttenRider was initiated to bridge this gap between manual record-keeping and digital accountability.
+                  Third-party courier fleets have traditionally struggled with proxy attendance, ghost shifts, and disjointed delivery logs. The inception of MKBRiderTrack began by deploying on-device facial landmark verification with 3D liveness detection to create an airtight, biometric-authenticated attendance record.
                 </p>
                 <p>
-                  We started with a single node: eliminating time-theft. By outfitting our checkpoints with facial recognition software, we proved that biometric transparency could eliminate 100% of buddy punching disputes regarding rider attendance.
+                  As field operations expanded, the need for spatial discipline became paramount. We engineered real-time polygon geofence mapping, tracking active couriers against assigned delivery perimeters and triggering automatic incident notifications during unauthorized exits or prolonged idle delays.
                 </p>
                 <p>
-                  As the system scaled, we integrated advanced geofencing frameworks to ensure workforce integrity in the field. Today, AttenRider stands as a holistic ecosystem, seamlessly merging biometric verification, real-time boundary detection, and secure user management into one robust dashboard.
+                  Today, MKBRiderTrack has matured into a complete logistics intelligence ecosystem. The platform seamlessly links biometric attendance records with daily parcel operations, heavy surcharge rate matrices, and server-authoritative cutoff salary calculations across multiple operational fulfillment hubs.
                 </p>
               </div>
             </div>
@@ -103,50 +103,58 @@ export default function AboutPage() {
       </section>
 
       {/* Philosophy */}
-      <section className="bg-secondary py-20 lg:py-28">
+      <section className="bg-secondary py-20 lg:py-28 border-y border-border/40">
         <div className="mx-auto max-w-7xl px-4 lg:px-8">
           <SectionHeader
-            label="Our Philosophy"
-            title="Core Engineering Principles"
-            description="Three primary directives guide our architectural decisions and feature rollouts."
+            label="Core Philosophy"
+            title="Guiding Architectural Principles"
+            description="Four core pillars govern every feature, workflow, and safeguard engineered into MKBRiderTrack."
           />
-          <div className="mt-14 grid gap-8 md:grid-cols-3">
+          <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
-                title: "Absolute Transparency",
+                title: "Biometric Truth",
                 description:
-                  "From the time-in terminal to the final shift hour, every movement is tracked, validated against geofences, and accessible in real-time by HR administrators.",
+                  "Sub-second neural face matching with 3D liveness checks ensures that every shift timestamp represents verified physical presence.",
                 image: "https://images.pexels.com/photos/6169584/pexels-photo-6169584.jpeg?auto=compress&cs=tinysrgb&w=800",
               },
               {
-                title: "Geofence Compliance",
+                title: "Spatial Discipline",
                 description:
-                  "We don't just log data; we actively validate it. Our system automatically checks rider coordinates against assigned operational zones and flags violations immediately.",
+                  "Polygon boundary enforcement tracks couriers within authorized delivery corridors, automatically flagging detours and perimeter exits.",
                 image: "https://images.pexels.com/photos/6994156/pexels-photo-6994156.jpeg?auto=compress&cs=tinysrgb&w=800",
               },
               {
-                title: "Workforce Security",
+                title: "Auditable Parcel Rates",
                 description:
-                  "Through biometric checkpoints and geofencing, we protect our operational integrity and ensure that the right people are managing the right assets.",
+                  "Daily package logs, >4kg heavy surcharge matrices, and append-only supervisor audits ensure transparent delivery compensation.",
                 image: "https://images.pexels.com/photos/8978630/pexels-photo-8978630.jpeg?auto=compress&cs=tinysrgb&w=800",
               },
+              {
+                title: "Authoritative Payroll",
+                description:
+                  "Coverage-based readiness algorithms sync attendance and parcel throughput into immutable, server-approved payslips.",
+                image: "https://images.pexels.com/photos/5498230/pexels-photo-5498230.jpeg?auto=compress&cs=tinysrgb&w=800",
+              },
             ].map((item) => (
-              <div key={item.title} className="group">
-                <div className="relative aspect-[3/2] overflow-hidden rounded-lg">
-                  <Image
-                    src={item.image}
-                    alt={item.title}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="(max-width: 768px) 100vw, 33vw"
-                  />
+              <div key={item.title} className="group flex flex-col justify-between overflow-hidden rounded-xl border border-border bg-card p-5 transition-all duration-300 hover:border-accent/40 hover:shadow-lg hover:-translate-y-1">
+                <div>
+                  <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-muted">
+                    <Image
+                      src={item.image}
+                      alt={item.title}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    />
+                  </div>
+                  <h3 className="mt-5 font-serif text-lg font-bold text-foreground group-hover:text-accent transition-colors">
+                    {item.title}
+                  </h3>
+                  <p className="mt-2 text-xs md:text-sm leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </p>
                 </div>
-                <h3 className="mt-6 font-serif text-xl font-bold text-foreground">
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {item.description}
-                </p>
               </div>
             ))}
           </div>
@@ -157,32 +165,32 @@ export default function AboutPage() {
       <TimelineSection />
 
       {/* CTA */}
-      <section className="bg-primary py-20 text-center lg:py-28">
+      <section className="bg-primary py-20 text-center lg:py-28 text-primary-foreground border-t border-border/20">
         <div className="mx-auto max-w-2xl px-4 lg:px-8">
           <h2 className="font-serif text-3xl font-bold text-primary-foreground md:text-4xl">
-            Experience the AttenRider Difference
+            Experience the MKBRiderTrack Platform
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-primary-foreground/70">
-            Ready to upgrade your workforce intelligence infrastructure? Schedule a demonstration to see our attendance modules in action.
+          <p className="mt-4 text-sm md:text-base leading-relaxed text-primary-foreground/75">
+            Ready to upgrade your logistics workforce and payroll infrastructure? Schedule a demonstration with our engineering team.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button
               asChild
               size="lg"
-              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-md px-7"
             >
-              <Link href="/locations">
-                Request a Demo
-                <ArrowRight className="size-4" />
+              <Link href="/contact">
+                <span>Request a Demo</span>
+                <ArrowRight className="size-4 ml-1" />
               </Link>
             </Button>
             <Button
               asChild
               size="lg"
               variant="outline"
-              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground"
+              className="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground px-7"
             >
-              <Link href="/team">Meet the Core Team</Link>
+              <Link href="/team">Meet the Team</Link>
             </Button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'attenrider-assets-v1';
+const CACHE_NAME = 'mkbridertrack-assets-v1';
 
 // Static precache list (can be left empty for dynamic on-demand caching)
 const PRECACHE_ASSETS = [];

@@ -1,12 +1,12 @@
 import Link from "next/link"
-import { MapPin, Phone, Mail } from "lucide-react"
+import { MapPin, Phone, Mail, ArrowUpRight } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { siteConfig, locations } from "@/lib/data"
 import { AnimateIn } from "@/components/animations/animate-in"
 
 export function SiteFooter() {
   return (
-    <footer className="bg-primary text-primary-foreground">
+    <footer className="bg-primary text-primary-foreground border-t border-border/20">
       <div className="mx-auto max-w-7xl px-4 py-16 lg:px-8 lg:py-20">
         <AnimateIn
           from={{ opacity: 0, y: 30 }}
@@ -16,11 +16,19 @@ export function SiteFooter() {
         >
           {/* Brand */}
           <div className="lg:col-span-1">
-            <Link href="/" className="font-serif text-2xl font-bold">
-              {siteConfig.name}
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-foreground font-serif font-black text-sm tracking-tight">
+                M
+              </div>
+              <span className="font-serif text-2xl font-bold tracking-tight">
+                {siteConfig.name}
+              </span>
             </Link>
-            <p className="mt-4 text-sm leading-relaxed opacity-80">
+            <p className="mt-4 text-sm leading-relaxed text-primary-foreground/80">
               {siteConfig.description}
+            </p>
+            <p className="mt-3 text-xs text-primary-foreground/60">
+              Enterprise logistics intelligence powered by MKB Corporation.
             </p>
             <div className="mt-6 flex gap-4">
               <a
@@ -61,20 +69,21 @@ export function SiteFooter() {
 
           {/* Navigation */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider">
-              Navigate
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-accent">
+              Platform Navigation
             </h3>
             <ul className="mt-4 flex flex-col gap-2.5">
               {[
-                { name: "About System", href: "/about" },
-                { name: "Core Team", href: "/team" },
-                { name: "Geofence Zones", href: "/locations" },
+                { name: "Platform", href: "/about" },
+                { name: "Capabilities", href: "/modules" },
+                { name: "Operations", href: "/locations" },
+                { name: "Team", href: "/team" },
                 { name: "Contact", href: "/contact" },
               ].map((item) => (
                 <li key={item.name}>
                   <Link
                     href={item.href}
-                    className="text-sm opacity-70 transition-opacity hover:opacity-100"
+                    className="text-sm opacity-70 transition-opacity hover:opacity-100 hover:text-accent"
                   >
                     {item.name}
                   </Link>
@@ -83,24 +92,24 @@ export function SiteFooter() {
             </ul>
           </div>
 
-          {/* Locations */}
+          {/* Hubs */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider">
-              Geofence Zones
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-accent">
+              Operational Hubs
             </h3>
-            <ul className="mt-4 flex flex-col gap-4">
-              {locations.map((loc) => (
-                <li key={loc.slug}>
+            <ul className="mt-4 flex flex-col gap-3">
+              {locations.map((hub) => (
+                <li key={hub.slug}>
                   <Link
-                    href={`/locations/${loc.slug}`}
+                    href={`/locations/${hub.slug}`}
                     className="group flex items-start gap-2"
                   >
-                    <MapPin className="mt-0.5 size-4 shrink-0 opacity-50 transition-opacity group-hover:opacity-100" />
+                    <MapPin className="mt-0.5 size-4 shrink-0 text-accent opacity-75 transition-opacity group-hover:opacity-100" />
                     <div>
-                      <p className="text-sm font-medium opacity-90 transition-opacity group-hover:opacity-100">
-                        {loc.shortName}
+                      <p className="text-sm font-medium opacity-90 transition-opacity group-hover:opacity-100 group-hover:text-accent">
+                        {hub.shortName}
                       </p>
-                      <p className="text-xs opacity-60">{loc.address}</p>
+                      <p className="text-xs opacity-60">{hub.district}</p>
                     </div>
                   </Link>
                 </li>
@@ -110,35 +119,35 @@ export function SiteFooter() {
 
           {/* Contact */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider">
-              Get in Touch
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-accent">
+              Operations & Inquiries
             </h3>
             <ul className="mt-4 flex flex-col gap-3">
               <li>
                 <a
                   href={`tel:${siteConfig.phone}`}
-                  className="flex items-center gap-2 text-sm opacity-70 transition-opacity hover:opacity-100"
+                  className="flex items-center gap-2 text-sm opacity-75 transition-opacity hover:opacity-100 hover:text-accent"
                 >
-                  <Phone className="size-4 shrink-0" />
+                  <Phone className="size-4 shrink-0 text-accent" />
                   {siteConfig.phone}
                 </a>
               </li>
               <li>
                 <a
                   href={`mailto:${siteConfig.email}`}
-                  className="flex items-center gap-2 text-sm opacity-70 transition-opacity hover:opacity-100"
+                  className="flex items-center gap-2 text-sm opacity-75 transition-opacity hover:opacity-100 hover:text-accent"
                 >
-                  <Mail className="size-4 shrink-0" />
+                  <Mail className="size-4 shrink-0 text-accent" />
                   {siteConfig.email}
                 </a>
               </li>
             </ul>
-            <div className="mt-6">
-              <p className="text-xs font-medium uppercase tracking-wider opacity-60">
-                Newsletter
+            <div className="mt-6 rounded-lg bg-primary-foreground/5 p-3.5 border border-primary-foreground/10">
+              <p className="text-xs font-medium uppercase tracking-wider text-accent">
+                Enterprise Dispatch
               </p>
-              <p className="mt-1 text-xs opacity-50">
-                Subscribe for system updates and workforce insights.
+              <p className="mt-1 text-xs opacity-75 leading-relaxed">
+                Centralized fleet coordination, biometric attendance, and automated payroll operations.
               </p>
             </div>
           </div>
@@ -147,22 +156,27 @@ export function SiteFooter() {
         <Separator className="my-10 bg-primary-foreground/15" />
 
         <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-          <p className="text-xs opacity-50">
-            &copy; {new Date().getFullYear()} {siteConfig.name}. All rights
-            reserved.
+          <p className="text-xs opacity-60">
+            &copy; {new Date().getFullYear()} {siteConfig.name} · MKB Corporation. All rights reserved.
           </p>
           <div className="flex gap-6">
             <Link
               href="/contact"
-              className="text-xs opacity-50 transition-opacity hover:opacity-100"
+              className="text-xs opacity-60 transition-opacity hover:opacity-100 hover:text-accent"
             >
               Privacy Policy
             </Link>
             <Link
               href="/contact"
-              className="text-xs opacity-50 transition-opacity hover:opacity-100"
+              className="text-xs opacity-60 transition-opacity hover:opacity-100 hover:text-accent"
             >
               Terms of Service
+            </Link>
+            <Link
+              href="/contact"
+              className="text-xs opacity-60 transition-opacity hover:opacity-100 hover:text-accent"
+            >
+              Security Policy
             </Link>
           </div>
         </div>

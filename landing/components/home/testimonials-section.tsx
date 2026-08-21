@@ -72,16 +72,14 @@ export function TestimonialsSection() {
         cards,
         {
           opacity: 0,
-          scale: 0.9,
-          clipPath: "inset(100% 0 0 0)",
+          y: 30,
         },
         {
           opacity: 1,
-          scale: 1,
-          clipPath: "inset(0% 0 0 0)",
-          duration: 1.5,
-          stagger: 0.2,
-          ease: "expo.out",
+          y: 0,
+          duration: 0.9,
+          stagger: 0.15,
+          ease: "power3.out",
           scrollTrigger: {
             trigger: containerRef.current,
             start: "top 80%",
@@ -184,7 +182,7 @@ export function TestimonialsSection() {
                       Write a Review
                     </DialogTitle>
                     <DialogDescription className="text-muted-foreground text-sm">
-                      Share your experience with our biometric and geofencing systems. No sign-in required.
+                      Share your experience with MKBRiderTrack&apos;s attendance, geofencing, parcel, or payroll platform. No sign-in required.
                     </DialogDescription>
                   </DialogHeader>
                   {error && (
@@ -342,10 +340,10 @@ export function TestimonialsSection() {
                 <span className="text-xs font-mono uppercase tracking-widest text-primary-foreground/40">Feed Overview</span>
                 <div className="space-y-2 max-w-md">
                   <h3 className="text-2xl font-bold font-serif text-primary-foreground tracking-tight leading-tight">
-                    Share Your Journey on the Road
+                    Share Your Experience
                   </h3>
                   <p className="text-sm text-primary-foreground/65 leading-relaxed">
-                    How has our geofencing and facial verification system impacted your operations? Whether you are a dispatch controller, payroll manager, or rider partner, your feedback shapes our workforce security.
+                    How has MKBRiderTrack impacted your workforce operations? Whether you are an operations dispatcher, HR specialist, payroll controller, or courier partner, your feedback drives our platform forward.
                   </p>
                 </div>
               </div>

@@ -1,12 +1,12 @@
-# AttenRider Design System & Style Guide
+# MKBRiderTrack Design System & Style Guide
 
-This document outlines the visual identity, typography, and design principles used for the AttenRider landing page.
+This document outlines the visual identity, typography, and design principles used for the MKBRiderTrack landing page.
 
 ## 1. Design Aesthetic
-AttenRider uses a **Premium Professional** aesthetic. It blends the warmth of traditional "high-trust" corporate design (cream and ivory bases) with the sharp, technical look of modern AI systems (deep charcoal and amber accents).
+MKBRiderTrack uses a **Premium Logistics Intelligence** aesthetic. It blends the clarity of enterprise fleet operations with modern high-contrast surfaces (clean slate canvas, glassmorphic cards, and signature amber accents).
 
-- **Core Theme**: High-trust workforce monitoring.
-- **Visual Style**: Clean, expansive, with rich typography and smooth micro-interactions.
+- **Core Theme**: Enterprise fleet intelligence, biometric attendance, and automated payroll.
+- **Visual Style**: Clean, expansive, with rich typography, refined micro-interactions, and status indicators.
 
 ## 2. Color Palette
 
