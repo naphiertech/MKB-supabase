@@ -4,7 +4,7 @@ import Link from "next/link"
 import { CheckCircle2, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SectionHeader } from "@/components/section-header"
-import { systemModules, type SystemModule, siteConfig } from "@/lib/data"
+import { systemModules, type SystemModule, siteConfig, getDashboardUrl } from "@/lib/data"
 
 export const metadata: Metadata = {
   title: "Core Capabilities",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 }
 
 export default function ModulesPage() {
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"
+  const dashboardUrl = getDashboardUrl()
 
   return (
     <>

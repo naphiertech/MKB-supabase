@@ -201,7 +201,7 @@ export function Login() {
                 transition={{ duration: 0.35, ease: "easeOut" }}
               >
                 <a
-                  href={import.meta.env.VITE_LANDING_URL || 'http://localhost:3000'}
+                  href={import.meta.env.VITE_LANDING_URL || (import.meta.env.PROD ? 'https://mkbridertrack.vercel.app/' : 'http://localhost:3000')}
                   className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-primary transition-colors mb-8"
                 >
                   <ArrowLeft className="w-4 h-4" />

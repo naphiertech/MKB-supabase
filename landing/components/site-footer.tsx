@@ -1,11 +1,11 @@
 import Link from "next/link"
 import { MapPin, Phone, Mail, ArrowUpRight } from "lucide-react"
-import { siteConfig, staticHubsList } from "@/lib/data"
+import { siteConfig, staticHubsList, getDashboardUrl } from "@/lib/data"
 import { BrandLogo } from "@/components/brand-logo"
 import { AnimateIn } from "@/components/animations/animate-in"
 
 export function SiteFooter() {
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"
+  const dashboardUrl = getDashboardUrl()
 
   return (
     <footer className="border-t border-border bg-background text-foreground">

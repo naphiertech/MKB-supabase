@@ -6,7 +6,7 @@ import { ArrowRight, ShieldCheck, MapPin, Package, CreditCard, ArrowUpRight } fr
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { Button } from "@/components/ui/button"
-import { siteConfig } from "@/lib/data"
+import { siteConfig, getDashboardUrl } from "@/lib/data"
 import { Magnetic } from "@/components/animations/magnetic"
 
 export function HeroSection() {
@@ -101,7 +101,7 @@ export function HeroSection() {
     { scope: containerRef }
   )
 
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"
+  const dashboardUrl = getDashboardUrl()
 
   return (
     <section

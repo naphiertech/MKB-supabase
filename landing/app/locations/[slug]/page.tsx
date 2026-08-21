@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { SectionHeader } from "@/components/section-header"
 import { HubZoneMap } from "@/components/locations/hub-zone-map"
-import { siteConfig } from "@/lib/data"
+import { siteConfig, getDashboardUrl } from "@/lib/data"
 import { getPublicHubs, getPublicHubBySlug } from "@/lib/supabase/operations"
 
 export const revalidate = 60 // Revalidate cache every 60 seconds
@@ -66,7 +66,7 @@ export default async function HubDetailPage({ params }: HubPageProps) {
 
   const allHubs = await getPublicHubs()
   const otherHubs = allHubs.filter((h) => h.slug !== hub.slug)
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"
+  const dashboardUrl = getDashboardUrl()
 
   return (
     <>

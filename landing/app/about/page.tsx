@@ -5,7 +5,7 @@ import { ArrowRight, ShieldCheck, MapPin, Package, CreditCard } from "lucide-rea
 import { Button } from "@/components/ui/button"
 import { SectionHeader } from "@/components/section-header"
 import { TimelineSection } from "@/components/about/timeline-section"
-import { siteConfig } from "@/lib/data"
+import { siteConfig, getDashboardUrl } from "@/lib/data"
 
 export const metadata: Metadata = {
   title: "Platform Overview",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 }
 
 export default function AboutPage() {
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"
+  const dashboardUrl = getDashboardUrl()
 
   return (
     <>

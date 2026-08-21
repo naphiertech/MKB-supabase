@@ -7,7 +7,7 @@ export const siteConfig = {
   tagline: "Fleet Logistics, Biometric Attendance & Automated Payroll",
   description:
     "An enterprise workforce intelligence and fleet management platform for last-mile logistics couriers, combining biometric facial verification, real-time geofencing validation, parcel operations tracking, and automated payroll computation.",
-  url: "https://mkbsystem.com",
+  url: "https://mkbridertrack.vercel.app",
   ogImage: "/images/og-image.jpg",
   email: "operations@mkbsystem.com",
   phone: "(062) 991-2345",
@@ -16,6 +16,15 @@ export const siteConfig = {
     facebook: "https://facebook.com/mkbsystem",
     twitter: "https://twitter.com/mkbsystem",
   },
+}
+
+export function getDashboardUrl(): string {
+  if (process.env.NEXT_PUBLIC_DASHBOARD_URL) {
+    return process.env.NEXT_PUBLIC_DASHBOARD_URL
+  }
+  return process.env.NODE_ENV === "production"
+    ? "https://mkb-system.vercel.app"
+    : "http://localhost:5173"
 }
 
 export interface TimelineEvent {

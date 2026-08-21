@@ -7,7 +7,7 @@ import { Menu, MapPin, ArrowUpRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { BrandLogo } from "@/components/brand-logo"
-import { staticHubsList } from "@/lib/data"
+import { staticHubsList, getDashboardUrl } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
 export const navigation = [
@@ -27,7 +27,7 @@ export function SiteHeader() {
     setMounted(true)
   }, [])
 
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:5173"
+  const dashboardUrl = getDashboardUrl()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-md transition-colors">
