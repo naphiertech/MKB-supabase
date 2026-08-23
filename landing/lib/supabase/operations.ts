@@ -79,6 +79,9 @@ function mapDbZone(row: any): OperationalZone {
  * Fetch all active operational Hubs along with their assigned active Geofence Zones from Supabase
  */
 export async function getPublicHubs(): Promise<OperationalHub[]> {
+  if (!supabase) {
+    return []
+  }
   try {
     // 1. Fetch active hubs from public view (sanitized, minimal columns)
     const { data: hubsData, error: hubsError } = await supabase
@@ -147,6 +150,9 @@ export async function getPublicHubBySlug(slug: string): Promise<OperationalHub |
  * Fetch active geofence zones belonging to a specific Hub ID from Supabase
  */
 export async function getPublicZonesByHubId(hubId: string): Promise<OperationalZone[]> {
+  if (!supabase) {
+    return []
+  }
   try {
     const { data, error } = await supabase
       .from("public_zones")

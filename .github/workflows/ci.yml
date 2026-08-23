@@ -49,6 +49,9 @@ jobs:
 
   landing:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://ci-test.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-anon-key
     defaults:
       run:
         working-directory: landing
