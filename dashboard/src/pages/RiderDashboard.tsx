@@ -769,7 +769,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
                         </span>
                       </div>
                       <div className="text-xs text-muted-foreground mt-1 font-medium">
-                        Zone: {v.zone_name || 'Talon-Talon'}
+                        Zone: {v.zone_name || 'Zone unavailable'}
                       </div>
                       <div className="text-[11px] text-muted-foreground/80 font-mono mt-0.5 flex items-center justify-between">
                         <span>{dateLabel}</span>

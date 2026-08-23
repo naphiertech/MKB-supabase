@@ -177,7 +177,7 @@ export function mapCachedDashboardPayloadToState(
       ? {
           lat: violationData.lat,
           lng: violationData.lng,
-          zoneName: violationData.zone_name || 'Talon-Talon',
+          zoneName: violationData.zone_name || 'Zone unavailable',
         }
       : null,
     monthAttendanceLogs,

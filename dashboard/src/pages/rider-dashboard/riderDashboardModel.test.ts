@@ -159,6 +159,14 @@ describe('Rider Dashboard pure model characterization', () => {
       ...basePayload,
       latestViolation: { id: 'v-2', rider_id: 'rider-1', resolved: false, lat: 0, lng: 122, zone_name: 'North', created_at: '' },
     }, '2026-08-03').activeViolation).toBeNull();
+    expect(mapCachedDashboardPayloadToState({
+      ...basePayload,
+      latestViolation: { id: 'v-3', rider_id: 'rider-1', resolved: false, lat: 6.9, lng: 122.1, zone_name: null as unknown as string, created_at: '' },
+    }, '2026-08-03').activeViolation).toMatchObject({
+      lat: 6.9,
+      lng: 122.1,
+      zoneName: 'Zone unavailable',
+    });
     expect(mapCachedDashboardPayloadToState({ ...basePayload, latestViolation: null }, '2026-08-03'))
       .toMatchObject({ rider: undefined, attendance: { id: null, timeIn: null, timeOut: null }, activeViolation: null });
   });

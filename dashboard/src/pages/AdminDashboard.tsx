@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Users as UsersIcon,
   BadgeCheck,
@@ -51,13 +51,54 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   }, [attendanceRealtimeVersion]);
 
   const today = getLocalDateString();
-  const todayLogs = attendanceList.filter((l) => l.date === today);
-  const presentToday = todayLogs.filter(
-    (l) => l.status === "present" || l.status === "late",
-  ).length;
-  const attendanceRate = todayLogs.length
-    ? Math.round((presentToday / todayLogs.length) * 100)
-    : 0;
+  const yesterday = useMemo(() => {
+    const d = new Date(`${today}T00:00:00`);
+    d.setDate(d.getDate() - 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, [today]);
+
+  const todayLogs = useMemo(() => attendanceList.filter((l) => l.date === today), [attendanceList, today]);
+  const yesterdayLogs = useMemo(() => attendanceList.filter((l) => l.date === yesterday), [attendanceList, yesterday]);
+
+  const presentToday = useMemo(
+    () => todayLogs.filter((l) => l.status === "present" || l.status === "late").length,
+    [todayLogs]
+  );
+  const yesterdayPresent = useMemo(
+    () => yesterdayLogs.filter((l) => l.status === "present" || l.status === "late").length,
+    [yesterdayLogs]
+  );
+
+  const attendanceRate = useMemo(
+    () => (todayLogs.length ? Math.round((presentToday / todayLogs.length) * 100) : 0),
+    [todayLogs.length, presentToday]
+  );
+  const yesterdayRate = useMemo(
+    () => (yesterdayLogs.length ? Math.round((yesterdayPresent / yesterdayLogs.length) * 100) : null),
+    [yesterdayLogs.length, yesterdayPresent]
+  );
+
+  const onDutyTrend = useMemo(() => {
+    if (yesterdayLogs.length === 0) return undefined;
+    const delta = presentToday - yesterdayPresent;
+    return {
+      direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
+      value: `${delta >= 0 ? '+' : ''}${delta} vs yesterday`,
+    };
+  }, [presentToday, yesterdayPresent, yesterdayLogs.length]);
+
+  const attendanceRateTrend = useMemo(() => {
+    if (yesterdayRate === null || todayLogs.length === 0) return undefined;
+    const delta = attendanceRate - yesterdayRate;
+    return {
+      direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
+      value: `${delta >= 0 ? '+' : ''}${delta}% vs yesterday`,
+    };
+  }, [attendanceRate, yesterdayRate, todayLogs.length]);
+
   function handleViewViolation(riderId: string) {
     setFocusRiderId(riderId);
     const v = violations.find((x) => x.riderId === riderId);
@@ -82,26 +123,17 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           icon={UsersIcon}
           accent="blue"
           onClick={() => setActiveModal((prev) => (prev === "active_riders" ? null : "active_riders"))}
-          trend={{
-            direction: "up",
-            value: "+2 vs yesterday",
-          }}
-          spark={[4, 6, 5, 7, 8, 7, 9, 10, 9, 11, 12]}
         />
 
         <StatCard
           label="On Duty Today"
           value={presentToday}
-          sub="+2 since 6:00 AM"
+          sub="Click to view details →"
           icon={BadgeCheck}
           accent="green"
           pulse
           onClick={() => setActiveModal((prev) => (prev === "on_duty" ? null : "on_duty"))}
-          trend={{
-            direction: "up",
-            value: "+18% wow",
-          }}
-          spark={[3, 5, 4, 6, 8, 7, 9]}
+          trend={onDutyTrend}
         />
 
         <StatCard
@@ -111,12 +143,6 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           icon={AlertTriangle}
           accent="red"
           onClick={() => setActiveModal((prev) => (prev === "violations" ? null : "violations"))}
-          trend={{
-            direction: violationCount > 0 ? "up" : "flat",
-            value: violationCount > 0 ? "+1 in last hour" : "no change",
-            positive: false,
-          }}
-          spark={[1, 2, 1, 3, 2, 4, 2, 3, 1, 2, 3]}
         />
 
         <StatCard
@@ -131,11 +157,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           icon={TrendingUp}
           accent="amber"
           onClick={() => setActiveModal((prev) => (prev === "attendance" ? null : "attendance"))}
-          trend={{
-            direction: "up",
-            value: "+2.3% vs yesterday",
-          }}
-          spark={[6, 7, 5, 8, 9, 8, 9, 10]}
+          trend={attendanceRateTrend}
         />
       </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, ClipboardCheck, UserX, AlertCircle } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
@@ -45,8 +45,50 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
   }, [attendanceRealtimeVersion]);
 
   const today = getLocalDateString();
-  const todayLogs = attendanceList.filter((l) => l.date === today);
-  const lateCount = todayLogs.filter((l) => deriveHrStatus(l) === 'Late').length;
+  const yesterday = useMemo(() => {
+    const d = new Date(`${today}T00:00:00`);
+    d.setDate(d.getDate() - 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, [today]);
+
+  const todayLogs = useMemo(() => attendanceList.filter((l) => l.date === today), [attendanceList, today]);
+  const yesterdayLogs = useMemo(() => attendanceList.filter((l) => l.date === yesterday), [attendanceList, yesterday]);
+
+  const onDutyTrend = useMemo(() => {
+    if (yesterdayLogs.length === 0) return undefined;
+    const yesterdayOnDuty = yesterdayLogs.filter((l) => l.status === 'present' || l.status === 'late').length;
+    const delta = kpis.onDuty - yesterdayOnDuty;
+    return {
+      direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
+      value: `${delta >= 0 ? '+' : ''}${delta} vs yesterday`,
+    };
+  }, [kpis.onDuty, yesterdayLogs]);
+
+  const completeTrend = useMemo(() => {
+    if (yesterdayLogs.length === 0) return undefined;
+    const yesterdayComplete = yesterdayLogs.filter((l) => l.timeIn && l.timeOut).length;
+    const delta = kpis.complete - yesterdayComplete;
+    return {
+      direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
+      value: `${delta >= 0 ? '+' : ''}${delta} vs yesterday`,
+    };
+  }, [kpis.complete, yesterdayLogs]);
+
+  const absentTrend = useMemo(() => {
+    if (yesterdayLogs.length === 0) return undefined;
+    const yesterdayAbsent = yesterdayLogs.filter((l) => l.status === 'absent').length;
+    const delta = kpis.absent - yesterdayAbsent;
+    return {
+      direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
+      value: `${delta >= 0 ? '+' : ''}${delta} vs yesterday`,
+      positive: false,
+    };
+  }, [kpis.absent, yesterdayLogs]);
+
+  const lateCount = useMemo(() => todayLogs.filter((l) => deriveHrStatus(l) === 'Late').length, [todayLogs]);
 
   function handleQuickReport(key: QuickReportKey) {
     onNavigate('reports', { preset: key });
@@ -73,8 +115,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           accent="blue"
           pulse
           onClick={() => setActiveSummaryPanel((prev) => (prev === 'on_duty' ? null : 'on_duty'))}
-          trend={{ direction: 'up', value: '+3 vs yesterday' }}
-          spark={[5, 6, 7, 6, 8, 9, 9, 10, 11]}
+          trend={onDutyTrend}
         />
 
         <StatCard
@@ -84,8 +125,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           icon={ClipboardCheck}
           accent="green"
           onClick={() => setActiveSummaryPanel((prev) => (prev === 'complete' ? null : 'complete'))}
-          trend={{ direction: 'up', value: `+${Math.max(1, kpis.complete - 4)} today` }}
-          spark={[3, 4, 5, 6, 7, 8, 9]}
+          trend={completeTrend}
         />
 
         <StatCard
@@ -95,12 +135,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           icon={UserX}
           accent="red"
           onClick={() => setActiveSummaryPanel((prev) => (prev === 'absent' ? null : 'absent'))}
-          trend={{
-            direction: kpis.absent > 0 ? 'up' : 'flat',
-            value: kpis.absent > 0 ? `${kpis.absent} today` : 'no change',
-            positive: false
-          }}
-          spark={[2, 3, 2, 4, 3, 2, 3]}
+          trend={absentTrend}
         />
 
         <StatCard
@@ -110,8 +145,6 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
           icon={AlertCircle}
           accent="amber"
           onClick={() => setActiveSummaryPanel((prev) => (prev === 'pending' ? null : 'pending'))}
-          trend={{ direction: 'flat', value: 'awaiting review' }}
-          spark={[4, 5, 4, 6, 5, 4, 5]}
         />
       </div>
 

@@ -213,12 +213,12 @@ export const RouteTrailMap = ({
   const totalDurationMs = 15000 / playbackSpeed;
 
   // Find the segment and interpolation fraction based on cumulative distance (for perfectly smooth, non-skipping distance-based playback)
-  const { baseIndex, fraction, elapsedDistanceM, floatIndex } = useMemo(() => {
+  const { baseIndex, fraction, elapsedDistanceM } = useMemo(() => {
     if (points.length === 0) {
-      return { baseIndex: 0, fraction: 0, elapsedDistanceM: 0, floatIndex: 0 };
+      return { baseIndex: 0, fraction: 0, elapsedDistanceM: 0 };
     }
     if (points.length < 2) {
-      return { baseIndex: 0, fraction: 0, elapsedDistanceM: 0, floatIndex: 0 };
+      return { baseIndex: 0, fraction: 0, elapsedDistanceM: 0 };
     }
 
     const totalDist = cumulativeDistances[cumulativeDistances.length - 1] || 0;
@@ -242,7 +242,6 @@ export const RouteTrailMap = ({
       baseIndex: index,
       fraction: frac,
       elapsedDistanceM: currentDist,
-      floatIndex: index + frac,
     };
   }, [progress, points.length, cumulativeDistances]);
 
@@ -300,12 +299,6 @@ export const RouteTrailMap = ({
     }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  // Generate smooth elevation values simulating Zamboanga's rolling topography
-  const mockElevation = useMemo(() => {
-    if (points.length === 0) return 0;
-    return Math.round(15 + Math.sin(floatIndex / 3) * 6 + Math.cos(floatIndex / 8) * 4);
-  }, [floatIndex, points.length]);
 
   // 60 FPS RequestAnimationFrame Replay loop
   useEffect(() => {
@@ -591,7 +584,7 @@ export const RouteTrailMap = ({
             </div>
 
             {/* Live Stats display grid */}
-            <div className="flex-1 grid grid-cols-4 gap-2 w-full md:w-auto text-center md:text-left border-t md:border-t-0 md:border-l border-white/10 pt-3 md:pt-0 md:pl-4">
+            <div className="flex-1 grid grid-cols-3 gap-2 w-full md:w-auto text-center md:text-left border-t md:border-t-0 md:border-l border-white/10 pt-3 md:pt-0 md:pl-4">
               <div>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Distance</p>
                 <p className="text-sm md:text-base font-bold font-mono text-orange-400">
@@ -608,12 +601,6 @@ export const RouteTrailMap = ({
                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Speed</p>
                 <p className="text-sm md:text-base font-bold font-mono text-orange-400">
                   {interpolatedPoint?.speed ? Math.round(interpolatedPoint.speed) : 0} <span className="text-[10px] font-normal text-white">km/h</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Elevation</p>
-                <p className="text-sm md:text-base font-bold font-mono text-white">
-                  {mockElevation} <span className="text-[10px] font-normal text-white">m</span>
                 </p>
               </div>
             </div>

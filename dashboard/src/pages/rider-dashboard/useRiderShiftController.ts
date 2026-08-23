@@ -74,7 +74,7 @@ export function useRiderShiftController({
   const zoneCenterLat = zone?.center[0] ?? 6.9214;
   const zoneCenterLng = zone?.center[1] ?? 122.0790;
   const zoneRadius = zone?.radius ?? 1000;
-  const zoneName = zone?.name ?? 'Talon-Talon';
+  const zoneName = zone?.name ?? 'Unassigned';
 
   const anchor = useMemo(
     () => ({

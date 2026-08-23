@@ -231,6 +231,56 @@ export function Attendance() {
     };
   }, [kpiLogs]);
 
+  const previousDate = useMemo(() => {
+    const targetDate = dateFrom === dateTo ? dateFrom : today;
+    const d = new Date(`${targetDate}T00:00:00`);
+    d.setDate(d.getDate() - 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, [dateFrom, dateTo, today]);
+
+  const prevKpiLogs = useMemo(() => {
+    return fullAttendanceList.filter((l) => {
+      const isDateMatch = l.date === previousDate;
+      const isZoneMatch = zoneFilter === 'all' || l.zoneId === zoneFilter;
+      return isDateMatch && isZoneMatch;
+    });
+  }, [fullAttendanceList, previousDate, zoneFilter]);
+
+  const presentTrend = useMemo(() => {
+    if (prevKpiLogs.length === 0) return undefined;
+    const prevCount = prevKpiLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'present').length;
+    const delta = kpis.present - prevCount;
+    return {
+      direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
+      value: `${delta >= 0 ? '+' : ''}${delta} vs yesterday`,
+    };
+  }, [kpis.present, prevKpiLogs]);
+
+  const lateTrend = useMemo(() => {
+    if (prevKpiLogs.length === 0) return undefined;
+    const prevCount = prevKpiLogs.filter((l) => (l.punctuality || (l.status === 'late' ? 'late' : 'none')) === 'late').length;
+    const delta = kpis.late - prevCount;
+    return {
+      direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
+      value: `${delta >= 0 ? '+' : ''}${delta} vs yesterday`,
+      positive: delta <= 0,
+    };
+  }, [kpis.late, prevKpiLogs]);
+
+  const absentTrend = useMemo(() => {
+    if (prevKpiLogs.length === 0) return undefined;
+    const prevCount = prevKpiLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'present').length;
+    const delta = kpis.absent - prevCount;
+    return {
+      direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
+      value: `${delta >= 0 ? '+' : ''}${delta} vs yesterday`,
+      positive: false,
+    };
+  }, [kpis.absent, prevKpiLogs]);
+
   const filtered = useMemo(() => {
     return fullAttendanceList.filter((l) => {
       const presenceVal = l.presence || (l.status === 'on_leave' ? 'on_leave' : l.timeIn ? 'present' : 'absent');
@@ -355,7 +405,7 @@ export function Attendance() {
           accent="green"
           pulse
           onClick={() => setActiveSummaryModal((prev) => (prev === 'present' ? null : 'present'))}
-          trend={{ direction: 'up', value: '+5 vs avg' }}
+          trend={presentTrend}
         />
 
         <StatCard
@@ -364,7 +414,7 @@ export function Attendance() {
           icon={Clock}
           accent="amber"
           onClick={() => setActiveSummaryModal((prev) => (prev === 'late' ? null : 'late'))}
-          trend={{ direction: 'down', value: '-2 vs yesterday' }}
+          trend={lateTrend}
         />
 
         <StatCard
@@ -373,7 +423,7 @@ export function Attendance() {
           icon={UserMinus}
           accent="red"
           onClick={() => setActiveSummaryModal((prev) => (prev === 'absent' ? null : 'absent'))}
-          trend={{ direction: 'flat', value: 'no change', positive: false }}
+          trend={absentTrend}
         />
 
         <StatCard
@@ -382,7 +432,6 @@ export function Attendance() {
           icon={PalmtreeIcon}
           accent="blue"
           onClick={() => setActiveSummaryModal((prev) => (prev === 'on_leave' ? null : 'on_leave'))}
-          trend={{ direction: 'flat', value: '2 scheduled' }}
         />
       </div>
 
