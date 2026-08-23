@@ -1,5 +1,10 @@
 import { supabase } from '../lib/supabaseClient';
 import { logActivity } from '../lib/apiService';
+import {
+  isAttendanceLate,
+  listAttendancePolicyConfigurations,
+  type AttendancePolicyConfiguration,
+} from './attendancePolicyService';
 
 export interface ParsedDTRLog {
   riderId: string;
@@ -103,10 +108,15 @@ async function loadTesseract(): Promise<TesseractLibrary> {
 export async function parseDTRPdf(
   file: File,
   allRiders: { id: string; name: string }[],
-  onStatusChange?: (status: string) => void
+  onStatusChange?: (status: string) => void,
+  policies?: AttendancePolicyConfiguration[]
 ): Promise<ParsedDTRLog[]> {
   onStatusChange?.('Initializing PDF engine...');
-  const pdfjsLib = await loadPdfJs();
+  const [pdfjsLib, loadedPolicies] = await Promise.all([
+    loadPdfJs(),
+    policies ? Promise.resolve(policies) : listAttendancePolicyConfigurations().catch(() => []),
+  ]);
+  const activePolicies = policies || loadedPolicies;
   const fileReader = new FileReader();
 
   const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
@@ -280,8 +290,7 @@ export async function parseDTRPdf(
 
         let status: ParsedDTRLog['status'] = 'present';
         if (rawTimeIn) {
-          const [inH, inM] = rawTimeIn.split(':').map(Number);
-          if (inH > 8 || (inH === 8 && inM > 0)) {
+          if (isAttendanceLate(rawTimeIn, dateStr, activePolicies)) {
             status = 'late';
           }
         }

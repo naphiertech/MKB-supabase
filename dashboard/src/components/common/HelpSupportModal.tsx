@@ -167,7 +167,7 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
                         HR Management
                       </div>
                       <ul className="text-[11px] text-muted-foreground space-y-1.5 list-disc pl-4 leading-relaxed">
-                        <li><strong>Attendance Rules</strong>: Shift check-in cutoffs are 8:15 AM. Late pings are tagged automatically.</li>
+                        <li><strong>Attendance Rules</strong>: Shift check-in lateness thresholds are governed by the active Attendance Policy. Late check-ins are tagged automatically.</li>
                         <li><strong>Face Profile Registry</strong>: Ensure riders complete face descriptor registration to activate webcam check-ins.</li>
                         <li><strong>Logs Export</strong>: Compile custom timecards to CSV directly from the attendance reports.</li>
                       </ul>
