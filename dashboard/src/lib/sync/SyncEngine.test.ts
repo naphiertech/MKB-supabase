@@ -370,6 +370,22 @@ describe('SyncEngine recovery and replay guarantees', () => {
     });
   });
 
+  it('replays unresolved-zone location coordinates without inventing a client status', () => {
+    const item = queueItem('LOCATION_PING', {
+      idempotencyKey: '10000000-0000-4000-8000-000000000011',
+      eventTimestamp: '2026-08-04T08:00:00.000Z',
+      payload: { rider_id: 'rider-1', lat: 6.9214, lng: 122.079 },
+    });
+
+    expect(buildLocationRecord(item)).toEqual({
+      id: '10000000-0000-4000-8000-000000000011',
+      rider_id: 'rider-1',
+      lat: 6.9214,
+      lng: 122.079,
+      recorded_at: '2026-08-04T08:00:00.000Z',
+    });
+  });
+
   it('validates historical Time In against its event time rather than its replay day', () => {
     expect(isAttendanceEventTimestampValid(
       '2026-08-03',

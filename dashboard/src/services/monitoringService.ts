@@ -418,7 +418,7 @@ export async function logRiderLocation(
   riderId: string,
   lat: number,
   lng: number,
-  status: 'active' | 'idle' | 'violation' | 'offline'
+  status?: 'active' | 'idle' | 'violation' | 'offline'
 ): Promise<void> {
   const locationId = createSyncOperationId();
   const eventTimestamp = new Date().toISOString();
@@ -431,7 +431,7 @@ export async function logRiderLocation(
       rider_id: riderId,
       lat,
       lng,
-      status,
+      ...(status ? { status } : {}),
       recorded_at: eventTimestamp
     },
     priority: 3
@@ -456,7 +456,7 @@ export async function logRiderLocation(
       rider_id: riderId,
       lat,
       lng,
-      status,
+      ...(status ? { status } : {}),
       recorded_at: eventTimestamp
     });
 

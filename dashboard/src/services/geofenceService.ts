@@ -55,6 +55,19 @@ interface DbRiderRow {
 }
 
 const mapZone = (row: DbZoneRow): Zone => {
+  const hasPolygonGeometry = row.zone_type === 'polygon'
+    && Array.isArray(row.polygon_coordinates)
+    && row.polygon_coordinates.length >= 3
+    && row.polygon_coordinates.every((coordinate) => (
+      Array.isArray(coordinate)
+      && coordinate.length >= 2
+      && coordinate.every(Number.isFinite)
+    ));
+  const hasCircleGeometry = row.zone_type === 'circle'
+    && Number.isFinite(row.lat)
+    && Number.isFinite(row.lng)
+    && Number.isFinite(row.radius)
+    && Number(row.radius) > 0;
   let center: [number, number] = [0, 0];
   if (row.lat !== null && row.lng !== null) {
     center = [row.lat, row.lng];
@@ -73,7 +86,8 @@ const mapZone = (row: DbZoneRow): Zone => {
     color: row.color,
     status: row.status as ZoneStatus,
     zone_type: row.zone_type,
-    polygon_coordinates: row.polygon_coordinates || undefined
+    polygon_coordinates: row.polygon_coordinates || undefined,
+    hasValidGeometry: hasPolygonGeometry || hasCircleGeometry,
   };
 };
 

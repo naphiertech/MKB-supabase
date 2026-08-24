@@ -131,8 +131,10 @@ export function useRiderDashboardData({
   }, [reload]);
 
   useEffect(() => {
-    const resolvedZone = allZones.find((candidate) => candidate.id === rider?.zoneId) || allZones[0];
-    if (resolvedZone) setZone(resolvedZone);
+    const resolvedZone = rider?.zoneId
+      ? allZones.find((candidate) => candidate.id === rider.zoneId) ?? null
+      : null;
+    setZone(resolvedZone);
   }, [allZones, rider?.zoneId]);
 
   const updateRiderFaceDescriptor = useCallback((descriptor: number[]) => {

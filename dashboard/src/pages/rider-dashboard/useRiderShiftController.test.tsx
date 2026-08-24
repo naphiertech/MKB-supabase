@@ -58,6 +58,7 @@ interface HookInput {
   zone: {
     id: string; name: string; center: [number, number]; radius: number; color: string;
     zone_type?: 'circle' | 'polygon'; polygon_coordinates?: [number, number][];
+    hasValidGeometry?: boolean;
   } | null;
   attendance: { id: string | null; timeIn: string | null; timeOut: string | null };
   activeViolation: { lat: number; lng: number; zoneName: string } | null;
@@ -72,8 +73,9 @@ interface HookResult {
   location: {
     position: { lat: number; lng: number; accuracy: number; ts: number };
     positionToUse: { lat: number; lng: number; accuracy: number; ts: number };
-    distance: number; inZone: boolean; error: string | null; isLoading: boolean;
-    hasVerifiedPosition: boolean; retry: () => void; zoneName: string; zoneRadius: number;
+    distance: number | null; inZone: boolean | null; geofenceResolved: boolean;
+    error: string | null; isLoading: boolean;
+    hasVerifiedPosition: boolean; retry: () => void; zoneName: string | null; zoneRadius: number | null;
   };
   scanner: {
     open: boolean; setOpen: (open: boolean) => void; pendingAction: 'time-in' | 'time-out';
@@ -296,6 +298,41 @@ describe('useRiderShiftController characterization', () => {
     await renderController(); expect(latest!.location.inZone).toBe(true);
     currentInput.zone = { ...circleZone, zone_type: 'polygon', polygon_coordinates: [[6.90, 122.05], [6.95, 122.05], [6.95, 122.10], [6.90, 122.10]] };
     await rerenderController(); expect(latest!.location.inZone).toBe(true);
+  });
+
+  it('keeps geofence state unresolved and submits only real coordinates when no zone is resolved', async () => {
+    currentInput.zone = null;
+    currentInput.attendance = { id: 'attendance-current', timeIn: '08:00', timeOut: null };
+
+    await renderController();
+    await act(async () => { await flushAsyncWork(); });
+
+    expect(latest!.location).toMatchObject({
+      distance: null,
+      inZone: null,
+      geofenceResolved: false,
+      zoneName: null,
+      zoneRadius: null,
+    });
+    expect(mocks.logRiderLocation).toHaveBeenCalledWith('rider-1', 6.9214, 122.079);
+  });
+
+  it('does not calculate against zero coordinates when assigned zone geometry is invalid', async () => {
+    currentInput.zone = {
+      ...circleZone,
+      center: [0, 0],
+      radius: 0,
+      hasValidGeometry: false,
+    };
+    currentInput.attendance = { id: 'attendance-current', timeIn: '08:00', timeOut: null };
+
+    await renderController();
+    await act(async () => { await flushAsyncWork(); });
+
+    expect(latest!.location.distance).toBeNull();
+    expect(latest!.location.inZone).toBeNull();
+    expect(latest!.location.geofenceResolved).toBe(false);
+    expect(mocks.logRiderLocation).toHaveBeenCalledWith('rider-1', 6.9214, 122.079);
   });
 
   it('seeds the activity timeline and keeps the 90-second geofence event behavior', async () => {

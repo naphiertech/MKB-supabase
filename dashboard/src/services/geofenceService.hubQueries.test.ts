@@ -34,6 +34,24 @@ describe('authorized hub zone loading', () => {
 
     expect(query.in).toHaveBeenCalledWith('hub_id', ['hub-1', 'hub-2']);
   });
+
+  it('marks missing circle geometry invalid instead of making zero coordinates operational', async () => {
+    const query = { select: vi.fn(), order: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.order.mockResolvedValue({
+      data: [{
+        id: 'zone-invalid', hub_id: 'hub-1', name: 'Invalid Zone',
+        lat: null, lng: null, radius: null, color: '#db6c00', status: 'active',
+        zone_type: 'circle', polygon_coordinates: null,
+      }],
+      error: null,
+    });
+    mocks.from.mockReturnValue(query);
+
+    const zones = await geofenceService.getZones();
+
+    expect(zones[0]).toMatchObject({ id: 'zone-invalid', hasValidGeometry: false });
+  });
 });
 
 describe('hub-scoped zone creation', () => {

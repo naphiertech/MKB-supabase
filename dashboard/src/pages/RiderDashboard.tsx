@@ -211,6 +211,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
       positionToUse,
       distance: distanceToUse,
       inZone: inZoneToUse,
+      geofenceResolved,
       error: locationError,
       isLoading: locationLoading,
       hasVerifiedPosition,
@@ -258,7 +259,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
     setEvents,
   });
 
-  if (loading || !rider || !zone) {
+  if (loading || !rider) {
     return <DashboardSkeleton page="dashboard" role="rider" />;
   }
 
@@ -267,13 +268,17 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
   const daysPresent = stats.daysPresent;
   const hoursThisWeek = stats.hoursThisWeek;
   const violationsThisMonth = stats.violationsThisMonth;
+  const hasResolvedGeofence = geofenceResolved
+    && inZoneToUse !== null
+    && distanceToUse !== null
+    && zoneRadius !== null;
 
   return (
     <div className="p-4 md:p-6 lg:p-7 max-w-6xl mx-auto space-y-5">
       {/* 1. Identity banner */}
       <IdentityBanner
         name={rider.name}
-        zoneName={zoneName}
+        zoneName={zone?.name ?? 'No assigned zone'}
         date={today}
         onlineStatus={onlineStatus} />
 
@@ -344,7 +349,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
               My Location
             </h2>
             <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
-              Live GPS · {zoneName} geofence ({zoneRadius}m)
+              Live GPS · {zone?.name ?? 'No assigned zone'} · {hasResolvedGeofence ? `${zoneRadius}m geofence` : 'geometry unavailable'}
             </p>
           </div>
           <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono">
@@ -352,7 +357,14 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
           </span>
         </header>
 
-        {locationLoading && !hasVerifiedPosition ? (
+        {!hasResolvedGeofence ? (
+          <div className="flex h-[280px] flex-col items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-center sm:h-[320px] sm:px-6">
+            <span className="text-sm font-semibold text-amber-800">Assigned geofence geometry unavailable</span>
+            <span className="max-w-md text-xs text-amber-700">
+              Real GPS collection continues. Persisted geofence status is resolved by the server when coordinates synchronize.
+            </span>
+          </div>
+        ) : locationLoading && !hasVerifiedPosition ? (
           <div className="flex h-[280px] flex-col items-center justify-center gap-3 rounded-xl border border-border bg-accent/40 animate-pulse sm:h-[320px]">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-primary animate-bounce"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
             <span className="text-muted-foreground text-sm font-medium">Acquiring live GPS signal...</span>
@@ -375,16 +387,16 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
           <>
             <RiderMap
               position={positionToUse}
-              zone={zone}
-              inZone={inZoneToUse}
+              zone={zone!}
+              inZone={inZoneToUse!}
               height="320px" />
 
             {(!timeIn || timeOut) && !activeViolation ? null : (
               <GeofenceStatus
-                inZone={inZoneToUse}
-                zoneName={zoneName}
-                distance={distanceToUse}
-                radius={zoneRadius} />
+                inZone={inZoneToUse!}
+                zoneName={zoneName!}
+                distance={distanceToUse!}
+                radius={zoneRadius!} />
             )}
           </>
         )}

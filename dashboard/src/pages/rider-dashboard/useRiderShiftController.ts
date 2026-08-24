@@ -36,6 +36,20 @@ interface UseRiderShiftControllerInput {
   setEvents: Dispatch<SetStateAction<ActivityEvent[]>>;
 }
 
+const NEUTRAL_LOCATION_ANCHOR = { lat: 0, lng: 0 };
+
+function hasOperationalZoneGeometry(zone: Zone | null): zone is Zone {
+  if (!zone || zone.hasValidGeometry === false) return false;
+  if (zone.zone_type === 'polygon') {
+    return Boolean(
+      zone.polygon_coordinates
+      && zone.polygon_coordinates.length >= 3
+      && zone.polygon_coordinates.every((coordinate) => coordinate.every(Number.isFinite))
+    );
+  }
+  return zone.center.every(Number.isFinite) && Number.isFinite(zone.radius) && zone.radius > 0;
+}
+
 export function useRiderShiftController({
   userId,
   restricted,
@@ -71,17 +85,16 @@ export function useRiderShiftController({
     setScanOpenState(open);
   }, [cancelScannerStart]);
 
-  const zoneCenterLat = zone?.center[0] ?? 6.9214;
-  const zoneCenterLng = zone?.center[1] ?? 122.0790;
-  const zoneRadius = zone?.radius ?? 1000;
-  const zoneName = zone?.name ?? 'Unassigned';
-
-  const anchor = useMemo(
-    () => ({
-      lat: zoneCenterLat + 0.0006,
-      lng: zoneCenterLng + 0.0004,
-    }),
-    [zoneCenterLat, zoneCenterLng],
+  const geofenceResolved = hasOperationalZoneGeometry(zone);
+  const zoneName = geofenceResolved ? zone.name : null;
+  const zoneRadius = geofenceResolved ? zone.radius : null;
+  const initialLocationAnchor = useMemo(
+    () => (
+      rider && Number.isFinite(rider.lat) && Number.isFinite(rider.lng)
+        ? { lat: rider.lat, lng: rider.lng }
+        : NEUTRAL_LOCATION_ANCHOR
+    ),
+    [rider],
   );
 
   // GPS/geolocation effects register first inside the controller.
@@ -92,7 +105,7 @@ export function useRiderShiftController({
     hasVerifiedPosition,
     retry: retryLocation,
   } = useGeolocation({
-    initial: anchor,
+    initial: initialLocationAnchor,
     enabled: !restricted,
   });
 
@@ -113,13 +126,15 @@ export function useRiderShiftController({
   }, [isOnline, position, activeViolation]);
 
   const distanceToUse = useMemo(() => {
+    if (!geofenceResolved) return null;
     if (activeViolation && !isOnline) {
-      return haversine(zoneCenterLat, zoneCenterLng, activeViolation.lat, activeViolation.lng);
+      return haversine(zone.center[0], zone.center[1], activeViolation.lat, activeViolation.lng);
     }
-    return haversine(zoneCenterLat, zoneCenterLng, position.lat, position.lng);
-  }, [isOnline, position, activeViolation, zoneCenterLat, zoneCenterLng]);
+    return haversine(zone.center[0], zone.center[1], position.lat, position.lng);
+  }, [isOnline, position, activeViolation, geofenceResolved, zone]);
 
   const inZoneToUse = useMemo(() => {
+    if (!geofenceResolved || distanceToUse === null) return null;
     if (activeViolation && !isOnline) {
       return false;
     }
@@ -128,15 +143,16 @@ export function useRiderShiftController({
       const lng = activeViolation && !isOnline ? activeViolation.lng : position.lng;
       return isPointInPolygon([lat, lng], zone.polygon_coordinates);
     }
+    if (zoneRadius === null) return null;
     return distanceToUse <= zoneRadius;
-  }, [isOnline, distanceToUse, zoneRadius, activeViolation, zone, position]);
+  }, [isOnline, distanceToUse, zoneRadius, activeViolation, zone, position, geofenceResolved]);
 
   const distance = distanceToUse;
   const inZone = inZoneToUse;
 
   // Activity-timeline effects preserve their original dependency behavior and order.
   useEffect(() => {
-    if (rider && zone) {
+    if (rider && zone && zoneName) {
       setEventsRef.current([
         {
           id: 'seed-1',
@@ -150,7 +166,10 @@ export function useRiderShiftController({
   }, [rider, zone, zoneName]);
 
   useEffect(() => {
-    if (!timeIn || timeOut || !zone || !hasVerifiedPosition) return;
+    if (
+      !timeIn || timeOut || !zone || !hasVerifiedPosition || !geofenceResolved
+      || inZone === null || distance === null || zoneRadius === null || !zoneName
+    ) return;
     const id = window.setInterval(() => {
       setEventsRef.current((prev) => [
         {
@@ -166,7 +185,7 @@ export function useRiderShiftController({
       ]);
     }, 90000);
     return () => window.clearInterval(id);
-  }, [timeIn, timeOut, inZone, zoneName, zoneRadius, distance, zone, hasVerifiedPosition]);
+  }, [timeIn, timeOut, inZone, zoneName, zoneRadius, distance, zone, hasVerifiedPosition, geofenceResolved]);
 
   // Mirrored refs preserve latest values without restarting the location interval.
   const positionRef = useRef(position);
@@ -221,9 +240,13 @@ export function useRiderShiftController({
       const currentInZone = inZoneRef.current;
       if (!currentRiderId || !hasVerifiedPositionRef.current || !isRecentRiderPosition(currentPosition)) return;
 
-      const status: 'active' | 'violation' = currentInZone ? 'active' : 'violation';
       try {
-        await logRiderLocation(currentRiderId, currentPosition.lat, currentPosition.lng, status);
+        if (currentInZone === null) {
+          await logRiderLocation(currentRiderId, currentPosition.lat, currentPosition.lng);
+        } else {
+          const status: 'active' | 'violation' = currentInZone ? 'active' : 'violation';
+          await logRiderLocation(currentRiderId, currentPosition.lat, currentPosition.lng, status);
+        }
         if (!active) return;
         console.log(`[RiderDashboard] Location synced to Supabase: Lat = ${currentPosition.lat}, Lng = ${currentPosition.lng}`);
       } catch (err) {
@@ -351,7 +374,11 @@ export function useRiderShiftController({
         );
         try {
           await updateRiderStatus(currentRiderId, 'active', currentVerifiedPosition.lat, currentVerifiedPosition.lng);
-          await logRiderLocation(currentRiderId, currentVerifiedPosition.lat, currentVerifiedPosition.lng, 'active');
+          if (inZoneRef.current === null) {
+            await logRiderLocation(currentRiderId, currentVerifiedPosition.lat, currentVerifiedPosition.lng);
+          } else {
+            await logRiderLocation(currentRiderId, currentVerifiedPosition.lat, currentVerifiedPosition.lng, 'active');
+          }
         } catch (err) {
           console.error('[RiderDashboard] Failed to push initial time-in coordinates:', err);
         } finally {
@@ -530,6 +557,7 @@ export function useRiderShiftController({
       positionToUse,
       distance: distanceToUse,
       inZone: inZoneToUse,
+      geofenceResolved,
       error: locationError,
       isLoading: locationLoading,
       hasVerifiedPosition,

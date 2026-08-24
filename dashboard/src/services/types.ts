@@ -17,6 +17,8 @@ export interface Zone {
   status?: ZoneStatus;
   zone_type?: 'circle' | 'polygon';
   polygon_coordinates?: [number, number][];
+  /** False when Supabase did not provide usable operational geometry. */
+  hasValidGeometry?: boolean;
 }
 
 export interface Rider {

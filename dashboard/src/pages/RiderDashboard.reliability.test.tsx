@@ -22,7 +22,7 @@ interface ReturnTypeData {
   zone: {
     id: string; name: string; center: [number, number]; radius: number; color: string;
     zone_type?: 'circle' | 'polygon'; polygon_coordinates?: [number, number][];
-  };
+  } | null;
   loading: boolean;
   attendance: { id: string | null; timeIn: string | null; timeOut: string | null };
   activeViolation: null;
@@ -41,8 +41,12 @@ vi.mock('./rider-dashboard/useRiderShiftController', () => ({
     location: {
       position: { lat: 6.9214, lng: 122.079, accuracy: 8, ts: Date.now() },
       positionToUse: { lat: 6.9214, lng: 122.079, accuracy: 8, ts: Date.now() },
-      distance: 0, inZone: true, error: null, isLoading: false, hasVerifiedPosition: true,
-      retry: vi.fn(), zoneName: 'North Hub', zoneRadius: 1000,
+      distance: mocks.dashboardData.zone ? 0 : null,
+      inZone: mocks.dashboardData.zone ? true : null,
+      geofenceResolved: Boolean(mocks.dashboardData.zone),
+      error: null, isLoading: false, hasVerifiedPosition: true,
+      retry: vi.fn(), zoneName: mocks.dashboardData.zone?.name ?? null,
+      zoneRadius: mocks.dashboardData.zone?.radius ?? null,
     },
     scanner: {
       open: false, setOpen: vi.fn(), pendingAction: 'time-in', openScan: vi.fn(),
@@ -190,5 +194,19 @@ describe('RiderDashboard async request ownership', () => {
     });
     expect(document.body.textContent).toContain('New Zone');
     expect(document.body.textContent).not.toContain('Old Zone');
+  });
+
+  it('keeps attendance actions available while assigned geofence resolution is unavailable', async () => {
+    mocks.getRiderPayrollHistory.mockResolvedValue([]);
+    mocks.dashboardData = {
+      ...mocks.dashboardData,
+      rider: { ...mocks.dashboardData.rider, zoneId: null },
+      zone: null,
+    };
+
+    await renderPage();
+
+    expect(document.body.textContent).toContain('Ready to clock in?');
+    expect(document.body.textContent).toContain('Assigned geofence geometry unavailable');
   });
 });

@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     center: [number, number];
     radius: number;
     color: string;
+    hasValidGeometry?: boolean;
   }>,
 }));
 
@@ -235,6 +236,69 @@ describe('useRiderDashboardData characterization', () => {
     expect(mocks.setCachedDescriptor).toHaveBeenCalledWith('rider-1', freshDescriptor, 'fresh.jpg');
   });
 
+  it('does not substitute the first zone when the Rider is unassigned', async () => {
+    await renderHook(useRiderDashboardData as UseDataHook);
+    const callbacks = mocks.callbacks[0] as DashboardCallbacks;
+
+    await act(async () => {
+      callbacks.onFreshDataLoaded?.({
+        ...freshPayload,
+        dbRider: { ...freshPayload.dbRider!, zone_id: null },
+      });
+      await flushAsyncWork();
+    });
+
+    expect(latest!.rider?.zoneId).toBeNull();
+    expect(latest!.zone).toBeNull();
+  });
+
+  it('leaves the zone unresolved when the assigned zone ID is missing from loaded zones', async () => {
+    await renderHook(useRiderDashboardData as UseDataHook);
+    const callbacks = mocks.callbacks[0] as DashboardCallbacks;
+
+    await act(async () => {
+      callbacks.onFreshDataLoaded?.({
+        ...freshPayload,
+        dbRider: { ...freshPayload.dbRider!, zone_id: 'zone-missing' },
+      });
+      await flushAsyncWork();
+    });
+
+    expect(latest!.zone).toBeNull();
+  });
+
+  it('leaves the zone unresolved when no zones are loaded', async () => {
+    mocks.zones = [];
+    await renderHook(useRiderDashboardData as UseDataHook);
+    const callbacks = mocks.callbacks[0] as DashboardCallbacks;
+
+    await act(async () => {
+      callbacks.onFreshDataLoaded?.(freshPayload);
+      await flushAsyncWork();
+    });
+
+    expect(latest!.zone).toBeNull();
+  });
+
+  it('clears a previously resolved zone when refreshed zones no longer contain the assignment', async () => {
+    await renderHook(useRiderDashboardData as UseDataHook);
+    const callbacks = mocks.callbacks[0] as DashboardCallbacks;
+    await act(async () => {
+      callbacks.onCacheLoaded?.(cachedPayload);
+      await flushAsyncWork();
+    });
+    expect(latest!.zone?.id).toBe('zone-2');
+
+    mocks.zones = [mocks.zones[0]];
+    await act(async () => {
+      latest!.updateRiderFaceDescriptor([0.1]);
+      await flushAsyncWork();
+    });
+
+    expect(latest!.rider?.zoneId).toBe('zone-2');
+    expect(latest!.zone).toBeNull();
+  });
+
   it('keeps reload stable and applies later reload callbacks to the same state', async () => {
     await renderHook(useRiderDashboardData as UseDataHook);
     const initialReload = latest!.reload;
@@ -309,7 +373,7 @@ describe('useRiderDashboardData characterization', () => {
     await renderHook(useRiderDashboardData as UseDataHook);
 
     expect(latest).toMatchObject({
-      actualRiderId: 'rider-1', rider: null, zone: { id: 'zone-1', name: 'North' }, loading: false,
+      actualRiderId: 'rider-1', rider: null, zone: null, loading: false,
       attendance: { id: null, timeIn: null, timeOut: null }, activeViolation: null,
     });
   });

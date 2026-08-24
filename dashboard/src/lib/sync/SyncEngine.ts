@@ -136,7 +136,7 @@ export function buildLocationRecord(item: QueueItem) {
     rider_id: item.riderId,
     lat: payload.lat,
     lng: payload.lng,
-    status: payload.status || 'active',
+    ...(payload.status ? { status: payload.status } : {}),
     recorded_at: item.eventTimestamp
   };
 }
