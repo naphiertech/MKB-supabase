@@ -504,7 +504,7 @@ export function Settings() {
                     id={`settings-tab-${tab.replace(/\s+/g, '-').toLowerCase()}`}
                     aria-selected={active}
                     aria-controls={`settings-panel-${tab.replace(/\s+/g, '-').toLowerCase()}`}
-                    className={`h-10 sm:h-8 shrink-0 px-3 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
+                    className={`h-11 sm:h-9 shrink-0 px-3 rounded-lg text-xs font-semibold tracking-wide transition duration-150 cursor-pointer ${
                       active
                         ? 'bg-white text-foreground border border-border shadow-xs'
                         : 'text-muted-foreground hover:text-foreground hover:bg-white/50'
@@ -521,14 +521,14 @@ export function Settings() {
               <button
                 type="button"
                 onClick={handleResetAll}
-                className="h-10 px-3.5 border border-border bg-white hover:bg-panel-bg text-muted-foreground hover:text-foreground rounded-lg text-xs font-bold transition duration-200 cursor-pointer shadow-xs sm:h-8"
+                className="h-11 px-3.5 border border-border bg-white hover:bg-panel-bg text-muted-foreground hover:text-foreground rounded-lg text-xs font-bold transition duration-200 cursor-pointer shadow-xs sm:h-9"
               >
                 Reset All
               </button>
               <button
                 type="submit"
                 disabled={submitting || (activeTab === 'Notification' && notificationPreferencesLoading)}
-                className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition duration-200 flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer sm:h-8"
+                className="h-11 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-bold transition duration-200 flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer sm:h-9"
               >
                 {submitting ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

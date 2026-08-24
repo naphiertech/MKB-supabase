@@ -243,7 +243,7 @@ export function LiveMonitoringMap({
       </MapContainer>
 
       {/* Legend (top-left) */}
-      <div className="absolute top-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-border rounded-lg p-2.5 text-xs shadow-lg">
+      <div className="map-overlay-card absolute left-3 top-3 z-[400] max-w-[calc(100%-7rem)] rounded-lg border border-border bg-white/95 p-2 text-[11px] shadow-lg backdrop-blur-md sm:p-2.5 sm:text-xs">
         <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
           Status
         </div>
@@ -267,7 +267,7 @@ export function LiveMonitoringMap({
             duration: 0.8
           })
           }
-          className="w-9 h-9 rounded-md bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center justify-center transition"
+          className="map-control-button rounded-md bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center justify-center transition"
           aria-label="Recenter"
           title="Recenter">
           
@@ -275,7 +275,7 @@ export function LiveMonitoringMap({
         </button>
         <button
           onClick={() => setShowGeofences((v) => !v)}
-          className={`w-9 h-9 rounded-md border shadow-md flex items-center justify-center transition ${showGeofences ? 'bg-accent border-primary/40 text-primary' : 'bg-white border-border text-muted-foreground hover:text-foreground'}`}
+          className={`map-control-button rounded-md border shadow-md flex items-center justify-center transition ${showGeofences ? 'bg-accent border-primary/40 text-primary' : 'bg-white border-border text-muted-foreground hover:text-foreground'}`}
           aria-label="Toggle geofences"
           title="Toggle geofences">
           
@@ -287,7 +287,7 @@ export function LiveMonitoringMap({
         </button>
         <button
           onClick={() => setShowLabels((v) => !v)}
-          className={`w-9 h-9 rounded-md border shadow-md flex items-center justify-center transition ${showLabels ? 'bg-accent border-primary/40 text-primary' : 'bg-white border-border text-muted-foreground hover:text-foreground'}`}
+          className={`map-control-button rounded-md border shadow-md flex items-center justify-center transition ${showLabels ? 'bg-accent border-primary/40 text-primary' : 'bg-white border-border text-muted-foreground hover:text-foreground'}`}
           aria-label="Toggle labels"
           title="Toggle rider labels">
           
@@ -301,7 +301,7 @@ export function LiveMonitoringMap({
           onClick={() =>
           setActiveLayer((l) => l === 'dark' ? 'satellite' : 'dark')
           }
-          className="h-9 px-2.5 rounded-md bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center gap-1.5 transition text-xs font-medium"
+          className="map-control-button rounded-md bg-white border border-border px-2.5 text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center gap-1.5 transition text-xs font-medium"
           aria-label={
           isSatellite ? 'Switch to default map' : 'Switch to satellite map'
           }
@@ -310,17 +310,17 @@ export function LiveMonitoringMap({
           }>
           
           <span aria-hidden="true">{isSatellite ? '🗺' : '🛰'}</span>
-          <span>{isSatellite ? 'Default' : 'Satellite'}</span>
+          <span className="hidden sm:inline">{isSatellite ? 'Default' : 'Satellite'}</span>
         </button>
       </div>
 
       {/* Mini stat (bottom-left) */}
-      <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-border rounded-lg px-3 py-2 flex items-center gap-2 shadow-lg">
+      <div className="map-tracking-pill absolute bottom-3 left-3 z-[400] flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-border bg-white/95 px-3 py-2 shadow-lg backdrop-blur-md">
         <span className="relative flex w-2 h-2">
           <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
         </span>
-        <span className="text-xs text-foreground font-mono">
+        <span className="min-w-0 truncate text-xs text-foreground font-mono">
           Tracking {riders.length} riders · updated {tick % 3 + 1}s ago
         </span>
       </div>

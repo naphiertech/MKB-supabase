@@ -3,7 +3,7 @@ import { SkeletonPage, SkeletonStatCard, SkeletonTable } from '../common/Skeleto
 export function AttendanceSkeleton() {
   return (
     <SkeletonPage className="space-y-5" label="Loading Attendance Logs">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-4">
         <SkeletonStatCard />
         <SkeletonStatCard />
         <SkeletonStatCard />

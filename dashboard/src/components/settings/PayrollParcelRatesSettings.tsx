@@ -155,7 +155,7 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
         {canManage && <button type="button" onClick={openCreate} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-xs font-bold text-white shadow-sm hover:bg-primary-hover"><Plus className="h-4 w-4" /> Create future configuration</button>}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
         {[
           ['Early standard rate', current ? peso.format(current.early_standard_rate) : '—'],
           ['Regular standard rate', current ? peso.format(current.regular_standard_rate) : '—'],

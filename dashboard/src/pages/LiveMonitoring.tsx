@@ -91,7 +91,7 @@ export function LiveMonitoring() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left rail */}
         <aside
-          className={`${collapsed ? 'relative w-12' : 'absolute inset-y-0 left-0 z-[1150] w-80 max-w-[85vw] shadow-2xl md:relative md:z-auto md:shadow-none'} shrink-0 bg-white border-r border-border transition-all flex flex-col`}>
+          className={`${collapsed ? 'relative w-12' : 'absolute inset-y-0 left-0 z-[1150] w-80 max-w-[85vw] shadow-2xl xl:relative xl:z-auto xl:shadow-none'} shrink-0 bg-white border-r border-border transition-all flex flex-col`}>
           
           <div className="flex items-center justify-between p-3 border-b border-border">
             {!collapsed &&

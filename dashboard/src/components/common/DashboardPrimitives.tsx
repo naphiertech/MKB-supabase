@@ -41,7 +41,7 @@ export function SummaryCard({
         <div className="min-w-0">
           <p className="ui-eyebrow">{label}</p>
           <p className="mt-1 text-2xl font-semibold leading-none tracking-tight text-foreground tabular-nums">{value}</p>
-          {helper && <p className="mt-1 truncate text-xs text-muted-foreground">{helper}</p>}
+          {helper && <p className="text-wrap-safe mt-1 text-xs text-muted-foreground">{helper}</p>}
         </div>
       </div>
     </article>
@@ -140,5 +140,5 @@ export function ContentCard({ children, className = '' }: { children: ReactNode;
 }
 
 export function ToolbarSurface({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`ui-toolbar ${className}`}>{children}</div>;
+  return <div className={`ui-toolbar min-w-0 ${className}`}>{children}</div>;
 }

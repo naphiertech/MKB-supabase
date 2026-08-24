@@ -182,7 +182,7 @@ export function RiderMap({
             duration: 0.6
           })
           }
-          className="w-9 h-9 rounded-md bg-white border border-border text-foreground hover:bg-accent hover:border-primary/40 hover:text-primary flex items-center justify-center shadow-sm transition-colors"
+          className="map-control-button rounded-md bg-white border border-border text-foreground hover:bg-accent hover:border-primary/40 hover:text-primary flex items-center justify-center shadow-sm transition-colors"
           aria-label="Recenter on me"
           title="Recenter">
           
@@ -193,7 +193,7 @@ export function RiderMap({
           onClick={() =>
           setActiveLayer((l) => l === 'dark' ? 'satellite' : 'dark')
           }
-          className="h-9 px-2.5 rounded-md bg-white border border-border text-foreground hover:bg-accent hover:border-primary/40 hover:text-primary flex items-center gap-1.5 shadow-sm transition-colors text-xs font-medium"
+          className="map-control-button rounded-md bg-white border border-border px-2.5 text-foreground hover:bg-accent hover:border-primary/40 hover:text-primary flex items-center gap-1.5 shadow-sm transition-colors text-xs font-medium"
           aria-label={
           isSatellite ? 'Switch to default map' : 'Switch to satellite map'
           }
@@ -202,19 +202,19 @@ export function RiderMap({
           }>
           
           <span aria-hidden="true">{isSatellite ? '🗺' : '🛰'}</span>
-          <span>{isSatellite ? 'Default' : 'Satellite'}</span>
+          <span className="hidden sm:inline">{isSatellite ? 'Default' : 'Satellite'}</span>
         </button>
       </div>
 
       {/* Zone tag */}
-      <div className="absolute top-3 left-3 z-[400] flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-md border border-border text-xs shadow-sm">
+      <div className="map-overlay-card absolute left-3 top-3 z-[400] flex max-w-[calc(100%-7rem)] items-center gap-2 rounded-md border border-border bg-white/95 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur-md">
         <span
           className="w-2 h-2 rounded-full"
           style={{
             background: zone.color
           }} />
         
-        <span className="text-foreground font-medium">{zone.name}</span>
+        <span className="min-w-0 truncate text-foreground font-medium">{zone.name}</span>
         <span className="text-subtle-text font-mono">·</span>
         <span className="text-muted-foreground font-mono">
           {zone.zone_type === 'polygon' ? 'Polygon' : `${zone.radius}m`}
@@ -222,7 +222,7 @@ export function RiderMap({
       </div>
 
       {/* Coords pill */}
-      <div className="absolute bottom-3 left-3 z-[400] px-2.5 py-1.5 rounded-md bg-white/95 backdrop-blur-md border border-border text-[11px] text-muted-foreground font-mono tabular-nums shadow-sm">
+      <div className="absolute bottom-3 left-3 z-[400] max-w-[calc(100%-1.5rem)] truncate rounded-md border border-border bg-white/95 px-2.5 py-1.5 font-mono text-[11px] tabular-nums text-muted-foreground shadow-sm backdrop-blur-md">
         {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
       </div>
     </div>);
