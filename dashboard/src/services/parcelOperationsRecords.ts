@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { getRiderWorkforceDirectory } from './workforceDirectoryService';
-import { resolveAttendanceSummaryFacts } from './attendanceSummaryPolicy';
+import { resolveAttendanceSummaryFacts } from '../lib/attendance/attendanceSummaryPolicy';
 import { logActivity } from '../lib/apiService';
 import { getLocalDateString } from './attendanceService';
 import { syncPayrollRecordsFromParcelLogs, getCutoffRangeForDate } from './parcelService';

@@ -1,4 +1,4 @@
-import { isSameEmail, isStaffRole, validateStaffEmail } from '../../services/staffProfilePolicy';
+import { isSameEmail, isStaffRole, validateStaffEmail } from '../../lib/users/staffProfilePolicy';
 import type { Zone } from '../../services/types';
 
 export type EditableRole = 'admin' | 'hr' | 'rider' | 'payroll';

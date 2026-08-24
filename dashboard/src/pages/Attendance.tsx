@@ -23,7 +23,7 @@ import { toast } from 'react-hot-toast';
 import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 import { exportAttendanceCsv, exportAttendancePdf } from '../lib/exports/attendanceExport';
 import { getCachedAvatar } from '../lib/avatarCache';
-import { isEmploymentActiveOnDate } from '../services/employmentLifecycle';
+import { isEmploymentActiveOnDate } from '../lib/workforce/employmentLifecycle';
 import type { EmploymentStatus } from '../services/types';
 import { useAttendanceRealtimeVersion } from '../context/attendanceRealtimeContext';
 

@@ -16,7 +16,7 @@ import {
 import { logoutCurrentSessionLocally } from '../services/authSecurity';
 import { clearRiderSensitiveCache } from '../services/riderCacheService';
 import { getStaffAvatarSignedUrl } from '../services/userService';
-import { isStaffRole } from '../services/staffProfilePolicy';
+import { isStaffRole } from '../lib/users/staffProfilePolicy';
 
 const STORAGE_KEY = "attenrider.session.v1";
 

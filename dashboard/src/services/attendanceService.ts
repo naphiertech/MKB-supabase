@@ -8,7 +8,7 @@ import { downloadCsv } from '../lib/exports/exportUtils';
 import {
   resolveAttendancePunctuality,
   resolveAttendanceSummaryFacts,
-} from './attendanceSummaryPolicy';
+} from '../lib/attendance/attendanceSummaryPolicy';
 
 // Helper to convert dynamic timestamps (timestamptz) back to HH:MM format in local timezone
 function toHHMM(dateStr: string | null): string | null {

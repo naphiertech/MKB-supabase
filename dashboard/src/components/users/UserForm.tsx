@@ -35,7 +35,7 @@ import {
   validate,
 } from "./userFormUtils";
 import { checkEmployeeDuplicates } from "../../services/userService";
-import { getMissingStaffProfileFields, isStaffRole } from "../../services/staffProfilePolicy";
+import { getMissingStaffProfileFields, isStaffRole } from "../../lib/users/staffProfilePolicy";
 import type { Hub } from "../../services/hubService";
 
 type UserWithExtensions = AppUser &

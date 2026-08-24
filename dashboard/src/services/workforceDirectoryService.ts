@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { isEmploymentActiveOnDate } from './employmentLifecycle';
+import { isEmploymentActiveOnDate } from '../lib/workforce/employmentLifecycle';
 import type { EmploymentStatus } from './types';
 import { getSelectedHubId } from '../lib/hubWorkspaceState';
 

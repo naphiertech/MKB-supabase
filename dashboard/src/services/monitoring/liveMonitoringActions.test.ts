@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ logViolation: vi.fn(), logActivity: vi.fn() }));
-vi.mock('./monitoringService', () => ({ logViolation: mocks.logViolation }));
-vi.mock('../lib/apiService', () => ({ logActivity: mocks.logActivity }));
+vi.mock('../monitoringService', () => ({ logViolation: mocks.logViolation }));
+vi.mock('../../lib/apiService', () => ({ logActivity: mocks.logActivity }));
 
 import { createLiveMonitoringManualFlag, phoneHref } from './liveMonitoringActions';
 

@@ -34,7 +34,7 @@ import {
   setUserAccountAccess,
 } from '../services/adminUserService';
 import { EmploymentLifecycleModal } from '../components/users/EmploymentLifecycleModal';
-import type { ArchiveInput } from '../services/employmentLifecycle';
+import type { ArchiveInput } from '../lib/workforce/employmentLifecycle';
 import { createSyncOperationId } from '../lib/storage';
 import { recoveryRedirectUrl } from '../lib/authRecoveryRoute';
 import {
@@ -47,7 +47,7 @@ import {
   createUserProfile,
   getStaffAvatarSignedUrl,
 } from '../services/userService';
-import { isStaffRole } from '../services/staffProfilePolicy';
+import { isStaffRole } from '../lib/users/staffProfilePolicy';
 import { setUserHubAccess } from '../services/hubService';
 import { useHub } from '../context/HubContext';
 

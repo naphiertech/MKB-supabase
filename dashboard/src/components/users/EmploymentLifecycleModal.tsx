@@ -6,7 +6,7 @@ import {
   validateArchiveInput,
   type ArchiveInput,
   type ArchiveReason,
-} from '../../services/employmentLifecycle';
+} from '../../lib/workforce/employmentLifecycle';
 import type { AppUser } from '../../services/types';
 
 interface EmploymentLifecycleModalProps {

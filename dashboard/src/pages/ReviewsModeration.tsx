@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getReviews, approveReview, deleteReview } from '../services/reviewService';
+import { getReviews, approveReview, deleteReview } from '../services/reviews/reviewService';
 import { Star, Trash2, CheckCircle2, Clock, ThumbsUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';

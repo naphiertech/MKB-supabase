@@ -6,7 +6,7 @@ import {
   bulkApprovePayrollRecords,
   bulkMarkPayrollRecordsPaid,
 } from './payrollBulkActions';
-import { resolveAttendanceSummaryFacts } from './attendanceSummaryPolicy';
+import { resolveAttendanceSummaryFacts } from '../lib/attendance/attendanceSummaryPolicy';
 
 export interface ParcelLog {
   id: string;

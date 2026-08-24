@@ -27,7 +27,7 @@ import { pushToast } from '../../hooks/useToast';
 import { getUserTrustedDevice, resetUserTrustedDevice } from '../../services/riderService';
 import { DeviceResetModal, type TrustedDeviceInfo } from './DeviceResetModal';
 import { RiderDocumentsTab } from './RiderDocumentsTab';
-import { getMissingStaffProfileFields, isStaffRole } from '../../services/staffProfilePolicy';
+import { getMissingStaffProfileFields, isStaffRole } from '../../lib/users/staffProfilePolicy';
 import { getRiderAssignmentWorkspace, type RiderAssignmentRow } from '../../services/riderAssignmentService';
 
 function formatTimeString(dateStr: string | null): string {

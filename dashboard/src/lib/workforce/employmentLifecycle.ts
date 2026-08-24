@@ -1,4 +1,4 @@
-import type { EmploymentStatus } from './types';
+import type { EmploymentStatus } from '../../services/types';
 
 export const ARCHIVE_REASONS = ['Resigned', 'Terminated', 'Contract Ended', 'Retired', 'Other'] as const;
 export type ArchiveReason = (typeof ARCHIVE_REASONS)[number];

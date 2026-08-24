@@ -1,7 +1,7 @@
 import { logActivity } from '../lib/apiService';
 import { supabase } from '../lib/supabaseClient';
 import { requestPasswordRecovery } from './authSecurity';
-import type { ArchiveReason } from './employmentLifecycle';
+import type { ArchiveReason } from '../lib/workforce/employmentLifecycle';
 import { createSyncOperationId } from '../lib/storage';
 
 export interface PasswordResetTarget {

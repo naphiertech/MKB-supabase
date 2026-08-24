@@ -29,7 +29,7 @@ import { AccountSecurityControls } from '../components/settings/AccountSecurityC
 import { NotificationPreferencesPanel } from '../components/settings/NotificationPreferencesPanel';
 import { useNotificationContext } from '../context/NotificationContext';
 import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '../services/notificationPreferenceService';
-import { getMissingStaffProfileFields, isSameEmail, isStaffRole, validateStaffEmail } from '../services/staffProfilePolicy';
+import { getMissingStaffProfileFields, isSameEmail, isStaffRole, validateStaffEmail } from '../lib/users/staffProfilePolicy';
 import { StaffEmailStatus } from '../components/settings/StaffEmailStatus';
 
 type TabType = 'Personal Detail' | 'Security' | 'Notification' | 'Attendance Policy' | 'Payroll & Parcel Rates';

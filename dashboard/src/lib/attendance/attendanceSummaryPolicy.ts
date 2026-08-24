@@ -1,4 +1,4 @@
-import type { PunctualityStatus } from './types';
+import type { PunctualityStatus } from '../../services/types';
 
 export interface AttendanceSummaryInput {
   timeIn?: string | null;

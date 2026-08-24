@@ -1,4 +1,4 @@
-import type { UserRole } from './types';
+import type { UserRole } from '../../services/types';
 
 export const STAFF_ALLOWED_EMAIL_DOMAINS = ['gmail.com'] as const;
 
