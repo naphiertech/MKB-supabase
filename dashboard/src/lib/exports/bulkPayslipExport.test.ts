@@ -45,7 +45,7 @@ function payslip(mkbId: string, standardRate = 12): PayslipDocumentData {
       failedParcels: 0, returnedParcels: 0, standardEarnings: standardRate * 3,
       heavyEarnings: 34, grossDeliveryPay: gross,
     },
-    adjustments: { otherEarnings: 0, fmPickupCount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+    adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
     totals: { totalEarnings: gross, totalDeductions: 0, netPay: gross },
   };
 }

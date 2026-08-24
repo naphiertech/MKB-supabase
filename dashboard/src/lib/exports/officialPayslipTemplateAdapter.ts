@@ -162,12 +162,12 @@ export async function createOfficialPayslipXLSXBlob(
     }
 
     worksheet.getCell(`D${otherEarningsRow}`).value = adjustments.otherEarnings / 5;
-    worksheet.getCell(`C${fmPickUpRow}`).value = adjustments.fmPickupCount;
+    worksheet.getCell(`C${fmPickUpRow}`).value = adjustments.legacyFmPickupCount ?? null;
     worksheet.getCell(`N${deductionsRow}`).value = adjustments.deductions;
     worksheet.getCell(`C${lateOnholdRow}`).value = adjustments.lateOnhold;
     worksheet.getCell(`C${lateRemittanceRow}`).value = adjustments.lateRemittance;
     worksheet.getCell(`N${otherEarningsRow}`).value = { formula: `D${otherEarningsRow}*5` };
-    worksheet.getCell(`N${fmPickUpRow}`).value = { formula: `C${fmPickUpRow}*3` };
+    worksheet.getCell(`N${fmPickUpRow}`).value = adjustments.fmPickupAmount;
     worksheet.getCell(`N${lateOnholdRow}`).value = {
       formula: `C${lateOnholdRow}+C${lateRemittanceRow}+K${lateOnholdRow}+K${lateRemittanceRow}`,
     };

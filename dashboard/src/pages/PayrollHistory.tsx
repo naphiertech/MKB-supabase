@@ -53,9 +53,15 @@ export interface HistoricalRecord {
   snapshot_finalized_at: string | null;
   other_earnings: number | null;
   fm_pickup_count: number | null;
+  fm_pickup_amount: number;
   deductions: number | null;
   late_onhold: number | null;
   late_remittance: number | null;
+  adjustment_snapshot: unknown;
+  adjustment_snapshot_version: number | null;
+  total_earnings_snapshot: number | null;
+  total_deductions_snapshot: number | null;
+  net_pay_snapshot: number | null;
   notes: string | null;
   status: PayrollStatus;
   created_at: string;
@@ -1096,22 +1102,22 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
                   <span className="text-muted-foreground">Gross Base Pay:</span>
                   <span className="font-bold text-foreground">{phpFmt(selectedRiderRecord.gross_pay || 0)}</span>
                 </div>
-                {Number(selectedRiderRecord.fm_pickup_count || 0) > 0 && (
+                {Number(payslipAdjustmentsFromRecord(selectedRiderRecord).fmPickupAmount || 0) > 0 && (
                   <div className="flex justify-between border-b border-border pb-1 text-emerald-700">
-                    <span>FM Pickups Bonus ({selectedRiderRecord.fm_pickup_count} @ ₱3):</span>
+                    <span>{payslipAdjustmentsFromRecord(selectedRiderRecord).definitions?.find((item) => item.code === 'fm_pickup')?.label || 'FM Pick Up'}:</span>
                     <span className="font-bold">+₱{calculatePayrollRecordTotals(selectedRiderRecord).fmPickupEarnings}</span>
                   </div>
                 )}
                 {Number(selectedRiderRecord.other_earnings || 0) > 0 && (
                   <div className="flex justify-between border-b border-border pb-1 text-emerald-700">
-                    <span>Other Allowances:</span>
+                    <span>{payslipAdjustmentsFromRecord(selectedRiderRecord).definitions?.find((item) => item.code === 'other_earnings')?.label || 'Other Earnings'}:</span>
                     <span className="font-bold">+₱{selectedRiderRecord.other_earnings}</span>
                   </div>
                 )}
-                {Number(selectedRiderRecord.deductions || 0) > 0 && (
+                {calculatePayrollRecordTotals(selectedRiderRecord).totalDeductions > 0 && (
                   <div className="flex justify-between border-b border-border pb-1 text-red-600">
                     <span>Total Deductions / Penalties:</span>
-                    <span className="font-bold">-{phpFmt(selectedRiderRecord.deductions || 0)}</span>
+                    <span className="font-bold">-{phpFmt(calculatePayrollRecordTotals(selectedRiderRecord).totalDeductions)}</span>
                   </div>
                 )}
 

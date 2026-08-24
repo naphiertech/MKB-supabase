@@ -23,11 +23,11 @@ describe('typed payslip document data', () => {
         failedParcels: 1, returnedParcels: 0, standardEarnings: 120, heavyEarnings: 34,
         grossDeliveryPay: 154,
       },
-      adjustments: { otherEarnings: 20, fmPickupCount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
+      adjustments: { otherEarnings: 20, fmPickupAmount: 6, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
     });
 
     expect(data?.rider).toEqual({ name: 'Juan Rider', mkbId: 'MKB-2009', zoneName: 'North' });
-    expect(data?.adjustments).toEqual({ otherEarnings: 20, fmPickupCount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 });
+    expect(data?.adjustments).toMatchObject({ otherEarnings: 20, fmPickupAmount: 6, deductions: 10, lateOnhold: 5, lateRemittance: 7 });
     expect(data?.totals).toEqual({ totalEarnings: 180, totalDeductions: 22, netPay: 158 });
   });
 });

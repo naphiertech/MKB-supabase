@@ -3,6 +3,7 @@ import { type PayrollRecordShape } from "./PayrollDetailsModal";
 import { isEditableStatus } from "../../types/payroll";
 import { BRANDING } from "../../config/branding";
 import { type OperationalParcelSummary } from "../../services/parcelService";
+import type { PayrollAdjustmentCode, PayrollAdjustmentDefinitionLike } from "../../lib/payroll/payrollAdjustments";
 
 interface PayslipSlipCardProps {
   record: PayrollRecordShape;
@@ -12,8 +13,8 @@ interface PayslipSlipCardProps {
   calculationVersion: number;
   otherEarnings: number;
   setOtherEarnings: (val: number) => void;
-  fmPickupCount: number;
-  setFmPickupCount: (val: number) => void;
+  fmPickupAmount: number;
+  setFmPickupAmount: (val: number) => void;
   deductions: number;
   setDeductions: (val: number) => void;
   lateOnhold: number;
@@ -26,6 +27,7 @@ interface PayslipSlipCardProps {
   isAdjustmentsChanged: boolean;
   isSavingAdjustments: boolean;
   handleSaveAdjustments: () => Promise<void>;
+  definitions?: PayrollAdjustmentDefinitionLike[];
 }
 
 function phpFmt(n: number) {
@@ -43,8 +45,8 @@ export function PayslipSlipCard({
   calculationVersion,
   otherEarnings,
   setOtherEarnings,
-  fmPickupCount,
-  setFmPickupCount,
+  fmPickupAmount,
+  setFmPickupAmount,
   deductions,
   setDeductions,
   lateOnhold,
@@ -57,7 +59,24 @@ export function PayslipSlipCard({
   isAdjustmentsChanged,
   isSavingAdjustments,
   handleSaveAdjustments,
+  definitions = [],
 }: PayslipSlipCardProps) {
+  const definitionFor = (code: PayrollAdjustmentCode, fallbackLabel: string) =>
+    definitions.find((definition) => definition.code === code)
+    ?? {
+      code,
+      label: fallbackLabel,
+      category: code === 'other_earnings' || code === 'fm_pickup' ? 'earning' as const : 'deduction' as const,
+      input_mode: 'manual_amount' as const,
+      active: true,
+    };
+  const otherEarningsDefinition = definitionFor('other_earnings', 'Other Earnings');
+  const fmPickupDefinition = definitionFor('fm_pickup', 'FM Pick Up');
+  const deductionsDefinition = definitionFor('general_deductions', 'General Deductions');
+  const lateOnholdDefinition = definitionFor('late_onhold', 'Late Onhold / FM');
+  const lateRemittanceDefinition = definitionFor('late_remittance', 'Late Remittance');
+  const canEdit = (definition: PayrollAdjustmentDefinitionLike) =>
+    role === "payroll" && isEditableStatus(record.status) && definition.active;
   return (
     <div className="border border-border bg-white rounded-xl p-5 shadow-sm space-y-4">
       <div className="text-center space-y-1 pb-4 border-b border-border border-dashed">
@@ -108,8 +127,8 @@ export function PayslipSlipCard({
 
           {/* Option B: Other Earnings Input */}
           <div className="flex justify-between items-center pt-1 border-t border-border/40">
-            <span className="text-muted-foreground">Other Earnings</span>
-            {role === "payroll" && isEditableStatus(record.status) ? (
+            <span className="text-muted-foreground">{otherEarningsDefinition.label}</span>
+            {canEdit(otherEarningsDefinition) ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-subtle-text">₱</span>
                 <input
@@ -127,30 +146,29 @@ export function PayslipSlipCard({
             )}
           </div>
 
-          {/* Option B: FM Pick Up Count Input */}
+          {/* FM Pick Up is a manual peso amount. */}
           <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">FM Pick Up</span>
-            {role === "payroll" && isEditableStatus(record.status) ? (
+            <span className="text-muted-foreground">{fmPickupDefinition.label}</span>
+            {canEdit(fmPickupDefinition) ? (
               <div className="flex items-center gap-1">
-                <span className="text-[10px] text-subtle-text">Qty</span>
+                <span className="text-[10px] text-subtle-text">₱</span>
                 <input
                   type="number"
-                  value={fmPickupCount === 0 ? "" : fmPickupCount}
-                  placeholder="0"
-                  onChange={(e) => setFmPickupCount(Number(e.target.value))}
+                  value={fmPickupAmount === 0 ? "" : fmPickupAmount}
+                  placeholder="0.00"
+                  onChange={(e) => setFmPickupAmount(Number(e.target.value))}
                   className="w-16 h-6 px-1.5 text-right font-mono text-[11px] border border-border bg-white rounded focus:border-primary focus:ring-1 focus:ring-primary outline-none transition"
                 />
               </div>
             ) : (
               <span className="font-mono tabular-nums text-foreground">
-                {phpFmt(fmPickupCount * 3)}
+                {phpFmt(fmPickupAmount)}
               </span>
             )}
           </div>
-          {fmPickupCount > 0 && (
+          {!fmPickupDefinition.active && (
             <div className="pl-3 text-[10px] text-subtle-text flex justify-between font-mono">
-              <span>({fmPickupCount} pickups @ ₱3.00/pc)</span>
-              <span>{phpFmt(fmPickupCount * 3)}</span>
+              <span>Inactive for new entry; existing value is preserved.</span>
             </div>
           )}
 
@@ -168,8 +186,8 @@ export function PayslipSlipCard({
         </div>
         <div className="text-xs space-y-1.5">
           <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">General Deductions</span>
-            {role === "payroll" && isEditableStatus(record.status) ? (
+            <span className="text-muted-foreground">{deductionsDefinition.label}</span>
+            {canEdit(deductionsDefinition) ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-subtle-text">₱</span>
                 <input
@@ -188,8 +206,8 @@ export function PayslipSlipCard({
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Late Onhold / FM</span>
-            {role === "payroll" && isEditableStatus(record.status) ? (
+            <span className="text-muted-foreground">{lateOnholdDefinition.label}</span>
+            {canEdit(lateOnholdDefinition) ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-subtle-text">₱</span>
                 <input
@@ -208,8 +226,8 @@ export function PayslipSlipCard({
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Late Remittance</span>
-            {role === "payroll" && isEditableStatus(record.status) ? (
+            <span className="text-muted-foreground">{lateRemittanceDefinition.label}</span>
+            {canEdit(lateRemittanceDefinition) ? (
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-subtle-text">₱</span>
                 <input

@@ -41,7 +41,16 @@ import { PayslipSlipCard } from "./PayslipSlipCard";
 import { useParcelLogsRealtimeVersion } from "../../hooks/useParcelLogsRealtimeVersion";
 import { PayrollActorIdentity } from "./PayrollActorIdentity";
 import { RightDrawer } from "../common/RightDrawer";
-import { calculatePayrollAdjustmentTotals } from "../../lib/payroll/payrollAdjustments";
+import {
+  calculatePayrollAdjustmentTotals,
+  calculatePayrollRecordTotals,
+  payslipAdjustmentsFromRecord,
+  type PayrollAdjustmentDefinitionLike,
+} from "../../lib/payroll/payrollAdjustments";
+import {
+  listPayrollAdjustmentDefinitions,
+  toPayrollAdjustmentDefinitionLike,
+} from "../../services/payroll/earningsDeductionsService";
 
 export interface PayrollRecordShape {
   id: string;
@@ -61,9 +70,15 @@ export interface PayrollRecordShape {
   status: string;
   other_earnings?: number;
   fm_pickup_count?: number;
+  fm_pickup_amount?: number;
   deductions?: number;
   late_onhold?: number;
   late_remittance?: number;
+  adjustment_snapshot?: unknown;
+  adjustment_snapshot_version?: number | null;
+  total_earnings_snapshot?: number | null;
+  total_deductions_snapshot?: number | null;
+  net_pay_snapshot?: number | null;
   submitted_by?: string;
   submitted_at?: string;
   submitted_by_name_snapshot?: string | null;
@@ -191,11 +206,12 @@ export function PayrollDetailsModal({
 
   // Option B: Dynamic adjustments states
   const [otherEarnings, setOtherEarnings] = useState(0);
-  const [fmPickupCount, setFmPickupCount] = useState(0);
+  const [fmPickupAmount, setFmPickupAmount] = useState(0);
   const [deductions, setDeductions] = useState(0);
   const [lateOnhold, setLateOnhold] = useState(0);
   const [lateRemittance, setLateRemittance] = useState(0);
   const [isSavingAdjustments, setIsSavingAdjustments] = useState(false);
+  const [adjustmentDefinitions, setAdjustmentDefinitions] = useState<PayrollAdjustmentDefinitionLike[]>([]);
   const parcelLogsVersion = useParcelLogsRealtimeVersion(
     record?.rider_id,
     record?.cutoff_start,
@@ -225,13 +241,14 @@ export function PayrollDetailsModal({
         }
 
         const shouldLoadLiveTelemetry = isEditableStatus(record.status);
-        const [fetchedMetrics, deliveryData] = await Promise.all([
+        const [fetchedMetrics, deliveryData, definitionRows] = await Promise.all([
           shouldLoadLiveTelemetry ? getRiderPayrollMetrics(
             record.rider_id,
             record.cutoff_start,
             record.cutoff_end,
           ) : Promise.resolve<PayrollMetrics>({ presentDays: 0, lateDays: 0, violationsCount: 0, attendanceLogs: [], violations: [] }),
           getPayrollDeliveryData(record),
+          listPayrollAdjustmentDefinitions(),
         ]);
 
         if (active) {
@@ -241,12 +258,14 @@ export function PayrollDetailsModal({
           setDeliverySource(deliveryData.source);
           setCalculationVersion(deliveryData.calculationVersion);
 
-          // Option B: Initialize adjustments state from record
-          setOtherEarnings(Number(record.other_earnings ?? 0));
-          setFmPickupCount(Number(record.fm_pickup_count ?? 0));
-          setDeductions(Number(record.deductions ?? 0));
-          setLateOnhold(Number(record.late_onhold ?? 0));
-          setLateRemittance(Number(record.late_remittance ?? 0));
+          const currentDefinitions = definitionRows.map(toPayrollAdjustmentDefinitionLike);
+          const resolvedAdjustments = payslipAdjustmentsFromRecord(record, currentDefinitions);
+          setOtherEarnings(Number(resolvedAdjustments.otherEarnings ?? 0));
+          setFmPickupAmount(Number(resolvedAdjustments.fmPickupAmount ?? 0));
+          setDeductions(Number(resolvedAdjustments.deductions ?? 0));
+          setLateOnhold(Number(resolvedAdjustments.lateOnhold ?? 0));
+          setLateRemittance(Number(resolvedAdjustments.lateRemittance ?? 0));
+          setAdjustmentDefinitions(resolvedAdjustments.definitions ?? currentDefinitions);
 
           // Default selected day to the latest day with parcel deliveries, or just the first day in logs
           const withDeliveries = deliveryData.lines.filter((l) => l.parcels + l.heavyParcels > 0);
@@ -365,7 +384,7 @@ export function PayrollDetailsModal({
         .from("payroll_records")
         .update({
           other_earnings: otherEarnings,
-          fm_pickup_count: fmPickupCount,
+          fm_pickup_amount: fmPickupAmount,
           deductions,
           late_onhold: lateOnhold,
           late_remittance: lateRemittance,
@@ -383,7 +402,7 @@ export function PayrollDetailsModal({
           record_id: record.id,
           adjustments: {
             other_earnings: otherEarnings,
-            fm_pickup_count: fmPickupCount,
+            fm_pickup_amount: fmPickupAmount,
             deductions,
             late_onhold: lateOnhold,
             late_remittance: lateRemittance,
@@ -410,24 +429,34 @@ export function PayrollDetailsModal({
   };
 
   // Payslip Slip - Option B: Dynamic calculations
-  const {
-    totalEarnings,
-    totalDeductions,
-    netPay: netSalary,
-  } = calculatePayrollAdjustmentTotals(grossPay, {
+  const editableTotals = calculatePayrollAdjustmentTotals(grossPay, {
     otherEarnings,
-    fmPickupCount,
+    fmPickupAmount,
     deductions,
     lateOnhold,
     lateRemittance,
   });
+  const {
+    totalEarnings,
+    totalDeductions,
+    netPay: netSalary,
+  } = isEditableStatus(record.status) ? editableTotals : calculatePayrollRecordTotals(record);
 
   const isAdjustmentsChanged =
     otherEarnings !== Number(record.other_earnings ?? 0) ||
-    fmPickupCount !== Number(record.fm_pickup_count ?? 0) ||
+    fmPickupAmount !== Number(payslipAdjustmentsFromRecord(record, adjustmentDefinitions).fmPickupAmount ?? 0) ||
     deductions !== Number(record.deductions ?? 0) ||
     lateOnhold !== Number(record.late_onhold ?? 0) ||
     lateRemittance !== Number(record.late_remittance ?? 0);
+  const exportAdjustments = {
+    ...payslipAdjustmentsFromRecord(record, adjustmentDefinitions),
+    otherEarnings,
+    fmPickupAmount,
+    deductions,
+    lateOnhold,
+    lateRemittance,
+    definitions: adjustmentDefinitions,
+  };
 
   // Action updates status in database
   const handleUpdateStatus = async (
@@ -482,13 +511,7 @@ export function PayrollDetailsModal({
         record.cutoff_end,
         payslipDays,
         snapshotContext,
-        {
-          otherEarnings,
-          fmPickupCount,
-          deductions,
-          lateOnhold,
-          lateRemittance
-        }
+        exportAdjustments
       );
       pushToast({
         title: "PDF Exported",
@@ -534,13 +557,7 @@ export function PayrollDetailsModal({
         payslipDays,
         snapshotContext,
         atmNumber,
-        {
-          otherEarnings,
-          fmPickupCount,
-          deductions,
-          lateOnhold,
-          lateRemittance
-        }
+        exportAdjustments
       );
 
       pushToast({
@@ -875,8 +892,8 @@ export function PayrollDetailsModal({
                 calculationVersion={calculationVersion}
                 otherEarnings={otherEarnings}
                 setOtherEarnings={setOtherEarnings}
-                fmPickupCount={fmPickupCount}
-                setFmPickupCount={setFmPickupCount}
+                fmPickupAmount={fmPickupAmount}
+                setFmPickupAmount={setFmPickupAmount}
                 deductions={deductions}
                 setDeductions={setDeductions}
                 lateOnhold={lateOnhold}
@@ -889,6 +906,7 @@ export function PayrollDetailsModal({
                 isAdjustmentsChanged={isAdjustmentsChanged}
                 isSavingAdjustments={isSavingAdjustments}
                 handleSaveAdjustments={handleSaveAdjustments}
+                definitions={adjustmentDefinitions}
               />
             </div>
 
@@ -1071,13 +1089,7 @@ export function PayrollDetailsModal({
                             record.cutoff_end,
                             payslipDays,
                             snapshotContext,
-                            {
-                              otherEarnings,
-                              fmPickupCount,
-                              deductions,
-                              lateOnhold,
-                              lateRemittance
-                            }
+                            exportAdjustments
                           );
                           pushToast({
                             title: "CSV Exported",

@@ -846,6 +846,105 @@ export type Database = {
           },
         ]
       }
+      payroll_adjustment_definition_audit: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          definition_code: string
+          id: string
+          new_values: Json
+          previous_values: Json
+          reason: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          definition_code: string
+          id?: string
+          new_values: Json
+          previous_values: Json
+          reason: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          definition_code?: string
+          id?: string
+          new_values?: Json
+          previous_values?: Json
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_adjustment_definition_audit_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_adjustment_definition_audit_definition_code_fkey"
+            columns: ["definition_code"]
+            isOneToOne: false
+            referencedRelation: "payroll_adjustment_definitions"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      payroll_adjustment_definitions: {
+        Row: {
+          active: boolean
+          category: string
+          change_reason: string
+          code: string
+          created_at: string
+          created_by: string | null
+          display_name: string
+          input_mode: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          change_reason: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          display_name: string
+          input_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          change_reason?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          display_name?: string
+          input_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_adjustment_definitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_adjustment_definitions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_bulk_operations: {
         Row: {
           completed_at: string | null
@@ -994,6 +1093,8 @@ export type Database = {
       }
       payroll_records: {
         Row: {
+          adjustment_snapshot: Json | null
+          adjustment_snapshot_version: number | null
           approved_at: string | null
           approved_by: string | null
           approved_by_email_snapshot: string | null
@@ -1004,6 +1105,7 @@ export type Database = {
           cutoff_start: string
           deductions: number | null
           early_standard_rate_snapshot: number | null
+          fm_pickup_amount: number
           fm_pickup_count: number | null
           gross_pay: number | null
           heavy_earnings: number
@@ -1015,6 +1117,7 @@ export type Database = {
           late_onhold: number | null
           late_remittance: number | null
           late_standard_rate_snapshot: number | null
+          net_pay_snapshot: number | null
           notes: string | null
           other_earnings: number | null
           paid_at: string | null
@@ -1043,10 +1146,14 @@ export type Database = {
           submitted_by: string | null
           submitted_by_email_snapshot: string | null
           submitted_by_name_snapshot: string | null
+          total_deductions_snapshot: number | null
+          total_earnings_snapshot: number | null
           total_parcels: number
           updated_at: string
         }
         Insert: {
+          adjustment_snapshot?: Json | null
+          adjustment_snapshot_version?: number | null
           approved_at?: string | null
           approved_by?: string | null
           approved_by_email_snapshot?: string | null
@@ -1057,6 +1164,7 @@ export type Database = {
           cutoff_start: string
           deductions?: number | null
           early_standard_rate_snapshot?: number | null
+          fm_pickup_amount?: number
           fm_pickup_count?: number | null
           gross_pay?: number | null
           heavy_earnings?: number
@@ -1068,6 +1176,7 @@ export type Database = {
           late_onhold?: number | null
           late_remittance?: number | null
           late_standard_rate_snapshot?: number | null
+          net_pay_snapshot?: number | null
           notes?: string | null
           other_earnings?: number | null
           paid_at?: string | null
@@ -1096,10 +1205,14 @@ export type Database = {
           submitted_by?: string | null
           submitted_by_email_snapshot?: string | null
           submitted_by_name_snapshot?: string | null
+          total_deductions_snapshot?: number | null
+          total_earnings_snapshot?: number | null
           total_parcels?: number
           updated_at?: string
         }
         Update: {
+          adjustment_snapshot?: Json | null
+          adjustment_snapshot_version?: number | null
           approved_at?: string | null
           approved_by?: string | null
           approved_by_email_snapshot?: string | null
@@ -1110,6 +1223,7 @@ export type Database = {
           cutoff_start?: string
           deductions?: number | null
           early_standard_rate_snapshot?: number | null
+          fm_pickup_amount?: number
           fm_pickup_count?: number | null
           gross_pay?: number | null
           heavy_earnings?: number
@@ -1121,6 +1235,7 @@ export type Database = {
           late_onhold?: number | null
           late_remittance?: number | null
           late_standard_rate_snapshot?: number | null
+          net_pay_snapshot?: number | null
           notes?: string | null
           other_earnings?: number | null
           paid_at?: string | null
@@ -1149,6 +1264,8 @@ export type Database = {
           submitted_by?: string | null
           submitted_by_email_snapshot?: string | null
           submitted_by_name_snapshot?: string | null
+          total_deductions_snapshot?: number | null
+          total_earnings_snapshot?: number | null
           total_parcels?: number
           updated_at?: string
         }
@@ -3510,6 +3627,15 @@ export type Database = {
       }
       unlockrows: { Args: { "": string }; Returns: number }
       update_my_last_login: { Args: never; Returns: undefined }
+      update_payroll_adjustment_definition: {
+        Args: {
+          p_active: boolean
+          p_code: string
+          p_display_name: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string

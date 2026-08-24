@@ -48,7 +48,7 @@ describe('MKB business document theme', () => {
         failedParcels: 1, returnedParcels: 1, standardEarnings: 84, heavyEarnings: 51,
         grossDeliveryPay: 135,
       },
-      adjustments: { otherEarnings: 25, fmPickupCount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 11 },
+      adjustments: { otherEarnings: 25, fmPickupAmount: 6, deductions: 10, lateOnhold: 5, lateRemittance: 11 },
       totals: { totalEarnings: 166, totalDeductions: 26, netPay: 140 },
     };
 

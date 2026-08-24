@@ -65,6 +65,22 @@ select
   timestamptz '2026-08-09 08:00:00+08'
 from generate_series(1, 25) n;
 
+-- These fixtures start directly in submitted states. Mirror the adjustment
+-- snapshot that the normal Draft/Rejected -> Pending transition creates.
+set local session_replication_role = replica;
+update public.payroll_records
+set adjustment_snapshot = private.build_payroll_adjustment_snapshot(
+      other_earnings, fm_pickup_amount, deductions, late_onhold, late_remittance, 2, null
+    ),
+    adjustment_snapshot_version = 2,
+    total_earnings_snapshot = coalesce(gross_pay, 0) + coalesce(other_earnings, 0) + coalesce(fm_pickup_amount, 0),
+    total_deductions_snapshot = coalesce(deductions, 0) + coalesce(late_onhold, 0) + coalesce(late_remittance, 0),
+    net_pay_snapshot = coalesce(gross_pay, 0) + coalesce(other_earnings, 0) + coalesce(fm_pickup_amount, 0)
+      - coalesce(deductions, 0) - coalesce(late_onhold, 0) - coalesce(late_remittance, 0)
+where id::text like 'c1000000-%'
+  and status in ('pending'::public.payroll_status, 'approved'::public.payroll_status, 'paid'::public.payroll_status);
+set local session_replication_role = origin;
+
 create temp table bulk_test_payloads (name text primary key, payload jsonb not null);
 grant select on bulk_test_payloads to authenticated;
 insert into bulk_test_payloads (name, payload)

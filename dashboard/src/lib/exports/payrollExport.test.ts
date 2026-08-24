@@ -53,7 +53,7 @@ describe('official payslip workbook', () => {
 
     await payrollExport.exportParcelPayslipXLSX(
       'Juan Rider', 'MKB-001', '2026-08-01', '2026-08-15', days, snapshot, 'ATM-123',
-      { otherEarnings: 25, fmPickupCount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
+      { otherEarnings: 25, fmPickupAmount: 6, deductions: 10, lateOnhold: 5, lateRemittance: 7, snapshotVersion: 1, legacyFmPickupCount: 2 },
     );
 
     expect(downloadedBlob).toBeDefined();
@@ -81,6 +81,8 @@ describe('official payslip workbook', () => {
     expect(sheet.getCell('C20').value).toBe(5);
     expect(sheet.getCell('C21').value).toBe(7);
     expect(sheet.getCell('N19').value).toBe(10);
+    expect(sheet.getCell('C18').value).toBe(2);
+    expect(sheet.getCell('N18').value).toBe(6);
     expect(sheet.getCell('N20').value).toMatchObject({ formula: 'C20+C21+K20+K21' });
     expect(sheet.getCell('N21').master.address).toBe('N20');
     expect(sheet.getCell('D16').value).toMatchObject({ formula: 'SUM(E9:E15)' });
@@ -93,9 +95,52 @@ describe('official payslip workbook', () => {
       expect(sheet.getColumn(column).values.filter(Boolean)).toEqual([]);
     }
   });
+
+  it('writes new FM Pick Up as a manual peso amount without a quantity formula', async () => {
+    const snapshot: payrollExport.PayslipSnapshotContext = {
+      source: 'snapshot', calculationVersion: 2, standardParcels: 0, heavyParcels: 0,
+      failedParcels: 0, returnedParcels: 0, standardEarnings: 0, heavyEarnings: 0,
+      grossDeliveryPay: 0,
+    };
+    await payrollExport.exportParcelPayslipXLSX(
+      'Manual FM Rider', 'MKB-MANUAL', '2026-08-01', '2026-08-15', [], snapshot, 'ATM-456',
+      { otherEarnings: 0, fmPickupAmount: 7, deductions: 0, lateOnhold: 0, lateRemittance: 0, snapshotVersion: 2 },
+    );
+
+    const output = await loadWorkbook(downloadedBlob!);
+    const sheet = output.worksheets[0];
+    expect(sheet.getCell('C18').value).toBeNull();
+    expect(sheet.getCell('N18').value).toBe(7);
+  });
 });
 
 describe('shared payroll export data', () => {
+  it('uses immutable submitted total snapshots without recalculating them', () => {
+    const data = payrollExport.buildPayslipDocumentData({
+      riderName: 'Historical Rider',
+      mkbId: 'MKB-HISTORY',
+      zoneName: 'Historical Zone',
+      cutoffFrom: '2026-08-01',
+      cutoffTo: '2026-08-15',
+      dayEntries: [],
+      snapshot: {
+        source: 'snapshot', calculationVersion: 2, standardParcels: 0, heavyParcels: 0,
+        failedParcels: 0, returnedParcels: 0, standardEarnings: 100, heavyEarnings: 0,
+        grossDeliveryPay: 100,
+      },
+      adjustments: {
+        otherEarnings: 999,
+        fmPickupAmount: 999,
+        deductions: 999,
+        lateOnhold: 999,
+        lateRemittance: 999,
+        totalsSnapshot: { totalEarnings: 117, totalDeductions: 9, netPay: 108 },
+      },
+    });
+
+    expect(data.totals).toEqual({ totalEarnings: 117, totalDeductions: 9, netPay: 108 });
+  });
+
   it('maps every stored adjustment once and calculates the authoritative net', () => {
     const module = payrollExport as typeof payrollExport & {
       payslipAdjustmentsFromRecord?: (record: Record<string, unknown>) => payrollExport.PayslipAdjustments;
@@ -106,7 +151,7 @@ describe('shared payroll export data', () => {
     const adjustments = module.payslipAdjustmentsFromRecord?.({
       other_earnings: '25', fm_pickup_count: 2, deductions: '10', late_onhold: 5, late_remittance: 7,
     });
-    expect(adjustments).toEqual({ otherEarnings: 25, fmPickupCount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 });
+    expect(adjustments).toEqual({ otherEarnings: 25, fmPickupAmount: 6, deductions: 10, lateOnhold: 5, lateRemittance: 7 });
     expect(module.calculatePayslipNetPay?.(131, adjustments!)).toBe(140);
   });
 

@@ -80,6 +80,20 @@ select
   case when n = 12 then timestamptz '2026-08-11 08:00:00+08' end,
   timestamptz '2026-08-11 08:00:00+08'
 from generate_series(1, 12) n;
+
+-- The migration backfills immutable adjustment snapshots for legacy submitted
+-- rows. Reproduce that post-migration state for these legacy identity fixtures.
+update public.payroll_records
+set adjustment_snapshot = private.build_payroll_adjustment_snapshot(
+      other_earnings, fm_pickup_amount, deductions, late_onhold, late_remittance, 1, fm_pickup_count
+    ),
+    adjustment_snapshot_version = 1,
+    total_earnings_snapshot = coalesce(gross_pay, 0) + coalesce(other_earnings, 0) + coalesce(fm_pickup_amount, 0),
+    total_deductions_snapshot = coalesce(deductions, 0) + coalesce(late_onhold, 0) + coalesce(late_remittance, 0),
+    net_pay_snapshot = coalesce(gross_pay, 0) + coalesce(other_earnings, 0) + coalesce(fm_pickup_amount, 0)
+      - coalesce(deductions, 0) - coalesce(late_onhold, 0) - coalesce(late_remittance, 0)
+where id::text like 'f4000000-%'
+  and status in ('pending'::public.payroll_status, 'approved'::public.payroll_status, 'paid'::public.payroll_status);
 set local session_replication_role = origin;
 
 set local role authenticated;

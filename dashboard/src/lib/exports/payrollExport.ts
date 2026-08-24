@@ -23,6 +23,8 @@ import {
 } from './exportUtils';
 import {
   calculatePayrollAdjustmentTotals,
+  type NormalizedPayslipAdjustments,
+  type PayrollAdjustmentCode,
   type PayslipAdjustments,
 } from '../payroll/payrollAdjustments';
 
@@ -71,7 +73,7 @@ export interface PayslipDocumentData {
   cutoff: { from: string; to: string };
   days: PayslipDay[];
   snapshot: PayslipSnapshotContext;
-  adjustments: Required<PayslipAdjustments>;
+  adjustments: NormalizedPayslipAdjustments & Pick<PayslipAdjustments, 'definitions' | 'snapshotVersion' | 'legacyFmPickupCount' | 'totalsSnapshot'>;
   totals: { totalEarnings: number; totalDeductions: number; netPay: number };
 }
 
@@ -89,7 +91,13 @@ export function buildPayslipDocumentData(input: {
     input.snapshot.grossDeliveryPay,
     input.adjustments,
   );
-  const adjustments = calculated.adjustments;
+  const adjustments = {
+    ...calculated.adjustments,
+    ...(input.adjustments?.definitions ? { definitions: input.adjustments.definitions } : {}),
+    ...(input.adjustments?.snapshotVersion == null ? {} : { snapshotVersion: input.adjustments.snapshotVersion }),
+    ...(input.adjustments?.legacyFmPickupCount == null ? {} : { legacyFmPickupCount: input.adjustments.legacyFmPickupCount }),
+    ...(input.adjustments?.totalsSnapshot ? { totalsSnapshot: input.adjustments.totalsSnapshot } : {}),
+  };
   return {
     rider: { name: input.riderName, mkbId: input.mkbId, zoneName: input.zoneName },
     cutoff: { from: input.cutoffFrom, to: input.cutoffTo },
@@ -97,11 +105,19 @@ export function buildPayslipDocumentData(input: {
     snapshot: input.snapshot,
     adjustments,
     totals: {
-      totalEarnings: calculated.totalEarnings,
-      totalDeductions: calculated.totalDeductions,
-      netPay: calculated.netPay,
+      totalEarnings: input.adjustments?.totalsSnapshot?.totalEarnings ?? calculated.totalEarnings,
+      totalDeductions: input.adjustments?.totalsSnapshot?.totalDeductions ?? calculated.totalDeductions,
+      netPay: input.adjustments?.totalsSnapshot?.netPay ?? calculated.netPay,
     },
   };
+}
+
+function adjustmentLabel(
+  adjustments: PayslipDocumentData['adjustments'],
+  code: PayrollAdjustmentCode,
+  fallback: string,
+): string {
+  return adjustments.definitions?.find((definition) => definition.code === code)?.label ?? fallback;
 }
 
 export function parcelLogsToPayslipDays(entries: Array<{
@@ -229,12 +245,12 @@ export function createParcelPayslipPdf(data: PayslipDocumentData): jsPDF {
   const tableStart = drawSectionHeading(doc, 'Payroll Reconciliation', summaryStart);
   const reconciliationRows: Array<[string, string]> = [
     ['Gross Delivery Pay', formatPdfCurrency(snapshot.grossDeliveryPay)],
-    ['Other Earnings', formatPdfCurrency(adjustments.otherEarnings)],
-    [`FM Pickup Bonus (${adjustments.fmPickupCount} pcs x PHP 3)`, formatPdfCurrency(calculated.fmPickupEarnings)],
+    [adjustmentLabel(adjustments, 'other_earnings', 'Other Earnings'), formatPdfCurrency(adjustments.otherEarnings)],
+    [adjustmentLabel(adjustments, 'fm_pickup', 'FM Pick Up'), formatPdfCurrency(calculated.fmPickupEarnings)],
     ['TOTAL EARNINGS', formatPdfCurrency(data.totals.totalEarnings)],
-    ['General Deductions', formatPdfCurrency(adjustments.deductions)],
-    ['Late Onhold', formatPdfCurrency(adjustments.lateOnhold)],
-    ['Late Remittance', formatPdfCurrency(adjustments.lateRemittance)],
+    [adjustmentLabel(adjustments, 'general_deductions', 'General Deductions'), formatPdfCurrency(adjustments.deductions)],
+    [adjustmentLabel(adjustments, 'late_onhold', 'Late Onhold / FM'), formatPdfCurrency(adjustments.lateOnhold)],
+    [adjustmentLabel(adjustments, 'late_remittance', 'Late Remittance'), formatPdfCurrency(adjustments.lateRemittance)],
     ['TOTAL DEDUCTIONS', formatPdfCurrency(data.totals.totalDeductions)],
     ['NET TAKE-HOME PAY', formatPdfCurrency(data.totals.netPay)],
   ];
@@ -311,13 +327,11 @@ export const exportParcelCSV = (
 
 export function renderParcelPayslipCsv(data: PayslipDocumentData): void {
   const { rider, cutoff, days: dayEntries, snapshot, adjustments: values } = data;
-  const calculated = calculatePayrollAdjustmentTotals(snapshot.grossDeliveryPay, values);
   const totalParcels = snapshot.standardParcels + snapshot.heavyParcels;
   const grossPay = snapshot.grossDeliveryPay;
 
   const otherEarnings = values.otherEarnings;
-  const fmPickupCount = values.fmPickupCount;
-  const fmPickupPay = calculated.fmPickupEarnings;
+  const fmPickupPay = values.fmPickupAmount;
   const totalEarnings = data.totals.totalEarnings;
   const generalDeductions = values.deductions;
   const lateOnhold = values.lateOnhold;
@@ -355,14 +369,14 @@ export function renderParcelPayslipCsv(data: PayslipDocumentData): void {
     ['Standard Earnings', `₱${snapshot.standardEarnings.toFixed(2)}`],
     ['Heavy Earnings', `₱${snapshot.heavyEarnings.toFixed(2)}`],
     ['Gross Delivery Pay', `₱${grossPay.toFixed(2)}`],
-    ['Other Earnings', `₱${otherEarnings.toFixed(2)}`],
-    [`FM Pick Up (${fmPickupCount} pcs)`, `₱${fmPickupPay.toFixed(2)}`],
+    [adjustmentLabel(values, 'other_earnings', 'Other Earnings'), `₱${otherEarnings.toFixed(2)}`],
+    [adjustmentLabel(values, 'fm_pickup', 'FM Pick Up'), `₱${fmPickupPay.toFixed(2)}`],
     ['TOTAL EARNINGS', `₱${totalEarnings.toFixed(2)}`],
     [],
     ['Deductions'],
-    ['General Deductions', `₱${generalDeductions.toFixed(2)}`],
-    ['Late Onhold', `₱${lateOnhold.toFixed(2)}`],
-    ['Late Remittance', `₱${lateRemittance.toFixed(2)}`],
+    [adjustmentLabel(values, 'general_deductions', 'General Deductions'), `₱${generalDeductions.toFixed(2)}`],
+    [adjustmentLabel(values, 'late_onhold', 'Late Onhold / FM'), `₱${lateOnhold.toFixed(2)}`],
+    [adjustmentLabel(values, 'late_remittance', 'Late Remittance'), `₱${lateRemittance.toFixed(2)}`],
     ['TOTAL DEDUCTIONS', `₱${totalDeductions.toFixed(2)}`],
     [],
     ['NET TAKE-HOME PAY', `₱${netTakeHome.toFixed(2)}`]

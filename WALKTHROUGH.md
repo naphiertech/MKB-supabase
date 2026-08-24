@@ -1,6 +1,6 @@
 # MKBRiderTrack Engineering Walkthrough & Codex Handoff
 
-This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent refactoring boundaries, and deferred features as of **August 24, 2026**.
+This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent refactoring boundaries, and deferred features as of **August 25, 2026**.
 
 This walkthrough is derived directly from the active repository source code, Supabase database migrations, test suites, and production build verification across both the Dashboard (`dashboard/`) and Landing (`landing/`) applications.
 
@@ -28,8 +28,8 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 | Role | Primary Responsibilities | Major Module Access | RLS Boundary |
 | :--- | :--- | :--- | :--- |
 | **Admin** | Fleet administration, dynamic attendance policy management, parcel rates, hub lifecycle, user management, employment archiving/restoration, audit review, and overrides | All pages (Dashboard, Tracking & Zones, HR & Employees, Parcel Operations, Finance & Reports, Settings) | Broad administrative access, constrained by deployed RLS policies, PostgreSQL triggers, append-only audit protections, employment-transition rules, and immutable payroll rules |
-| **HR** | Attendance verification, Rider onboarding, assignment and employment lifecycle management, document verification, review moderation | Dashboard, Live Monitoring, Attendance, Employee Registry, Rider Assignments, Reviews, Audit Logs, Daily Parcel Entry, Parcel History, Payroll Checklist | May manage authorized Rider assignments and Archive/Restore Rider employment; cannot manage Admin/HR/Payroll employment; Read-only on Rates and Attendance Policies |
-| **Payroll** | Salary computation, cutoff initialization, payslip generation, payroll exports, approval tracking | Dashboard, Salary Computation, Payroll Reports, Payroll History, Parcel History (Reference) | Read/Write on Payroll Records/Snapshots; Read-only on `parcel_logs`, Attendance, Rates, and Attendance Policies |
+| **HR** | Attendance verification, Rider onboarding, assignment and employment lifecycle management, document verification, review moderation | Dashboard, Live Monitoring, Attendance, Employee Registry, Rider Assignments, Reviews, Audit Logs, Daily Parcel Entry, Parcel History, Payroll Checklist | May manage authorized Rider assignments and Archive/Restore Rider employment; cannot manage Admin/HR/Payroll employment; Read-only on Rates, Attendance Policies, and payroll adjustment definitions |
+| **Payroll** | Salary computation, cutoff initialization, payslip generation, payroll exports, approval tracking | Dashboard, Salary Computation, Payroll Reports, Payroll History, Parcel History (Reference) | Read/Write on Payroll Records/Snapshots; Read-only on `parcel_logs`, Attendance, Rates, Attendance Policies, and payroll adjustment definitions |
 | **Rider** | Selfie Time-In/Out, live location broadcast, offline queue, personal attendance & payslips | Rider Mobile App (Dashboard, Attendance Scanner, Monitoring/Geofence Status, Profile/Payslips) | Read/Write on own Attendance, Locations, Diagnostics; Read-only on own Payslips/Logs |
 
 > [!IMPORTANT]
@@ -58,7 +58,7 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 #### 3. Payroll Role (`PAYROLL_ITEMS`)
 - **Dashboard** (`key: 'dashboard'`)
 - **Compensation** *(Collapsible)*: Salary Computation (`computation`), Payroll Reports (`reports`), Payroll History (`payroll_history`)
-- **Reference** *(Collapsible)*: Parcel History (`parcel_history`) — *Read-only reference access*
+- **Reference** *(Collapsible)*: Parcel History (`parcel_history`), Attendance Policy (`attendance_policy`), Parcel Rates (`parcel_rates`) — *Read-only reference access*
 
 #### 4. Rider Role Navigation (`dashboard/src/components/rider/RiderTopNav.tsx`)
 - Mobile Navigation Bar: Dashboard (`dashboard`), Attendance (`attendance`), Live Map (`monitoring`), Profile & Payslips (`profile`)
@@ -234,9 +234,14 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
 6. **Coverage-Based Cutoff Readiness (`getCutoffPreparationCoverage`)**: Computes exact cutoff readiness by comparing draft records against date-effective eligible fleet riders from `get_payroll_eligible_rider_ids`.
 7. **Centralized Payroll Adjustments (`lib/payroll/payrollAdjustments.ts`)**:
    ```text
-   Net Pay = Gross Pay + Other Earnings + (FM Pickups × ₱3.00) - Deductions - Late On-Hold - Late Remittance
+   Total Earnings = Gross Pay + Other Earnings + FM Pick Up
+   Total Deductions = General Deductions + Late Onhold / FM + Late Remittance
+   Net Pay = Total Earnings - Total Deductions
    ```
-8. **Archive Status Aggregation**: Multi-rider historical cutoffs aggregate as `Paid`, `Approved`, `Submitted`, `Draft`, `Rejected`, or `Mixed` (UI-derived badge).
+   All five adjustments are Rider-specific manual peso amounts entered in Payroll Details. FM Pick Up no longer uses a runtime quantity × ₱3 calculation; the ₱3 multiplier exists only in explicitly named one-time legacy migration/compatibility handling.
+8. **Payroll Adjustment Registry (Backend-Only for Now)**: The database retains the five fixed manual definitions: Other Earnings (`other_earnings`), FM Pick Up (`fm_pickup`), General Deductions (`general_deductions`), Late Onhold / FM (`late_onhold`), and Late Remittance (`late_remittance`). There is currently no standalone configuration route or navigation entry; Payroll Details is the only user-facing adjustment surface. The Admin-only `update_payroll_adjustment_definition(...)` mutation path and database protections remain available for future policy-backed configuration work.
+9. **Immutable Adjustment Snapshots**: Draft/Rejected payroll reads current definitions and editable `payroll_records` amounts. On submission, PostgreSQL freezes all five definition codes, labels, categories, input modes, active states, amounts, snapshot version, Total Earnings, Total Deductions, and Net Pay. Pending/Approved/Paid UI and PDF/CSV/XLSX regeneration read those snapshots, so later definition rename/deactivation cannot alter historical payroll. A Pending record legitimately returned to Draft/Rejected clears and rebuilds its snapshot on resubmission; Approved/Paid snapshots cannot be cleared or rebuilt.
+10. **Archive Status Aggregation**: Multi-rider historical cutoffs aggregate as `Paid`, `Approved`, `Submitted`, `Draft`, `Rejected`, or `Mixed` (UI-derived badge).
 
 ---
 
@@ -385,27 +390,32 @@ Key database tables and views in active use:
 13. `parcel_correction_requests`: Formal parcel correction requests.
 14. `parcel_rate_configurations`: Effective-dated parcel compensation rates.
 15. `parcel_rate_configuration_audit`: Audit trail for rate changes.
-16. `payroll_records`: Derived payroll cutoff summaries.
-17. `payroll_delivery_lines`: Immutable daily delivery line snapshots for finalized payroll.
-18. `payroll_bulk_operations`: Idempotency records for bulk payroll operations.
-19. `rider_documents`: Verified rider licenses and government credentials.
-20. `notifications`: System alerts and in-app notifications.
-21. `activity_logs`: System audit trail.
-22. `violations`: Geofence boundary exits, idle timeouts, and manual flags.
-23. `support_tickets` & `support_ticket_messages`: Support ticket workflows.
-24. `user_notification_preferences`: Per-user notification presentation settings.
-25. `v_attendance_summary`: Date-effective lateral resolution view for attendance and lateness.
-26. `public_hubs` & `public_zones`: Sanitized views for the public landing website.
+16. `payroll_adjustment_definitions`: Fixed five-item manual Earnings & Deductions registry; authenticated staff can read it, while Admin mutations are restricted to `update_payroll_adjustment_definition(...)`.
+17. `payroll_adjustment_definition_audit`: Append-only definition change history including the required reason and Admin actor.
+18. `payroll_records`: Derived payroll cutoff summaries, Rider-specific adjustment amounts, and immutable submitted adjustment/total snapshots.
+19. `payroll_delivery_lines`: Immutable daily delivery line snapshots for finalized payroll.
+20. `payroll_bulk_operations`: Idempotency records for bulk payroll operations.
+21. `rider_documents`: Verified rider licenses and government credentials.
+22. `notifications`: System alerts and in-app notifications.
+23. `activity_logs`: System audit trail.
+24. `violations`: Geofence boundary exits, idle timeouts, and manual flags.
+25. `support_tickets` & `support_ticket_messages`: Support ticket workflows.
+26. `user_notification_preferences`: Per-user notification presentation settings.
+27. `v_attendance_summary`: Date-effective lateral resolution view for attendance and lateness.
+28. `public_hubs` & `public_zones`: Sanitized views for the public landing website.
 
 ---
 
 ## 17. Current Test & Build Verification
 
-Verification executed against active repository state as of **August 24, 2026**:
+Latest verification evidence against the active repository state as of **August 25, 2026**:
 
-- **Dashboard Unit Test Suite (`npm --prefix dashboard test`)**: **PASS (480 / 480 tests passed across 95 test files)**
+- **Dashboard Full Unit Test Baseline (`npm --prefix dashboard test`, August 24)**: **PASS (480 / 480 tests passed across 95 test files)**
+- **Payroll Adjustment Snapshot + Standalone UI Rollback Targeted Tests**: **PASS (35 / 35 tests across 7 test files)**
+- **Earnings & Deductions Database Regression Suite (`earnings_deductions_integrity.test.sql`)**: **PASS (38 / 38 pgTAP assertions)**
+- **Affected Payroll Database Regressions**: `payroll_bulk_actions.test.sql` **PASS (57 / 57)**; `payroll_actor_identity_snapshots.test.sql` **PASS (35 / 35)**.
 - **Attendance Policy Database Regression Suite (`attendance_policy_integrity.test.sql`)**: **PASS (35 / 35 pgTAP assertions)**
-- **Broader Database pgTAP Sweep**: **16 / 17 files passed**; the unrelated `payroll_actor_identity_snapshots.test.sql` currently reports **1 failing assertion out of 35**.
+- **Broader Database pgTAP Sweep**: Not rerun after Earnings & Deductions; the previously failing actor-snapshot file now passes its focused 35-assertion run.
 - **Dashboard and Landing TypeScript Typecheck (`npm run typecheck`)**: **PASS (0 errors)**
 - **Dashboard ESLint (`npm --prefix dashboard run lint`)**: **PASS (0 errors, 17 existing warnings)**
 - **Dashboard Production Build (`npm --prefix dashboard run build`)**: **PASS (Vite production bundle built in ~36s)**

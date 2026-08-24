@@ -92,9 +92,15 @@ export interface PayrollRecordRow {
   updated_at: string;
   other_earnings?: number;
   fm_pickup_count?: number;
+  fm_pickup_amount?: number;
   deductions?: number;
   late_onhold?: number;
   late_remittance?: number;
+  adjustment_snapshot?: unknown;
+  adjustment_snapshot_version?: number | null;
+  total_earnings_snapshot?: number | null;
+  total_deductions_snapshot?: number | null;
+  net_pay_snapshot?: number | null;
   submitted_by?: string;
   submitted_at?: string;
   submitted_by_name_snapshot?: string | null;

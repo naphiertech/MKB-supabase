@@ -3,7 +3,7 @@ import {
   calculatePayrollAdjustmentTotals,
   calculatePayrollRecordTotals,
   calculatePayslipNetPay,
-  FM_PICKUP_RATE,
+  LEGACY_FM_PICKUP_RATE,
   payslipAdjustmentsFromRecord,
   type PayrollAdjustmentsInput,
   type PayrollAdjustmentTotals,
@@ -19,24 +19,24 @@ const cases: Array<{
   {
     name: 'normal values',
     grossPay: 1_000,
-    adjustments: { otherEarnings: 100, fmPickupCount: 5, deductions: 50, lateOnhold: 10, lateRemittance: 5 },
+    adjustments: { otherEarnings: 100, fmPickupAmount: 5, deductions: 50, lateOnhold: 10, lateRemittance: 5 },
     expected: {
       grossPay: 1_000,
-      adjustments: { otherEarnings: 100, fmPickupCount: 5, deductions: 50, lateOnhold: 10, lateRemittance: 5 },
+      adjustments: { otherEarnings: 100, fmPickupAmount: 5, deductions: 50, lateOnhold: 10, lateRemittance: 5 },
       otherEarnings: 100,
-      fmPickupEarnings: 15,
-      totalEarnings: 1_115,
+      fmPickupEarnings: 5,
+      totalEarnings: 1_105,
       totalDeductions: 65,
-      netPay: 1_050,
+      netPay: 1_040,
     },
   },
   {
     name: 'all zero adjustments',
     grossPay: 131,
-    adjustments: { otherEarnings: 0, fmPickupCount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+    adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
     expected: {
       grossPay: 131,
-      adjustments: { otherEarnings: 0, fmPickupCount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
       otherEarnings: 0,
       fmPickupEarnings: 0,
       totalEarnings: 131,
@@ -47,10 +47,10 @@ const cases: Array<{
   {
     name: 'null values',
     grossPay: null,
-    adjustments: { otherEarnings: null, fmPickupCount: null, deductions: null, lateOnhold: null, lateRemittance: null },
+    adjustments: { otherEarnings: null, fmPickupAmount: null, deductions: null, lateOnhold: null, lateRemittance: null },
     expected: {
       grossPay: 0,
-      adjustments: { otherEarnings: 0, fmPickupCount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
       otherEarnings: 0,
       fmPickupEarnings: 0,
       totalEarnings: 0,
@@ -64,7 +64,7 @@ const cases: Array<{
     adjustments: {},
     expected: {
       grossPay: 0,
-      adjustments: { otherEarnings: 0, fmPickupCount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
       otherEarnings: 0,
       fmPickupEarnings: 0,
       totalEarnings: 0,
@@ -75,71 +75,71 @@ const cases: Array<{
   {
     name: 'numeric strings',
     grossPay: '131',
-    adjustments: { otherEarnings: '25', fmPickupCount: '2', deductions: '10', lateOnhold: '5', lateRemittance: '7' },
+    adjustments: { otherEarnings: '25', fmPickupAmount: '2', deductions: '10', lateOnhold: '5', lateRemittance: '7' },
     expected: {
       grossPay: 131,
-      adjustments: { otherEarnings: 25, fmPickupCount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
+      adjustments: { otherEarnings: 25, fmPickupAmount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
       otherEarnings: 25,
-      fmPickupEarnings: 6,
-      totalEarnings: 162,
+      fmPickupEarnings: 2,
+      totalEarnings: 158,
       totalDeductions: 22,
-      netPay: 140,
+      netPay: 136,
     },
   },
   {
-    name: 'FM pickup count at exactly PHP 3 each',
+    name: 'manual FM Pick Up amount',
     grossPay: 100,
-    adjustments: { fmPickupCount: 4 },
+    adjustments: { fmPickupAmount: 4 },
     expected: {
       grossPay: 100,
-      adjustments: { otherEarnings: 0, fmPickupCount: 4, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+      adjustments: { otherEarnings: 0, fmPickupAmount: 4, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
       otherEarnings: 0,
-      fmPickupEarnings: 12,
-      totalEarnings: 112,
+      fmPickupEarnings: 4,
+      totalEarnings: 104,
       totalDeductions: 0,
-      netPay: 112,
+      netPay: 104,
     },
   },
   {
     name: 'negative adjustment values',
     grossPay: 100,
-    adjustments: { otherEarnings: -10, fmPickupCount: -2, deductions: -5, lateOnhold: -3, lateRemittance: -2 },
+    adjustments: { otherEarnings: -10, fmPickupAmount: -2, deductions: -5, lateOnhold: -3, lateRemittance: -2 },
     expected: {
       grossPay: 100,
-      adjustments: { otherEarnings: -10, fmPickupCount: -2, deductions: -5, lateOnhold: -3, lateRemittance: -2 },
+      adjustments: { otherEarnings: -10, fmPickupAmount: -2, deductions: -5, lateOnhold: -3, lateRemittance: -2 },
       otherEarnings: -10,
-      fmPickupEarnings: -6,
-      totalEarnings: 84,
+      fmPickupEarnings: -2,
+      totalEarnings: 88,
       totalDeductions: -10,
-      netPay: 94,
+      netPay: 98,
     },
   },
   {
     name: 'decimal values',
     grossPay: 100.5,
-    adjustments: { otherEarnings: 10.25, fmPickupCount: 1.5, deductions: 2.25, lateOnhold: 1.5, lateRemittance: 0.5 },
+    adjustments: { otherEarnings: 10.25, fmPickupAmount: 1.5, deductions: 2.25, lateOnhold: 1.5, lateRemittance: 0.5 },
     expected: {
       grossPay: 100.5,
-      adjustments: { otherEarnings: 10.25, fmPickupCount: 1.5, deductions: 2.25, lateOnhold: 1.5, lateRemittance: 0.5 },
+      adjustments: { otherEarnings: 10.25, fmPickupAmount: 1.5, deductions: 2.25, lateOnhold: 1.5, lateRemittance: 0.5 },
       otherEarnings: 10.25,
-      fmPickupEarnings: 4.5,
-      totalEarnings: 115.25,
+      fmPickupEarnings: 1.5,
+      totalEarnings: 112.25,
       totalDeductions: 4.25,
-      netPay: 111,
+      netPay: 108,
     },
   },
   {
     name: 'existing payroll document example',
     grossPay: 154,
-    adjustments: { otherEarnings: 20, fmPickupCount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
+    adjustments: { otherEarnings: 20, fmPickupAmount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
     expected: {
       grossPay: 154,
-      adjustments: { otherEarnings: 20, fmPickupCount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
+      adjustments: { otherEarnings: 20, fmPickupAmount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
       otherEarnings: 20,
-      fmPickupEarnings: 6,
-      totalEarnings: 180,
+      fmPickupEarnings: 2,
+      totalEarnings: 176,
       totalDeductions: 22,
-      netPay: 158,
+      netPay: 154,
     },
   },
 ];
@@ -160,7 +160,7 @@ describe('payroll adjustment compatibility helpers', () => {
       late_remittance: '7.5',
     })).toEqual({
       otherEarnings: 25,
-      fmPickupCount: 2,
+      fmPickupAmount: 6,
       deductions: 0,
       lateOnhold: 0,
       lateRemittance: 7.5,
@@ -181,14 +181,14 @@ describe('payroll adjustment compatibility helpers', () => {
   it('retains the existing calculatePayslipNetPay compatibility API', () => {
     expect(calculatePayslipNetPay(131, {
       otherEarnings: 25,
-      fmPickupCount: 2,
+      fmPickupAmount: 6,
       deductions: 10,
       lateOnhold: 5,
       lateRemittance: 7,
     })).toBe(140);
   });
 
-  it('exports the fixed FM pickup rate', () => {
-    expect(FM_PICKUP_RATE).toBe(3);
+  it('exports the explicitly legacy FM pickup rate', () => {
+    expect(LEGACY_FM_PICKUP_RATE).toBe(3);
   });
 });

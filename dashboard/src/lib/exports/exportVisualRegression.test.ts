@@ -61,7 +61,7 @@ describe('representative export rendering', () => {
         failedParcels: 15, returnedParcels: 7, standardEarnings: 4860, heavyEarnings: 765,
         grossDeliveryPay: 5625,
       },
-      adjustments: { otherEarnings: 250, fmPickupCount: 12, deductions: 100, lateOnhold: 50, lateRemittance: 25 },
+      adjustments: { otherEarnings: 250, fmPickupAmount: 36, deductions: 100, lateOnhold: 50, lateRemittance: 25 },
       totals: { totalEarnings: 5911, totalDeductions: 175, netPay: 5736 },
     };
     const payslipDoc = createParcelPayslipPdf(payslip);
