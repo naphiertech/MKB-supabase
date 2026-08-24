@@ -118,7 +118,7 @@ export function StatCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
+            <span className="min-w-0 break-words text-[11px] font-semibold uppercase leading-tight tracking-[0.14em] text-muted-foreground">
               {label}
             </span>
             {pulse && (
@@ -134,7 +134,7 @@ export function StatCard({
           {sub && <div className="mt-2 text-xs text-muted-foreground">{sub}</div>}
         </div>
         <div
-          className={`w-9 h-9 rounded-lg ${a.bg} ring-1 ${a.ring} flex items-center justify-center`}
+          className={`w-9 h-9 shrink-0 rounded-lg ${a.bg} ring-1 ${a.ring} flex items-center justify-center`}
         >
           <Icon className={`w-[18px] h-[18px] ${a.icon}`} />
         </div>
@@ -143,11 +143,11 @@ export function StatCard({
       <div className="mt-4 flex items-end justify-between gap-3">
         {trend ? (
           <div
-            className={`inline-flex items-center gap-1 text-xs font-semibold ${trend.positive === false ? "text-red-600" : trend.direction === "flat" ? "text-muted-foreground" : "text-emerald-600"}`}
+            className={`inline-flex min-w-0 flex-wrap items-center gap-1 text-xs font-semibold ${trend.positive === false ? "text-red-600" : trend.direction === "flat" ? "text-muted-foreground" : "text-emerald-600"}`}
           >
             {trend.direction === "up" && <ArrowUp className="w-3 h-3" />}
             {trend.direction === "down" && <ArrowDown className="w-3 h-3" />}
-            <span className="font-mono">{trend.value}</span>
+            <span className="min-w-0 break-words font-mono">{trend.value}</span>
           </div>
         ) : (
           <span />

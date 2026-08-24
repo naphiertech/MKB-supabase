@@ -265,7 +265,7 @@ export function Topbar({
   const badge = ROLE_BADGE[role];
   return (
     <header className="sticky top-0 z-[1010] bg-white/90 backdrop-blur-md border-b border-border">
-      <div className="flex h-16 min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-4 md:gap-6 md:px-7">
+      <div className="flex h-16 min-w-0 items-center gap-2 px-3 sm:gap-3 sm:px-4 md:px-5 xl:gap-4 xl:px-7">
         <button
           onClick={onMenuClick}
           className="md:hidden inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-panel-bg hover:text-foreground"
@@ -274,24 +274,22 @@ export function Topbar({
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="min-w-0 flex items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold tracking-tight text-foreground min-[360px]:text-lg md:text-xl">
               {title}
             </h1>
-            <p className="hidden md:block text-xs text-muted-foreground truncate">
+            <p className="hidden 2xl:block text-xs text-muted-foreground truncate">
               {subtitle}
             </p>
           </div>
           <span
-            className={`hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border ${badge.border} ${badge.bg} text-[11px] uppercase tracking-wider font-semibold ${badge.text}`}>
+            className={`hidden xl:inline-flex shrink-0 items-center gap-1.5 px-2 py-0.5 rounded-md border ${badge.border} ${badge.bg} text-[11px] uppercase tracking-wider font-semibold ${badge.text}`}>
             
             <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
             {badge.label}
           </span>
         </div>
-
-        <div className="flex-1" />
 
         <HubSelector />
 
@@ -300,10 +298,10 @@ export function Topbar({
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="hidden lg:flex items-center gap-2 px-3 h-9 rounded-lg bg-panel-bg border border-border w-72 hover:border-primary/30 transition text-left cursor-pointer outline-none focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15"
+            className="hidden xl:flex h-9 w-44 min-w-0 items-center gap-2 rounded-lg border border-border bg-panel-bg px-3 text-left outline-none transition hover:border-primary/30 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15 2xl:w-72 cursor-pointer"
           >
             <Search className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground/70 flex-1">
+            <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground/70">
               Search riders, zones, screens…
             </span>
             <kbd className="hidden xl:inline text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded border border-border bg-white">
@@ -313,7 +311,7 @@ export function Topbar({
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="lg:hidden min-h-10 min-w-10 inline-flex items-center justify-center rounded-lg border border-border bg-white text-muted-foreground hover:text-primary"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-white text-muted-foreground hover:text-primary xl:hidden"
             aria-label="Open search"
           >
             <Search className="h-4 w-4" />
@@ -329,7 +327,7 @@ export function Topbar({
               />
               
               {/* Dropdown Container */}
-              <div className="fixed left-3 right-3 top-[68px] w-auto sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-[340px] bg-white/95 backdrop-blur-md rounded-xl border border-border/60 shadow-[0_12px_30px_-4px_rgba(26,20,16,0.12)] flex flex-col max-h-[380px] overflow-hidden z-[2000] animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="fixed left-3 right-3 top-[68px] z-[2000] flex max-h-[calc(100dvh-5rem)] w-auto flex-col overflow-hidden rounded-xl border border-border/60 bg-white/95 shadow-[0_12px_30px_-4px_rgba(26,20,16,0.12)] backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-150 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-[340px] sm:max-h-[min(380px,calc(100dvh-5rem))]">
                 {/* Input Header */}
                 <div className="flex items-center gap-3 px-3 border-b border-border/40 h-11 shrink-0">
                   <Search className="w-3.5 h-3.5 text-muted-foreground/60" />
@@ -499,21 +497,24 @@ export function Topbar({
         </div>
 
         {/* Time + status */}
-        <div className="hidden sm:flex items-center gap-3 px-3 h-9 rounded-lg bg-panel-bg border border-border">
-          <span className={`${isOnline ? 'text-emerald-700' : 'text-red-700'} text-[11px] flex items-center gap-1.5`}>
+        <div className="hidden h-9 shrink-0 items-center gap-2 rounded-lg border border-border bg-panel-bg px-2 md:flex xl:px-3">
+          <span className={`${isOnline ? 'text-emerald-700' : 'text-red-700'} flex items-center gap-1.5 text-[11px]`}>
             <span className="relative flex w-2 h-2">
               {isOnline && <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75 animate-ping" />}
               <span className={`relative inline-flex rounded-full h-2 w-2 ${isOnline ? 'bg-emerald-500' : 'bg-red-500'}`} />
             </span>
-            <span className="uppercase tracking-wider font-semibold">
+            <span className="hidden uppercase tracking-wider font-semibold xl:inline">
               {isOnline ? 'Online' : 'Offline'}
             </span>
           </span>
-          <div className="h-4 w-px bg-border" />
-          <div className="font-mono text-sm text-foreground tabular-nums">
+          <div className="hidden h-4 w-px bg-border xl:block" />
+          <div className="font-mono text-sm text-foreground tabular-nums md:hidden xl:block">
             {timeStr}
           </div>
-          <div className="hidden md:block text-[11px] text-muted-foreground font-mono">
+          <div className="font-mono text-sm text-foreground tabular-nums xl:hidden">
+            {timeStr.slice(0, 5)}
+          </div>
+          <div className="hidden 2xl:block text-[11px] text-muted-foreground font-mono">
             {dateStr}
           </div>
         </div>
@@ -524,7 +525,7 @@ export function Topbar({
             whileTap={{ scale: 0.94 }}
             type="button"
             onClick={() => setIsOpen((v) => !v)}
-            className={`relative inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg bg-white border transition cursor-pointer ${isOpen ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground hover:text-primary hover:border-primary/30'}`}
+            className={`relative inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg bg-white border transition cursor-pointer ${isOpen ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground hover:text-primary hover:border-primary/30'}`}
             aria-label="Notifications"
             aria-expanded={isOpen}
             aria-haspopup="dialog">

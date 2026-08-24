@@ -71,7 +71,7 @@ export function SidebarFooter({
             onMouseLeave={onMouseLeaveLink}
             aria-label="Account settings"
             title="Account settings"
-            className={`rounded-lg flex items-center justify-center transition-all duration-300 ease-in-out cursor-pointer ${
+            className={`sidebar-touch-target rounded-lg flex min-h-10 min-w-10 items-center justify-center transition-all duration-300 ease-in-out cursor-pointer ${
               showCollapsed
                 ? `w-8 h-8 hover:bg-panel-bg ${current === 'settings' ? a.iconActive : 'text-muted-foreground hover:text-primary'}`
                 : `p-1.5 hover:bg-white mr-0.5 ${current === 'settings' ? a.iconActive : 'text-muted-foreground hover:text-primary'}`
@@ -87,7 +87,7 @@ export function SidebarFooter({
             onMouseLeave={onMouseLeaveLink}
             aria-label="Sign out"
             title="Sign out"
-            className={`rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive transition-all duration-300 ease-in-out cursor-pointer ${
+            className={`sidebar-touch-target rounded-lg flex min-h-10 min-w-10 items-center justify-center text-muted-foreground hover:text-destructive transition-all duration-300 ease-in-out cursor-pointer ${
               showCollapsed ? 'w-8 h-8 hover:bg-panel-bg' : 'p-1.5 hover:bg-white'
             }`}
           >

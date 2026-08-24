@@ -397,7 +397,7 @@ export function Attendance() {
   return (
     <div className="dashboard-page space-y-5">
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Present Today"
           value={kpis.present}
@@ -494,9 +494,9 @@ export function Attendance() {
         </div>
 
         {/* Toolbar Controls Row */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
           {/* Left Filters Section */}
-          <div className="flex w-full flex-wrap items-end gap-3.5 lg:flex-1">
+          <div className="flex w-full flex-wrap items-end gap-3.5 xl:flex-1">
             <FilterField label="From">
               <input
                 type="date"
@@ -577,7 +577,7 @@ export function Attendance() {
           </div>
 
           {/* Right Actions Section */}
-          <div className="grid w-full grid-cols-2 items-end gap-2 border-t border-border pt-3 sm:flex sm:w-auto sm:flex-wrap lg:shrink-0 lg:border-t-0 lg:pt-0">
+          <div className="grid w-full grid-cols-2 items-end gap-2 border-t border-border pt-3 sm:flex sm:w-auto sm:flex-wrap xl:shrink-0 xl:border-t-0 xl:pt-0">
             {/* Export CSV Ghost */}
             <button
               onClick={handleExportCSV}

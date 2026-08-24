@@ -242,7 +242,7 @@ export function Sidebar({
                 type="button"
                 onClick={onMobileClose}
                 aria-label="Close menu"
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg transition shrink-0"
+                className="sidebar-touch-target inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-panel-bg transition shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>

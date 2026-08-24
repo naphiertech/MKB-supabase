@@ -110,7 +110,7 @@ export function ZoneMapPreview({
                 : `${zones.length} geofenced zones`}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-panel-bg border border-border text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+        <div className="hidden items-center gap-1.5 rounded-md border border-border bg-panel-bg px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:flex">
           <span className={`w-1.5 h-1.5 rounded-full ${isEditing ? 'bg-red-500 animate-pulse' : 'bg-primary'}`} />
           {isEditing ? 'Interactive Draw' : 'Geofence View'}
         </div>
@@ -209,7 +209,7 @@ export function ZoneMapPreview({
                 duration: 0.8,
               });
             }}
-            className="w-9 h-9 rounded-md bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center justify-center transition"
+            className="map-control-button rounded-md bg-white border border-border text-foreground hover:text-primary hover:border-primary/30 shadow-md flex items-center justify-center transition"
             aria-label="Recenter map"
             title="Recenter map"
           >

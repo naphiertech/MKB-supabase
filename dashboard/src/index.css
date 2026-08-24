@@ -263,6 +263,21 @@
   background: color-mix(in srgb, var(--panel-bg) 65%, transparent);
 }
 
+.map-control-button {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+.sidebar-touch-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+.map-overlay-card,
+.map-tracking-pill {
+  overflow: hidden;
+}
+
 @media (pointer: coarse) {
   .ui-control,
   .ar-input,
@@ -274,6 +289,12 @@
   .ui-icon-button,
   .ui-tab {
     min-height: 44px;
+  }
+
+  .sidebar-touch-target,
+  .map-control-button {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 
@@ -321,6 +342,10 @@
   color: #6b6258 !important;
   font-size: 10px !important;
   border: 1px solid #efeae2 !important;
+  max-width: calc(100% - 3rem);
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.2;
 }
 .leaflet-control-attribution a {
   color: #db6c00 !important;
@@ -333,6 +358,14 @@
 .leaflet-control-zoom a:hover {
   background: #fff1e0 !important;
   color: #db6c00 !important;
+}
+
+@media (max-width: 639px) {
+  .leaflet-touch .leaflet-control-zoom a {
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
+  }
 }
 /* Rider pin pulse — semantic colors retained */
 @keyframes ar-pulse {
