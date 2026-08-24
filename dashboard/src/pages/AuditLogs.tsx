@@ -326,7 +326,7 @@ export function AuditLogs() {
     <div className="dashboard-page space-y-5">
       
       {/* Stats Widgets */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4 xl:gap-4">
         <SummaryCard icon={Database} label="Total Log Entries" value={loading ? '…' : stats.total} helper="Currently loaded" tone="neutral" />
         <SummaryCard icon={Lock} label="Login Events" value={loading ? '…' : stats.logins} helper="Biometric and manual check-ins" tone="violet" />
         <SummaryCard icon={ShieldCheck} label="Payroll Status Audits" value={loading ? '…' : stats.payrollUpdates} helper="Approvals and modifications" tone="info" />

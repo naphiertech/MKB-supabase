@@ -4,7 +4,7 @@ import { OnlineRidersSkeleton } from '../dashboard/AdminDashboardSkeleton';
 export function GeofenceSkeleton() {
   return (
     <SkeletonPage className="space-y-5" label="Loading Geofence and Zones">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 xl:grid-cols-4">
         <SkeletonStatCard />
         <SkeletonStatCard />
         <SkeletonStatCard />
