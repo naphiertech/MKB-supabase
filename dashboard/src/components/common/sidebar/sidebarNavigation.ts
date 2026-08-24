@@ -14,7 +14,9 @@ import {
   PackageCheck,
   History,
   Building2,
-  Route
+  Route,
+  Clock3,
+  Coins
 } from 'lucide-react';
 
 export type PageKey =
@@ -33,7 +35,9 @@ export type PageKey =
   | 'parcel_history'
   | 'payroll_history'
   | 'hubs'
-  | 'rider_assignments';
+  | 'rider_assignments'
+  | 'attendance_policy'
+  | 'parcel_rates';
 
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 
@@ -87,6 +91,7 @@ export const ADMIN_ITEMS: SidebarItem[] = [
       { key: 'users', label: 'Users Registry', icon: UsersIcon },
       { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
       { key: 'reviews', label: 'Courier Reviews', icon: Star },
+      { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]
   },
@@ -96,7 +101,8 @@ export const ADMIN_ITEMS: SidebarItem[] = [
     icon: PackageCheck,
     items: [
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
-      { key: 'parcel_history', label: 'Parcel History', icon: History }
+      { key: 'parcel_history', label: 'Parcel History', icon: History },
+      { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
     ]
   },
   {
@@ -132,9 +138,10 @@ export const HR_ITEMS: SidebarItem[] = [
     icon: ClipboardCheck,
     items: [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
-      { key: 'users', label: 'Employee Management', icon: UsersIcon },
+      { key: 'users', label: 'Users Registry', icon: UsersIcon },
       { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
       { key: 'reviews', label: 'Courier Reviews', icon: Star },
+      { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]
   },
@@ -144,7 +151,8 @@ export const HR_ITEMS: SidebarItem[] = [
     icon: PackageCheck,
     items: [
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
-      { key: 'parcel_history', label: 'Parcel History', icon: History }
+      { key: 'parcel_history', label: 'Parcel History', icon: History },
+      { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
     ]
   },
   {
@@ -181,7 +189,9 @@ export const PAYROLL_ITEMS: SidebarItem[] = [
     title: 'Reference',
     icon: PackageCheck,
     items: [
-      { key: 'parcel_history', label: 'Parcel History', icon: PackageCheck }
+      { key: 'parcel_history', label: 'Parcel History', icon: PackageCheck },
+      { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
+      { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
     ]
   }
 ];

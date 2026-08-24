@@ -189,7 +189,7 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
 
   if (loading) {
     return (
-      <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
+      <div className="ui-card flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin text-primary" />
         <span>Loading attendance policies…</span>
       </div>
@@ -198,12 +198,12 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
 
   if (loadError && configurations.length === 0) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-white p-8 text-center space-y-4 shadow-xs">
+      <div className="ui-card space-y-4 border-rose-200 p-8 text-center">
         <div className="w-12 h-12 mx-auto rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
           <AlertTriangle className="w-6 h-6" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-sm font-bold text-foreground">Unable to Load Attendance Policy Settings</h3>
+          <h3 className="text-sm font-bold text-foreground">Unable to Load Attendance Policy</h3>
           <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">{loadError}</p>
         </div>
         <button
@@ -219,9 +219,9 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
   }
 
   return (
-    <div id="settings-panel-attendance-policy" role="tabpanel" aria-labelledby="settings-tab-attendance-policy" className="space-y-6 animate-fade-in">
-      {/* Top Header Card with Actions */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-white p-5 shadow-xs sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-5 animate-fade-in">
+      {/* HR/workforce policy toolbar */}
+      <div className="ui-toolbar flex flex-col gap-4 p-4 md:p-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" />
@@ -231,12 +231,12 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
             Configure the daily check-in lateness threshold for workforce attendance and Daily Time Records (DTR).
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:flex sm:w-auto sm:items-center shrink-0">
           {canManage && (
             <button
               type="button"
               onClick={() => setAuditDrawerOpen(true)}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border bg-white px-3.5 text-xs font-bold text-foreground hover:bg-panel-bg shadow-xs transition-colors cursor-pointer"
+              className="ui-button-secondary inline-flex h-10 items-center justify-center gap-2 px-3.5 text-xs font-bold cursor-pointer"
             >
               <History className="h-4 w-4 text-muted-foreground" />
               Audit Log ({audit.length})
@@ -246,7 +246,7 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
             <button
               type="button"
               onClick={openScheduleModal}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-xs font-bold text-white shadow-sm hover:bg-primary-hover active:scale-[0.97] transition-colors cursor-pointer"
+              className="ui-button-primary inline-flex h-10 items-center justify-center gap-2 px-4 text-xs font-bold cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               Schedule Policy Change
@@ -264,7 +264,7 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
       </div>
 
       {/* Current Active Policy Card */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-xs space-y-4">
+      <div className="ui-card space-y-4 p-4 md:p-5">
         <div className="flex items-center justify-between border-b border-border/80 pb-3">
           <div className="flex items-center gap-2">
             <CalendarClock className="h-4 w-4 text-primary" />
@@ -324,7 +324,7 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
       </div>
 
       {/* Scheduled Future Changes Section */}
-      <div className="rounded-2xl border border-border bg-white p-5 shadow-xs space-y-4">
+      <div className="ui-card space-y-4 p-4 md:p-5">
         <div className="flex items-center justify-between border-b border-border/80 pb-3">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />
@@ -398,7 +398,7 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
 
       {/* Policy History Table */}
       {pastPolicies.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-xs" aria-labelledby="policy-history-heading">
+        <section className="ui-card overflow-hidden" aria-labelledby="policy-history-heading">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <div className="flex items-center gap-2">
               <History className="h-4 w-4 text-primary" />

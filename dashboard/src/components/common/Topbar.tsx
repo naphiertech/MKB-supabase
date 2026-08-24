@@ -32,6 +32,10 @@ const TITLES: Record<
     title: 'Attendance',
     subtitle: 'Daily logs & shift compliance'
   },
+  attendance_policy: {
+    title: 'Attendance Policy',
+    subtitle: 'Set the time when a rider is considered late.'
+  },
   reports: {
     title: 'Reports',
     subtitle: 'Insights & exports'
@@ -72,6 +76,10 @@ const TITLES: Record<
     title: 'Payroll History',
     subtitle: 'Read-only archive of historical payroll cutoffs & payslips'
   },
+  parcel_rates: {
+    title: 'Parcel Rates',
+    subtitle: 'Set the parcel rates used for rider payroll.'
+  },
   rider_assignments: {
     title: 'Rider Assignments',
     subtitle: 'Manage permanent Home assignments and temporary deployments'
@@ -82,9 +90,9 @@ const TITLES: Record<
   }
 };
 const ALLOWED_PAGES_BY_ROLE: Record<TopbarRole, PageKey[]> = {
-  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'users', 'rider_assignments', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
-  hr: ['dashboard', 'monitoring', 'attendance', 'users', 'rider_assignments', 'reviews', 'payroll', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
-  payroll: ['dashboard', 'computation', 'reports', 'settings']
+  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'reviews', 'payroll', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
+  hr: ['dashboard', 'monitoring', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'reviews', 'payroll', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
+  payroll: ['dashboard', 'computation', 'reports', 'settings', 'attendance_policy', 'parcel_rates']
 };
 
 type TopbarRole = 'admin' | 'hr' | 'payroll';

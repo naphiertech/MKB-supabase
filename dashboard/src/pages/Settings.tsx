@@ -23,8 +23,6 @@ import {
   ChevronDown,
   AlertTriangle
 } from 'lucide-react';
-import { PayrollParcelRatesSettings } from '../components/settings/PayrollParcelRatesSettings';
-import { AttendancePolicySettings } from '../components/settings/AttendancePolicySettings';
 import { AccountSecurityControls } from '../components/settings/AccountSecurityControls';
 import { NotificationPreferencesPanel } from '../components/settings/NotificationPreferencesPanel';
 import { useNotificationContext } from '../context/NotificationContext';
@@ -32,7 +30,7 @@ import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '
 import { getMissingStaffProfileFields, isSameEmail, isStaffRole, validateStaffEmail } from '../lib/users/staffProfilePolicy';
 import { StaffEmailStatus } from '../components/settings/StaffEmailStatus';
 
-type TabType = 'Personal Detail' | 'Security' | 'Notification' | 'Attendance Policy' | 'Payroll & Parcel Rates';
+type TabType = 'Personal Detail' | 'Security' | 'Notification';
 
 const CSC_API_KEY = import.meta.env.VITE_CSC_API_KEY || '';
 
@@ -47,8 +45,6 @@ export function Settings() {
 
   // Tab State
   const [activeTab, setActiveTab] = useState<TabType>('Personal Detail');
-  const canViewAttendancePolicy = session?.role === 'admin' || session?.role === 'hr' || session?.role === 'payroll';
-  const canViewParcelRates = session?.role === 'admin' || session?.role === 'hr' || session?.role === 'payroll';
 
   // Form states - Personal Details
   const [firstName, setFirstName] = useState('');
@@ -326,7 +322,6 @@ export function Settings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (activeTab === 'Payroll & Parcel Rates' || activeTab === 'Attendance Policy') return;
     if (activeTab === 'Notification') {
       setSubmitting(true);
       try {
@@ -493,7 +488,7 @@ export function Settings() {
           {/* Top Tab Bar & Actions Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border mb-5 bg-white z-10 shrink-0">
             <div className="table-scroll-region flex w-full sm:w-auto gap-1 p-1 bg-panel-bg border border-border rounded-xl" role="tablist" aria-label="Settings sections" tabIndex={0}>
-              {(['Personal Detail', 'Security', 'Notification', ...(canViewAttendancePolicy ? ['Attendance Policy' as const] : []), ...(canViewParcelRates ? ['Payroll & Parcel Rates' as const] : [])] as TabType[]).map((tab) => {
+              {(['Personal Detail', 'Security', 'Notification'] as TabType[]).map((tab) => {
                 const active = activeTab === tab;
                 return (
                   <button
@@ -517,7 +512,7 @@ export function Settings() {
             </div>
 
             {/* Reset All & Save Action Controls */}
-            {activeTab !== 'Payroll & Parcel Rates' && activeTab !== 'Attendance Policy' && <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
               <button
                 type="button"
                 onClick={handleResetAll}
@@ -537,7 +532,7 @@ export function Settings() {
                 )}
                 <span>Save</span>
               </button>
-            </div>}
+            </div>
           </div>
 
           {/* Contents Area */}
@@ -985,14 +980,6 @@ export function Settings() {
                   onChange={setNotificationDraft}
                 />
               </div>
-            )}
-
-            {activeTab === 'Attendance Policy' && canViewAttendancePolicy && session && (
-              <AttendancePolicySettings role={session.role} />
-            )}
-
-            {activeTab === 'Payroll & Parcel Rates' && canViewParcelRates && session && (
-              <PayrollParcelRatesSettings role={session.role} />
             )}
           </div>
         </form>

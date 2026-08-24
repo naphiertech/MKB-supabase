@@ -80,7 +80,7 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
       setConfigurations(rateRows);
       setAudit(auditRows);
     } catch (loadError) {
-      pushToast({ title: 'Unable to load rate settings', description: loadError instanceof Error ? loadError.message : 'Please try again.', tone: 'error' });
+      pushToast({ title: 'Unable to load parcel rates', description: loadError instanceof Error ? loadError.message : 'Please try again.', tone: 'error' });
     } finally {
       setLoading(false);
     }
@@ -143,16 +143,16 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
     }
   };
 
-  if (loading) return <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading rate settings…</div>;
+  if (loading) return <div className="ui-card flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading parcel rates…</div>;
 
   return (
-    <div id="settings-panel-payroll-parcel-rates" role="tabpanel" aria-labelledby="settings-tab-payroll-parcel-rates" className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-white p-5 shadow-xs sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-5 animate-fade-in">
+      <div className="ui-toolbar flex flex-col gap-4 p-4 md:p-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-primary" /><h3 className="text-sm font-bold text-foreground">Currently Active Configuration</h3></div>
-          <p className="mt-1 text-xs text-muted-foreground">Operational parcel rates used by the deployed effective-dated configuration.</p>
+          <div className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-primary" /><h3 className="text-sm font-bold text-foreground">Current Effective Rates</h3></div>
+          <p className="mt-1 text-xs text-muted-foreground">Effective-dated parcel compensation used by rider payroll calculations.</p>
         </div>
-        {canManage && <button type="button" onClick={openCreate} className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-xs font-bold text-white shadow-sm hover:bg-primary-hover"><Plus className="h-4 w-4" /> Create future configuration</button>}
+        {canManage && <button type="button" onClick={openCreate} className="ui-button-primary inline-flex h-10 items-center justify-center gap-2 px-4 text-xs font-bold"><Plus className="h-4 w-4" /> Create Future Rates</button>}
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
@@ -165,7 +165,7 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
           ['Effective from', current ? formatDate(current.effective_from) : '—'],
           ['Effective until', current ? formatDate(current.effective_until) : '—'],
           ['Active status', current?.active ? 'Active' : 'No active rate'],
-        ].map(([label, value]) => <div key={label} className="rounded-xl border border-border bg-white p-4 shadow-xs"><div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div><div className="mt-2 text-sm font-bold text-foreground">{value}</div></div>)}
+        ].map(([label, value]) => <div key={label} className="ui-card p-4"><div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div><div className="mt-2 text-sm font-bold text-foreground">{value}</div></div>)}
       </div>
 
       <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
@@ -173,7 +173,7 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
         <p><strong>Historical protection:</strong> rate changes never alter paid, disbursed, or finalized historical payroll. They apply only according to their effective dates.</p>
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-xs" aria-labelledby="rate-history-heading">
+      <section className="ui-card overflow-hidden" aria-labelledby="rate-history-heading">
         <div className="flex items-center gap-2 border-b border-border px-5 py-4"><History className="h-4 w-4 text-primary" /><h3 id="rate-history-heading" className="text-sm font-bold text-foreground">Configuration History</h3>{!canManage && <span className="ml-auto rounded-full border border-border bg-panel-bg px-2 py-0.5 text-[10px] font-bold text-muted-foreground">Read only</span>}</div>
         <div className="table-scroll-region" role="region" aria-label="Parcel rate configuration history" tabIndex={0}>
           <table className="data-table-wide w-full text-left text-xs">
@@ -194,7 +194,7 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
         </div>
       </section>
 
-      {role === 'admin' && <section className="overflow-hidden rounded-2xl border border-border bg-white shadow-xs" aria-labelledby="rate-audit-heading"><div className="border-b border-border px-5 py-4"><h3 id="rate-audit-heading" className="text-sm font-bold text-foreground">Rate-change Audit History</h3><p className="mt-0.5 text-xs text-muted-foreground">Append-only record of previous and new effective-dated values.</p></div><div className="divide-y divide-border">{audit.length ? audit.slice(0, 50).map((entry) => <div key={entry.id} className="space-y-2 px-5 py-3 text-xs"><div className="flex flex-wrap gap-x-5 gap-y-1"><span className="font-semibold text-foreground">{new Date(entry.changed_at).toLocaleString('en-PH')}</span><span className="capitalize text-foreground">{entry.action}</span><span className="text-foreground">By {entry.changedByName}</span><span className="text-muted-foreground">Effective {formatDate(entry.effective_date)}</span></div><p className="text-muted-foreground">{entry.reason}</p><div className="grid gap-1 rounded-lg border border-border bg-panel-bg p-2 text-[10px] sm:grid-cols-2"><span><strong>Previous:</strong> {auditRateSummary(entry.previous_values)}</span><span><strong>New:</strong> {auditRateSummary(entry.new_values)}</span></div></div>) : <p className="px-5 py-8 text-center text-xs text-muted-foreground">No audit entries available.</p>}</div></section>}
+      {role === 'admin' && <section className="ui-card overflow-hidden" aria-labelledby="rate-audit-heading"><div className="border-b border-border px-5 py-4"><h3 id="rate-audit-heading" className="text-sm font-bold text-foreground">Rate-change Audit History</h3><p className="mt-0.5 text-xs text-muted-foreground">Append-only record of previous and new effective-dated values.</p></div><div className="divide-y divide-border">{audit.length ? audit.slice(0, 50).map((entry) => <div key={entry.id} className="space-y-2 px-5 py-3 text-xs"><div className="flex flex-wrap gap-x-5 gap-y-1"><span className="font-semibold text-foreground">{new Date(entry.changed_at).toLocaleString('en-PH')}</span><span className="capitalize text-foreground">{entry.action}</span><span className="text-foreground">By {entry.changedByName}</span><span className="text-muted-foreground">Effective {formatDate(entry.effective_date)}</span></div><p className="text-muted-foreground">{entry.reason}</p><div className="grid gap-1 rounded-lg border border-border bg-panel-bg p-2 text-[10px] sm:grid-cols-2"><span><strong>Previous:</strong> {auditRateSummary(entry.previous_values)}</span><span><strong>New:</strong> {auditRateSummary(entry.new_values)}</span></div></div>) : <p className="px-5 py-8 text-center text-xs text-muted-foreground">No audit entries available.</p>}</div></section>}
 
       <RightDrawer
         open={editorOpen}
