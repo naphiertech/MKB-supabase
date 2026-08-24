@@ -32,11 +32,11 @@ vi.mock('../hooks/useExportJob', () => ({
   }),
 }));
 
-vi.mock('../services/monitoringService', () => ({
+vi.mock('../services/monitoring/monitoringService', () => ({
   getAllRiders: mocks.getAllRiders,
 }));
 
-vi.mock('../services/geofenceService', () => ({
+vi.mock('../services/geofencing/geofenceService', () => ({
   getZones: mocks.getZones,
 }));
 

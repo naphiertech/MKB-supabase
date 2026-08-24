@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Siren } from 'lucide-react';
-import { getFlaggedViolationIds } from '../../services/notificationService';
+import { getFlaggedViolationIds } from '../../services/notifications/notificationService';
 import type { ViolationEvent } from '../../services/types';
 import { ViolationAlert } from './ViolationAlert';
 interface ViolationFeedProps {

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { setSelectedHubId as setWorkspaceHubId } from '../lib/hubWorkspaceState';
-import { listAccessibleHubs, type Hub } from '../services/hubService';
+import { listAccessibleHubs, type Hub } from '../services/hubs/hubService';
 
 interface HubContextValue {
   hubs: Hub[];

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { getAllRiders } from '../services/monitoringService';
-import { getZones } from '../services/geofenceService';
+import { getAllRiders } from '../services/monitoring/monitoringService';
+import { getZones } from '../services/geofencing/geofenceService';
 import type { Rider, Zone } from '../services/types';
 import { useAuth } from '../hooks/useAuth';
 import { useHub } from './HubContext';

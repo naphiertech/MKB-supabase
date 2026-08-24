@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { type Rider, type ViolationEvent, type Zone, type ZoneStatus } from '../services/types';
 import { getCachedAvatar, setCachedAvatar, fetchRiderAvatar } from '../lib/avatarCache';
-import { getLastKnownLocation } from '../services/monitoringService';
-import { getRiderWorkforceDirectory } from '../services/workforceDirectoryService';
+import { getLastKnownLocation } from '../services/monitoring/monitoringService';
+import { getRiderWorkforceDirectory } from '../services/workforce/workforceDirectoryService';
 import { useHub } from '../context/HubContext';
 
 

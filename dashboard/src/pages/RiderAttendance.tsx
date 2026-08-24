@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Clock, ArrowLeft, Calendar, Hourglass, Activity, AlertCircle, Filter, ArrowUpDown } from 'lucide-react';
-import { fetchRiderDashboardWithSWR, type CachedDashboardPayload } from '../services/riderCacheService';
+import { fetchRiderDashboardWithSWR, type CachedDashboardPayload } from '../services/riders/riderCacheService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import type { Rider, AttendancePresence, PunctualityStatus } from '../services/types';
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { completePasswordRecovery } from '../../services/authSecurity';
+import { completePasswordRecovery } from '../../services/auth/authSecurity';
 import { pushToast } from '../../hooks/useToast';
 import { BRANDING } from '../../config/branding';
 import { getRecoveryLinkError } from '../../lib/authRecoveryRoute';

@@ -130,6 +130,12 @@ dashboard/src/pages/
      - *Policy/Configuration data* = semi-dynamic, effective-dated (Attendance Policies, Parcel Rates).
      - *Branding/Navigation/Reference tokens* = intentionally static.
 
+### Dashboard Service Module Organization
+- `dashboard/src/services/` groups service modules by domain under `attendance/`, `auth/`, `users/`, `workforce/`, `riders/`, `hubs/`, `geofencing/`, `monitoring/`, `notifications/`, `parcels/`, `payroll/`, `reports/`, `reviews/`, and `support/`.
+- Pure domain policies/helpers live under `dashboard/src/lib/attendance/`, `dashboard/src/lib/workforce/`, and `dashboard/src/lib/users/`.
+- `services/operationsService.ts`, `services/parcelService.ts`, `services/types.ts`, and `services/errorService.ts` intentionally remain at the services root. `operationsService.ts` is the stable parcel-operations compatibility façade; the other root modules remain deferred from file organization because their responsibilities or import fanout require separate evaluation.
+- This layout is file organization only. Existing service interfaces, business rules, persistence ordering, and security behavior are unchanged.
+
 ---
 
 ## 5. Dynamic Attendance Policy & Attendance Architecture
@@ -172,7 +178,7 @@ The attendance lateness threshold is dynamically configurable by Admins via an e
 ### Attendance Rules & Workflow
 - **Time In**: Rider captures a live selfie on mobile. Verified GPS freshness is required when the scanner opens and re-checked immediately after face verification before the attendance row is written.
 - **Time Out**: Operates against the active attendance record and may succeed without GPS (incorporating GPS when available).
-- **Shared Attendance Facts**: `services/attendanceSummaryPolicy.ts` centralizes `time_in` / `raw_time_in`, normalized status aliases, leave evidence, presence evidence, late detection, and punctuality facts across attendance, parcel operations, and payroll metrics.
+- **Shared Attendance Facts**: `lib/attendance/attendanceSummaryPolicy.ts` centralizes `time_in` / `raw_time_in`, normalized status aliases, leave evidence, presence evidence, late detection, and punctuality facts across attendance, parcel operations, and payroll metrics.
 - **Execution Reliability**:
   - Per-scan and in-flight locks prevent duplicate Time In/Out executions.
   - Scanner startup cancels pending 220ms timers on early unmount/close.
@@ -194,9 +200,9 @@ The attendance lateness threshold is dynamically configurable by Admins via an e
 
 ### Parcel Service Compatibility Façade
 `services/operationsService.ts` remains the stable public import façade, re-exporting:
-- `parcelOperationsPolicy.ts`: validation, pure calculations, and effective-dated rate resolution.
-- `parcelOperationsRecords.ts`: queue loading, save ordering, history enrichment, audit writes, and payroll synchronization.
-- `parcelCorrectionWorkflow.ts`: cutoff-lock checks, correction request creation/review, and correction audit history.
+- `services/parcels/parcelOperationsPolicy.ts`: validation, pure calculations, and effective-dated rate resolution.
+- `services/parcels/parcelOperationsRecords.ts`: queue loading, save ordering, history enrichment, audit writes, and payroll synchronization.
+- `services/parcels/parcelCorrectionWorkflow.ts`: cutoff-lock checks, correction request creation/review, and correction audit history.
 
 ### Effective-Dated Rate Engine (`parcel_rate_configurations`)
 - **Standard Rates**:

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Activity, Loader2, ShieldCheck } from 'lucide-react';
-import { getMfaState, verifyTotpChallenge } from '../../services/authSecurity';
+import { getMfaState, verifyTotpChallenge } from '../../services/auth/authSecurity';
 
 interface MfaChallengeProps {
   onVerified: () => void;

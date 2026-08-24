@@ -1,5 +1,5 @@
-import type { NotificationPreferences } from '../services/notificationPreferenceService';
-import type { NotificationRecord, UserRole } from '../services/notificationService';
+import type { NotificationPreferences } from '../services/notifications/notificationPreferenceService';
+import type { NotificationRecord, UserRole } from '../services/notifications/notificationService';
 
 export type ConfigurableNotificationPreference = Exclude<
   keyof NotificationPreferences,

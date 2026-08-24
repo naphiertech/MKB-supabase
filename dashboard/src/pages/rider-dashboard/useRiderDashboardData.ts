@@ -4,7 +4,7 @@ import { setCachedDescriptor } from '../../lib/descriptorCache';
 import {
   fetchRiderDashboardWithSWR,
   type CachedDashboardPayload,
-} from '../../services/riderCacheService';
+} from '../../services/riders/riderCacheService';
 import type { Zone } from '../../services/types';
 import {
   getLocalDateString,

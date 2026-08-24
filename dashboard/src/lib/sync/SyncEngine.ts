@@ -5,7 +5,7 @@ import {
   type QueueItem,
   type StorageAdapter
 } from '../storage';
-import { patchCachedAttendanceState } from '../../services/riderCacheService';
+import { patchCachedAttendanceState } from '../../services/riders/riderCacheService';
 
 export const MAX_SYNC_RETRIES = 5;
 export const PROCESSING_LEASE_MS = 2 * 60 * 1000;

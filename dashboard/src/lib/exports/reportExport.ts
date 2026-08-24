@@ -1,10 +1,10 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { type AttendanceLog, type Zone, type ViolationEvent } from '../../services/types';
-import { getAttendanceLogs } from '../../services/attendanceService';
-import { getViolationsForReport } from '../../services/monitoringService';
-import { getZones } from '../../services/geofenceService';
-import { enrichAttendanceWithHistoricalZones } from '../../services/historicalAttendanceContext';
+import { getAttendanceLogs } from '../../services/attendance/attendanceService';
+import { getViolationsForReport } from '../../services/monitoring/monitoringService';
+import { getZones } from '../../services/geofencing/geofenceService';
+import { enrichAttendanceWithHistoricalZones } from '../../services/attendance/historicalAttendanceContext';
 import { exportXLSXFile } from './excelHelper';
 import {
   buildExportFilename,

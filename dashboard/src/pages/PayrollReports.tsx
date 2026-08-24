@@ -15,8 +15,8 @@ import {
   Calendar
 } from 'lucide-react';
 import { useHub } from '../context/HubContext';
-import { getZones } from '../services/geofenceService';
-import { getAllRiders } from '../services/monitoringService';
+import { getZones } from '../services/geofencing/geofenceService';
+import { getAllRiders } from '../services/monitoring/monitoringService';
 import type { Rider, Zone } from '../services/types';
 import {
   getPayrollDeliveryData,

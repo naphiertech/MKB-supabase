@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ClipboardCheck, ChevronRight } from 'lucide-react';
 import type { AttendanceLog } from '../../services/types';
-import { getLocalDateString } from '../../services/attendanceService';
+import { getLocalDateString } from '../../services/attendance/attendanceService';
 import { StatusPill } from './StatusPill';
 interface AttendanceLogsProps {
   logs: AttendanceLog[];

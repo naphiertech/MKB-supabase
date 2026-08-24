@@ -8,7 +8,7 @@ import { EmployeeDetails } from './EmployeeDetails';
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ session: { id: 'admin-1', role: 'admin' } }) }));
 vi.mock('../../hooks/useToast', () => ({ pushToast: vi.fn() }));
-vi.mock('../../services/riderService', () => ({ getUserTrustedDevice: vi.fn(), resetUserTrustedDevice: vi.fn() }));
+vi.mock('../../services/riders/riderService', () => ({ getUserTrustedDevice: vi.fn(), resetUserTrustedDevice: vi.fn() }));
 vi.mock('../../lib/exports/employeeExport', () => ({ exportEmployeeProfileCard: vi.fn(), exportEmployeeDTR: vi.fn() }));
 
 const archivedEmployee: AppUser = {

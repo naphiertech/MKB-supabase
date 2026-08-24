@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_NOTIFICATION_PREFERENCES } from '../services/notificationPreferenceService';
-import type { NotificationRecord } from '../services/notificationService';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '../services/notifications/notificationPreferenceService';
+import type { NotificationRecord } from '../services/notifications/notificationService';
 import {
   getConfigurablePreferenceKeys,
   getNotificationPresentation,

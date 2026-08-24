@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock('../../services/riderCacheService', () => ({
+vi.mock('../../services/riders/riderCacheService', () => ({
   fetchRiderDashboardWithSWR: mocks.fetchRiderDashboardWithSWR,
 }));
 vi.mock('../../context/RiderZoneContext', () => ({

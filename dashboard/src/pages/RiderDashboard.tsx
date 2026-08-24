@@ -3,7 +3,7 @@ import {
   getRiderPayrollHistory,
   cacheRiderFaceDescriptor,
   getRiderViolationsForMonth
-} from '../services/riderService';
+} from '../services/riders/riderService';
 import { setCachedDescriptor } from '../lib/descriptorCache';
 import { preloadBiometrics, releaseBiometrics } from '../lib/faceAi';
 import {

@@ -3,8 +3,8 @@ import {
   getConfigurablePreferenceKeys,
   type ConfigurableNotificationPreference,
 } from '../../lib/notificationPresentation';
-import type { NotificationPreferences } from '../../services/notificationPreferenceService';
-import type { UserRole } from '../../services/notificationService';
+import type { NotificationPreferences } from '../../services/notifications/notificationPreferenceService';
+import type { UserRole } from '../../services/notifications/notificationService';
 
 interface NotificationPreferencesPanelProps {
   role: UserRole;

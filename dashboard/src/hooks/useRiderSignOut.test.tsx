@@ -4,9 +4,9 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useRiderSignOut } from './useRiderSignOut';
-import * as attendanceCheck from '../services/riderAttendanceCheck';
+import * as attendanceCheck from '../services/riders/riderAttendanceCheck';
 
-vi.mock('../services/riderAttendanceCheck', () => ({
+vi.mock('../services/riders/riderAttendanceCheck', () => ({
   checkHasActiveAttendance: vi.fn(),
 }));
 

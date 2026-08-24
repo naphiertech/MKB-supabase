@@ -8,9 +8,9 @@ import {
   type UserRole,
   type UserStatus,
   type ZoneStatus } from '../services/types';
-import { updateUserAuthCredentials } from '../services/userService';
-import { updateRiderContact } from '../services/riderService';
-import { fetchRiderProfileWithSWR, type CachedProfilePayload } from '../services/riderCacheService';
+import { updateUserAuthCredentials } from '../services/users/userService';
+import { updateRiderContact } from '../services/riders/riderService';
+import { fetchRiderProfileWithSWR, type CachedProfilePayload } from '../services/riders/riderCacheService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import { pushToast } from '../hooks/useToast';
 

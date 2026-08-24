@@ -9,10 +9,10 @@ import {
   totalViolationsToday,
   updateZone,
   type ZoneInput
-} from '../services/geofenceService';
-import { getAllRiders } from '../services/monitoringService';
-import { getViolations } from '../services/monitoringService';
-import { getAttendanceLogs } from '../services/attendanceService';
+} from '../services/geofencing/geofenceService';
+import { getAllRiders } from '../services/monitoring/monitoringService';
+import { getViolations } from '../services/monitoring/monitoringService';
+import { getAttendanceLogs } from '../services/attendance/attendanceService';
 import { ZoneSummaryCards } from '../components/geofence/ZoneSummaryCards';
 import { ZoneMapPreview } from '../components/geofence/ZoneMapPreview';
 import { ZoneListPanel } from '../components/geofence/ZoneListPanel';

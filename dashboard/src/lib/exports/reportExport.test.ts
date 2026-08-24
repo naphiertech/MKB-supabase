@@ -10,14 +10,14 @@ const mocks = vi.hoisted(() => ({
   getViolationsForReport: vi.fn(),
 }));
 
-vi.mock('../../services/attendanceService', () => ({ getAttendanceLogs: mocks.getAttendanceLogs }));
-vi.mock('../../services/monitoringService', () => ({
+vi.mock('../../services/attendance/attendanceService', () => ({ getAttendanceLogs: mocks.getAttendanceLogs }));
+vi.mock('../../services/monitoring/monitoringService', () => ({
   getAllRiders: mocks.getAllRiders,
   getViolations: mocks.getViolations,
   getViolationsForReport: mocks.getViolationsForReport,
 }));
-vi.mock('../../services/geofenceService', () => ({ getZones: mocks.getZones }));
-vi.mock('../../services/historicalAttendanceContext', () => ({ enrichAttendanceWithHistoricalZones: (logs: unknown[]) => Promise.resolve(logs) }));
+vi.mock('../../services/geofencing/geofenceService', () => ({ getZones: mocks.getZones }));
+vi.mock('../../services/attendance/historicalAttendanceContext', () => ({ enrichAttendanceWithHistoricalZones: (logs: unknown[]) => Promise.resolve(logs) }));
 
 import { buildRiderPerformance, buildViolationSummary, buildZoneCoverage, generateReport } from './reportExport';
 

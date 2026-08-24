@@ -20,7 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import type { AttendanceLog } from '../../services/types';
-import { getLocalDateString } from '../../services/attendanceService';
+import { getLocalDateString } from '../../services/attendance/attendanceService';
 import { StatusPill, PunctualityPill } from './StatusPill';
 
 interface AttendanceTableProps {

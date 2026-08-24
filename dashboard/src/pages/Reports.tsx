@@ -14,8 +14,8 @@ import { useExportJob } from '../hooks/useExportJob';
 import { pushToast } from '../hooks/useToast';
 import { deriveReportsAnalytics, type ReportsAnalytics, type ReportsFilters } from '../lib/reportsAnalytics';
 import { generateReport, ReportError, type ReportFormat } from '../lib/exports/reportExport';
-import { getLocalDateString } from '../services/attendanceService';
-import { loadReportsData } from '../services/reportsDataService';
+import { getLocalDateString } from '../services/attendance/attendanceService';
+import { loadReportsData } from '../services/reports/reportsDataService';
 
 type CategoryTab = 'weekly_attendance' | 'violation_summary' | 'zone_coverage' | 'rider_performance';
 type DatePreset = '7d' | '14d' | '30d' | 'custom';

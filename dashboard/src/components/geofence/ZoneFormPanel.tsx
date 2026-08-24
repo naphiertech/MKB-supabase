@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, Search, X, Undo, Trash2 } from 'lucide-react';
 import type { Rider } from '../../services/types';
-import type { Hub } from '../../services/hubService';
+import type { Hub } from '../../services/hubs/hubService';
 
 interface ZoneFormPanelProps {
   zoneName: string;

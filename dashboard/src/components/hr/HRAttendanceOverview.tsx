@@ -5,7 +5,7 @@ import {
   deriveHrStatus,
   exportLogsCsv,
   type HrLogStatus
-} from '../../services/attendanceService';
+} from '../../services/attendance/attendanceService';
 import { pushToast } from '../../hooks/useToast';
 import { StatusBadge } from '../common/DashboardPrimitives';
 

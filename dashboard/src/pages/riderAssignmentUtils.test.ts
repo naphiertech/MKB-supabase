@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RiderAssignmentRow } from '../services/riderAssignmentService';
+import type { RiderAssignmentRow } from '../services/riders/riderAssignmentService';
 import { calculateAssignmentSummary, filterAssignmentRows, validateAssignmentTarget } from './riderAssignmentUtils';
 
 const rows = [

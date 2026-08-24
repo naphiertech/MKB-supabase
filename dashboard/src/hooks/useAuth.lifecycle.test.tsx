@@ -26,7 +26,7 @@ vi.mock('../lib/supabaseClient', () => ({
 vi.mock('./useToast', () => ({ pushToast: vi.fn() }));
 vi.mock('../lib/apiService', () => ({ fetchIpLocation: vi.fn(), logActivity: vi.fn() }));
 vi.mock('../lib/deviceFingerprint', () => ({ getDeviceIdentifier: vi.fn() }));
-vi.mock('../services/notificationService', () => ({ dispatchNotificationSafe: vi.fn() }));
+vi.mock('../services/notifications/notificationService', () => ({ dispatchNotificationSafe: vi.fn() }));
 vi.mock('../lib/offlineRiderTrust', () => ({
   clearOfflineRiderTrust: vi.fn(),
   createOfflineRiderTrustRecord: vi.fn(),
@@ -34,9 +34,9 @@ vi.mock('../lib/offlineRiderTrust', () => ({
   saveOfflineRiderTrust: vi.fn(),
   validateOfflineRiderTrust: vi.fn(),
 }));
-vi.mock('../services/authSecurity', () => ({ logoutCurrentSessionLocally: vi.fn() }));
-vi.mock('../services/riderCacheService', () => ({ clearRiderSensitiveCache: vi.fn() }));
-vi.mock('../services/userService', () => ({ getStaffAvatarSignedUrl: vi.fn().mockResolvedValue(null) }));
+vi.mock('../services/auth/authSecurity', () => ({ logoutCurrentSessionLocally: vi.fn() }));
+vi.mock('../services/riders/riderCacheService', () => ({ clearRiderSensitiveCache: vi.fn() }));
+vi.mock('../services/users/userService', () => ({ getStaffAvatarSignedUrl: vi.fn().mockResolvedValue(null) }));
 
 const storedSession = {
   id: 'staff-1',

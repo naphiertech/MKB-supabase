@@ -23,7 +23,7 @@ import { StatePanel, StatusBadge, SummaryCard, type SemanticTone } from '../comp
 import { RightDrawer } from '../components/common/RightDrawer';
 import { RiderAssignmentsSkeleton } from '../components/assignments/RiderAssignmentsSkeleton';
 import { useHub } from '../context/HubContext';
-import { getZonesForHubs } from '../services/geofenceService';
+import { getZonesForHubs } from '../services/geofencing/geofenceService';
 import type { Zone } from '../services/types';
 import {
   deployRiderTemporarily,
@@ -33,7 +33,7 @@ import {
   transferRiderPermanently,
   type RiderAssignmentHistoryItem,
   type RiderAssignmentRow,
-} from '../services/riderAssignmentService';
+} from '../services/riders/riderAssignmentService';
 import { calculateAssignmentSummary, filterAssignmentRows, validateAssignmentTarget } from './riderAssignmentUtils';
 import { calculateUserActionMenuPosition, type ActionMenuPosition } from '../lib/userActionMenuPosition';
 

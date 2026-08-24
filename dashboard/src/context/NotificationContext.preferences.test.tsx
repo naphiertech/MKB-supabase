@@ -3,8 +3,8 @@
 import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_NOTIFICATION_PREFERENCES } from '../services/notificationPreferenceService';
-import type { NotificationRecord } from '../services/notificationService';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '../services/notifications/notificationPreferenceService';
+import type { NotificationRecord } from '../services/notifications/notificationService';
 
 const mocks = vi.hoisted(() => ({
   channel: vi.fn(),
@@ -36,8 +36,8 @@ vi.mock('../hooks/useToast', () => ({ pushToast: mocks.pushToast }));
 
 vi.mock('../lib/notificationSound', () => ({ playNotificationSound: mocks.playSound }));
 
-vi.mock('../services/notificationService', async () => {
-  const actual = await vi.importActual<typeof import('../services/notificationService')>('../services/notificationService');
+vi.mock('../services/notifications/notificationService', async () => {
+  const actual = await vi.importActual<typeof import('../services/notifications/notificationService')>('../services/notifications/notificationService');
   return {
     ...actual,
     getNotificationsForUser: mocks.getNotifications,
@@ -46,8 +46,8 @@ vi.mock('../services/notificationService', async () => {
   };
 });
 
-vi.mock('../services/notificationPreferenceService', async () => {
-  const actual = await vi.importActual<typeof import('../services/notificationPreferenceService')>('../services/notificationPreferenceService');
+vi.mock('../services/notifications/notificationPreferenceService', async () => {
+  const actual = await vi.importActual<typeof import('../services/notifications/notificationPreferenceService')>('../services/notifications/notificationPreferenceService');
   return {
     ...actual,
     loadNotificationPreferences: mocks.loadPreferences,

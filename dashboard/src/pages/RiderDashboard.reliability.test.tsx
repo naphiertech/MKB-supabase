@@ -56,7 +56,7 @@ vi.mock('./rider-dashboard/useRiderShiftController', () => ({
     },
   }),
 }));
-vi.mock('../services/riderService', () => ({
+vi.mock('../services/riders/riderService', () => ({
   getRiderPayrollHistory: mocks.getRiderPayrollHistory,
   getRiderViolationsForMonth: mocks.getRiderViolationsForMonth,
   cacheRiderFaceDescriptor: vi.fn(),
