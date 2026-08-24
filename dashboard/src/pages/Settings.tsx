@@ -8,7 +8,7 @@ import {
   updateUserAuthCredentials,
   uploadStaffAvatar,
   validateStaffAvatarFile,
-} from '../services/userService';
+} from '../services/users/userService';
 import { useAuth } from '../hooks/useAuth';
 import { pushToast } from '../hooks/useToast';
 import { 
@@ -28,7 +28,7 @@ import { AttendancePolicySettings } from '../components/settings/AttendancePolic
 import { AccountSecurityControls } from '../components/settings/AccountSecurityControls';
 import { NotificationPreferencesPanel } from '../components/settings/NotificationPreferencesPanel';
 import { useNotificationContext } from '../context/NotificationContext';
-import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '../services/notificationPreferenceService';
+import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '../services/notifications/notificationPreferenceService';
 import { getMissingStaffProfileFields, isSameEmail, isStaffRole, validateStaffEmail } from '../lib/users/staffProfilePolicy';
 import { StaffEmailStatus } from '../components/settings/StaffEmailStatus';
 

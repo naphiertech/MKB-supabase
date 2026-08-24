@@ -16,7 +16,7 @@ import {
   type ParcelRateAuditWithPerson,
   type ParcelRateConfiguration,
   type ParcelRateInput,
-} from '../../services/parcelRateConfigurationService';
+} from '../../services/parcels/parcelRateConfigurationService';
 
 interface PayrollParcelRatesSettingsProps { role: Role; }
 

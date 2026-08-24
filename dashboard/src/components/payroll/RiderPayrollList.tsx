@@ -21,18 +21,18 @@ import {
   deletePayrollRecord,
   deleteBulkPayrollRecords
 } from '../../services/parcelService';
-import { getZones } from '../../services/geofenceService';
+import { getZones } from '../../services/geofencing/geofenceService';
 import type { Zone } from '../../services/types';
 import { useAuth } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
 import { PayrollStatus, PayrollStatusLabels, PayrollStatusColors, isEditableStatus } from '../../types/payroll';
-import { buildBulkPayrollExportRows } from '../../services/payrollBulkExport';
+import { buildBulkPayrollExportRows } from '../../services/payroll/payrollBulkExport';
 import { exportCutoffSummaryCSV } from '../../lib/exports/payrollExport';
 import {
   bulkApprovePayrollRecords,
   bulkMarkPayrollRecordsPaid,
   getPayrollBulkSelectionState,
-} from '../../services/payrollBulkActions';
+} from '../../services/payroll/payrollBulkActions';
 import { calculatePayrollRecordTotals } from '../../lib/payroll/payrollAdjustments';
 
 function phpFmt(val: number) {

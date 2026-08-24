@@ -5,7 +5,7 @@ import type { PageKey } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
 import { toast } from 'react-hot-toast';
-import { getSearchIndexData } from '../../services/userService';
+import { getSearchIndexData } from '../../services/users/userService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { HubSelector } from './HubSelector';
 import { useHub } from '../../context/HubContext';

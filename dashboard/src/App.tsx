@@ -24,7 +24,7 @@ import { initSyncEngine, startSyncEngine, stopSyncEngine } from './lib/sync/Sync
 import { PAGE_TRANSITION_VARIANTS } from './lib/motion';
 import { PasswordRecovery } from './components/auth/PasswordRecovery';
 import { MfaChallenge } from './components/auth/MfaChallenge';
-import { getCurrentAuthSessionIdentity, getMfaState, subscribeToOtherSessionLogout } from './services/authSecurity';
+import { getCurrentAuthSessionIdentity, getMfaState, subscribeToOtherSessionLogout } from './services/auth/authSecurity';
 import { isPasswordRecoveryUrl } from './lib/authRecoveryRoute';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;

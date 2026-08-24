@@ -11,13 +11,13 @@ import {
   type NotificationRecord,
   type UserRole,
   type NotificationPriority
-} from '../services/notificationService';
+} from '../services/notifications/notificationService';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   loadNotificationPreferences,
   updateNotificationPreferences as persistNotificationPreferences,
   type NotificationPreferences,
-} from '../services/notificationPreferenceService';
+} from '../services/notifications/notificationPreferenceService';
 import { AttendanceRealtimeContext } from './attendanceRealtimeContext';
 import { useHub } from './HubContext';
 

@@ -2,7 +2,7 @@ import type {
   CachedDashboardPayload,
   DBAttendanceRow,
   DBRiderRow,
-} from '../../services/riderCacheService';
+} from '../../services/riders/riderCacheService';
 import type { Rider } from '../../services/types';
 
 export interface DashboardAttendanceLog {

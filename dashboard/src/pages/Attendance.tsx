@@ -11,14 +11,14 @@ import {
   Search,
   RotateCcw
 } from 'lucide-react';
-import { getAttendanceLogs, getLocalDateString, isAttendanceFinalized } from '../services/attendanceService';
-import { getZones } from '../services/geofenceService';
+import { getAttendanceLogs, getLocalDateString, isAttendanceFinalized } from '../services/attendance/attendanceService';
+import { getZones } from '../services/geofencing/geofenceService';
 import type { AttendanceLog, Zone } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
 import { AttendanceTable } from '../components/attendance/AttendanceTable';
-import { getRidersLookup } from '../services/riderService';
+import { getRidersLookup } from '../services/riders/riderService';
 import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetailsPanels';
-import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/dtrParserService';
+import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/attendance/dtrParserService';
 import { toast } from 'react-hot-toast';
 import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 import { exportAttendanceCsv, exportAttendancePdf } from '../lib/exports/attendanceExport';

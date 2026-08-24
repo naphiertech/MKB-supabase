@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
   updateStatus: vi.fn(),
 }));
 
-vi.mock('../../services/supportTicketService', async () => {
-  const actual = await vi.importActual<typeof import('../../services/supportTicketService')>('../../services/supportTicketService');
+vi.mock('../../services/support/supportTicketService', async () => {
+  const actual = await vi.importActual<typeof import('../../services/support/supportTicketService')>('../../services/support/supportTicketService');
   return {
     ...actual,
     createSupportTicket: mocks.create,

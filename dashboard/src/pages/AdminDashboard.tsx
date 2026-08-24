@@ -6,11 +6,11 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useRealtimeLocation } from "../hooks/useRealtimeLocation";
-import { getZones } from "../services/geofenceService";
+import { getZones } from "../services/geofencing/geofenceService";
 import {
   getAttendanceLogs,
   getLocalDateString,
-} from "../services/attendanceService";
+} from "../services/attendance/attendanceService";
 import type { Zone, AttendanceLog } from "../services/types";
 import { StatCard } from "../components/common/StatCard";
 import { LiveMonitoringMap } from "../components/maps/LiveMonitoringMap";
@@ -20,7 +20,7 @@ import { ViolationFeed } from "../components/monitoring/ViolationFeed";
 import {
   markAllViolationsRead,
   markViolationRead,
-} from "../services/monitoringService";
+} from "../services/monitoring/monitoringService";
 import { StatDetailsPanel } from "../components/dashboard/StatDetailsPanels";
 import { useAttendanceRealtimeVersion } from "../context/attendanceRealtimeContext";
 

@@ -1,11 +1,11 @@
 import { supabase } from '../lib/supabaseClient';
 import { logActivity } from '../lib/apiService';
 import { PayrollStatus } from '../types/payroll';
-import { dispatchNotificationSafe } from './notificationService';
+import { dispatchNotificationSafe } from './notifications/notificationService';
 import {
   bulkApprovePayrollRecords,
   bulkMarkPayrollRecordsPaid,
-} from './payrollBulkActions';
+} from './payroll/payrollBulkActions';
 import { resolveAttendanceSummaryFacts } from '../lib/attendance/attendanceSummaryPolicy';
 
 export interface ParcelLog {

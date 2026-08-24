@@ -22,7 +22,7 @@ import {
   computeRouteStats,
   RoutePoint,
   RouteStats
-} from '../services/routeService';
+} from '../services/monitoring/routeService';
 
 export function LiveMonitoring() {
   const { riders, violations } = useRealtimeLocation();

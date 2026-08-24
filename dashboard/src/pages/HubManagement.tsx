@@ -35,7 +35,7 @@ import {
   updateHub,
   type HubManagementHub,
   type HubManagementSnapshot,
-} from '../services/hubService';
+} from '../services/hubs/hubService';
 
 const EMPTY: HubManagementSnapshot = { hubs: [], zones: [] };
 

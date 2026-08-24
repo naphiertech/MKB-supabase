@@ -16,7 +16,7 @@ import {
   type SupportTicketDraftErrors,
   type SupportTicketMessage,
   type SupportTicketStatus,
-} from '../../services/supportTicketService';
+} from '../../services/support/supportTicketService';
 
 type SupportUserRole = 'admin' | 'hr' | 'payroll' | 'rider';
 

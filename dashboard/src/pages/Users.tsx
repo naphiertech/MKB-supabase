@@ -16,7 +16,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import { type AppUser, type EmploymentStatus, type UserRole, type UserStatus, type Zone } from '../services/types';
 import { logActivity } from '../lib/apiService';
-import { getZones, getZonesForHubs } from '../services/geofenceService';
+import { getZones, getZonesForHubs } from '../services/geofencing/geofenceService';
 import { UsersTable } from '../components/users/UsersTable';
 import { UsersSkeleton } from '../components/users/UsersSkeleton';
 import { UserForm } from '../components/users/UserForm';
@@ -32,7 +32,7 @@ import {
   requestStaffPasswordReset,
   restoreEmployment,
   setUserAccountAccess,
-} from '../services/adminUserService';
+} from '../services/users/adminUserService';
 import { EmploymentLifecycleModal } from '../components/users/EmploymentLifecycleModal';
 import type { ArchiveInput } from '../lib/workforce/employmentLifecycle';
 import { createSyncOperationId } from '../lib/storage';
@@ -46,9 +46,9 @@ import {
   deleteRiderProfile,
   createUserProfile,
   getStaffAvatarSignedUrl,
-} from '../services/userService';
+} from '../services/users/userService';
 import { isStaffRole } from '../lib/users/staffProfilePolicy';
-import { setUserHubAccess } from '../services/hubService';
+import { setUserHubAccess } from '../services/hubs/hubService';
 import { useHub } from '../context/HubContext';
 
 

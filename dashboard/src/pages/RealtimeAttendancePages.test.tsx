@@ -27,8 +27,8 @@ vi.mock('../lib/supabaseClient', () => ({
   supabase: { channel: mocks.channel, removeChannel: mocks.removeChannel },
 }));
 
-vi.mock('../services/notificationService', async () => {
-  const actual = await vi.importActual<typeof import('../services/notificationService')>('../services/notificationService');
+vi.mock('../services/notifications/notificationService', async () => {
+  const actual = await vi.importActual<typeof import('../services/notifications/notificationService')>('../services/notifications/notificationService');
   return {
     ...actual,
     getFlaggedViolationIds: vi.fn().mockResolvedValue(new Set()),
@@ -36,16 +36,16 @@ vi.mock('../services/notificationService', async () => {
   };
 });
 
-vi.mock('../services/notificationPreferenceService', async () => {
-  const actual = await vi.importActual<typeof import('../services/notificationPreferenceService')>('../services/notificationPreferenceService');
+vi.mock('../services/notifications/notificationPreferenceService', async () => {
+  const actual = await vi.importActual<typeof import('../services/notifications/notificationPreferenceService')>('../services/notifications/notificationPreferenceService');
   return {
     ...actual,
     loadNotificationPreferences: mocks.loadPreferences,
   };
 });
 
-vi.mock('../services/attendanceService', async () => {
-  const actual = await vi.importActual<typeof import('../services/attendanceService')>('../services/attendanceService');
+vi.mock('../services/attendance/attendanceService', async () => {
+  const actual = await vi.importActual<typeof import('../services/attendance/attendanceService')>('../services/attendance/attendanceService');
   return {
     ...actual,
     getAttendanceLogs: mocks.getAttendanceLogs,
@@ -53,13 +53,13 @@ vi.mock('../services/attendanceService', async () => {
   };
 });
 
-vi.mock('../services/geofenceService', async () => {
-  const actual = await vi.importActual<typeof import('../services/geofenceService')>('../services/geofenceService');
+vi.mock('../services/geofencing/geofenceService', async () => {
+  const actual = await vi.importActual<typeof import('../services/geofencing/geofenceService')>('../services/geofencing/geofenceService');
   return { ...actual, getZones: mocks.getZones };
 });
 
-vi.mock('../services/riderService', async () => {
-  const actual = await vi.importActual<typeof import('../services/riderService')>('../services/riderService');
+vi.mock('../services/riders/riderService', async () => {
+  const actual = await vi.importActual<typeof import('../services/riders/riderService')>('../services/riders/riderService');
   return { ...actual, getRidersLookup: mocks.getRidersLookup };
 });
 

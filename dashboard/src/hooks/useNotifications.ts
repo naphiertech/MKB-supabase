@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useNotificationContext } from '../context/NotificationContext';
-import type { NotificationRecord } from '../services/notificationService';
+import type { NotificationRecord } from '../services/notifications/notificationService';
 
 export type NotificationType = 'violation' | 'absent' | 'attendance' | 'system';
 

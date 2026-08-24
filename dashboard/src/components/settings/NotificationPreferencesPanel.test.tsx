@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_NOTIFICATION_PREFERENCES } from '../../services/notificationPreferenceService';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '../../services/notifications/notificationPreferenceService';
 import { NotificationPreferencesPanel } from './NotificationPreferencesPanel';
 
 describe('NotificationPreferencesPanel', () => {

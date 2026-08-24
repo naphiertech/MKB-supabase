@@ -33,7 +33,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('./hooks/useAuth', () => ({ useAuth: () => mocks.authState }));
-vi.mock('./services/authSecurity', () => ({
+vi.mock('./services/auth/authSecurity', () => ({
   getMfaState: mocks.getMfaState,
   getCurrentAuthSessionIdentity: vi.fn().mockResolvedValue({ userId: 'admin-1', sessionId: 'session-1' }),
   subscribeToOtherSessionLogout: vi.fn().mockResolvedValue(vi.fn()),

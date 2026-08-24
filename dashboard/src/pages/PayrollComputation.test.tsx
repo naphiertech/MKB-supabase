@@ -39,11 +39,11 @@ vi.mock('../hooks/useParcelLogsRealtimeVersion', () => ({
   useParcelLogsRealtimeVersion: () => 0,
 }));
 
-vi.mock('../services/riderService', () => ({
+vi.mock('../services/riders/riderService', () => ({
   getRidersLookup: mocks.getRidersLookup,
 }));
 
-vi.mock('../services/attendanceService', () => ({
+vi.mock('../services/attendance/attendanceService', () => ({
   getRiderAttendanceInDateRange: vi.fn().mockResolvedValue([]),
 }));
 

@@ -24,11 +24,11 @@ import { supabase } from '../../lib/supabaseClient';
 import { exportEmployeeProfileCard, exportEmployeeDTR } from '../../lib/exports/employeeExport';
 import { useAuth } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
-import { getUserTrustedDevice, resetUserTrustedDevice } from '../../services/riderService';
+import { getUserTrustedDevice, resetUserTrustedDevice } from '../../services/riders/riderService';
 import { DeviceResetModal, type TrustedDeviceInfo } from './DeviceResetModal';
 import { RiderDocumentsTab } from './RiderDocumentsTab';
 import { getMissingStaffProfileFields, isStaffRole } from '../../lib/users/staffProfilePolicy';
-import { getRiderAssignmentWorkspace, type RiderAssignmentRow } from '../../services/riderAssignmentService';
+import { getRiderAssignmentWorkspace, type RiderAssignmentRow } from '../../services/riders/riderAssignmentService';
 
 function formatTimeString(dateStr: string | null): string {
   if (!dateStr) return '—';

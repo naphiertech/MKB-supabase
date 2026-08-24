@@ -16,7 +16,7 @@ import {
   type RiderDocumentInput,
   type RiderDocumentType,
   type RiderDocumentWithPeople,
-} from '../../services/riderDocumentService';
+} from '../../services/riders/riderDocumentService';
 
 interface RiderDocumentsTabProps {
   riderId: string;

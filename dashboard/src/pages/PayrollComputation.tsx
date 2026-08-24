@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getRidersLookup } from '../services/riderService';
-import { getRiderAttendanceInDateRange } from '../services/attendanceService';
+import { getRidersLookup } from '../services/riders/riderService';
+import { getRiderAttendanceInDateRange } from '../services/attendance/attendanceService';
 import { useHub } from '../context/HubContext';
 import {
   getPayrollDeliveryData,

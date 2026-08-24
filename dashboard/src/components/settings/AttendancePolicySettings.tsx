@@ -30,7 +30,7 @@ import {
   type AttendancePolicyAuditWithPerson,
   type AttendancePolicyConfiguration,
   type AttendancePolicyInput,
-} from '../../services/attendancePolicyService';
+} from '../../services/attendance/attendancePolicyService';
 
 interface AttendancePolicySettingsProps {
   role: Role;

@@ -28,14 +28,14 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../hooks/useGeolocation', () => ({ useGeolocation: mocks.useGeolocation }));
 vi.mock('../../hooks/useFaceRecognition', () => ({ useFaceRecognition: mocks.useFaceRecognition }));
-vi.mock('../../services/attendanceService', () => ({
+vi.mock('../../services/attendance/attendanceService', () => ({
   recordTimeIn: mocks.recordTimeIn, recordTimeOut: mocks.recordTimeOut,
   isAttendanceFinalized: mocks.isAttendanceFinalized,
 }));
-vi.mock('../../services/monitoringService', () => ({
+vi.mock('../../services/monitoring/monitoringService', () => ({
   updateRiderStatus: mocks.updateRiderStatus, logRiderLocation: mocks.logRiderLocation,
 }));
-vi.mock('../../services/riderCacheService', () => ({ updateCachedAttendanceState: mocks.updateCachedAttendanceState }));
+vi.mock('../../services/riders/riderCacheService', () => ({ updateCachedAttendanceState: mocks.updateCachedAttendanceState }));
 vi.mock('../../hooks/useToast', () => ({ pushToast: mocks.pushToast }));
 vi.mock('../../lib/biometricTelemetry', () => ({
   BIOMETRIC_TIMING_NAMES: {

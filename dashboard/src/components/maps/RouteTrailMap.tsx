@@ -8,7 +8,7 @@ import {
   useMap,
 } from 'react-leaflet';
 import L from 'leaflet';
-import { RoutePoint, RouteStats } from '../../services/routeService';
+import { RoutePoint, RouteStats } from '../../services/monitoring/routeService';
 import { haversine } from '../../services/types';
 import { Play, Pause, RotateCcw, X, Activity } from 'lucide-react';
 

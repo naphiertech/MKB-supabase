@@ -31,11 +31,11 @@ import {
   type ParcelLogAuditEntry,
   type ParcelCorrectionRequest
 } from '../services/operationsService';
-import { getRidersLookup } from '../services/riderService';
-import { getZones } from '../services/geofenceService';
+import { getRidersLookup } from '../services/riders/riderService';
+import { getZones } from '../services/geofencing/geofenceService';
 import type { Zone } from '../services/types';
 import { pushToast } from '../hooks/useToast';
-import { getLocalDateString } from '../services/attendanceService';
+import { getLocalDateString } from '../services/attendance/attendanceService';
 import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
 import { RiderAvatar } from '../components/common/RiderAvatar';
 import { RightDrawer } from '../components/common/RightDrawer';

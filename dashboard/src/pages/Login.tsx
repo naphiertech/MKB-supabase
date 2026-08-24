@@ -16,7 +16,7 @@ import { BRANDING } from '../config/branding';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoginSkeleton } from '../components/common/DashboardSkeleton';
 import { Modal } from '../components/common/Modal';
-import { requestPasswordRecovery } from '../services/authSecurity';
+import { requestPasswordRecovery } from '../services/auth/authSecurity';
 import { recoveryRedirectUrl } from '../lib/authRecoveryRoute';
 const DEMO_ACCOUNTS = [
 {

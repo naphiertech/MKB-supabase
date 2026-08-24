@@ -3,7 +3,7 @@ import { AlertTriangle, Flag, Check, ArrowRight } from 'lucide-react';
 import type { ViolationEvent, Rider } from '../../services/types';
 import { useNow, relativeTime } from '../../hooks/useNow';
 import { pushToast } from '../../hooks/useToast';
-import { getFlaggedViolationIds, createNotificationAlert } from '../../services/notificationService';
+import { getFlaggedViolationIds, createNotificationAlert } from '../../services/notifications/notificationService';
 import {
   isViolationOnBusinessDate,
   VIOLATION_TYPE_LABEL

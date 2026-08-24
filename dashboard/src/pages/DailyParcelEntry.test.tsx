@@ -20,8 +20,8 @@ vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'user-1', email: 'ops@mkb.test' } }),
 }));
 vi.mock('../hooks/useToast', () => ({ pushToast: mocks.pushToast }));
-vi.mock('../services/geofenceService', () => ({ getZones: mocks.getZones }));
-vi.mock('../services/riderService', () => ({ getRidersLookup: mocks.getRidersLookup }));
+vi.mock('../services/geofencing/geofenceService', () => ({ getZones: mocks.getZones }));
+vi.mock('../services/riders/riderService', () => ({ getRidersLookup: mocks.getRidersLookup }));
 vi.mock('../services/operationsService', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../services/operationsService')>();
   return {

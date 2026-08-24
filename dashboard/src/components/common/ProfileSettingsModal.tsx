@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getUserContactInfo, updateUserSettingsProfile, updateUserAuthCredentials } from '../../services/userService';
+import { getUserContactInfo, updateUserSettingsProfile, updateUserAuthCredentials } from '../../services/users/userService';
 import { useAuth } from '../../hooks/useAuth';
 import { Modal } from './Modal';
 import { pushToast } from '../../hooks/useToast';
@@ -21,7 +21,7 @@ import { useNotificationContext } from '../../context/NotificationContext';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   type NotificationPreferences,
-} from '../../services/notificationPreferenceService';
+} from '../../services/notifications/notificationPreferenceService';
 
 interface ProfileSettingsModalProps {
   open: boolean;

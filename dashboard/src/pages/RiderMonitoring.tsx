@@ -13,9 +13,9 @@ import { RouteTrailMap } from '../components/maps/RouteTrailMap';
 import { 
   RoutePoint,
   RouteStats
-} from '../services/routeService';
+} from '../services/monitoring/routeService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
-import { fetchRiderMonitoringWithSWR, type CachedMonitoringPayload } from '../services/riderCacheService';
+import { fetchRiderMonitoringWithSWR, type CachedMonitoringPayload } from '../services/riders/riderCacheService';
 
 interface RiderMonitoringProps {
   userId: string;

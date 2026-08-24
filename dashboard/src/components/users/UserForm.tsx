@@ -34,9 +34,9 @@ import {
   resolveInitialRiderHubId,
   validate,
 } from "./userFormUtils";
-import { checkEmployeeDuplicates } from "../../services/userService";
+import { checkEmployeeDuplicates } from "../../services/users/userService";
 import { getMissingStaffProfileFields, isStaffRole } from "../../lib/users/staffProfilePolicy";
-import type { Hub } from "../../services/hubService";
+import type { Hub } from "../../services/hubs/hubService";
 
 type UserWithExtensions = AppUser &
   Partial<{

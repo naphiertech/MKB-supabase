@@ -4,7 +4,7 @@ import { type AppUser, type EmploymentStatus, type UserRole, type UserStatus } f
 import { pushToast } from "./useToast";
 import { fetchIpLocation, logActivity } from "../lib/apiService";
 import { getDeviceIdentifier } from "../lib/deviceFingerprint";
-import { dispatchNotificationSafe } from "../services/notificationService";
+import { dispatchNotificationSafe } from "../services/notifications/notificationService";
 import {
   clearOfflineRiderTrust,
   createOfflineRiderTrustRecord,
@@ -13,9 +13,9 @@ import {
   validateOfflineRiderTrust,
   type OfflineRiderTrustFailure
 } from '../lib/offlineRiderTrust';
-import { logoutCurrentSessionLocally } from '../services/authSecurity';
-import { clearRiderSensitiveCache } from '../services/riderCacheService';
-import { getStaffAvatarSignedUrl } from '../services/userService';
+import { logoutCurrentSessionLocally } from '../services/auth/authSecurity';
+import { clearRiderSensitiveCache } from '../services/riders/riderCacheService';
+import { getStaffAvatarSignedUrl } from '../services/users/userService';
 import { isStaffRole } from '../lib/users/staffProfilePolicy';
 
 const STORAGE_KEY = "attenrider.session.v1";

@@ -1,4 +1,4 @@
-import type { RiderAssignmentRow } from '../services/riderAssignmentService';
+import type { RiderAssignmentRow } from '../services/riders/riderAssignmentService';
 
 export interface RiderAssignmentFilters {
   hubId: string;

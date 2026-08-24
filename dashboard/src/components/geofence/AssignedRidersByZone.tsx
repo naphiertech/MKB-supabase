@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import type { Zone, Rider, AttendanceLog } from '../../services/types';
-import { getLocalDateString } from '../../services/attendanceService';
+import { getLocalDateString } from '../../services/attendance/attendanceService';
 import { StatusBadge } from '../common/DashboardPrimitives';
 interface AssignedRidersByZoneProps {
   zones: Zone[];

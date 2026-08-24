@@ -16,11 +16,11 @@ vi.mock('../lib/apiService', () => ({
   logActivity: vi.fn(),
 }));
 
-vi.mock('./notificationService', () => ({
+vi.mock('./notifications/notificationService', () => ({
   dispatchNotificationSafe: vi.fn(),
 }));
 
-vi.mock('./payrollBulkActions', () => ({
+vi.mock('./payroll/payrollBulkActions', () => ({
   bulkApprovePayrollRecords: mocks.bulkApprove,
   bulkMarkPayrollRecordsPaid: mocks.bulkPay,
 }));

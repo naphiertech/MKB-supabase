@@ -7,9 +7,9 @@ import { pushToast } from '../../hooks/useToast';
 import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricTelemetry';
 import { isPointInPolygon } from '../../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../../lib/riderGeolocation';
-import { updateCachedAttendanceState } from '../../services/riderCacheService';
-import { isAttendanceFinalized, recordTimeIn, recordTimeOut } from '../../services/attendanceService';
-import { logRiderLocation, updateRiderStatus } from '../../services/monitoringService';
+import { updateCachedAttendanceState } from '../../services/riders/riderCacheService';
+import { isAttendanceFinalized, recordTimeIn, recordTimeOut } from '../../services/attendance/attendanceService';
+import { logRiderLocation, updateRiderStatus } from '../../services/monitoring/monitoringService';
 import { haversine, type Zone } from '../../services/types';
 import {
   deriveAttendanceAction,

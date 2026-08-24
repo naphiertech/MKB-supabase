@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { checkHasActiveAttendance } from '../services/riderAttendanceCheck';
+import { checkHasActiveAttendance } from '../services/riders/riderAttendanceCheck';
 import { ActiveShiftLogoutModal } from '../components/rider/ActiveShiftLogoutModal';
 
 interface UseRiderSignOutOptions {

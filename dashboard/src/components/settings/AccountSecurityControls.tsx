@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { pushToast } from '../../hooks/useToast';
-import { enrollTotpFactor, getMfaState, logoutOtherSessions, unenrollTotpFactor, verifyTotpChallenge, type TotpEnrollment } from '../../services/authSecurity';
+import { enrollTotpFactor, getMfaState, logoutOtherSessions, unenrollTotpFactor, verifyTotpChallenge, type TotpEnrollment } from '../../services/auth/authSecurity';
 
 export function AccountSecurityControls() {
   const [mfaEnabled, setMfaEnabled] = useState(false);
