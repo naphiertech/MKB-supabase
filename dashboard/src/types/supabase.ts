@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -51,6 +51,13 @@ export type Database = {
             columns: ["hub_id"]
             isOneToOne: false
             referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_logs_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
             referencedColumns: ["id"]
           },
           {
@@ -121,10 +128,119 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "attendance_logs_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "attendance_logs_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
             referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_policy_configuration_audit: {
+        Row: {
+          action: string
+          change_reason: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          policy_configuration_id: string
+        }
+        Insert: {
+          action: string
+          change_reason: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          policy_configuration_id: string
+        }
+        Update: {
+          action?: string
+          change_reason?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          policy_configuration_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_policy_configuration_au_policy_configuration_id_fkey"
+            columns: ["policy_configuration_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_policy_configurations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_policy_configuration_audit_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_policy_configurations: {
+        Row: {
+          active: boolean
+          change_reason: string
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_until: string | null
+          id: string
+          late_threshold: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          change_reason: string
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          effective_until?: string | null
+          id?: string
+          late_threshold?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          change_reason?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          late_threshold?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_policy_configurations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_policy_configurations_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -241,6 +357,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "notifications_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "notifications_recipient_id_fkey"
             columns: ["recipient_id"]
             isOneToOne: false
@@ -349,6 +472,13 @@ export type Database = {
             columns: ["hub_id"]
             isOneToOne: false
             referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_correction_requests_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
             referencedColumns: ["id"]
           },
           {
@@ -475,6 +605,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "parcel_log_audit_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "parcel_log_audit_parcel_log_id_fkey"
             columns: ["parcel_log_id"]
             isOneToOne: false
@@ -567,6 +704,13 @@ export type Database = {
             columns: ["hub_id"]
             isOneToOne: false
             referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parcel_logs_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
             referencedColumns: ["id"]
           },
           {
@@ -819,6 +963,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payroll_delivery_lines_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payroll_delivery_lines_payroll_record_id_fkey"
             columns: ["payroll_record_id"]
             isOneToOne: false
@@ -1017,6 +1168,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payroll_records_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "payroll_records_paid_by_fkey"
             columns: ["paid_by"]
             isOneToOne: false
@@ -1089,6 +1247,144 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      rider_assignments: {
+        Row: {
+          assignment_type: string
+          created_at: string
+          created_by: string
+          end_date: string | null
+          end_reason: string | null
+          ended_at: string | null
+          ended_by: string | null
+          from_hub_id: string | null
+          from_zone_id: string | null
+          id: string
+          reason: string
+          rider_id: string
+          start_date: string
+          status: string
+          target_hub_id: string
+          target_zone_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_type: string
+          created_at?: string
+          created_by: string
+          end_date?: string | null
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          from_hub_id?: string | null
+          from_zone_id?: string | null
+          id?: string
+          reason: string
+          rider_id: string
+          start_date: string
+          status: string
+          target_hub_id: string
+          target_zone_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_type?: string
+          created_at?: string
+          created_by?: string
+          end_date?: string | null
+          end_reason?: string | null
+          ended_at?: string | null
+          ended_by?: string | null
+          from_hub_id?: string | null
+          from_zone_id?: string | null
+          id?: string
+          reason?: string
+          rider_id?: string
+          start_date?: string
+          status?: string
+          target_hub_id?: string
+          target_zone_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rider_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_ended_by_fkey"
+            columns: ["ended_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_from_hub_id_fkey"
+            columns: ["from_hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_from_hub_id_fkey"
+            columns: ["from_hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_from_zone_id_fkey"
+            columns: ["from_zone_id"]
+            isOneToOne: false
+            referencedRelation: "public_zones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_from_zone_id_fkey"
+            columns: ["from_zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_target_hub_id_fkey"
+            columns: ["target_hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_target_hub_id_fkey"
+            columns: ["target_hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_target_zone_id_fkey"
+            columns: ["target_zone_id"]
+            isOneToOne: false
+            referencedRelation: "public_zones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_assignments_target_zone_id_fkey"
+            columns: ["target_zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rider_documents: {
         Row: {
@@ -1163,6 +1459,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "rider_documents_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "rider_documents_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
@@ -1225,6 +1528,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "rider_locations_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "rider_locations_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
@@ -1249,6 +1559,8 @@ export type Database = {
           face_image_url: string | null
           face_registered: boolean
           face_registered_at: string | null
+          home_hub_id: string | null
+          home_zone_id: string | null
           hub_id: string | null
           id: string
           last_ping: string | null
@@ -1283,6 +1595,8 @@ export type Database = {
           face_image_url?: string | null
           face_registered?: boolean
           face_registered_at?: string | null
+          home_hub_id?: string | null
+          home_zone_id?: string | null
           hub_id?: string | null
           id?: string
           last_ping?: string | null
@@ -1317,6 +1631,8 @@ export type Database = {
           face_image_url?: string | null
           face_registered?: boolean
           face_registered_at?: string | null
+          home_hub_id?: string | null
+          home_zone_id?: string | null
           hub_id?: string | null
           id?: string
           last_ping?: string | null
@@ -1338,10 +1654,52 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "riders_home_hub_id_fkey"
+            columns: ["home_hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riders_home_hub_id_fkey"
+            columns: ["home_hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riders_home_zone_id_fkey"
+            columns: ["home_zone_id"]
+            isOneToOne: false
+            referencedRelation: "public_zones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riders_home_zone_id_fkey"
+            columns: ["home_zone_id"]
+            isOneToOne: false
+            referencedRelation: "zones"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "riders_hub_id_fkey"
             columns: ["hub_id"]
             isOneToOne: false
             referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riders_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riders_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "public_zones"
             referencedColumns: ["id"]
           },
           {
@@ -1471,6 +1829,13 @@ export type Database = {
             referencedRelation: "hubs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "support_tickets_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_devices: {
@@ -1528,6 +1893,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "user_devices_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "user_devices_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
@@ -1575,6 +1947,13 @@ export type Database = {
             columns: ["hub_id"]
             isOneToOne: false
             referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_hub_access_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
             referencedColumns: ["id"]
           },
           {
@@ -1785,10 +2164,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "violations_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "violations_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
             referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "violations_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "public_zones"
             referencedColumns: ["id"]
           },
           {
@@ -1851,6 +2244,13 @@ export type Database = {
             referencedRelation: "hubs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "zones_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -1897,6 +2297,75 @@ export type Database = {
         }
         Relationships: []
       }
+      public_hubs: {
+        Row: {
+          description: string | null
+          id: string | null
+          name: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string | null
+          name?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      public_zones: {
+        Row: {
+          color: string | null
+          hub_id: string | null
+          id: string | null
+          lat: number | null
+          lng: number | null
+          name: string | null
+          polygon_coordinates: Json | null
+          radius: number | null
+          zone_type: string | null
+        }
+        Insert: {
+          color?: string | null
+          hub_id?: string | null
+          id?: string | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          polygon_coordinates?: Json | null
+          radius?: number | null
+          zone_type?: string | null
+        }
+        Update: {
+          color?: string | null
+          hub_id?: string | null
+          id?: string | null
+          lat?: number | null
+          lng?: number | null
+          name?: string | null
+          polygon_coordinates?: Json | null
+          radius?: number | null
+          zone_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zones_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zones_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_attendance_summary: {
         Row: {
           date: string | null
@@ -1929,10 +2398,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "attendance_logs_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "attendance_logs_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
             referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riders_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "public_zones"
             referencedColumns: ["id"]
           },
           {
@@ -2111,6 +2594,21 @@ export type Database = {
         Args: { lat1: number; lat2: number; lng1: number; lng2: number }
         Returns: number
       }
+      cancel_future_attendance_policy: {
+        Args: { p_change_reason: string; p_policy_id: string }
+        Returns: string
+      }
+      deploy_rider_temporarily: {
+        Args: {
+          p_end_date: string
+          p_reason: string
+          p_rider_id: string
+          p_start_date: string
+          p_target_hub_id: string
+          p_target_zone_id: string
+        }
+        Returns: string
+      }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -2143,6 +2641,10 @@ export type Database = {
         | { Args: { schema_name: string; table_name: string }; Returns: string }
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
+      end_rider_deployment_early: {
+        Args: { p_assignment_id: string; p_reason: string }
+        Returns: undefined
+      }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       execute_payroll_bulk_transition: {
         Args: {
@@ -2153,6 +2655,14 @@ export type Database = {
           p_request_id: string
         }
         Returns: Json
+      }
+      extend_rider_deployment: {
+        Args: {
+          p_assignment_id: string
+          p_new_end_date: string
+          p_reason: string
+        }
+        Returns: undefined
       }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
@@ -2268,6 +2778,10 @@ export type Database = {
           rider_id: string
         }[]
       }
+      get_rider_assignment_workspace: {
+        Args: { p_hub_id?: string; p_rider_id?: string }
+        Returns: Json
+      }
       get_rider_route_summary: {
         Args: { p_date?: string; p_rider_id: string }
         Returns: Json
@@ -2348,9 +2862,18 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      refresh_rider_assignment_statuses: { Args: never; Returns: number }
       refresh_stale_rider_statuses: {
         Args: { stale_after?: string }
         Returns: number
+      }
+      schedule_attendance_policy: {
+        Args: {
+          p_change_reason: string
+          p_effective_from: string
+          p_late_threshold: string
+        }
+        Returns: string
       }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
@@ -2932,6 +3455,16 @@ export type Database = {
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
+      }
+      transfer_rider_permanently: {
+        Args: {
+          p_effective_date: string
+          p_reason: string
+          p_rider_id: string
+          p_target_hub_id: string
+          p_target_zone_id: string
+        }
+        Returns: string
       }
       transition_employee_lifecycle: {
         Args: {

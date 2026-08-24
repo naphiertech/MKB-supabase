@@ -145,17 +145,23 @@ The attendance lateness threshold is dynamically configurable by Admins via an e
   - Exact threshold is **On Time** (`08:15:00` &rarr; On Time).
   - Any time strictly past threshold is **Late** (`08:15:01` &rarr; Late).
 - **Continuous Date Range & Overlap Prevention**:
-  - Enforced by PostgreSQL range GiST exclusion constraint:
+  - Active-range overlap is blocked by the PostgreSQL range GiST exclusion constraint:
     ```sql
-    CONSTRAINT no_overlapping_attendance_policies
+    CONSTRAINT attendance_policy_configurations_no_active_overlap
     EXCLUDE USING gist (
       daterange(effective_from, COALESCE(effective_until, 'infinity'::date), '[]') WITH &&
     ) WHERE (active)
     ```
-  - Predecessor policies receive `effective_until = addDays(newPolicy.effectiveFrom, -1)` with zero gap and zero overlap.
+  - `schedule_attendance_policy()` and `cancel_future_attendance_policy()` lock active policy rows and update every affected boundary in one PostgreSQL transaction. Scheduling closes the predecessor at `new_effective_from - 1`; cancellation restores the predecessor through the next active successor or back to open-ended coverage.
+  - Direct authenticated `INSERT`, `UPDATE`, and `DELETE` privileges are revoked. Authenticated users retain policy `SELECT`; Admin-only state transitions use the two explicitly granted RPCs.
 - **Historical Immutability Guard**:
-  - Database trigger `guard_attendance_policy_immutability()` blocks `UPDATE` or `DELETE` on any policy whose `effective_from <= CURRENT_DATE` if `late_threshold` or `effective_from` are altered.
-  - Future-dated policies (`effective_from > CURRENT_DATE`) can be canceled before taking effect via `deactivateFutureAttendancePolicy()`.
+  - `private.attendance_policy_business_date()` defines policy “today” as `(now() AT TIME ZONE 'Asia/Manila')::date`; browser helpers use the same explicit timezone rather than the Admin device timezone.
+  - Database trigger `guard_attendance_policy_immutability()` permanently protects the threshold, start date, active state, deletion state, and already-governed coverage of effective policies.
+  - The guard still permits the legitimate future transition `current open-ended policy → effective_until = future_start - 1`, provided no Manila business date already governed by that policy is removed.
+  - Policies remain `active = true` after taking effect. `active = false` is reserved for policies canceled while still future-dated.
+  - Future-dated policies can be canceled before taking effect through `cancel_future_attendance_policy()`; target deactivation and predecessor restoration commit or roll back together.
+- **Fallback Integrity**:
+  - `COALESCE(policy.late_threshold, time '08:15:00')` remains as defense-in-depth for legacy or corrupted data. Valid policy history is required to resolve exactly one active policy and must not depend on this fallback.
 - **Append-Only Audit**:
   - All policy creations, closures, and deactivations write append-only records to `attendance_policy_configuration_audit`.
 - **Strict Decoupling from Parcel Rates**:
@@ -340,14 +346,15 @@ The public website (`landing/`) is a dedicated multi-page Next.js application de
 
 ### Visual Design Direction
 - **Bryl-Minimal Foundation**: Warm-neutral palette with crisp typography, hairline borders (`border-border`), and structured grid layouts.
-- **Amber Brand Accents**: Restored signature MKBRiderTrack burnt amber/orange (`#b85a00` / `#d97706`) as primary accents for CTAs, active pills, and brand badges.
+- **Amber Brand Accents**: The current light token is `oklch(0.72 0.17 65)` (documented as `#f59e0b`) and the dark token is `oklch(0.75 0.18 65)` (documented as `#fbbf24`). Amber is used selectively for key CTAs, active pills, and brand/status accents while the primary ink token remains neutral.
 - **Natural Media**: Authentic photography and natural-color media assets.
 - **Semantic Geofence Visualization**: Polygon zones retain their semantic operational colors for map clarity.
 
 ### Supabase Data Layer & Sanitized Public Views
 The landing application reads live operational territory directly from Supabase while strictly preserving workforce privacy:
-- **`public.public_hubs`**: Sanitized view exposing only public hub metadata (`id`, `name`, `slug`, `city`, `active`, `zone_count`).
-- **`public.public_zones`**: Sanitized view exposing public zone polygons and colors (`id`, `hub_id`, `name`, `coordinates`, `color`).
+- **`public.public_hubs`**: Security-barrier view exposing only active hub metadata (`id`, `name`, `description`).
+- **`public.public_zones`**: Security-barrier view exposing only active public geometry (`id`, `hub_id`, `name`, `zone_type`, `lat`, `lng`, `radius`, `polygon_coordinates`, `color`).
+- **View Boundary**: Direct anonymous access to the `hubs` and `zones` base tables is revoked; `anon` and `authenticated` receive `SELECT` only on the sanitized views.
 - **Privacy Boundary**: Anonymous users cannot access `riders`, `users`, `attendance_logs`, `parcel_logs`, or `payroll_records`.
 - **Caching & Freshness**: Hub and Zone detail pages use Next.js Incremental Static Regeneration (ISR) with a 1-minute revalidation window.
 
@@ -390,10 +397,12 @@ Key database tables and views in active use:
 
 Verification executed against active repository state as of **August 24, 2026**:
 
-- **Dashboard Unit Test Suite (`npm --prefix dashboard test`)**: **PASS (477 / 477 tests passed across 95 test files)**
-- **Dashboard TypeScript Typecheck (`npm --prefix dashboard run typecheck`)**: **PASS (0 errors)**
+- **Dashboard Unit Test Suite (`npm --prefix dashboard test`)**: **PASS (480 / 480 tests passed across 95 test files)**
+- **Attendance Policy Database Regression Suite (`attendance_policy_integrity.test.sql`)**: **PASS (35 / 35 pgTAP assertions)**
+- **Broader Database pgTAP Sweep**: **16 / 17 files passed**; the unrelated `payroll_actor_identity_snapshots.test.sql` currently reports **1 failing assertion out of 35**.
+- **Dashboard and Landing TypeScript Typecheck (`npm run typecheck`)**: **PASS (0 errors)**
 - **Dashboard ESLint (`npm --prefix dashboard run lint`)**: **PASS (0 errors, 17 existing warnings)**
-- **Dashboard Production Build (`npm --prefix dashboard run build`)**: **PASS (Vite production bundle built in ~20s)**
+- **Dashboard Production Build (`npm --prefix dashboard run build`)**: **PASS (Vite production bundle built in ~36s)**
 - **Landing Production Build (`npm --prefix landing run build`)**: **PASS (Next.js 16.1.6 Turbopack, 13/13 static & ISR routes compiled)**
 - **Diff Validation (`git diff --check`)**: **PASS (Clean, zero whitespace or syntax errors)**
 
@@ -439,7 +448,7 @@ Use this focused checklist to verify critical operational workflows:
 ## 20. Essential Engineering Invariants for Codex & Antigravity Agents
 
 1. **Attendance Punctuality vs Parcel Rates**: Never conflate attendance lateness (8:15 AM threshold via `attendance_policy_configurations` and `v_attendance_summary.hr_status`) with the parcel compensation rate matrix (≤8:00 AM, 8:01–9:00 AM, >9:00 AM via `parcel_rate_configurations`).
-2. **Zero Retroactive Reclassification**: Always evaluate historical attendance against the policy effective on the record's date (`a.date`), never against the policy active today.
+2. **Zero Retroactive Reclassification**: Always evaluate historical attendance against the policy effective on the record's date (`a.date`), never against the policy active today. Effective policy rows must remain active and retain every already-governed Manila business date; schedule/cancel changes must use the atomic Attendance Policy RPCs.
 3. **Pure Read Queries**: `getPayrollRecords()` and `getPaginatedPayrollRecords()` must remain pure `SELECT` queries without write side-effects.
 4. **Immutable Paid Payroll**: Finalized payroll must read from `payroll_delivery_lines` snapshots and must never be recalculated from live parcel edits.
 5. **PostgreSQL Geofence Authority**: `process_rider_location_geofence()` owns persisted status and violation decisions.

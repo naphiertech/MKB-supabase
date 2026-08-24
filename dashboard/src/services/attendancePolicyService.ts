@@ -35,18 +35,23 @@ export interface AttendancePolicyInput {
 }
 
 export const DEFAULT_LATE_THRESHOLD = '08:15:00';
+export const ATTENDANCE_POLICY_TIME_ZONE = 'Asia/Manila';
 
-export function localDateString(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+export function manilaDateString(date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: ATTENDANCE_POLICY_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 }
 
+export const localDateString = manilaDateString;
+
 export function addDays(date: string, amount: number): string {
-  const value = new Date(`${date}T12:00:00`);
-  value.setDate(value.getDate() + amount);
-  return localDateString(value);
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + amount);
+  return value.toISOString().slice(0, 10);
 }
 
 /**
@@ -240,15 +245,8 @@ export async function listAttendancePolicyAudit(): Promise<AttendancePolicyAudit
   }));
 }
 
-async function currentAuthUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw error ?? new Error('You must be signed in.');
-  return data.user.id;
-}
-
 /**
- * Creates a future-dated attendance policy.
- * Closes the predecessor policy's effective_until on the day before the new policy starts.
+ * Atomically schedules a future-dated attendance policy in PostgreSQL.
  */
 export async function createFutureAttendancePolicy(
   input: AttendancePolicyInput
@@ -256,122 +254,28 @@ export async function createFutureAttendancePolicy(
   const validation = validateAttendancePolicyInput(input);
   if (validation) throw new Error(validation);
 
-  const userId = await currentAuthUserId();
-  const normalizedThreshold = normalizeTimeString(input.lateThreshold);
+  const { error } = await supabase.rpc('schedule_attendance_policy', {
+    p_late_threshold: normalizeTimeString(input.lateThreshold),
+    p_effective_from: input.effectiveFrom,
+    p_change_reason: input.reason.trim(),
+  });
 
-  const configurations = (await listAttendancePolicyConfigurations())
-    .filter((c) => c.active)
-    .sort((a, b) => a.effective_from.localeCompare(b.effective_from));
-
-  if (configurations.some((c) => c.effective_from === input.effectiveFrom)) {
-    throw new Error('An active policy configuration already starts on that date.');
-  }
-
-  const predecessor = [...configurations]
-    .reverse()
-    .find((c) => c.effective_from < input.effectiveFrom);
-
-  const previousEnd = predecessor?.effective_until ?? null;
-  const previousReason = predecessor?.change_reason ?? '';
-  let predecessorWasUpdated = false;
-
-  if (
-    predecessor &&
-    (!predecessor.effective_until || predecessor.effective_until >= input.effectiveFrom)
-  ) {
-    const newUntil = addDays(input.effectiveFrom, -1);
-    const { error: updateError } = await supabase
-      .from('attendance_policy_configurations')
-      .update({
-        effective_until: newUntil,
-        change_reason: `Replaced by future policy effective ${input.effectiveFrom}. ${input.reason}`.trim(),
-        updated_by: userId,
-      })
-      .eq('id', predecessor.id);
-
-    if (updateError) throw updateError;
-    predecessorWasUpdated = true;
-  }
-
-  const successor = configurations.find((c) => c.effective_from > input.effectiveFrom);
-  const effectiveUntil = successor ? addDays(successor.effective_from, -1) : null;
-
-  const { error: insertError } = await supabase
-    .from('attendance_policy_configurations')
-    .insert({
-      late_threshold: normalizedThreshold,
-      effective_from: input.effectiveFrom,
-      effective_until: effectiveUntil,
-      active: true,
-      change_reason: input.reason.trim(),
-      created_by: userId,
-      updated_by: userId,
-    });
-
-  if (insertError) {
-    if (predecessorWasUpdated && predecessor) {
-      await supabase
-        .from('attendance_policy_configurations')
-        .update({
-          effective_until: previousEnd,
-          change_reason: previousReason,
-          updated_by: userId,
-        })
-        .eq('id', predecessor.id);
-    }
-    throw insertError;
-  }
+  if (error) throw new Error(error.message);
 }
 
 /**
- * Deactivates an unstarted future attendance policy.
+ * Atomically cancels an unstarted future attendance policy in PostgreSQL.
  */
 export async function deactivateFutureAttendancePolicy(
   policyId: string,
-  reason: string,
-  today = localDateString()
+  reason: string
 ): Promise<void> {
   if (!reason.trim()) throw new Error('A reason is required to cancel a policy.');
 
-  const userId = await currentAuthUserId();
-  const configurations = await listAttendancePolicyConfigurations();
-  const target = configurations.find((c) => c.id === policyId);
+  const { error } = await supabase.rpc('cancel_future_attendance_policy', {
+    p_policy_id: policyId,
+    p_change_reason: reason.trim(),
+  });
 
-  if (!target) throw new Error('Policy not found.');
-  if (target.effective_from <= today) {
-    throw new Error('Policies that have already taken effect cannot be canceled.');
-  }
-
-  const activeConfigs = configurations
-    .filter((c) => c.active && c.id !== policyId)
-    .sort((a, b) => a.effective_from.localeCompare(b.effective_from));
-
-  const predecessor = [...activeConfigs]
-    .reverse()
-    .find((c) => c.effective_from < target.effective_from);
-
-  const successor = activeConfigs.find((c) => c.effective_from > target.effective_from);
-
-  const { error } = await supabase
-    .from('attendance_policy_configurations')
-    .update({
-      active: false,
-      change_reason: reason.trim(),
-      updated_by: userId,
-    })
-    .eq('id', policyId);
-
-  if (error) throw error;
-
-  if (predecessor) {
-    const newUntil = successor ? addDays(successor.effective_from, -1) : null;
-    await supabase
-      .from('attendance_policy_configurations')
-      .update({
-        effective_until: newUntil,
-        change_reason: `Restored boundary after cancellation of ${target.effective_from} policy. ${reason}`.trim(),
-        updated_by: userId,
-      })
-      .eq('id', predecessor.id);
-  }
+  if (error) throw new Error(error.message);
 }

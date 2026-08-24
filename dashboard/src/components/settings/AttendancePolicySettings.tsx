@@ -20,6 +20,7 @@ import { RightDrawer } from '../common/RightDrawer';
 import {
   createFutureAttendancePolicy,
   deactivateFutureAttendancePolicy,
+  addDays,
   formatTime12Hour,
   getEffectiveAttendancePolicy,
   listAttendancePolicyAudit,
@@ -124,10 +125,8 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
   );
 
   const minEffectiveDate = useMemo(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return localDateString(tomorrow);
-  }, []);
+    return addDays(today, 1);
+  }, [today]);
 
   const openScheduleModal = () => {
     setInput({
@@ -172,7 +171,7 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
     setSaving(true);
     setError('');
     try {
-      await deactivateFutureAttendancePolicy(deactivating.id, deactivateReason, today);
+      await deactivateFutureAttendancePolicy(deactivating.id, deactivateReason);
       pushToast({
         title: 'Scheduled policy canceled',
         description: `The policy scheduled for ${formatDate(deactivating.effective_from)} has been canceled.`,

@@ -12,6 +12,7 @@ import {
   type AttendancePolicyConfiguration,
   type AttendancePolicyInput,
 } from './attendancePolicyService';
+import * as attendancePolicyService from './attendancePolicyService';
 import { supabase } from '../lib/supabaseClient';
 
 vi.mock('../lib/supabaseClient', () => {
@@ -22,6 +23,7 @@ vi.mock('../lib/supabaseClient', () => {
   return {
     supabase: {
       from: fromMock,
+      rpc: vi.fn(),
       auth: authMock,
     },
   };
@@ -45,13 +47,25 @@ describe('attendancePolicyService', () => {
       id: 'policy-2',
       late_threshold: '08:30:00',
       effective_from: '2026-09-01',
-      effective_until: null,
+      effective_until: '2026-09-30',
       active: true,
       change_reason: 'Shift extension: Late after 08:30',
       created_by: 'admin-1',
       updated_by: 'admin-1',
       created_at: '2026-08-20T00:00:00Z',
       updated_at: '2026-08-20T00:00:00Z',
+    },
+    {
+      id: 'policy-3',
+      late_threshold: '08:10:00',
+      effective_from: '2026-10-01',
+      effective_until: null,
+      active: true,
+      change_reason: 'Earlier October threshold',
+      created_by: 'admin-1',
+      updated_by: 'admin-1',
+      created_at: '2026-08-21T00:00:00Z',
+      updated_at: '2026-08-21T00:00:00Z',
     },
   ];
 
@@ -108,6 +122,12 @@ describe('attendancePolicyService', () => {
       expect(policySep?.id).toBe('policy-2');
       expect(policySep?.late_threshold).toBe('08:30:00');
       expect(resolveLateThreshold(samplePolicies, '2026-09-01')).toBe('08:30:00');
+    });
+
+    it('resolves the October policy without changing August or September history', () => {
+      expect(resolveLateThreshold(samplePolicies, '2026-08-20')).toBe('08:15:00');
+      expect(resolveLateThreshold(samplePolicies, '2026-09-20')).toBe('08:30:00');
+      expect(resolveLateThreshold(samplePolicies, '2026-10-20')).toBe('08:10:00');
     });
 
     it('falls back to DEFAULT_LATE_THRESHOLD (08:15:00) when no policy matches', () => {
@@ -199,64 +219,62 @@ describe('attendancePolicyService', () => {
     });
   });
 
-  describe('createFutureAttendancePolicy & deactivateFutureAttendancePolicy', () => {
-    it('creates future policy and closes predecessor effective_until', async () => {
-      const selectMock = vi.fn().mockResolvedValue({
-        data: samplePolicies,
-        error: null,
-      });
-      const updateMock = vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      });
-      const insertMock = vi.fn().mockResolvedValue({ error: null });
+  describe('Manila business date', () => {
+    it('rolls to the next attendance date at Manila midnight regardless of UTC date', () => {
+      const service = attendancePolicyService as typeof attendancePolicyService & {
+        manilaDateString: (date: Date) => string;
+      };
 
-      vi.mocked(supabase.from).mockImplementation((table: string) => {
-        if (table === 'attendance_policy_configurations') {
-          return {
-            select: vi.fn().mockReturnValue({ order: selectMock }),
-            update: updateMock,
-            insert: insertMock,
-          } as unknown as ReturnType<typeof supabase.from>;
-        }
-        return {} as unknown as ReturnType<typeof supabase.from>;
-      });
+      expect(service.manilaDateString(new Date('2026-08-31T15:59:59.000Z'))).toBe('2026-08-31');
+      expect(service.manilaDateString(new Date('2026-08-31T16:00:00.000Z'))).toBe('2026-09-01');
+    });
+  });
+
+  describe('createFutureAttendancePolicy & deactivateFutureAttendancePolicy', () => {
+    it('schedules a future policy through one atomic RPC', async () => {
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: null, error: null } as never);
 
       await createFutureAttendancePolicy({
         lateThreshold: '08:45',
-        effectiveFrom: '2026-10-01',
+        effectiveFrom: '2026-11-01',
         reason: 'Q4 Peak Season Shift Expansion',
       });
 
-      // Verifies predecessor update closed effective_until to 2026-09-30
-      expect(updateMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          effective_until: '2026-09-30',
-        })
-      );
-
-      // Verifies new policy was inserted
-      expect(insertMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          late_threshold: '08:45:00',
-          effective_from: '2026-10-01',
-          active: true,
-          change_reason: 'Q4 Peak Season Shift Expansion',
-        })
-      );
+      expect(supabase.rpc).toHaveBeenCalledTimes(1);
+      expect(supabase.rpc).toHaveBeenCalledWith('schedule_attendance_policy', {
+        p_late_threshold: '08:45:00',
+        p_effective_from: '2026-11-01',
+        p_change_reason: 'Q4 Peak Season Shift Expansion',
+      });
+      expect(supabase.from).not.toHaveBeenCalled();
+      expect(supabase.auth.getUser).not.toHaveBeenCalled();
     });
 
-    it('rejects canceling a policy that has already taken effect', async () => {
-      const selectMock = vi.fn().mockReturnValue({
-        order: vi.fn().mockResolvedValue({
-          data: samplePolicies,
-          error: null,
-        }),
-      });
-      vi.mocked(supabase.from).mockReturnValue({ select: selectMock } as unknown as ReturnType<typeof supabase.from>);
+    it('cancels a future policy through one atomic RPC', async () => {
+      vi.mocked(supabase.rpc).mockResolvedValue({ data: null, error: null } as never);
 
-      // policy-1 started on 2026-01-01 (past)
+      await deactivateFutureAttendancePolicy(
+        'policy-3',
+        'October plan withdrawn'
+      );
+
+      expect(supabase.rpc).toHaveBeenCalledTimes(1);
+      expect(supabase.rpc).toHaveBeenCalledWith('cancel_future_attendance_policy', {
+        p_policy_id: 'policy-3',
+        p_change_reason: 'October plan withdrawn',
+      });
+      expect(supabase.from).not.toHaveBeenCalled();
+      expect(supabase.auth.getUser).not.toHaveBeenCalled();
+    });
+
+    it('surfaces an atomic cancellation failure to the caller', async () => {
+      vi.mocked(supabase.rpc).mockResolvedValue({
+        data: null,
+        error: { message: 'Policies that have already taken effect cannot be canceled.' },
+      } as never);
+
       await expect(
-        deactivateFutureAttendancePolicy('policy-1', 'Attempt to cancel historical policy', '2026-08-24')
+        deactivateFutureAttendancePolicy('policy-1', 'Attempt to cancel historical policy')
       ).rejects.toThrow('Policies that have already taken effect cannot be canceled.');
     });
   });
