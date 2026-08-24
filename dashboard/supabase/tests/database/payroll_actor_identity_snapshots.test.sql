@@ -195,7 +195,7 @@ select ok((select approved_by_name_snapshot is null and approved_by_email_snapsh
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"f2000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
-select throws_ok($$update public.payroll_records set approved_by_email_snapshot = 'forged@example.test' where id = 'f4000000-0000-4000-8000-000000000001'$$, 'P0001', 'Payroll actor attribution can only be changed by a workflow transition.', 'clients cannot forge stored actor snapshots');
+select throws_ok($$update public.payroll_records set approved_by_email_snapshot = 'forged@example.test' where id = 'f4000000-0000-4000-8000-000000000013'$$, 'P0001', 'Payroll actor attribution can only be changed by a workflow transition.', 'clients cannot forge stored actor snapshots');
 select throws_ok($$update public.payroll_records set paid_by_email_snapshot = 'forged@example.test' where id = 'f4000000-0000-4000-8000-000000000005'$$, 'P0001', 'Paid payroll records are immutable.', 'Paid payroll identity snapshots remain immutable');
 
 select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
