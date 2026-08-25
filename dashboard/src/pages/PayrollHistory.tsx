@@ -59,6 +59,7 @@ export interface HistoricalRecord {
   late_remittance: number | null;
   adjustment_snapshot: unknown;
   adjustment_snapshot_version: number | null;
+  adjustment_source_version: number;
   total_earnings_snapshot: number | null;
   total_deductions_snapshot: number | null;
   net_pay_snapshot: number | null;

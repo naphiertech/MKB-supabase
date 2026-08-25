@@ -46,6 +46,7 @@ const HubManagement = lazy(() => import('./pages/HubManagement').then((module) =
 const RiderAssignments = lazy(() => import('./pages/RiderAssignments').then((module) => ({ default: module.RiderAssignments })));
 const AttendancePolicy = lazy(() => import('./pages/AttendancePolicy').then((module) => ({ default: module.AttendancePolicy })));
 const ParcelRates = lazy(() => import('./pages/ParcelRates').then((module) => ({ default: module.ParcelRates })));
+const PayrollAdjustments = lazy(() => import('./pages/PayrollAdjustments').then((module) => ({ default: module.PayrollAdjustments })));
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
   state: { hasError: boolean; error: unknown } = { hasError: false, error: null };
   static getDerivedStateFromError(error: unknown) {
@@ -471,6 +472,7 @@ export function App() {
         'reviews',
         'payroll',
         'payroll_history',
+        'payroll_adjustments',
         'parcel_rates',
         'audit_logs',
         'daily_parcels',
@@ -490,6 +492,7 @@ export function App() {
         'rider_assignments',
         'payroll',
         'payroll_history',
+        'payroll_adjustments',
         'parcel_rates',
         'audit_logs',
         'daily_parcels',
@@ -499,7 +502,7 @@ export function App() {
       return allowed.includes(normalized) ? normalized : 'dashboard';
     }
     // payroll
-    const allowed: PageKey[] = ['dashboard', 'computation', 'payroll_history', 'reports', 'parcel_history', 'attendance_policy', 'parcel_rates'];
+    const allowed: PageKey[] = ['dashboard', 'computation', 'payroll_history', 'payroll_adjustments', 'reports', 'parcel_history', 'attendance_policy', 'parcel_rates'];
     return allowed.includes(normalized) ? normalized : 'dashboard';
   }
   const safePage = safePageFor(dashRole, currentPage);
@@ -565,6 +568,7 @@ export function App() {
                 {safePage === 'settings' && <Settings />}
                 {safePage === 'attendance_policy' && <AttendancePolicy role={dashRole} />}
                 {safePage === 'parcel_rates' && <ParcelRates role={dashRole} />}
+                {safePage === 'payroll_adjustments' && <PayrollAdjustments role={dashRole} />}
                 {role === 'admin' &&
                   <>
                     {safePage === 'dashboard' &&

@@ -511,28 +511,16 @@ describe('payroll synchronization immutability', () => {
 });
 
 describe('payroll deletion & read purity tests', () => {
-  it('deletePayrollRecord deletes the record without modifying parcel logs or source data', async () => {
-    const deleteQuery = {
-      delete: vi.fn(),
-      eq: vi.fn(),
-      select: vi.fn(),
-    };
-    deleteQuery.delete.mockReturnValue(deleteQuery);
-    deleteQuery.eq.mockReturnValue(deleteQuery);
-    deleteQuery.select.mockResolvedValue({
-      data: [{ id: 'payroll-to-delete' }],
-      error: null,
-    });
-
-    mocks.from.mockReturnValue(deleteQuery);
+  it('deletePayrollRecord uses the guarded RPC so financial sources are voided and audited', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: null });
 
     const { deletePayrollRecord } = await import('./parcelService');
     await deletePayrollRecord('payroll-to-delete');
 
-    expect(mocks.from).toHaveBeenCalledWith('payroll_records');
-    expect(deleteQuery.delete).toHaveBeenCalled();
-    expect(deleteQuery.eq).toHaveBeenCalledWith('id', 'payroll-to-delete');
-    // Ensure no calls to delete parcel_logs or riders were made
+    expect(mocks.rpc).toHaveBeenCalledWith('delete_draft_payroll_record', {
+      p_payroll_record_id: 'payroll-to-delete',
+      p_reason: 'Deleted from Payroll Checklist',
+    });
     expect(mocks.from).not.toHaveBeenCalledWith('parcel_logs');
     expect(mocks.from).not.toHaveBeenCalledWith('riders');
   });

@@ -93,11 +93,12 @@ values ('ed100000-0000-4000-8000-000000000001', 'Adjustment Snapshot Rider', 'TE
 
 insert into public.payroll_records (
   id, rider_id, cutoff_start, cutoff_end, status, total_parcels, rate_per_parcel, gross_pay,
-  other_earnings, fm_pickup_count, fm_pickup_amount, deductions, late_onhold, late_remittance
+  other_earnings, fm_pickup_count, fm_pickup_amount, deductions, late_onhold, late_remittance,
+  adjustment_source_version
 ) values (
   'ed200000-0000-4000-8000-000000000001', 'ed100000-0000-4000-8000-000000000001',
   date '2026-08-01', date '2026-08-15', 'draft', 0, 0, 100,
-  10, 99, 7, 4, 3, 2
+  10, 99, 7, 4, 3, 2, 1
 );
 
 set local role authenticated;

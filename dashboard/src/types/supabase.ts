@@ -846,6 +846,83 @@ export type Database = {
           },
         ]
       }
+      payroll_adjustment_audit_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          hub_id: string
+          id: string
+          new_values: Json | null
+          payroll_record_id: string | null
+          previous_values: Json | null
+          reason: string
+          rider_id: string
+          source: Database["public"]["Enums"]["payroll_adjustment_source"]
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          hub_id: string
+          id?: string
+          new_values?: Json | null
+          payroll_record_id?: string | null
+          previous_values?: Json | null
+          reason: string
+          rider_id: string
+          source: Database["public"]["Enums"]["payroll_adjustment_source"]
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          hub_id?: string
+          id?: string
+          new_values?: Json | null
+          payroll_record_id?: string | null
+          previous_values?: Json | null
+          reason?: string
+          rider_id?: string
+          source?: Database["public"]["Enums"]["payroll_adjustment_source"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_adjustment_audit_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_adjustment_audit_events_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_adjustment_audit_events_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_adjustment_audit_events_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_adjustment_definition_audit: {
         Row: {
           changed_at: string
@@ -995,6 +1072,234 @@ export type Database = {
           },
         ]
       }
+      payroll_deduction_allocations: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          cutoff_end: string
+          cutoff_start: string
+          deduction_obligation_id: string
+          hub_id: string
+          id: string
+          payroll_record_id: string | null
+          rider_id: string
+          source: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at: string
+          updated_by: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          cutoff_end: string
+          cutoff_start: string
+          deduction_obligation_id: string
+          hub_id: string
+          id?: string
+          payroll_record_id?: string | null
+          rider_id: string
+          source?: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          cutoff_end?: string
+          cutoff_start?: string
+          deduction_obligation_id?: string
+          hub_id?: string
+          id?: string
+          payroll_record_id?: string | null
+          rider_id?: string
+          source?: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_deduction_allocations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_allocations_deduction_obligation_id_fkey"
+            columns: ["deduction_obligation_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_deduction_obligations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_allocations_deduction_obligation_id_fkey"
+            columns: ["deduction_obligation_id"]
+            isOneToOne: false
+            referencedRelation: "v_payroll_deduction_balances"
+            referencedColumns: ["obligation_id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_allocations_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_allocations_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_allocations_payroll_record_id_fkey"
+            columns: ["payroll_record_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_allocations_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_allocations_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_allocations_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_deduction_obligations: {
+        Row: {
+          adjustment_code: string
+          adjustment_date: string
+          created_at: string
+          created_by: string | null
+          hub_id: string
+          id: string
+          original_amount: number
+          reason: string
+          reference: string | null
+          rider_id: string
+          source: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at: string
+          updated_by: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          adjustment_code: string
+          adjustment_date: string
+          created_at?: string
+          created_by?: string | null
+          hub_id: string
+          id?: string
+          original_amount: number
+          reason: string
+          reference?: string | null
+          rider_id: string
+          source?: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          adjustment_code?: string
+          adjustment_date?: string
+          created_at?: string
+          created_by?: string | null
+          hub_id?: string
+          id?: string
+          original_amount?: number
+          reason?: string
+          reference?: string | null
+          rider_id?: string
+          source?: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_deduction_obligations_adjustment_code_fkey"
+            columns: ["adjustment_code"]
+            isOneToOne: false
+            referencedRelation: "payroll_adjustment_definitions"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_delivery_lines: {
         Row: {
           applied_heavy_rate: number | null
@@ -1091,10 +1396,134 @@ export type Database = {
           },
         ]
       }
+      payroll_earning_adjustments: {
+        Row: {
+          adjustment_code: string
+          adjustment_date: string
+          amount: number
+          created_at: string
+          created_by: string | null
+          cutoff_end: string
+          cutoff_start: string
+          hub_id: string
+          id: string
+          payroll_record_id: string | null
+          reason: string
+          reference: string | null
+          rider_id: string
+          source: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at: string
+          updated_by: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          adjustment_code: string
+          adjustment_date: string
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          cutoff_end: string
+          cutoff_start: string
+          hub_id: string
+          id?: string
+          payroll_record_id?: string | null
+          reason: string
+          reference?: string | null
+          rider_id: string
+          source?: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          adjustment_code?: string
+          adjustment_date?: string
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          cutoff_end?: string
+          cutoff_start?: string
+          hub_id?: string
+          id?: string
+          payroll_record_id?: string | null
+          reason?: string
+          reference?: string | null
+          rider_id?: string
+          source?: Database["public"]["Enums"]["payroll_adjustment_source"]
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_earning_adjustments_adjustment_code_fkey"
+            columns: ["adjustment_code"]
+            isOneToOne: false
+            referencedRelation: "payroll_adjustment_definitions"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "payroll_earning_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_earning_adjustments_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_earning_adjustments_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_earning_adjustments_payroll_record_id_fkey"
+            columns: ["payroll_record_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_earning_adjustments_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_earning_adjustments_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_earning_adjustments_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_records: {
         Row: {
           adjustment_snapshot: Json | null
           adjustment_snapshot_version: number | null
+          adjustment_source_version: number
           approved_at: string | null
           approved_by: string | null
           approved_by_email_snapshot: string | null
@@ -1154,6 +1583,7 @@ export type Database = {
         Insert: {
           adjustment_snapshot?: Json | null
           adjustment_snapshot_version?: number | null
+          adjustment_source_version?: number
           approved_at?: string | null
           approved_by?: string | null
           approved_by_email_snapshot?: string | null
@@ -1213,6 +1643,7 @@ export type Database = {
         Update: {
           adjustment_snapshot?: Json | null
           adjustment_snapshot_version?: number | null
+          adjustment_source_version?: number
           approved_at?: string | null
           approved_by?: string | null
           approved_by_email_snapshot?: string | null
@@ -2544,6 +2975,56 @@ export type Database = {
           },
         ]
       }
+      v_payroll_deduction_balances: {
+        Row: {
+          adjustment_code: string | null
+          adjustment_date: string | null
+          available_to_allocate: number | null
+          committed: number | null
+          display_name: string | null
+          hub_id: string | null
+          obligation_id: string | null
+          original_amount: number | null
+          outstanding: number | null
+          planned: number | null
+          reason: string | null
+          recovered: number | null
+          reference: string | null
+          rider_id: string | null
+          status: string | null
+          voided_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_deduction_obligations_adjustment_code_fkey"
+            columns: ["adjustment_code"]
+            isOneToOne: false
+            referencedRelation: "payroll_adjustment_definitions"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "public_hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_deduction_obligations_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -2714,6 +3195,25 @@ export type Database = {
       cancel_future_attendance_policy: {
         Args: { p_change_reason: string; p_policy_id: string }
         Returns: string
+      }
+      create_payroll_adjustments_batch: {
+        Args: { p_items: Json; p_reason: string; p_rider_id: string }
+        Returns: Json
+      }
+      create_payroll_deduction_obligation: {
+        Args: {
+          p_adjustment_code: string
+          p_adjustment_date: string
+          p_original_amount: number
+          p_reason: string
+          p_reference?: string
+          p_rider_id: string
+        }
+        Returns: string
+      }
+      delete_draft_payroll_record: {
+        Args: { p_payroll_record_id: string; p_reason: string }
+        Returns: undefined
       }
       deploy_rider_temporarily: {
         Args: {
@@ -2983,6 +3483,15 @@ export type Database = {
       refresh_stale_rider_statuses: {
         Args: { stale_after?: string }
         Returns: number
+      }
+      save_payroll_adjustment_plan: {
+        Args: {
+          p_allocations: Json
+          p_earnings: Json
+          p_payroll_record_id: string
+          p_reason: string
+        }
+        Returns: undefined
       }
       schedule_attendance_policy: {
         Args: {
@@ -3636,6 +4145,26 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_payroll_deduction_obligation: {
+        Args: {
+          p_adjustment_date: string
+          p_obligation_id: string
+          p_original_amount: number
+          p_reason: string
+          p_reference?: string
+        }
+        Returns: undefined
+      }
+      update_payroll_earning_adjustment: {
+        Args: {
+          p_adjustment_date: string
+          p_adjustment_id: string
+          p_amount: number
+          p_reason: string
+          p_reference?: string
+        }
+        Returns: undefined
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
@@ -3661,6 +4190,10 @@ export type Database = {
         Args: { p_record_id: string }
         Returns: string
       }
+      void_payroll_deduction_obligation: {
+        Args: { p_obligation_id: string; p_reason: string }
+        Returns: undefined
+      }
     }
     Enums: {
       attendance_source: "face-scan" | "manual" | "system"
@@ -3677,6 +4210,7 @@ export type Database = {
         | "announcement"
       notification_priority: "low" | "medium" | "high" | "critical"
       notification_type: "violation" | "absent" | "attendance" | "system"
+      payroll_adjustment_source: "manual" | "legacy_migration"
       payroll_status:
         | "pending"
         | "processed"
@@ -3850,6 +4384,7 @@ export const Constants = {
       ],
       notification_priority: ["low", "medium", "high", "critical"],
       notification_type: ["violation", "absent", "attendance", "system"],
+      payroll_adjustment_source: ["manual", "legacy_migration"],
       payroll_status: [
         "pending",
         "processed",

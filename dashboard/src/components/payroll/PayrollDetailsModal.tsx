@@ -51,6 +51,15 @@ import {
   listPayrollAdjustmentDefinitions,
   toPayrollAdjustmentDefinitionLike,
 } from "../../services/payroll/earningsDeductionsService";
+import {
+  listPayrollDeductionAllocations,
+  listPayrollDeductionBalances,
+  listPayrollEarningAdjustments,
+  savePayrollAdjustmentPlan,
+  type PayrollDeductionBalance,
+  type PayrollEarningAdjustment,
+} from "../../services/payroll/payrollAdjustmentRecordsService";
+import { TraceablePayrollAdjustmentsCard } from "./TraceablePayrollAdjustmentsCard";
 
 export interface PayrollRecordShape {
   id: string;
@@ -76,6 +85,7 @@ export interface PayrollRecordShape {
   late_remittance?: number;
   adjustment_snapshot?: unknown;
   adjustment_snapshot_version?: number | null;
+  adjustment_source_version?: number | null;
   total_earnings_snapshot?: number | null;
   total_deductions_snapshot?: number | null;
   net_pay_snapshot?: number | null;
@@ -212,6 +222,11 @@ export function PayrollDetailsModal({
   const [lateRemittance, setLateRemittance] = useState(0);
   const [isSavingAdjustments, setIsSavingAdjustments] = useState(false);
   const [adjustmentDefinitions, setAdjustmentDefinitions] = useState<PayrollAdjustmentDefinitionLike[]>([]);
+  const [deductionBalances, setDeductionBalances] = useState<PayrollDeductionBalance[]>([]);
+  const [allocationAmounts, setAllocationAmounts] = useState<Record<string, number>>({});
+  const [persistedAllocationAmounts, setPersistedAllocationAmounts] = useState<Record<string, number>>({});
+  const [traceableEarnings, setTraceableEarnings] = useState<PayrollEarningAdjustment[]>([]);
+  const [adjustmentPlanReason, setAdjustmentPlanReason] = useState('');
   const parcelLogsVersion = useParcelLogsRealtimeVersion(
     record?.rider_id,
     record?.cutoff_start,
@@ -241,7 +256,8 @@ export function PayrollDetailsModal({
         }
 
         const shouldLoadLiveTelemetry = isEditableStatus(record.status);
-        const [fetchedMetrics, deliveryData, definitionRows] = await Promise.all([
+        const usesTraceablePlan = Number(record.adjustment_source_version ?? 1) === 2 && isEditableStatus(record.status);
+        const [fetchedMetrics, deliveryData, definitionRows, balanceRows, earningRows, allocationRows] = await Promise.all([
           shouldLoadLiveTelemetry ? getRiderPayrollMetrics(
             record.rider_id,
             record.cutoff_start,
@@ -249,6 +265,9 @@ export function PayrollDetailsModal({
           ) : Promise.resolve<PayrollMetrics>({ presentDays: 0, lateDays: 0, violationsCount: 0, attendanceLogs: [], violations: [] }),
           getPayrollDeliveryData(record),
           listPayrollAdjustmentDefinitions(),
+          usesTraceablePlan ? listPayrollDeductionBalances() : Promise.resolve([]),
+          usesTraceablePlan ? listPayrollEarningAdjustments(record.id) : Promise.resolve([]),
+          usesTraceablePlan ? listPayrollDeductionAllocations(record.id) : Promise.resolve([]),
         ]);
 
         if (active) {
@@ -266,6 +285,17 @@ export function PayrollDetailsModal({
           setLateOnhold(Number(resolvedAdjustments.lateOnhold ?? 0));
           setLateRemittance(Number(resolvedAdjustments.lateRemittance ?? 0));
           setAdjustmentDefinitions(resolvedAdjustments.definitions ?? currentDefinitions);
+          const eligibleBalances = balanceRows.filter((row) =>
+            row.rider_id === record.rider_id
+            && !row.voided_at
+            && String(row.adjustment_date ?? '') <= record.cutoff_end
+          );
+          setDeductionBalances(eligibleBalances);
+          setTraceableEarnings(earningRows);
+          const persistedAllocations = Object.fromEntries(allocationRows.map((row) => [row.deduction_obligation_id, Number(row.amount)]));
+          setAllocationAmounts(persistedAllocations);
+          setPersistedAllocationAmounts(persistedAllocations);
+          setAdjustmentPlanReason('');
 
           // Default selected day to the latest day with parcel deliveries, or just the first day in logs
           const withDeliveries = deliveryData.lines.filter((l) => l.parcels + l.heavyParcels > 0);
@@ -456,6 +486,32 @@ export function PayrollDetailsModal({
     lateOnhold,
     lateRemittance,
     definitions: adjustmentDefinitions,
+  };
+
+  const handleSaveTraceablePlan = async () => {
+    setIsSavingAdjustments(true);
+    try {
+      await savePayrollAdjustmentPlan({
+        payrollRecordId: record.id,
+        earnings: traceableEarnings.map((entry) => ({
+          id: entry.id,
+          adjustmentCode: entry.adjustment_code as 'other_earnings' | 'fm_pickup',
+          amount: Number(entry.amount),
+          adjustmentDate: entry.adjustment_date,
+          reason: entry.reason,
+          reference: entry.reference,
+        })),
+        allocations: deductionBalances.map((row) => ({
+          obligationId: row.obligation_id,
+          amount: Number(allocationAmounts[row.obligation_id] ?? 0),
+        })),
+        reason: adjustmentPlanReason,
+      });
+      pushToast({ title: 'Adjustment plan saved', description: 'Traceable earnings and allocations were synchronized.', tone: 'success' });
+      if (onStatusUpdated) onStatusUpdated();
+    } catch (saveError) {
+      pushToast({ title: 'Unable to save adjustment plan', description: saveError instanceof Error ? saveError.message : 'Please try again.', tone: 'error' });
+    } finally { setIsSavingAdjustments(false); }
   };
 
   // Action updates status in database
@@ -884,7 +940,21 @@ export function PayrollDetailsModal({
                 </div>
               </div>
 
-              <PayslipSlipCard
+              {Number(record.adjustment_source_version ?? 1) === 2 && isEditableStatus(record.status) ? <TraceablePayrollAdjustmentsCard
+                role={role}
+                grossPay={grossPay}
+                otherEarnings={otherEarnings}
+                fmPickupAmount={fmPickupAmount}
+                earningRecords={traceableEarnings}
+                balances={deductionBalances}
+                allocationAmounts={allocationAmounts}
+                persistedAllocationAmounts={persistedAllocationAmounts}
+                onAllocationChange={(obligationId, nextAmount) => setAllocationAmounts((current) => ({ ...current, [obligationId]: nextAmount }))}
+                reason={adjustmentPlanReason}
+                onReasonChange={setAdjustmentPlanReason}
+                saving={isSavingAdjustments}
+                onSave={handleSaveTraceablePlan}
+              /> : <PayslipSlipCard
                 record={record}
                 role={role}
                 grossPay={grossPay}
@@ -907,7 +977,7 @@ export function PayrollDetailsModal({
                 isSavingAdjustments={isSavingAdjustments}
                 handleSaveAdjustments={handleSaveAdjustments}
                 definitions={adjustmentDefinitions}
-              />
+              />}
             </div>
 
             {/* Manager Actions / Rider actions */}

@@ -7,6 +7,7 @@ import {
   bulkMarkPayrollRecordsPaid,
 } from './payroll/payrollBulkActions';
 import { resolveAttendanceSummaryFacts } from '../lib/attendance/attendanceSummaryPolicy';
+import { deleteDraftPayrollRecord } from './payroll/payrollAdjustmentRecordsService';
 
 export interface ParcelLog {
   id: string;
@@ -499,30 +500,23 @@ export const resetDraftPayrollForCutoff = async (
 ): Promise<number> => {
   const { data, error } = await supabase
     .from('payroll_records')
-    .delete()
+    .select('id')
     .eq('cutoff_start', cutoffFrom)
     .eq('status', PayrollStatus.DRAFT)
-    .eq('total_parcels', 0)
-    .select('id');
+    .eq('total_parcels', 0);
 
   if (error) throw error;
-  return data ? data.length : 0;
+  for (const record of data ?? []) {
+    await deleteDraftPayrollRecord(record.id, 'Reset unedited Draft payroll for cutoff');
+  }
+  return data?.length ?? 0;
 };
 
 /**
  * Deletes a single payroll record by ID.
  */
 export const deletePayrollRecord = async (id: string): Promise<void> => {
-  const { data, error } = await supabase
-    .from('payroll_records')
-    .delete()
-    .eq('id', id)
-    .select('id');
-
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    throw new Error('Record could not be deleted or does not exist.');
-  }
+  await deleteDraftPayrollRecord(id, 'Deleted from Payroll Checklist');
 };
 
 /**
@@ -530,17 +524,12 @@ export const deletePayrollRecord = async (id: string): Promise<void> => {
  */
 export const deleteBulkPayrollRecords = async (ids: string[]): Promise<number> => {
   if (!ids || ids.length === 0) return 0;
-  const { data, error } = await supabase
-    .from('payroll_records')
-    .delete()
-    .in('id', ids)
-    .select('id');
-
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    throw new Error('No records were deleted. Permission denied or records not found.');
+  let deleted = 0;
+  for (const id of ids) {
+    await deleteDraftPayrollRecord(id, 'Deleted in bulk from Payroll Checklist');
+    deleted += 1;
   }
-  return data.length;
+  return deleted;
 };
 
 

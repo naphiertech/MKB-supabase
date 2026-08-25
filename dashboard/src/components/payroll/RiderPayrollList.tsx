@@ -98,6 +98,7 @@ export interface PayrollRecordRow {
   late_remittance?: number;
   adjustment_snapshot?: unknown;
   adjustment_snapshot_version?: number | null;
+  adjustment_source_version?: number | null;
   total_earnings_snapshot?: number | null;
   total_deductions_snapshot?: number | null;
   net_pay_snapshot?: number | null;

@@ -16,7 +16,8 @@ import {
   Building2,
   Route,
   Clock3,
-  Coins
+  Coins,
+  BadgeDollarSign
 } from 'lucide-react';
 
 export type PageKey =
@@ -37,7 +38,8 @@ export type PageKey =
   | 'hubs'
   | 'rider_assignments'
   | 'attendance_policy'
-  | 'parcel_rates';
+  | 'parcel_rates'
+  | 'payroll_adjustments';
 
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 
@@ -111,6 +113,7 @@ export const ADMIN_ITEMS: SidebarItem[] = [
     icon: Wallet,
     items: [
       { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
+      { key: 'payroll_adjustments', label: 'Payroll Adjustments', icon: BadgeDollarSign },
       { key: 'payroll_history', label: 'Payroll History', icon: History },
       { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
     ]
@@ -161,6 +164,7 @@ export const HR_ITEMS: SidebarItem[] = [
     icon: Wallet,
     items: [
       { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
+      { key: 'payroll_adjustments', label: 'Payroll Adjustments', icon: BadgeDollarSign },
       { key: 'payroll_history', label: 'Payroll History', icon: History },
       { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
     ]
@@ -180,6 +184,7 @@ export const PAYROLL_ITEMS: SidebarItem[] = [
     icon: Calculator,
     items: [
       { key: 'computation', label: 'Salary Computation', icon: Calculator },
+      { key: 'payroll_adjustments', label: 'Payroll Adjustments', icon: BadgeDollarSign },
       { key: 'reports', label: 'Payroll Reports', icon: Wallet },
       { key: 'payroll_history', label: 'Payroll History', icon: History }
     ]
