@@ -94,15 +94,28 @@ export function RiderMonitoring({ userId, riderId, restricted, onBack }: RiderMo
     loadData();
   }, [userId, riderId]);
 
-  const zoneCenterLat = zone?.center[0] ?? 6.9214;
-  const zoneCenterLng = zone?.center[1] ?? 122.0790;
-  const zoneRadius = zone?.radius ?? 1000;
+  const zoneCenterLat = zone?.center[0] ?? null;
+  const zoneCenterLng = zone?.center[1] ?? null;
+  const zoneRadius = zone && zone.zone_type !== 'polygon' && Number.isFinite(zone.radius) && zone.radius > 0
+    ? zone.radius
+    : null;
   const zoneName = zone?.name ?? 'Unassigned';
+  const hasPolygonGeometry = zone?.zone_type === 'polygon'
+    && Boolean(zone.polygon_coordinates?.length && zone.polygon_coordinates.length >= 3)
+    && zone.polygon_coordinates!.every((coordinate) => coordinate.every(Number.isFinite));
+  const hasCircleGeometry = zone?.zone_type !== 'polygon'
+    && zoneCenterLat !== null
+    && zoneCenterLng !== null
+    && Number.isFinite(zoneCenterLat)
+    && Number.isFinite(zoneCenterLng)
+    && !(zoneCenterLat === 0 && zoneCenterLng === 0)
+    && zoneRadius !== null;
+  const geometryResolved = zone?.hasValidGeometry !== false && (hasPolygonGeometry || hasCircleGeometry);
 
   const anchor = useMemo(
     () => ({
-      lat: zoneCenterLat + 0.0006,
-      lng: zoneCenterLng + 0.0004
+      lat: zoneCenterLat !== null && Number.isFinite(zoneCenterLat) ? zoneCenterLat : 0,
+      lng: zoneCenterLng !== null && Number.isFinite(zoneCenterLng) ? zoneCenterLng : 0,
     }),
     [zoneCenterLat, zoneCenterLng]
   );
@@ -119,30 +132,32 @@ export function RiderMonitoring({ userId, riderId, restricted, onBack }: RiderMo
   });
 
   const distance = useMemo(() => {
+    if (!geometryResolved || zoneCenterLat === null || zoneCenterLng === null) return null;
     return haversine(
       zoneCenterLat,
       zoneCenterLng,
       position.lat,
       position.lng
     );
-  }, [zoneCenterLat, zoneCenterLng, position]);
+  }, [geometryResolved, zoneCenterLat, zoneCenterLng, position]);
 
   const inZone = useMemo(() => {
+    if (!geometryResolved) return null;
     if (zone?.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length > 0) {
       return isPointInPolygon([position.lat, position.lng], zone.polygon_coordinates);
     }
-    return distance <= zoneRadius;
-  }, [distance, zoneRadius, zone, position]);
+    return distance !== null && zoneRadius !== null ? distance <= zoneRadius : null;
+  }, [distance, geometryResolved, zoneRadius, zone, position]);
 
   if (loading || !rider || !zone) {
     return <DashboardSkeleton page="monitoring" role="rider" />;
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-7 max-w-5xl mx-auto space-y-4">
+    <div className="mx-auto w-full min-w-0 max-w-5xl space-y-3 overflow-x-clip px-4 py-3 sm:space-y-4 sm:p-6 lg:p-7">
       <button
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        className="inline-flex min-h-10 items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
         <ArrowLeft className="w-4 h-4" />
         Back to dashboard
       </button>
@@ -159,12 +174,12 @@ export function RiderMonitoring({ userId, riderId, restricted, onBack }: RiderMo
       )}
 
       {locationLoading && !hasVerifiedPosition ? (
-        <div className="flex h-[360px] flex-col items-center justify-center gap-3 rounded-xl border border-border bg-panel-bg animate-pulse sm:h-[500px]">
+        <div className="flex h-[clamp(400px,105vw,460px)] w-full min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-panel-bg animate-pulse sm:h-[500px]">
           <MapPin className="w-6 h-6 text-primary animate-bounce" />
           <span className="text-muted-foreground text-sm font-medium">Acquiring live GPS signal...</span>
         </div>
       ) : locationError && !hasVerifiedPosition ? (
-        <div className="flex h-[360px] flex-col items-center justify-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 text-center sm:h-[500px] sm:px-6">
+        <div className="flex h-[clamp(400px,105vw,460px)] w-full min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 text-center sm:h-[500px] sm:px-6">
           <MapPin className="w-6 h-6 text-red-600" />
           <span className="text-sm font-semibold text-red-700">Live location unavailable</span>
           <span className="max-w-md text-xs text-red-600">
@@ -179,19 +194,21 @@ export function RiderMonitoring({ userId, riderId, restricted, onBack }: RiderMo
           </button>
         </div>
       ) : (
-        <>
+        <div className="min-w-0 space-y-3">
           <RiderMap
             position={position}
             zone={zone}
             inZone={inZone}
-            height="500px" />
+            className="h-[clamp(400px,105vw,460px)] sm:h-[500px]" />
           
           <GeofenceStatus
             inZone={inZone}
             zoneName={zoneName}
             distance={distance}
-            radius={zoneRadius} />
-        </>
+            radius={zoneRadius}
+            zoneType={zone.zone_type ?? 'circle'}
+            geometryResolved={geometryResolved} />
+        </div>
       )}
 
       {/* Today's Route Trail */}

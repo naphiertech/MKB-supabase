@@ -35,7 +35,7 @@ export function RiderMonitoringSkeleton() {
     <SkeletonPage className="mx-auto max-w-5xl space-y-4" label="Loading Rider Live Map">
       <SkeletonBlock className="h-4 w-32" />
       <div className="flex items-center gap-2"><SkeletonBlock className="h-4 w-4" /><SkeletonBlock className="h-5 w-28" /></div>
-      <SkeletonBlock className="h-[360px] w-full rounded-xl opacity-60 sm:h-[500px]" />
+      <SkeletonBlock className="h-[clamp(400px,105vw,460px)] w-full rounded-xl opacity-60 sm:h-[500px]" />
       <div className="grid gap-3 rounded-xl border border-border bg-white p-4 sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, index) => (
           <div key={index} className="space-y-2 rounded-lg bg-panel-bg p-3"><SkeletonBlock className="h-2.5 w-20" /><SkeletonBlock className="h-4 w-28 max-w-full" /></div>

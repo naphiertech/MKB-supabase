@@ -1,20 +1,50 @@
-import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import { MapPin, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
 interface GeofenceStatusProps {
-  inZone: boolean;
+  inZone: boolean | null;
   zoneName: string;
+  zoneType?: 'circle' | 'polygon';
+  geometryResolved?: boolean;
   /** Distance from zone center, meters. */
-  distance: number;
+  distance: number | null;
   /** Zone radius, meters. */
-  radius: number;
+  radius: number | null;
 }
 export function GeofenceStatus({
   inZone,
   zoneName,
   distance,
-  radius
+  radius,
+  zoneType = 'circle',
+  geometryResolved = true,
 }: GeofenceStatusProps) {
-  const overshoot = Math.max(0, distance - radius);
+  const hasResolvedGeometry = inZone !== null && geometryResolved
+    && (zoneType === 'polygon'
+      || (distance !== null && Number.isFinite(distance) && radius !== null && Number.isFinite(radius) && radius > 0));
+
+  if (!hasResolvedGeometry) {
+    return (
+      <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-panel-bg px-4 py-3 shadow-sm">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-muted-foreground ring-1 ring-border">
+          <MapPin className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-foreground">Zone geometry unavailable</div>
+          <div className="mt-0.5 text-[11px] text-muted-foreground">{zoneName} · Membership status is unresolved</div>
+        </div>
+      </div>
+    );
+  }
+
+  const roundedDistance = distance !== null && Number.isFinite(distance) ? Math.round(distance) : null;
+  const roundedRadius = radius !== null && Number.isFinite(radius) ? Math.round(radius) : null;
+  const insideMetadata = zoneType === 'polygon'
+    ? `${zoneName} · Inside assigned boundary`
+    : `${zoneName} · ${roundedDistance}m from center · ${roundedRadius}m radius`;
+  const outsideMetadata = zoneType === 'polygon'
+    ? `${zoneName} · Outside assigned boundary — return to your zone`
+    : `${zoneName} · ${Math.max(0, roundedDistance! - roundedRadius!)}m past boundary — return to your zone`;
+
   if (inZone) {
     return (
       <div className="relative flex items-center gap-3 px-4 py-3 rounded-xl bg-accent border border-primary/30 shadow-sm overflow-hidden">
@@ -31,7 +61,7 @@ export function GeofenceStatus({
             You are within your assigned zone
           </div>
           <div className="text-[11px] text-accent-foreground/80 font-mono mt-0.5">
-            {zoneName} · {Math.round(distance)}m from center · {radius}m radius
+            {insideMetadata}
           </div>
         </div>
       </div>);
@@ -52,8 +82,7 @@ export function GeofenceStatus({
           Warning · You are outside your zone
         </div>
         <div className="text-[11px] text-red-700/80 font-mono mt-0.5">
-          {zoneName} · {Math.round(overshoot)}m past boundary — return to your
-          zone
+          {outsideMetadata}
         </div>
       </div>
     </div>);

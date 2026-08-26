@@ -16,8 +16,9 @@ interface RiderMapProps {
   };
   zone: Zone;
   /** Inside-zone status (renders calm pin) vs outside (pulsing red ring). */
-  inZone: boolean;
+  inZone: boolean | null;
   height?: string;
+  className?: string;
 }
 const TILE_LAYERS = {
   dark: {
@@ -53,10 +54,10 @@ typeof document !== 'undefined' &&
   '}';
   document.head.appendChild(styleEl);
 }
-function buildPin(inZone: boolean) {
-  const color = inZone ? '#16A34A' : '#DC2626';
-  const ring = inZone ? 'rgba(22,163,74,0.35)' : 'rgba(220,38,38,0.45)';
-  const animation = inZone ?
+function buildPin(inZone: boolean | null) {
+  const color = inZone === null ? '#DB6C00' : inZone ? '#16A34A' : '#DC2626';
+  const ring = inZone === null ? 'rgba(219,108,0,0.32)' : inZone ? 'rgba(22,163,74,0.35)' : 'rgba(220,38,38,0.45)';
+  const animation = inZone !== false ?
   '' :
   'animation: riderPingPulse 1.6s cubic-bezier(0,0,.2,1) infinite;';
   const html =
@@ -119,7 +120,8 @@ export function RiderMap({
   position,
   zone,
   inZone,
-  height = '320px'
+  height,
+  className = '',
 }: RiderMapProps) {
   const icon = useMemo(() => buildPin(inZone), [inZone]);
   const mapRef = useRef<L.Map | null>(null);
@@ -129,14 +131,13 @@ export function RiderMap({
   return (
     <div
       className={
-      'relative rounded-xl overflow-hidden border ' + (
-      inZone ? 'border-border' : 'border-[#DC2626]/50') +
+      'relative isolate w-full min-w-0 max-w-full rounded-xl overflow-hidden border ' + (
+      inZone === false ? 'border-[#DC2626]/50' : 'border-border') +
       ' bg-[#0a0c12] ' + (
-      inZone ? 'shadow-sm' : 'shadow-[0_0_0_3px_rgba(220,38,38,0.15)]')
+      inZone === false ? 'shadow-[0_0_0_3px_rgba(220,38,38,0.15)]' : 'shadow-sm') +
+      (height || className ? '' : ' h-[320px]') + ` ${className}`
       }
-      style={{
-        height
-      }}>
+      style={height ? { height } : undefined}>
       
       <MapContainer
         center={[position.lat, position.lng]}
@@ -174,7 +175,7 @@ export function RiderMap({
       </MapContainer>
 
       {/* Controls (top-right) */}
-      <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5 items-end">
+      <div className="absolute right-2 top-2 z-[400] flex max-w-[calc(100%-1rem)] flex-col items-end gap-1.5 sm:right-3 sm:top-3">
         <button
           type="button"
           onClick={() =>
@@ -207,7 +208,7 @@ export function RiderMap({
       </div>
 
       {/* Zone tag */}
-      <div className="map-overlay-card absolute left-3 top-3 z-[400] flex max-w-[calc(100%-7rem)] items-center gap-2 rounded-md border border-border bg-white/95 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur-md">
+      <div className="map-overlay-card absolute left-2 top-2 z-[400] flex max-w-[calc(100%-5rem)] items-center gap-2 rounded-md border border-border bg-white/95 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur-md sm:left-3 sm:top-3 sm:max-w-[calc(100%-7rem)]">
         <span
           className="w-2 h-2 rounded-full"
           style={{
@@ -217,12 +218,16 @@ export function RiderMap({
         <span className="min-w-0 truncate text-foreground font-medium">{zone.name}</span>
         <span className="text-subtle-text font-mono">·</span>
         <span className="text-muted-foreground font-mono">
-          {zone.zone_type === 'polygon' ? 'Polygon' : `${zone.radius}m`}
+          {zone.zone_type === 'polygon'
+            ? 'Polygon'
+            : Number.isFinite(zone.radius) && zone.radius > 0
+              ? `${zone.radius}m`
+              : 'Geometry unavailable'}
         </span>
       </div>
 
       {/* Coords pill */}
-      <div className="absolute bottom-3 left-3 z-[400] max-w-[calc(100%-1.5rem)] truncate rounded-md border border-border bg-white/95 px-2.5 py-1.5 font-mono text-[11px] tabular-nums text-muted-foreground shadow-sm backdrop-blur-md">
+      <div className="absolute bottom-2 left-2 z-[400] max-w-[calc(100%-1rem)] truncate rounded-md border border-border bg-white/95 px-2.5 py-1.5 font-mono text-[11px] tabular-nums text-muted-foreground shadow-sm backdrop-blur-md sm:bottom-3 sm:left-3 sm:max-w-[calc(100%-1.5rem)]">
         {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
       </div>
     </div>);
