@@ -74,9 +74,16 @@ export function toHHMM(dateStr: string | null): string | null {
     const formatted = dateStr.includes(' ') && !dateStr.includes('T')
       ? dateStr.replace(' ', 'T')
       : dateStr;
+    const timezoneNaive = formatted.match(/^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/);
+    if (timezoneNaive) return `${timezoneNaive[1]}:${timezoneNaive[2]}`;
     const d = new Date(formatted);
     if (isNaN(d.getTime())) return null;
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Manila',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(d);
   } catch {
     return null;
   }
