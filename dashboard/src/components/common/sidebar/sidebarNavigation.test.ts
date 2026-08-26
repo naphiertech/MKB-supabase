@@ -35,6 +35,7 @@ describe('Business configuration navigation', () => {
     ]);
     expect(sectionLabels(ADMIN_ITEMS, 'Finance & Reports')).toEqual([
       'Payroll Checklist',
+      'Payroll Adjustments',
       'Payroll History',
       'Insights & Reports',
     ]);
@@ -56,8 +57,15 @@ describe('Business configuration navigation', () => {
     ]);
     expect(sectionLabels(HR_ITEMS, 'Finance & Reports')).toEqual([
       'Payroll Checklist',
+      'Payroll Adjustments',
       'Payroll History',
       'Insights & Reports',
+    ]);
+    expect(sectionLabels(PAYROLL_ITEMS, 'Compensation')).toEqual([
+      'Salary Computation',
+      'Payroll Adjustments',
+      'Payroll Reports',
+      'Payroll History',
     ]);
     expect(sectionLabels(PAYROLL_ITEMS, 'Reference')).toEqual([
       'Parcel History',
