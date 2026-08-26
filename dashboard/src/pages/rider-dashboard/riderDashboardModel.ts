@@ -101,10 +101,12 @@ export function diffPretty(fromHHMM: string, to: Date = new Date()) {
 }
 
 export function getLocalDateString(d: Date = new Date()) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
 }
 
 export function parseTime(hhmm: string) {
@@ -159,18 +161,22 @@ export function deriveDashboardStats(
 export function mapCachedDashboardPayloadToState(
   payload: CachedDashboardPayload,
   firstDayOfWeekStr: string,
+  currentBusinessDate?: string,
 ): DashboardPayloadState {
   const monthAttendanceLogs = payload.monthAttendance || [];
   const violationData = payload.latestViolation;
+  const todayAttendance = !currentBusinessDate || payload.todayAttendance?.date === currentBusinessDate
+    ? payload.todayAttendance
+    : null;
 
   return {
     resolvedRiderId: payload.resolvedRiderId,
     rider: payload.dbRider ? mapDbRiderToDashboardRider(payload.dbRider) : undefined,
-    attendance: payload.todayAttendance
+    attendance: todayAttendance
       ? {
-          id: payload.todayAttendance.id,
-          timeIn: payload.todayAttendance.time_in ? toHHMM(payload.todayAttendance.time_in) : null,
-          timeOut: payload.todayAttendance.time_out ? toHHMM(payload.todayAttendance.time_out) : null,
+          id: todayAttendance.id,
+          timeIn: todayAttendance.time_in ? toHHMM(todayAttendance.time_in) : null,
+          timeOut: todayAttendance.time_out ? toHHMM(todayAttendance.time_out) : null,
         }
       : { id: null, timeIn: null, timeOut: null },
     activeViolation: violationData && !violationData.resolved && violationData.lat && violationData.lng

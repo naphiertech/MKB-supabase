@@ -22,9 +22,18 @@ vi.mock('../workforce/workforceDirectoryService', () => ({
   getRiderWorkforceDirectory: mocks.getRiderWorkforceDirectory
 }));
 
-import { buildTimeOutQueueOperation, finalizeDailyAttendance, getRiderAttendanceInDateRange, recordTimeIn } from './attendanceService';
+import {
+  buildTimeOutQueueOperation,
+  deriveHrStatus,
+  getAttendanceLogs,
+  getRiderAttendanceInDateRange,
+  recordTimeIn,
+  recordTimeOut,
+} from './attendanceService';
+import type { AttendanceLog } from '../types';
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -52,6 +61,28 @@ describe('Time Out offline payload', () => {
     });
     expect(operation.payload).not.toHaveProperty('lat');
     expect(operation.payload).not.toHaveProperty('lng');
+  });
+
+  it('scopes an online Time Out update to the current attendance business date', async () => {
+    const updateQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    updateQuery.update.mockReturnValue(updateQuery);
+    updateQuery.eq.mockReturnValue(updateQuery);
+    updateQuery.select.mockReturnValue(updateQuery);
+    updateQuery.maybeSingle.mockResolvedValue({ data: { id: 'attendance-1' }, error: null });
+    mocks.from.mockReturnValueOnce(updateQuery);
+    vi.stubGlobal('navigator', { onLine: true });
+
+    await expect(recordTimeOut('attendance-1', {
+      riderId: 'rider-1',
+      date: '2026-08-05',
+    })).resolves.toBe(true);
+
+    expect(updateQuery.eq).toHaveBeenCalledWith('date', '2026-08-05');
   });
 });
 
@@ -121,28 +152,35 @@ describe('Payroll attendance lookup', () => {
   });
 });
 
-describe('Auto-absence finalization', () => {
-  it('uses date-effective employment eligibility and omits generated hours from inserts', async () => {
-    mocks.getRiderWorkforceDirectory.mockResolvedValue([{ id: 'rider-1' }]);
-    const existingQuery = {
+describe('Attendance reads', () => {
+  it('never creates absence rows as a side effect of reading attendance', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-26T10:00:00.000Z'));
+    const viewQuery = {
       select: vi.fn(),
-      eq: vi.fn()
+      order: vi.fn(),
     };
-    existingQuery.select.mockReturnValue(existingQuery);
-    existingQuery.eq.mockResolvedValue({ data: [], error: null });
-    const insertQuery = { insert: vi.fn().mockResolvedValue({ error: null }) };
-    mocks.from
-      .mockReturnValueOnce(existingQuery)
-      .mockReturnValueOnce(insertQuery);
+    viewQuery.select.mockReturnValue(viewQuery);
+    viewQuery.order.mockResolvedValue({ data: [], error: null });
+    mocks.from.mockReturnValueOnce(viewQuery);
 
-    await expect(finalizeDailyAttendance('2026-08-01')).resolves.toBe(1);
+    await expect(getAttendanceLogs()).resolves.toEqual([]);
 
-    expect(mocks.getRiderWorkforceDirectory).toHaveBeenCalledWith({
-      scope: 'employed_on_date',
-      date: '2026-08-01'
-    });
-    const [records] = insertQuery.insert.mock.calls[0];
-    expect(records).toEqual([expect.objectContaining({ rider_id: 'rider-1', status: 'absent' })]);
-    expect(records[0]).not.toHaveProperty('hours');
+    expect(mocks.getRiderWorkforceDirectory).not.toHaveBeenCalled();
+    expect(mocks.from).toHaveBeenCalledOnce();
+    expect(mocks.from).toHaveBeenCalledWith('v_attendance_summary');
+  });
+});
+
+describe('Attendance completion status', () => {
+  it('keeps Late punctuality separate from a past Missing Time Out', () => {
+    const log = {
+      timeIn: '08:30',
+      timeOut: null,
+      status: 'late',
+      completionStatus: 'missing_time_out',
+    } as AttendanceLog;
+
+    expect(deriveHrStatus(log)).toBe('Missing Time Out');
   });
 });

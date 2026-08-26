@@ -145,6 +145,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
           <option value="all">All Statuses</option>
           <option value="Complete">Complete</option>
           <option value="Incomplete">Incomplete</option>
+          <option value="Missing Time Out">Missing Time Out</option>
           <option value="Late">Late</option>
           <option value="Absent">Absent</option>
         </select>

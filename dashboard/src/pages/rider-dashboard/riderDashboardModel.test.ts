@@ -145,6 +145,20 @@ describe('Rider Dashboard pure model characterization', () => {
       .toEqual({ id: 'a-1', timeIn: '08:05', timeOut: '17:30' });
   });
 
+  it('ignores cached today attendance owned by a previous Manila business date', () => {
+    const payload = {
+      resolvedRiderId: 'rider-1', dbUser: null, dbRider,
+      todayAttendance: {
+        id: 'monday-open', rider_id: 'rider-1', date: '2026-08-04',
+        time_in: '2026-08-04T08:00:00+08:00', time_out: null, hours: null, status: 'present',
+      },
+      latestViolation: null, monthAttendance: [], monthViolationCount: 0, timestamp: 1,
+    };
+
+    expect(mapCachedDashboardPayloadToState(payload, '2026-08-03', '2026-08-05').attendance)
+      .toEqual({ id: null, timeIn: null, timeOut: null });
+  });
+
   it('drops resolved, zero-coordinate, and missing violations exactly as before', () => {
     const basePayload = {
       resolvedRiderId: 'rider-1', dbUser: null, dbRider: null, todayAttendance: null,

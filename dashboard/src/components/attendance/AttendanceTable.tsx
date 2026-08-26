@@ -271,15 +271,16 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                       {(() => {
                         const todayStr = getLocalDateString();
                         const isToday = l.date === todayStr;
-                        const isUnclosedPast = !l.timeOut && !isToday && !!l.timeIn;
+                        const isMissingTimeOut = l.completionStatus === 'missing_time_out'
+                          || (!l.timeOut && !isToday && !!l.timeIn);
                         return (
                           <div className="flex flex-col font-mono text-xs">
                             <span className="text-foreground font-semibold tabular-nums">
                               {l.timeIn ? l.timeIn : '—'} {l.timeIn && l.timeOut ? '→' : ''}{' '}
-                              {l.timeOut ? l.timeOut : isUnclosedPast ? '(No Time-Out)' : l.timeIn ? 'Active' : ''}
+                              {l.timeOut ? l.timeOut : isMissingTimeOut ? '(Missing Time Out)' : l.timeIn ? 'Active' : ''}
                             </span>
                             <span className="text-[11px] text-muted-foreground tabular-nums">
-                              {l.hours > 0 ? `${l.hours.toFixed(1)} hrs` : isUnclosedPast ? 'Incomplete' : l.timeIn ? 'In progress' : '0.0 hrs'}
+                              {l.hours > 0 ? `${l.hours.toFixed(1)} hrs` : isMissingTimeOut ? 'Missing Time Out' : l.timeIn ? 'In progress' : '0.0 hrs'}
                             </span>
                           </div>
                         );

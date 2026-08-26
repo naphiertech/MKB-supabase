@@ -2916,6 +2916,7 @@ export type Database = {
       }
       v_attendance_summary: {
         Row: {
+          completion_status: string | null
           date: string | null
           hours: number | null
           hr_status: string | null
@@ -3281,6 +3282,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      finalize_daily_attendance: { Args: never; Returns: number }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }

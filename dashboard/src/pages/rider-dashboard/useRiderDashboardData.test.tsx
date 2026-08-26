@@ -99,6 +99,10 @@ interface HookResult {
 
 type UseDataHook = (input: { userId: string; riderId: string }) => HookResult;
 
+const currentManilaDate = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit',
+}).format(new Date());
+
 const cachedPayload: DashboardPayload = {
   resolvedRiderId: 'rider-1',
   dbUser: { rider_id: 'rider-1' },
@@ -108,16 +112,16 @@ const cachedPayload: DashboardPayload = {
     shift: 'Morning', last_ping: null, contact: '', mkb_id: 'MKB-1', face_descriptor: null,
   },
   todayAttendance: {
-    id: 'attendance-cache', rider_id: 'rider-1', date: '2026-08-05',
-    time_in: '2026-08-05T08:00:00', time_out: null, hours: 0, status: 'present',
+    id: 'attendance-cache', rider_id: 'rider-1', date: currentManilaDate,
+    time_in: `${currentManilaDate}T08:00:00+08:00`, time_out: null, hours: 0, status: 'present',
   },
   latestViolation: {
     id: 'violation-cache', rider_id: 'rider-1', resolved: false,
     lat: 6.92, lng: 122.09, zone_name: 'Cached Zone', created_at: '2026-08-05T09:00:00.000Z',
   },
   monthAttendance: [{
-    id: 'attendance-cache', rider_id: 'rider-1', date: '2026-08-05',
-    time_in: '2026-08-05T08:00:00', time_out: null, hours: 7, status: 'present',
+    id: 'attendance-cache', rider_id: 'rider-1', date: currentManilaDate,
+    time_in: `${currentManilaDate}T08:00:00+08:00`, time_out: null, hours: 7, status: 'present',
   }],
   monthViolationCount: 1,
   timestamp: 1,
@@ -136,7 +140,7 @@ const freshPayload: DashboardPayload = {
   todayAttendance: {
     ...cachedPayload.todayAttendance!,
     id: 'attendance-fresh',
-    time_out: '2026-08-05T17:00:00',
+    time_out: `${currentManilaDate}T17:00:00+08:00`,
     hours: 9,
   },
   latestViolation: null,

@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+
+const supabaseMocks = vi.hoisted(() => ({ from: vi.fn() }));
+
+vi.mock('../supabaseClient', () => ({
+  supabase: { from: supabaseMocks.from },
+}));
 import {
   MAX_SYNC_RETRIES,
   SyncEngine,
@@ -125,6 +131,12 @@ class RecordingSyncEngine extends SyncEngine {
 
   protected override syncLocationPing(item: QueueItem): Promise<void> {
     return this.record(item);
+  }
+}
+
+class DatabaseSyncEngine extends SyncEngine {
+  replayTimeOut(item: QueueItem): Promise<void> {
+    return super.syncTimeOut(item);
   }
 }
 
@@ -428,5 +440,33 @@ describe('SyncEngine recovery and replay guarantees', () => {
       })
     ]);
     await expect(storage.getQueue()).resolves.toHaveLength(0);
+  });
+
+  it('scopes offline Time Out replay to the attendance business date in its payload', async () => {
+    const query = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    query.update.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.select.mockReturnValue(query);
+    query.maybeSingle.mockResolvedValue({ data: null, error: null });
+    supabaseMocks.from.mockReturnValueOnce(query);
+    const item = queueItem('TIME_OUT', {
+      eventTimestamp: '2026-08-05T09:00:00+08:00',
+      payload: {
+        attendance_log_id: 'monday-open',
+        rider_id: 'rider-1',
+        date: '2026-08-05',
+        time_out: '2026-08-05T09:00:00+08:00',
+      },
+    });
+
+    await expect(new DatabaseSyncEngine(engineOptions(new MemoryStorageAdapter())).replayTimeOut(item))
+      .rejects.toThrow('was not available for TIME_OUT replay');
+
+    expect(query.eq).toHaveBeenCalledWith('date', '2026-08-05');
   });
 });

@@ -75,7 +75,7 @@ export function useRiderDashboardData({
 
       const applyPayload = (payload: CachedDashboardPayload) => {
         if (!ownsRequest()) return;
-        const mapped = mapCachedDashboardPayloadToState(payload, firstDayOfWeekStr);
+        const mapped = mapCachedDashboardPayloadToState(payload, firstDayOfWeekStr, todayStr);
 
         setActualRiderId(mapped.resolvedRiderId);
 

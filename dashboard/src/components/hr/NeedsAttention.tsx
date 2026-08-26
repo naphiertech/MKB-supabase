@@ -12,8 +12,8 @@ export function NeedsAttention({ attendanceLogs, violations, onNavigate }: Needs
   // 1. Pending Manual Validations
   const manualLogs = attendanceLogs.filter((l) => l.source === 'manual' || l.notes?.toLowerCase().includes('manual'));
   
-  // 2. Riders missing Time-Out (Clocked in today > 8 hrs ago without timeOut)
-  const missingTimeOut = attendanceLogs.filter((l) => l.timeIn && !l.timeOut && l.hours >= 8);
+  // 2. Previous work dates that have a real Time In but no recorded Time Out.
+  const missingTimeOut = attendanceLogs.filter((l) => l.completionStatus === 'missing_time_out');
 
   // 3. Late arrivals
   const lateArrivals = attendanceLogs.filter((l) => l.status === 'late');
@@ -67,7 +67,7 @@ export function NeedsAttention({ attendanceLogs, violations, onNavigate }: Needs
           className="bg-white border border-border rounded-lg p-3 hover:border-primary/40 transition cursor-pointer flex flex-col justify-between shadow-2xs"
         >
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">No Time-Out</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">Missing Time Out</span>
             <Clock className="w-3.5 h-3.5 text-blue-600" />
           </div>
           <div className="flex items-baseline justify-between">
@@ -76,7 +76,7 @@ export function NeedsAttention({ attendanceLogs, violations, onNavigate }: Needs
               View <ArrowRight className="w-3 h-3" />
             </span>
           </div>
-          <div className="text-[10px] text-muted-foreground truncate">Shift exceeds 8 hrs without clock-out</div>
+          <div className="text-[10px] text-muted-foreground truncate">Previous work date requires review</div>
         </div>
 
         {/* Item 3: Late Arrivals */}

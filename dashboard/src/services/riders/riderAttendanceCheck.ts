@@ -35,7 +35,7 @@ export async function checkHasActiveAttendance(
   if (userId) {
     try {
       const cached = await getCachedRiderDashboard(userId);
-      if (cached?.todayAttendance) {
+      if (cached?.todayAttendance?.date === todayStr) {
         return Boolean(cached.todayAttendance.time_in && !cached.todayAttendance.time_out);
       }
     } catch (err) {

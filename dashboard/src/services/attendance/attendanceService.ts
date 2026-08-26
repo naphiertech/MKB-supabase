@@ -3,7 +3,6 @@ import { type AttendanceLog, type AttendanceStatus, type AttendancePresence, typ
 import { getCachedAvatar } from '../../lib/avatarCache';
 import { createSyncOperationId, getStorageAdapter, type QueueEnqueueInput } from '../../lib/storage';
 import { dispatchNotificationSafe } from '../notifications/notificationService';
-import { getRiderWorkforceDirectory } from '../workforce/workforceDirectoryService';
 import { downloadCsv } from '../../lib/exports/exportUtils';
 import {
   resolveAttendancePunctuality,
@@ -26,10 +25,12 @@ function toHHMM(dateStr: string | null): string | null {
 }
 
 export function getLocalDateString(d: Date = new Date()) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
 }
 
 interface DbAttendanceViewRow {
@@ -53,70 +54,20 @@ interface DbAttendanceViewRow {
   lat: number | null;
   lng: number | null;
   hr_status: string | null;
+  completion_status: string | null;
 }
 
 export function isAttendanceFinalized(targetDate: string = getLocalDateString(), cutoffHour = 17): boolean {
   const now = new Date();
   const todayStr = getLocalDateString(now);
+  const hour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).format(now));
   if (targetDate < todayStr) return true;
-  if (targetDate === todayStr && now.getHours() >= cutoffHour) return true;
+  if (targetDate === todayStr && hour >= cutoffHour) return true;
   return false;
-}
-
-export async function finalizeDailyAttendance(targetDate: string = getLocalDateString(), cutoffHour = 17): Promise<number> {
-  try {
-    const isFinalized = isAttendanceFinalized(targetDate, cutoffHour);
-
-    // Only finalize if targetDate is a past date OR today after cutoff hour (5:00 PM)
-    if (!isFinalized) {
-      return 0;
-    }
-
-    // 1. Fetch riders employed on this business date. Archived employees must
-    // never receive synthesized absences after their effective archive date.
-    const riders = await getRiderWorkforceDirectory({ scope: 'employed_on_date', date: targetDate });
-    if (riders.length === 0) return 0;
-
-    // 2. Fetch existing attendance records for targetDate
-    const { data: existingLogs, error: logErr } = await supabase
-      .from('attendance_logs')
-      .select('rider_id')
-      .eq('date', targetDate);
-
-    if (logErr) return 0;
-
-    const existingRiderIds = new Set((existingLogs || []).map(l => l.rider_id));
-
-    // 3. Find riders without attendance logs for targetDate
-    const missingRiders = riders.filter(r => !existingRiderIds.has(r.id));
-    if (missingRiders.length === 0) return 0;
-
-    // 4. Create auto-generated absent records
-    const newRecords = missingRiders.map(r => ({
-      rider_id: r.id,
-      date: targetDate,
-      time_in: null,
-      time_out: null,
-      status: 'absent',
-      source: 'system',
-      notes: 'Auto-generated absent record by system cutoff'
-    }));
-
-    const { error: insertErr } = await supabase
-      .from('attendance_logs')
-      .insert(newRecords);
-
-    if (insertErr) {
-      console.warn('[AttendanceService] Failed to insert auto-absent logs:', insertErr);
-      return 0;
-    }
-
-    console.log(`[AttendanceService] Finalized ${newRecords.length} auto-absent records for ${targetDate}`);
-    return newRecords.length;
-  } catch (err) {
-    console.error('[AttendanceService] Error in finalizeDailyAttendance:', err);
-    return 0;
-  }
 }
 
 export async function getAttendanceLogs(filters?: {
@@ -126,12 +77,6 @@ export async function getAttendanceLogs(filters?: {
   zoneId?: string;
   riderId?: string;
 }, options: { finalizeDaily?: boolean; throwOnError?: boolean; includeEvents?: boolean } = {}): Promise<AttendanceLog[]> {
-  // Trigger auto-absent finalization for requested dates
-  if (options.finalizeDaily !== false) {
-    const queryDate = filters?.dateFrom || getLocalDateString();
-    await finalizeDailyAttendance(queryDate).catch(err => console.warn('Finalization notice:', err));
-  }
-
   let query = supabase
     .from('v_attendance_summary')
     .select('*');
@@ -193,6 +138,13 @@ export async function getAttendanceLogs(filters?: {
       status: (summaryFacts.isLate ? 'late' : isPresent ? 'present' : 'absent') as AttendanceStatus,
       presence: presence as AttendancePresence,
       punctuality: punctuality as PunctualityStatus,
+      completionStatus: row.completion_status === 'Complete'
+        ? 'complete'
+        : row.completion_status === 'Missing Time Out'
+          ? 'missing_time_out'
+          : row.completion_status === 'Active'
+            ? 'active'
+            : 'absent',
       source: (row.source || 'face-scan') as 'face-scan' | 'manual',
       notes: row.notes || undefined,
       lat: row.lat || 0,
@@ -339,11 +291,12 @@ export async function getHrTodayKpis() {
   };
 }
 
-export type HrLogStatus = 'Complete' | 'Incomplete' | 'Absent' | 'Late';
+export type HrLogStatus = 'Complete' | 'Incomplete' | 'Missing Time Out' | 'Absent' | 'Late';
 
 export function deriveHrStatus(log: AttendanceLog): HrLogStatus {
   if (!log.timeIn) return 'Absent';
   if (log.timeIn && log.timeOut) return 'Complete';
+  if (log.completionStatus === 'missing_time_out') return 'Missing Time Out';
   if (log.status === 'late') return 'Late';
   return 'Incomplete';
 }
@@ -589,6 +542,7 @@ export async function recordTimeOut(logId: string, context: TimeOutContext): Pro
     })
     .eq('id', logId)
     .eq('rider_id', context.riderId)
+    .eq('date', context.date)
     .select('id')
     .maybeSingle();
 

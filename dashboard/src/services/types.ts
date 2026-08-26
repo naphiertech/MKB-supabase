@@ -55,6 +55,7 @@ export interface AttendanceLog {
   status: AttendanceStatus;
   presence: AttendancePresence;
   punctuality: PunctualityStatus;
+  completionStatus?: AttendanceCompletionStatus;
   source: 'face-scan' | 'manual' | 'system';
   faceScanUrl?: string;
   lat?: number;
@@ -62,6 +63,8 @@ export interface AttendanceLog {
   notes?: string | null;
   events: {ts: string; type: 'enter' | 'exit' | 'idle'; zone: string;}[];
 }
+
+export type AttendanceCompletionStatus = 'complete' | 'active' | 'missing_time_out' | 'absent';
 
 export interface ViolationEvent {
   id: string;

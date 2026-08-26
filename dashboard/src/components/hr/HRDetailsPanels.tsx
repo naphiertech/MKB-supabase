@@ -353,10 +353,10 @@ function PendingValidationHRDetail({ logs }: { logs: AttendanceLog[] }) {
         </span>
       );
     }
-    if (log.timeIn && !log.timeOut) {
+    if (log.completionStatus === 'missing_time_out') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-          Ongoing / Missing Out
+          Missing Time Out
         </span>
       );
     }

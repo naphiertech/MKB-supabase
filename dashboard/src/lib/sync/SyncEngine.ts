@@ -524,6 +524,7 @@ export class SyncEngine {
       .update({ time_out: item.eventTimestamp })
       .eq('id', attendanceLogId)
       .eq('rider_id', item.riderId)
+      .eq('date', payload.date)
       .select('id')
       .maybeSingle();
     if (error) throw error;
