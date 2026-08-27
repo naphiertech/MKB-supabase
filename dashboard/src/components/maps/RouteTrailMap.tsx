@@ -11,6 +11,7 @@ import L from 'leaflet';
 import { RoutePoint, RouteStats } from '../../services/monitoring/routeService';
 import { haversine } from '../../services/types';
 import { Play, Pause, RotateCcw, X, Activity } from 'lucide-react';
+import { STREET_BASEMAP } from './mapProviders';
 
 // Custom start marker — green
 const startIcon = L.divIcon({
@@ -339,7 +340,7 @@ export const RouteTrailMap = ({
 
   const tileUrl = satellite
     ? 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
-    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    : STREET_BASEMAP.url;
 
   return (
     <div className="flex flex-col h-full gap-0 rounded-xl overflow-hidden
@@ -396,7 +397,7 @@ export const RouteTrailMap = ({
             maxNativeZoom={satellite ? undefined : 19}
             attribution={satellite
               ? '&copy; Google'
-              : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
+              : STREET_BASEMAP.attribution}
           />
 
           {/* Labels overlay for satellite mode */}

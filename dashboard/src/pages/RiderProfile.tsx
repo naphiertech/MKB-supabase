@@ -13,6 +13,7 @@ import { updateRiderContact } from '../services/riders/riderService';
 import { fetchRiderProfileWithSWR, type CachedProfilePayload } from '../services/riders/riderCacheService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import { pushToast } from '../hooks/useToast';
+import { STREET_BASEMAP } from '../components/maps/mapProviders';
 
 interface RiderProfileProps {
   userId: string;
@@ -21,11 +22,6 @@ interface RiderProfileProps {
   onBack: () => void;
   onSignOut?: () => void;
 }
-
-const MAP_TILE = {
-  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  attribution: '&copy; OpenStreetMap &copy; CARTO'
-};
 
 export function RiderProfile({ userId, riderId, restricted, onBack, onSignOut }: RiderProfileProps) {
   const [rider, setRider] = useState<Rider | null>(null);
@@ -431,10 +427,9 @@ export function RiderProfile({ userId, riderId, restricted, onBack, onSignOut }:
                 zoom={14}
                 scrollWheelZoom={false}
                 zoomControl={false}
-                attributionControl={false}
                 style={{ height: '100%', width: '100%' }}
               >
-                <TileLayer url={MAP_TILE.url} attribution={MAP_TILE.attribution} />
+                <TileLayer url={STREET_BASEMAP.url} attribution={STREET_BASEMAP.attribution} />
                 
                 {zone.zone_type === 'polygon' && zone.polygon_coordinates ? (
                   <Polygon

@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { Crosshair } from 'lucide-react';
 import type { Zone } from '../../services/types';
 import { GeofenceCircle } from '../maps/GeofenceCircle';
+import { STREET_BASEMAP } from '../maps/mapProviders';
 
 const ZAMBOANGA_CENTER: [number, number] = [6.925, 122.078];
 
@@ -127,9 +128,9 @@ export function ZoneMapPreview({
           ref={mapRef}
         >
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap'
-            subdomains="abcd"
+            url={STREET_BASEMAP.url}
+            attribution={STREET_BASEMAP.attribution}
+            maxNativeZoom={19}
             maxZoom={20}
           />
 
@@ -241,7 +242,7 @@ export function ZoneMapPreview({
             <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
           </span>
           <span className="text-xs text-foreground font-mono">
-            {zones.length} zones · dark map preview
+            {zones.length} zones · street map preview
           </span>
         </div>
       </div>

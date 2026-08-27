@@ -8,6 +8,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Crosshair } from 'lucide-react';
 import { GeofenceCircle } from './GeofenceCircle';
+import { STREET_BASEMAP } from './mapProviders';
 import type { Zone } from '../../services/types';
 interface RiderMapProps {
   position: {
@@ -22,9 +23,7 @@ interface RiderMapProps {
 }
 const TILE_LAYERS = {
   dark: {
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    ...STREET_BASEMAP,
     subdomains: 'abcd'
   },
   satellite: {

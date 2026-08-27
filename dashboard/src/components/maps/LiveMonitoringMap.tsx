@@ -5,6 +5,7 @@ import { Eye, EyeOff, Crosshair, Tag, TagsIcon } from 'lucide-react';
 import type { Rider, Zone } from '../../services/types';
 import { buildRiderIcon } from './RiderMarker';
 import { GeofenceCircle } from './GeofenceCircle';
+import { STREET_BASEMAP } from './mapProviders';
 import { reverseGeocode } from '../../lib/apiService';
 interface LiveMonitoringMapProps {
   riders: Rider[];
@@ -17,9 +18,7 @@ interface LiveMonitoringMapProps {
 const ZAMBOANGA_CENTER: [number, number] = [6.925, 122.078];
 const TILE_LAYERS = {
   dark: {
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution:
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    ...STREET_BASEMAP,
     subdomains: 'abcd'
   },
   satellite: {
