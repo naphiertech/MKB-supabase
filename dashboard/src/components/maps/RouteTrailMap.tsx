@@ -339,7 +339,7 @@ export const RouteTrailMap = ({
 
   const tileUrl = satellite
     ? 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   return (
     <div className="flex flex-col h-full gap-0 rounded-xl overflow-hidden
@@ -391,7 +391,13 @@ export const RouteTrailMap = ({
           zoomControl={false}
         >
           <InvalidateMapSize mapHeight={mapHeight} />
-          <TileLayer url={tileUrl} attribution="© Map data" />
+          <TileLayer
+            url={tileUrl}
+            maxNativeZoom={satellite ? undefined : 19}
+            attribution={satellite
+              ? '&copy; Google'
+              : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
+          />
 
           {/* Labels overlay for satellite mode */}
           {satellite && (

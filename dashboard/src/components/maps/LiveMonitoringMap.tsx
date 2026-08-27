@@ -17,9 +17,9 @@ interface LiveMonitoringMapProps {
 const ZAMBOANGA_CENTER: [number, number] = [6.925, 122.078];
 const TILE_LAYERS = {
   dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution:
-    '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap',
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     subdomains: 'abcd'
   },
   satellite: {
@@ -202,6 +202,7 @@ export function LiveMonitoringMap({
           url={tile.url}
           attribution={tile.attribution}
           subdomains={tile.subdomains}
+          maxNativeZoom={isSatellite ? 20 : 19}
           maxZoom={20} />
         
         {isSatellite &&
