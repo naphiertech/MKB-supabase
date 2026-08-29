@@ -43,6 +43,7 @@ import { exportXLSXFile } from '../lib/exports/excelHelper';
 import { buildExportFilename, downloadCsv } from '../lib/exports/exportUtils';
 import { downloadPayslipPackage } from '../lib/exports/bulkPayslipExport';
 import { useExportJob } from '../hooks/useExportJob';
+import { getPayrollWeek } from '../lib/payroll/payrollCalendar';
 
 type PayrollTemplate = 'cutoff_summary' | 'individual_payslips' | 'parcel_logs';
 type PayrollFormat = 'pdf' | 'csv' | 'xlsx';
@@ -77,21 +78,6 @@ const TEMPLATES: {
   }
 ];
 
-function pad(n: number) {
-  return String(n).padStart(2, '0');
-}
-
-function isoToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function isoOffset(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 function friendlyExportError(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
   if (/unsupported snapshotted .* rate|do not reconcile/i.test(message)) {
@@ -113,8 +99,8 @@ export function PayrollReports() {
   const [singleRiderId, setSingleRiderId] = useState<string>('');
   const [template, setTemplate] = useState<PayrollTemplate>('cutoff_summary');
   const [format, setFormat] = useState<PayrollFormat>('pdf');
-  const [from, setFrom] = useState(isoOffset(14));
-  const [to, setTo] = useState(isoToday());
+  const [from, setFrom] = useState(() => getPayrollWeek().cutoff_start);
+  const [to, setTo] = useState(() => getPayrollWeek().cutoff_end);
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const [bulkMode, setBulkMode] = useState<'single' | 'bulk'>('bulk');
   const exportJob = useExportJob();

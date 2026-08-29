@@ -35,6 +35,7 @@ import {
   calculatePayrollRecordTotals,
   payslipAdjustmentsFromRecord,
 } from '../lib/payroll/payrollAdjustments';
+import { formatPayrollPeriod } from '../lib/payroll/payrollCalendar';
 
 export interface HistoricalRecord {
   id: string;
@@ -246,15 +247,10 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
       if (!r.cutoff_start) continue;
       const key = `${r.cutoff_start}_${r.cutoff_end}`;
       if (!map.has(key)) {
-        const dStart = new Date(r.cutoff_start);
-        const monthName = dStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        const dayStart = dStart.getDate();
-        const dEnd = new Date(r.cutoff_end);
-        const dayEnd = dEnd.getDate();
         map.set(key, {
           start: r.cutoff_start,
           end: r.cutoff_end,
-          label: `${monthName} (${dayStart}–${dayEnd})`
+          label: formatPayrollPeriod(r.cutoff_start, r.cutoff_end),
         });
       }
     }
@@ -310,12 +306,7 @@ export function PayrollHistory({ role = 'payroll' }: PayrollHistoryProps) {
 
     for (const r of filteredRecords) {
       const key = `${r.cutoff_start}_${r.cutoff_end}`;
-      const dStart = new Date(r.cutoff_start);
-      const monthName = dStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      const dayStart = dStart.getDate();
-      const dEnd = new Date(r.cutoff_end);
-      const dayEnd = dEnd.getDate();
-      const label = `${monthName} (${dayStart}–${dayEnd})`;
+      const label = formatPayrollPeriod(r.cutoff_start, r.cutoff_end);
 
       const net = computeNetPay(r);
       const gross = Number(r.gross_pay || 0);

@@ -31,31 +31,22 @@ import {
   RotateCcw,
   AlertTriangle,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   MoreHorizontal,
   CheckCircle2
 } from 'lucide-react';
 import { RiderPayrollList, type PayrollRecordRow } from '../components/payroll/RiderPayrollList';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
 import { useParcelLogsRealtimeVersion } from '../hooks/useParcelLogsRealtimeVersion';
-
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December'
-];
-
-function pad(n: number) {
-  return String(n).padStart(2, '0');
-}
+import {
+  getPayrollWeek,
+  previousPayrollWeek,
+  nextPayrollWeek,
+  getRecentPayrollWeeks,
+  WEEKLY_PAYROLL_START_DATE,
+  type PayrollWeekPeriod,
+} from '../lib/payroll/payrollCalendar';
 
 export function PayrollComputation() {
   const { user } = useAuth();
@@ -73,28 +64,13 @@ export function PayrollComputation() {
   const [selectedRiderId, setSelectedRiderId] = useState('');
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
-  // Cutoff period selectors (shared)
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const [month, setMonth] = useState(() => new Date().getMonth());
-  const [half, setHalf] = useState<'first' | 'second'>(() =>
-    new Date().getDate() <= 15 ? 'first' : 'second'
-  );
+  // Weekly Cutoff period selectors (shared)
+  const [selectedWeek, setSelectedWeek] = useState<PayrollWeekPeriod>(() => getPayrollWeek());
+  const recentWeeks = useMemo(() => getRecentPayrollWeeks(12), []);
 
-  const cutoffFrom = useMemo(() => {
-    const startDay = half === 'first' ? 1 : 16;
-    return `${currentYear}-${pad(month + 1)}-${pad(startDay)}`;
-  }, [month, half, currentYear]);
-
-  const cutoffTo = useMemo(() => {
-    const endDay = half === 'first' ? 15 : new Date(currentYear, month + 1, 0).getDate();
-    return `${currentYear}-${pad(month + 1)}-${pad(endDay)}`;
-  }, [month, half, currentYear]);
-
-  const cutoffLabel = useMemo(() => {
-    return half === 'first'
-      ? `${MONTHS[month]} 1–15`
-      : `${MONTHS[month]} 16–${new Date(currentYear, month + 1, 0).getDate()}`;
-  }, [month, half, currentYear]);
+  const cutoffFrom = selectedWeek.cutoff_start;
+  const cutoffTo = selectedWeek.cutoff_end;
+  const cutoffLabel = selectedWeek.label;
 
   const parcelLogsVersion = useParcelLogsRealtimeVersion(selectedRiderId, cutoffFrom, cutoffTo);
 
@@ -425,54 +401,51 @@ export function PayrollComputation() {
                 Cutoff Period
               </div>
               <div className="text-base font-bold text-foreground truncate">
-                {cutoffLabel}, {currentYear}
+                {cutoffLabel}
               </div>
             </div>
           </div>
 
-          {/* Right: Grouped Month Selector, Cutoff Half Toggles & Toolbar Actions */}
+          {/* Right: Weekly Cutoff Navigation & Toolbar Actions */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Grouped Month & Half-month Selector */}
+            {/* Weekly Navigation & Selector */}
             <div className="inline-flex items-center rounded-lg border border-border bg-panel-bg/70 p-0.5 gap-1 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedWeek(prev => previousPayrollWeek(prev))}
+                disabled={!!activeRider || selectedWeek.cutoff_start <= WEEKLY_PAYROLL_START_DATE}
+                className="h-8 w-8 rounded-md bg-white border border-border text-foreground hover:bg-panel-bg flex items-center justify-center transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                title="Previous Week"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
               <select
-                value={month}
-                onChange={e => setMonth(Number(e.target.value))}
+                value={selectedWeek.cutoff_start}
+                onChange={e => {
+                  const found = recentWeeks.find(w => w.cutoff_start === e.target.value);
+                  if (found) setSelectedWeek(found);
+                  else setSelectedWeek(getPayrollWeek(e.target.value));
+                }}
                 disabled={!!activeRider}
                 className="h-8 px-2.5 pr-7 rounded-md bg-white border border-border text-xs text-foreground font-semibold outline-none focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer disabled:opacity-50"
               >
-                {MONTHS.map((m, idx) => (
-                  <option key={m} value={idx}>
-                    {m} {currentYear}
+                {recentWeeks.map(w => (
+                  <option key={w.cutoff_start} value={w.cutoff_start}>
+                    {w.label}
                   </option>
                 ))}
               </select>
 
-              <div className="inline-flex rounded-md bg-panel-bg p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setHalf('first')}
-                  disabled={!!activeRider}
-                  className={`h-7 px-2.5 rounded text-xs font-semibold transition disabled:opacity-50 cursor-pointer ${
-                    half === 'first'
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {MONTHS[month].slice(0, 3)} 1–15
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setHalf('second')}
-                  disabled={!!activeRider}
-                  className={`h-7 px-2.5 rounded text-xs font-semibold transition disabled:opacity-50 cursor-pointer ${
-                    half === 'second'
-                      ? 'bg-primary text-white shadow-xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {MONTHS[month].slice(0, 3)} 16–{new Date(currentYear, month + 1, 0).getDate()}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedWeek(prev => nextPayrollWeek(prev))}
+                disabled={!!activeRider}
+                className="h-8 w-8 rounded-md bg-white border border-border text-foreground hover:bg-panel-bg flex items-center justify-center transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                title="Next Week"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
 
             {/* Cutoff Action Toolbar */}
@@ -1035,7 +1008,7 @@ export function PayrollComputation() {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Prepare Fleet Cutoff?</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Period: {cutoffLabel}, {currentYear}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Period: {cutoffLabel}</p>
                 </div>
               </div>
 
@@ -1098,7 +1071,7 @@ export function PayrollComputation() {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-foreground">Reset Unedited Drafts?</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Period: {cutoffLabel}, {currentYear}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Period: {cutoffLabel}</p>
                 </div>
               </div>
 

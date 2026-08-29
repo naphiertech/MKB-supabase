@@ -15,7 +15,9 @@ import {
   Play,
   TrendingUp,
   Sparkles,
-  CheckSquare
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { getPayrollRecords, initializeCutoffPayrollForFleet } from '../services/parcelService';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
@@ -25,25 +27,16 @@ import { getActivityLogs, type ActivityLog } from '../lib/apiService';
 import { PayrollStatus } from '../types/payroll';
 import { supabase } from '../lib/supabaseClient';
 import { calculatePayrollRecordTotals } from '../lib/payroll/payrollAdjustments';
-
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December'
-];
-
-function pad(n: number) {
-  return String(n).padStart(2, '0');
-}
+import {
+  getPayrollWeek,
+  previousPayrollWeek,
+  nextPayrollWeek,
+  getRecentPayrollWeeks,
+  WEEKLY_PAYROLL_START_DATE,
+  getManilaBusinessDate,
+  diffDays,
+  type PayrollWeekPeriod,
+} from '../lib/payroll/payrollCalendar';
 
 function phpFmt(n: number) {
   return `₱${n.toLocaleString('en-PH', {
@@ -74,13 +67,10 @@ interface PayrollDashboardProps {
 
 export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashboardProps) {
   const currentUserRole = role;
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
-  const [month, setMonth] = useState(() => new Date().getMonth());
-  const [half, setHalf] = useState<'first' | 'second'>(() =>
-    new Date().getDate() <= 15 ? 'first' : 'second'
-  );
-
+  const [selectedWeek, setSelectedWeek] = useState<PayrollWeekPeriod>(() => getPayrollWeek());
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const recentWeeks = useMemo(() => getRecentPayrollWeeks(12), []);
+
   const [allCutoffRecords, setAllCutoffRecords] = useState<PayrollRecordRow[]>([]);
   const [activeRidersCount, setActiveRidersCount] = useState(0);
   const [ridersWithLogsCount, setRidersWithLogsCount] = useState(0);
@@ -98,45 +88,26 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
   const approvalWorkspaceRef = useRef<HTMLDivElement>(null);
 
   // Derive Cutoff Period Date range
-  const cutoffFrom = useMemo(() => {
-    const startDay = half === 'first' ? 1 : 16;
-    return `${currentYear}-${pad(month + 1)}-${pad(startDay)}`;
-  }, [month, half, currentYear]);
-
-  const cutoffTo = useMemo(() => {
-    const endDay = half === 'first' ? 15 : new Date(currentYear, month + 1, 0).getDate();
-    return `${currentYear}-${pad(month + 1)}-${pad(endDay)}`;
-  }, [month, half, currentYear]);
+  const cutoffFrom = selectedWeek.cutoff_start;
+  const cutoffTo = selectedWeek.cutoff_end;
+  const cutoffLabel = selectedWeek.label;
 
   // Derive Cutoff Progress & Days Remaining
   const cutoffProgress = useMemo(() => {
-    const today = new Date();
-    const startDay = half === 'first' ? 1 : 16;
-    const endDay = half === 'first' ? 15 : new Date(currentYear, month + 1, 0).getDate();
-    const totalDays = endDay - startDay + 1;
+    const todayManila = getManilaBusinessDate();
+    const totalDays = 7;
 
-    const isCurrentMonth = today.getFullYear() === currentYear && today.getMonth() === month;
-
-    if (!isCurrentMonth) {
-      if (today > new Date(currentYear, month, endDay)) {
-        return { dayNumber: totalDays, totalDays, daysRemaining: 0, percentage: 100, isClosed: true };
-      } else {
-        return { dayNumber: 0, totalDays, daysRemaining: totalDays, percentage: 0, isClosed: false };
-      }
-    }
-
-    const currentDay = today.getDate();
-    if (currentDay < startDay) {
+    if (todayManila < selectedWeek.cutoff_start) {
       return { dayNumber: 0, totalDays, daysRemaining: totalDays, percentage: 0, isClosed: false };
-    } else if (currentDay > endDay) {
+    } else if (todayManila > selectedWeek.cutoff_end) {
       return { dayNumber: totalDays, totalDays, daysRemaining: 0, percentage: 100, isClosed: true };
     } else {
-      const elapsed = currentDay - startDay + 1;
-      const remaining = endDay - currentDay;
-      const pct = Math.round((elapsed / totalDays) * 100);
+      const elapsed = diffDays(todayManila, selectedWeek.cutoff_start) + 1;
+      const remaining = diffDays(selectedWeek.cutoff_end, todayManila);
+      const pct = Math.min(100, Math.max(0, Math.round((elapsed / totalDays) * 100)));
       return { dayNumber: elapsed, totalDays, daysRemaining: remaining, percentage: pct, isClosed: false };
     }
-  }, [month, half, currentYear]);
+  }, [selectedWeek]);
 
   // Fetch all records & rider totals for cutoff
   useEffect(() => {
@@ -247,11 +218,6 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
     };
   }, [allCutoffRecords, activeRidersCount, ridersWithLogsCount]);
 
-  const cutoffLabel =
-    half === 'first'
-      ? `${MONTHS[month]} 1–15`
-      : `${MONTHS[month]} 16–${new Date(currentYear, month + 1, 0).getDate()}`;
-
   const activeIndex = useMemo(() => {
     if (!selectedRecordForDetails) return -1;
     return recordsInPage.findIndex(r => r.id === selectedRecordForDetails.id);
@@ -316,36 +282,51 @@ export function PayrollDashboard({ role = 'payroll', onNavigate }: PayrollDashbo
               </span>
             </div>
             <h2 className="text-lg font-semibold tracking-tight text-foreground md:text-xl">
-              Active Cutoff: {cutoffLabel}, {currentYear}
+              Work Period: {cutoffLabel}
             </h2>
+            {selectedWeek.payable_date && (
+              <p className="text-xs text-muted-foreground font-mono">
+                Earliest Pay Date: {selectedWeek.payable_date}
+              </p>
+            )}
           </div>
 
-          {/* Cutoff Selector & Controls */}
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={month}
-              onChange={e => setMonth(Number(e.target.value))}
-              className="ui-control h-8 w-full px-2.5 font-mono text-xs font-semibold sm:w-44"
-            >
-              {MONTHS.map((m, idx) => (
-                <option key={m} value={idx}>
-                  {m} {currentYear}
-                </option>
-              ))}
-            </select>
-
-            <div className="inline-flex rounded-md border border-border bg-panel-bg p-0.5">
+          {/* Weekly Cutoff Selector & Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center rounded-lg border border-border bg-panel-bg/70 p-0.5 gap-1 shadow-xs">
               <button
-                onClick={() => setHalf('first')}
-                className={`h-7 px-2.5 rounded text-xs font-bold transition cursor-pointer ${half === 'first' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                type="button"
+                onClick={() => setSelectedWeek(prev => previousPayrollWeek(prev))}
+                disabled={selectedWeek.cutoff_start <= WEEKLY_PAYROLL_START_DATE}
+                className="h-8 w-8 rounded-md bg-white border border-border text-foreground hover:bg-panel-bg flex items-center justify-center transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                title="Previous Week"
               >
-                {MONTHS[month].slice(0, 3)} 1–15
+                <ChevronLeft className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => setHalf('second')}
-                className={`h-7 px-2.5 rounded text-xs font-bold transition cursor-pointer ${half === 'second' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+
+              <select
+                value={selectedWeek.cutoff_start}
+                onChange={e => {
+                  const found = recentWeeks.find(w => w.cutoff_start === e.target.value);
+                  if (found) setSelectedWeek(found);
+                  else setSelectedWeek(getPayrollWeek(e.target.value));
+                }}
+                className="ui-control h-8 w-full px-2.5 font-mono text-xs font-semibold sm:w-48"
               >
-                {MONTHS[month].slice(0, 3)} 16–{new Date(currentYear, month + 1, 0).getDate()}
+                {recentWeeks.map(w => (
+                  <option key={w.cutoff_start} value={w.cutoff_start}>
+                    {w.label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => setSelectedWeek(prev => nextPayrollWeek(prev))}
+                className="h-8 w-8 rounded-md bg-white border border-border text-foreground hover:bg-panel-bg flex items-center justify-center transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                title="Next Week"
+              >
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>

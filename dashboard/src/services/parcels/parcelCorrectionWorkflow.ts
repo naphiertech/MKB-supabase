@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabaseClient';
 import { logActivity } from '../../lib/apiService';
-import { getCutoffRangeForDate, syncPayrollRecordsFromParcelLogs } from '../parcelService';
+import { getCutoffRangeForDate, refreshDraftPayrollForRiderCutoff } from '../parcelService';
 import { validateParcelCount, validateParcelWorkDate } from './parcelOperationsPolicy';
 
 export interface ParcelCorrectionRequest {
@@ -349,7 +349,7 @@ export async function reviewParcelCorrectionRequest(
 
     try {
       const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(request.date);
-      await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
+      await refreshDraftPayrollForRiderCutoff(request.rider_id, cutoffFrom, cutoffTo);
     } catch (syncErr) {
       console.warn('Post-correction payroll sync warning:', syncErr);
     }

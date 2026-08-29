@@ -3,7 +3,7 @@ import { getRiderWorkforceDirectory } from '../workforce/workforceDirectoryServi
 import { resolveAttendanceSummaryFacts } from '../../lib/attendance/attendanceSummaryPolicy';
 import { logActivity } from '../../lib/apiService';
 import { getLocalDateString } from '../attendance/attendanceService';
-import { syncPayrollRecordsFromParcelLogs, getCutoffRangeForDate } from '../parcelService';
+import { refreshDraftPayrollForRiderCutoff, getCutoffRangeForDate } from '../parcelService';
 import {
   calculateParcelOperationalMetrics,
   getParcelRateContextForDate,
@@ -12,6 +12,7 @@ import {
   validateParcelWorkDate,
   type ParcelRateContext,
 } from './parcelOperationsPolicy';
+import { getPayrollWeek, WEEKLY_PAYROLL_START_DATE, getManilaBusinessDate } from '../../lib/payroll/payrollCalendar';
 
 export interface DailyParcelRow {
   riderId: string;
@@ -166,9 +167,20 @@ export function formatRecorderIdentity(
 }
 
 /**
- * Computes standard payroll cutoff label from any date string (1st-15th or 16th-EOM)
+ * Computes standard payroll cutoff label from any date string:
+ * For dates >= 2026-08-31: returns weekly label (e.g. "Aug 31 – Sep 6, 2026").
+ * For legacy dates < 2026-08-31: returns legacy 1-15 / 16-EOM label.
  */
 function getCutoffLabel(dateStr: string): string {
+  try {
+    const businessDate = getManilaBusinessDate(dateStr);
+    if (businessDate >= WEEKLY_PAYROLL_START_DATE) {
+      return getPayrollWeek(businessDate).label;
+    }
+  } catch {
+    // fallback below
+  }
+
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
@@ -512,16 +524,19 @@ export async function saveDailyParcelEntries(
     }
   }
 
-  // Sync affected cutoff payroll_records for all distinct dates saved
+  // Sync affected cutoff payroll_records for all saved riders and dates
   try {
-    const cutoffKeys = new Set<string>();
-    for (const d of dates) {
-      const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(d);
-      cutoffKeys.add(`${cutoffFrom}|${cutoffTo}`);
+    const riderCutoffKeys = new Set<string>();
+    for (const entry of entries) {
+      const riderId = entry.riderId || (entry as any).rider_id;
+      if (riderId && entry.date) {
+        const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(entry.date);
+        riderCutoffKeys.add(`${riderId}|${cutoffFrom}|${cutoffTo}`);
+      }
     }
-    for (const key of cutoffKeys) {
-      const [cFrom, cTo] = key.split('|');
-      await syncPayrollRecordsFromParcelLogs(cFrom, cTo);
+    for (const key of riderCutoffKeys) {
+      const [rId, cFrom, cTo] = key.split('|');
+      await refreshDraftPayrollForRiderCutoff(rId, cFrom, cTo);
     }
   } catch (syncErr) {
     console.warn('Post-save payroll sync warning:', syncErr);

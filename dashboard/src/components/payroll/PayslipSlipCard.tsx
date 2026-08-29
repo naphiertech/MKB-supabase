@@ -4,6 +4,7 @@ import { isEditableStatus } from "../../types/payroll";
 import { BRANDING } from "../../config/branding";
 import { type OperationalParcelSummary } from "../../services/parcelService";
 import type { PayrollAdjustmentCode, PayrollAdjustmentDefinitionLike } from "../../lib/payroll/payrollAdjustments";
+import { formatPayrollPeriod, getPayableDate } from "../../lib/payroll/payrollCalendar";
 
 interface PayslipSlipCardProps {
   record: PayrollRecordShape;
@@ -87,18 +88,13 @@ export function PayslipSlipCard({
           MKB Corporation
         </h4>
         <p className="text-[10px] text-muted-foreground font-mono">
-          Cutoff:{" "}
-          {new Date(record.cutoff_start).toLocaleDateString("en-PH", {
-            month: "short",
-            day: "numeric",
-          })}{" "}
-          –{" "}
-          {new Date(record.cutoff_end).toLocaleDateString("en-PH", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          Work Period: {formatPayrollPeriod(record.cutoff_start, record.cutoff_end)}
         </p>
+        {getPayableDate(record.cutoff_start, record.cutoff_end) && (
+          <p className="text-[10px] text-muted-foreground font-mono">
+            Earliest Pay Date: {getPayableDate(record.cutoff_start, record.cutoff_end)}
+          </p>
+        )}
       </div>
 
       {/* Earnings Section */}

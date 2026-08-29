@@ -1,9 +1,15 @@
 import { supabase } from '../../lib/supabaseClient';
+import { isPayrollPayable, getPayableDate } from '../../lib/payroll/payrollCalendar';
 
 export interface PayrollTransitionRecordVersion {
   id: string;
   status: string;
   updated_at: string;
+}
+
+export interface PayrollBulkSelectionContext {
+  cutoffStart?: string;
+  cutoffEnd?: string;
 }
 
 export interface PayrollBulkSelectionState {
@@ -31,22 +37,35 @@ interface PayrollBulkTransitionInput {
 
 export function getPayrollBulkSelectionState(
   records: readonly PayrollTransitionRecordVersion[],
+  context?: PayrollBulkSelectionContext
 ): PayrollBulkSelectionState {
   const count = records.length;
   const canApprove = count > 0 && records.every((record) => record.status === 'pending');
-  const canMarkPaid = count > 0 && records.every((record) => record.status === 'approved');
+  let canMarkPaid = count > 0 && records.every((record) => record.status === 'approved');
+  let feedback: string | null = null;
+
+  if (count > 0 && !canApprove && !canMarkPaid) {
+    feedback = 'Select only Pending Review records to approve, or only Approved records to mark as Paid.';
+  } else if (canMarkPaid && context?.cutoffStart && context?.cutoffEnd) {
+    if (!isPayrollPayable(context.cutoffStart, context.cutoffEnd)) {
+      canMarkPaid = false;
+      const payableDate = getPayableDate(context.cutoffStart, context.cutoffEnd);
+      feedback = payableDate
+        ? `Payroll cannot be marked as Paid before earliest pay date (${payableDate}).`
+        : null;
+    }
+  }
+
   return {
     count,
     canApprove,
     canMarkPaid,
-    feedback: count > 0 && !canApprove && !canMarkPaid
-      ? 'Select only Pending Review records to approve, or only Approved records to mark as Paid.'
-      : null,
+    feedback,
   };
 }
 
 function controlledPayrollError(error: { message?: string } | null): Error {
-  const match = error?.message?.match(/^PAYROLL_BULK_[A-Z_]+:\s*(.+)$/s);
+  const match = error?.message?.match(/^PAYROLL_(?:BULK_)?[A-Z_]+:\s*(.+)$/s);
   if (match?.[1]) return new Error(match[1]);
   return new Error('The payroll action could not be completed. Refresh the list and try again.');
 }

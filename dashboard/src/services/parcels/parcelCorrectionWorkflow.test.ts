@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   getCutoffRangeForDate: vi.fn(),
-  syncPayrollRecordsFromParcelLogs: vi.fn(),
+  refreshDraftPayrollForRiderCutoff: vi.fn(),
   logActivity: vi.fn(),
   validateParcelCount: vi.fn(),
   validateParcelWorkDate: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock('../../lib/supabaseClient', () => ({
 }));
 vi.mock('../parcelService', () => ({
   getCutoffRangeForDate: mocks.getCutoffRangeForDate,
-  syncPayrollRecordsFromParcelLogs: mocks.syncPayrollRecordsFromParcelLogs,
+  refreshDraftPayrollForRiderCutoff: mocks.refreshDraftPayrollForRiderCutoff,
 }));
 vi.mock('../../lib/apiService', () => ({ logActivity: mocks.logActivity }));
 vi.mock('./parcelOperationsPolicy', () => ({
@@ -95,7 +95,7 @@ describe('parcel correction workflow characterization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getCutoffRangeForDate.mockReturnValue({ cutoffFrom: '2026-08-01', cutoffTo: '2026-08-15' });
-    mocks.syncPayrollRecordsFromParcelLogs.mockResolvedValue(undefined);
+    mocks.refreshDraftPayrollForRiderCutoff.mockResolvedValue({ success: true });
     mocks.logActivity.mockResolvedValue(undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -136,8 +136,9 @@ describe('parcel correction workflow characterization', () => {
   it('preserves approval ordering', async () => {
     const events: string[] = [];
     const configured = configureReview({ events });
-    mocks.syncPayrollRecordsFromParcelLogs.mockImplementation(async () => {
+    mocks.refreshDraftPayrollForRiderCutoff.mockImplementation(async () => {
       events.push('payroll-sync');
+      return { success: true };
     });
     mocks.logActivity.mockImplementation(async () => {
       events.push('activity');
@@ -150,7 +151,7 @@ describe('parcel correction workflow characterization', () => {
     expect(configured.auditInsert).toHaveBeenCalledWith(expect.objectContaining({
       action_type: 'correction_approved', approved_by: validReviewerId,
     }));
-    expect(mocks.syncPayrollRecordsFromParcelLogs).toHaveBeenCalledWith('2026-08-01', '2026-08-15');
+    expect(mocks.refreshDraftPayrollForRiderCutoff).toHaveBeenCalledWith('rider-1', '2026-08-01', '2026-08-15');
   });
 
   it('preserves rejection ordering without changing parcel logs or synchronizing payroll', async () => {
@@ -163,7 +164,7 @@ describe('parcel correction workflow characterization', () => {
 
     expect(events).toEqual(['fetch-request', 'audit', 'request-status', 'activity']);
     expect(configured.parcelUpdate).not.toHaveBeenCalled();
-    expect(mocks.syncPayrollRecordsFromParcelLogs).not.toHaveBeenCalled();
+    expect(mocks.refreshDraftPayrollForRiderCutoff).not.toHaveBeenCalled();
     expect(configured.auditInsert).toHaveBeenCalledWith(expect.objectContaining({
       action_type: 'correction_rejected', reason: 'Rejected notes', approved_by: validReviewerId,
     }));
@@ -182,7 +183,7 @@ describe('parcel correction workflow characterization', () => {
   it('keeps audit, payroll sync, and activity failures warning-only', async () => {
     const events: string[] = [];
     configureReview({ events, auditError: { message: 'audit failed' } });
-    mocks.syncPayrollRecordsFromParcelLogs.mockImplementation(async () => {
+    mocks.refreshDraftPayrollForRiderCutoff.mockImplementation(async () => {
       events.push('payroll-sync');
       throw new Error('sync failed');
     });
@@ -200,8 +201,9 @@ describe('parcel correction workflow characterization', () => {
   it('preserves approval side effects when the final request-status update fails', async () => {
     const events: string[] = [];
     configureReview({ events, requestStatusError: { message: 'status failed' } });
-    mocks.syncPayrollRecordsFromParcelLogs.mockImplementation(async () => {
+    mocks.refreshDraftPayrollForRiderCutoff.mockImplementation(async () => {
       events.push('payroll-sync');
+      return { success: true };
     });
     await expect(reviewParcelCorrectionRequest('request-1', 'approved', validReviewerId))
       .rejects.toThrow('Failed to update request status: status failed');

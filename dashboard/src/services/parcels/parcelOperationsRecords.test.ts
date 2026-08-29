@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   logActivity: vi.fn(),
   getLocalDateString: vi.fn(),
   getCutoffRangeForDate: vi.fn(),
-  syncPayrollRecordsFromParcelLogs: vi.fn(),
+  refreshDraftPayrollForRiderCutoff: vi.fn(),
   validateParcelCount: vi.fn(),
   validateParcelWorkDate: vi.fn(),
   getParcelRateContextForDate: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('../../lib/apiService', () => ({ logActivity: mocks.logActivity }));
 vi.mock('../attendance/attendanceService', () => ({ getLocalDateString: mocks.getLocalDateString }));
 vi.mock('../parcelService', () => ({
   getCutoffRangeForDate: mocks.getCutoffRangeForDate,
-  syncPayrollRecordsFromParcelLogs: mocks.syncPayrollRecordsFromParcelLogs,
+  refreshDraftPayrollForRiderCutoff: mocks.refreshDraftPayrollForRiderCutoff,
 }));
 vi.mock('./parcelOperationsPolicy', () => ({
   validateParcelCount: mocks.validateParcelCount,
@@ -161,7 +161,7 @@ describe('parcel operations Records characterization', () => {
     mocks.getCutoffRangeForDate.mockImplementation((date: string) => date <= '2026-08-15'
       ? { cutoffFrom: '2026-08-01', cutoffTo: '2026-08-15' }
       : { cutoffFrom: '2026-08-16', cutoffTo: '2026-08-31' });
-    mocks.syncPayrollRecordsFromParcelLogs.mockResolvedValue(undefined);
+    mocks.refreshDraftPayrollForRiderCutoff.mockResolvedValue({ success: true });
     mocks.logActivity.mockResolvedValue(undefined);
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -184,7 +184,7 @@ describe('parcel operations Records characterization', () => {
       events.push('rate');
       return rateContext;
     });
-    mocks.syncPayrollRecordsFromParcelLogs.mockImplementation(async () => { events.push('sync'); });
+    mocks.refreshDraftPayrollForRiderCutoff.mockImplementation(async () => { events.push('sync'); return { success: true }; });
     mocks.logActivity.mockImplementation(async () => { events.push('activity'); });
     await expect(saveDailyParcelEntries([baseEntry], 'not-a-uuid')).resolves.toBe(1);
     expect(events).toEqual([
@@ -220,14 +220,14 @@ describe('parcel operations Records characterization', () => {
       .rejects.toThrow('Supabase DB Error [P0001]: upsert failed (details)');
     expect(events).toEqual(['rate', 'existing-read', 'upsert']);
     expect(configured.auditInsert).not.toHaveBeenCalled();
-    expect(mocks.syncPayrollRecordsFromParcelLogs).not.toHaveBeenCalled();
+    expect(mocks.refreshDraftPayrollForRiderCutoff).not.toHaveBeenCalled();
     expect(mocks.logActivity).not.toHaveBeenCalled();
   });
 
   it('keeps audit, payroll-sync, and activity failures warning-only', async () => {
     const events: string[] = [];
     configureSave({ events, auditError: { message: 'audit failed' } });
-    mocks.syncPayrollRecordsFromParcelLogs.mockImplementation(async () => {
+    mocks.refreshDraftPayrollForRiderCutoff.mockImplementation(async () => {
       events.push('sync');
       throw new Error('sync failed');
     });
@@ -245,7 +245,7 @@ describe('parcel operations Records characterization', () => {
     expect(configured.upsert).toHaveBeenCalledOnce();
   });
 
-  it('deduplicates cutoff ranges and synchronizes them sequentially', async () => {
+  it('deduplicates cutoff ranges and synchronizes them sequentially per affected rider', async () => {
     const entries = [
       baseEntry,
       { ...baseEntry, riderId: 'rider-2', date: '2026-08-06' },
@@ -254,16 +254,18 @@ describe('parcel operations Records characterization', () => {
     configureSave({ savedRows: entries.map(savedRow) });
     let activeSyncs = 0;
     let maximumConcurrentSyncs = 0;
-    mocks.syncPayrollRecordsFromParcelLogs.mockImplementation(async () => {
+    mocks.refreshDraftPayrollForRiderCutoff.mockImplementation(async () => {
       activeSyncs += 1;
       maximumConcurrentSyncs = Math.max(maximumConcurrentSyncs, activeSyncs);
       await Promise.resolve();
       activeSyncs -= 1;
+      return { success: true };
     });
     await saveDailyParcelEntries(entries, 'operator');
-    expect(mocks.syncPayrollRecordsFromParcelLogs.mock.calls).toEqual([
-      ['2026-08-01', '2026-08-15'],
-      ['2026-08-16', '2026-08-31'],
+    expect(mocks.refreshDraftPayrollForRiderCutoff.mock.calls).toEqual([
+      ['rider-1', '2026-08-01', '2026-08-15'],
+      ['rider-2', '2026-08-01', '2026-08-15'],
+      ['rider-3', '2026-08-16', '2026-08-31'],
     ]);
     expect(maximumConcurrentSyncs).toBe(1);
   });

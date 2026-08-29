@@ -34,6 +34,11 @@ import {
   getPayrollBulkSelectionState,
 } from '../../services/payroll/payrollBulkActions';
 import { calculatePayrollRecordTotals } from '../../lib/payroll/payrollAdjustments';
+import {
+  formatPayrollPeriod,
+  isPayrollPayable,
+  getPayableDate,
+} from '../../lib/payroll/payrollCalendar';
 
 function phpFmt(val: number) {
   return '₱' + val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -50,23 +55,28 @@ function formatDate(isoString: string) {
 }
 
 function formatCutoff(startStr: string, endStr: string) {
-  try {
-    const s = new Date(startStr);
-    const e = new Date(endStr);
-    if (isNaN(s.getTime()) || isNaN(e.getTime())) return '—';
-    const month = s.toLocaleDateString('en-US', { month: 'short' });
-    return `${month} ${s.getDate()}–${e.getDate()}`;
-  } catch {
-    return '—';
-  }
+  return formatPayrollPeriod(startStr, endStr);
 }
 
-function StatusPill({ status }: { status: string }) {
+function StatusPill({ status, cutoffStart, cutoffEnd }: { status: string; cutoffStart?: string; cutoffEnd?: string }) {
   const lower = (status || '').toLowerCase() as PayrollStatus;
   const color = PayrollStatusColors[lower] || PayrollStatusColors[PayrollStatus.PENDING];
-  const label = PayrollStatusLabels[lower] || status;
+  let label = PayrollStatusLabels[lower] || status;
+  let tooltip: string | undefined;
+
+  if (lower === PayrollStatus.APPROVED && cutoffStart && cutoffEnd) {
+    if (!isPayrollPayable(cutoffStart, cutoffEnd)) {
+      const payableDate = getPayableDate(cutoffStart, cutoffEnd);
+      label = 'Approved · Waiting for pay date';
+      if (payableDate) tooltip = `Earliest pay date: ${payableDate}`;
+    }
+  }
+
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${color}`}>
+    <span
+      title={tooltip}
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border whitespace-nowrap ${color}`}
+    >
       {label}
     </span>
   );
@@ -330,8 +340,8 @@ export function RiderPayrollList({
     [payrollRecords, selectedRecordIds],
   );
   const bulkSelectionState = useMemo(
-    () => getPayrollBulkSelectionState(selectedRecords),
-    [selectedRecords],
+    () => getPayrollBulkSelectionState(selectedRecords, { cutoffStart: cutoffFrom, cutoffEnd: cutoffTo }),
+    [selectedRecords, cutoffFrom, cutoffTo],
   );
 
   useEffect(() => {
@@ -900,7 +910,7 @@ export function RiderPayrollList({
                           </td>
                         )}
                         <td className="px-3 py-3 pr-5 whitespace-nowrap">
-                          <StatusPill status={r.status} />
+                          <StatusPill status={r.status} cutoffStart={r.cutoff_start} cutoffEnd={r.cutoff_end} />
                         </td>
                       </tr>
                     </Fragment>

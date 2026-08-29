@@ -8,6 +8,7 @@ import {
 } from './payroll/payrollBulkActions';
 import { resolveAttendanceSummaryFacts } from '../lib/attendance/attendanceSummaryPolicy';
 import { deleteDraftPayrollRecord } from './payroll/payrollAdjustmentRecordsService';
+import { getPayrollWeek, formatPayrollPeriod, WEEKLY_PAYROLL_START_DATE, getManilaBusinessDate } from '../lib/payroll/payrollCalendar';
 
 export interface ParcelLog {
   id: string;
@@ -243,6 +244,32 @@ export async function getPayrollDeliveryData(record: PayrollSnapshotRecordLike):
   return { lines, summary: summarizeOperationalParcels(lines), source: 'snapshot', calculationVersion };
 }
 
+// Triggers server-authoritative recalculation of a Draft or Rejected payroll record.
+export const refreshDraftPayrollRecord = async (
+  payrollRecordId: string
+): Promise<{ success: boolean; status?: string; skipped?: boolean; reason?: string }> => {
+  const { data, error } = await supabase.rpc('refresh_draft_payroll_record', {
+    p_payroll_record_id: payrollRecordId,
+  });
+  if (error) throw error;
+  return data as { success: boolean; status?: string; skipped?: boolean; reason?: string };
+};
+
+// Triggers server-authoritative recalculation of a Draft or Rejected payroll record for a specific Rider + Cutoff.
+export const refreshDraftPayrollForRiderCutoff = async (
+  riderId: string,
+  cutoffFrom: string,
+  cutoffTo: string
+): Promise<{ success: boolean; status?: string; skipped?: boolean; reason?: string }> => {
+  const { data, error } = await supabase.rpc('refresh_draft_payroll_for_rider_cutoff', {
+    p_rider_id: riderId,
+    p_cutoff_start: cutoffFrom,
+    p_cutoff_end: cutoffTo,
+  });
+  if (error) throw error;
+  return data as { success: boolean; status?: string; skipped?: boolean; reason?: string };
+};
+
 // Upsert a single day parcel entry
 // Updates if exists, inserts if not
 export const upsertParcelLog = async (
@@ -270,7 +297,7 @@ export const upsertParcelLog = async (
 
   try {
     const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(date);
-    await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo);
+    await refreshDraftPayrollForRiderCutoff(riderId, cutoffFrom, cutoffTo);
   } catch (syncErr) {
     console.warn('Post-upsert log payroll sync warning:', syncErr);
   }
@@ -296,18 +323,47 @@ export const savePayrollRecord = async (
   cutoffFrom: string,
   cutoffTo: string
 ): Promise<void> => {
-  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo, { allowCreateMissing: true });
+  const { data: existing, error: findErr } = await supabase
+    .from('payroll_records')
+    .select('id, status')
+    .eq('rider_id', riderId)
+    .eq('cutoff_start', cutoffFrom)
+    .maybeSingle();
+
+  if (findErr) throw findErr;
+
+  let recordId = existing?.id;
+  if (!existing) {
+    const { data: inserted, error: insertErr } = await supabase
+      .from('payroll_records')
+      .insert({
+        rider_id: riderId,
+        cutoff_start: cutoffFrom,
+        cutoff_end: cutoffTo,
+        total_parcels: 0,
+        rate_per_parcel: 10,
+        gross_pay: 0,
+        status: PayrollStatus.DRAFT,
+      })
+      .select('id, status')
+      .single();
+    if (insertErr) throw insertErr;
+    recordId = inserted.id;
+  } else if (existing.status !== PayrollStatus.DRAFT && existing.status !== PayrollStatus.REJECTED) {
+    throw new Error('Only Draft or Rejected payroll records can synchronize from Parcel Operations.');
+  }
+
+  if (recordId) {
+    await refreshDraftPayrollRecord(recordId);
+  }
+
   const { data: savedRecord, error } = await supabase
     .from('payroll_records')
     .select('id, total_parcels, gross_pay, status')
-    .eq('rider_id', riderId)
-    .eq('cutoff_start', cutoffFrom)
+    .eq('id', recordId)
     .single();
 
   if (error) throw error;
-  if (!savedRecord || (savedRecord.status !== PayrollStatus.DRAFT && savedRecord.status !== PayrollStatus.REJECTED)) {
-    throw new Error('Only Draft or Rejected payroll records can synchronize from Parcel Operations.');
-  }
   const finalGross = Number(savedRecord.gross_pay ?? 0);
   const totalParcels = Number(savedRecord.total_parcels ?? 0);
 
@@ -398,14 +454,19 @@ export const initializeCutoffPayrollForFleet = async (
     submitted_by: userId || null
   }));
 
-  const { error: insertErr } = await supabase
+  const { data: insertedRecords, error: insertErr } = await supabase
     .from('payroll_records')
-    .upsert(newRecords, { onConflict: 'rider_id,cutoff_start' });
+    .upsert(newRecords, { onConflict: 'rider_id,cutoff_start' })
+    .select('id');
 
   if (insertErr) throw insertErr;
 
-  // Immediately hydrate newly created draft records from parcel_logs
-  await syncPayrollRecordsFromParcelLogs(cutoffFrom, cutoffTo, { allowCreateMissing: false });
+  // Immediately recalculate newly created draft records server-side via RPC
+  if (insertedRecords && insertedRecords.length > 0) {
+    for (const rec of insertedRecords) {
+      await refreshDraftPayrollRecord(rec.id);
+    }
+  }
 
   return {
     initializedCount: missingRiders.length,
@@ -534,9 +595,21 @@ export const deleteBulkPayrollRecords = async (ids: string[]): Promise<number> =
 
 
 /**
- * Helper to compute standard MKB cutoff bounds (1-15 or 16-lastDay) for a given date string.
+ * Helper to compute standard MKB cutoff bounds:
+ * For dates on or after 2026-08-31: computes authoritative Monday–Sunday weekly period.
+ * For legacy dates before 2026-08-31: computes legacy 1-15 or 16-EOM period.
  */
 export function getCutoffRangeForDate(dateStr: string): { cutoffFrom: string; cutoffTo: string } {
+  try {
+    const businessDate = getManilaBusinessDate(dateStr);
+    if (businessDate >= WEEKLY_PAYROLL_START_DATE) {
+      const week = getPayrollWeek(businessDate);
+      return { cutoffFrom: week.cutoff_start, cutoffTo: week.cutoff_end };
+    }
+  } catch {
+    // fallback to legacy calculation below if unparseable
+  }
+
   const d = new Date(dateStr.replace(' ', 'T'));
   if (isNaN(d.getTime())) {
     const today = new Date();
@@ -581,7 +654,7 @@ export interface SyncPayrollOptions {
 
 /**
  * Automatically synchronizes payroll_records from parcel_logs for a specific cutoff period.
- * Aggregates daily parcel_logs (total parcels & gross pay) per rider and upserts payroll_records.
+ * Invokes server-authoritative refresh_draft_payroll_record RPC for working (Draft/Rejected) records.
  */
 export const syncPayrollRecordsFromParcelLogs = async (
   cutoffFrom: string,
@@ -589,129 +662,24 @@ export const syncPayrollRecordsFromParcelLogs = async (
   options?: SyncPayrollOptions
 ): Promise<void> => {
   try {
-    // 1. Fetch all parcel_logs for the cutoff period
-    const { data: logs, error: logsErr } = await supabase
-      .from('parcel_logs')
-      .select('rider_id, date, parcels, heavy_parcels, rate, heavy_rate, standard_earnings, heavy_earnings, daily_gross, rate_configuration_id')
-      .gte('date', cutoffFrom)
-      .lte('date', cutoffTo);
-
-    if (logsErr) {
-      throw logsErr;
+    // 1. If explicit creation/initialization is requested, create shell records for missing riders
+    if (options?.allowCreateMissing) {
+      await initializeCutoffPayrollForFleet(cutoffFrom, cutoffTo);
     }
 
-    if (!logs || logs.length === 0) return;
-
-    // 2. Fetch existing payroll records before validating live rows. Finalized
-    // legacy payroll is immutable and does not depend on newly added rate metadata.
-    const { data: existingRecords, error: existingRecordsErr } = await supabase
+    // 2. Query existing working (Draft/Rejected) records for the cutoff
+    const { data: workingRecords, error: fetchErr } = await supabase
       .from('payroll_records')
-      .select('id, rider_id, status')
-      .eq('cutoff_start', cutoffFrom);
+      .select('id, status')
+      .eq('cutoff_start', cutoffFrom)
+      .in('status', [PayrollStatus.DRAFT, PayrollStatus.REJECTED]);
 
-    if (existingRecordsErr) {
-      throw existingRecordsErr;
-    }
+    if (fetchErr) throw fetchErr;
+    if (!workingRecords || workingRecords.length === 0) return;
 
-    const existingMap = new Map((existingRecords || []).map(r => [r.rider_id, r]));
-
-    // 3. Aggregate parcels and gross pay only for records that may track live data.
-    const riderAggregates = new Map<string, {
-      standardParcels: number;
-      heavyParcels: number;
-      standardEarnings: number;
-      heavyEarnings: number;
-      gross: number;
-      rate: number;
-    }>();
-    for (const log of logs) {
-      const riderId = log.rider_id;
-      if (!riderId) continue;
-
-      const existing = existingMap.get(riderId);
-      if (
-        existing
-        && existing.status !== PayrollStatus.DRAFT
-        && existing.status !== PayrollStatus.REJECTED
-      ) {
-        continue;
-      }
-
-      const parcels = Number(log.parcels || 0);
-      const heavyParcels = Number(log.heavy_parcels || 0);
-      if (log.rate == null || log.heavy_rate == null || log.standard_earnings == null
-        || log.heavy_earnings == null || log.daily_gross == null || !log.rate_configuration_id) {
-        throw new MissingPayrollSnapshotError(`Stored rate data is incomplete for ${log.date}. Review the Parcel Operations record before payroll synchronization.`);
-      }
-      const rate = Number(log.rate);
-      const standardEarnings = Number(log.standard_earnings);
-      const heavyEarnings = Number(log.heavy_earnings);
-      const gross = Number(log.daily_gross);
-
-      const curr = riderAggregates.get(riderId) || {
-        standardParcels: 0,
-        heavyParcels: 0,
-        standardEarnings: 0,
-        heavyEarnings: 0,
-        gross: 0,
-        rate,
-      };
-      curr.standardParcels += parcels;
-      curr.heavyParcels += heavyParcels;
-      curr.standardEarnings += standardEarnings;
-      curr.heavyEarnings += heavyEarnings;
-      curr.gross += gross;
-      curr.rate = rate;
-      riderAggregates.set(riderId, curr);
-    }
-
-    // 4. Build upsert payload
-    const allowCreateMissing = options?.allowCreateMissing ?? false;
-
-    const upsertPayloads = Array.from(riderAggregates.entries()).flatMap(([riderId, agg]) => {
-      const existing = existingMap.get(riderId);
-
-      // Do not recreate draft records that were intentionally deleted,
-      // unless explicit creation/initialization is requested.
-      if (!existing && !allowCreateMissing) {
-        return [];
-      }
-
-      // Only working records may track live parcel changes. Pending, approved,
-      // paid, and other historical states must retain their submitted snapshot.
-      if (
-        existing
-        && existing.status !== PayrollStatus.DRAFT
-        && existing.status !== PayrollStatus.REJECTED
-      ) {
-        return [];
-      }
-
-      return [{
-        ...(existing?.id ? { id: existing.id } : {}),
-        rider_id: riderId,
-        cutoff_start: cutoffFrom,
-        cutoff_end: cutoffTo,
-        total_parcels: agg.standardParcels + agg.heavyParcels,
-        standard_parcels: agg.standardParcels,
-        heavy_parcels: agg.heavyParcels,
-        standard_earnings: agg.standardEarnings,
-        heavy_earnings: agg.heavyEarnings,
-        rate_per_parcel: agg.rate,
-        gross_pay: agg.gross,
-        status: existing?.status || PayrollStatus.DRAFT,
-        updated_at: new Date().toISOString()
-      }];
-    });
-
-    if (upsertPayloads.length === 0) return;
-
-    const { error: upsertErr } = await supabase
-      .from('payroll_records')
-      .upsert(upsertPayloads, { onConflict: 'rider_id,cutoff_start' });
-
-    if (upsertErr) {
-      throw upsertErr;
+    // 3. Invoke server-authoritative Draft refresh for each working record
+    for (const rec of workingRecords) {
+      await refreshDraftPayrollRecord(rec.id);
     }
   } catch (err) {
     console.error('Error in syncPayrollRecordsFromParcelLogs:', err);
@@ -1202,16 +1170,16 @@ export const bulkUpsertParcelLogs = async (
   if (error) throw error;
 
   try {
-    const cutoffKeys = new Set<string>();
+    const riderCutoffKeys = new Set<string>();
     for (const log of logs) {
-      if (log.date) {
+      if (log.rider_id && log.date) {
         const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(log.date);
-        cutoffKeys.add(`${cutoffFrom}|${cutoffTo}`);
+        riderCutoffKeys.add(`${log.rider_id}|${cutoffFrom}|${cutoffTo}`);
       }
     }
-    for (const key of cutoffKeys) {
-      const [cFrom, cTo] = key.split('|');
-      await syncPayrollRecordsFromParcelLogs(cFrom, cTo);
+    for (const key of riderCutoffKeys) {
+      const [rId, cFrom, cTo] = key.split('|');
+      await refreshDraftPayrollForRiderCutoff(rId, cFrom, cTo);
     }
   } catch (syncErr) {
     console.warn('Post-bulk upsert log payroll sync warning:', syncErr);
@@ -1277,17 +1245,9 @@ export const getArchivedPayrollCutoffsSummary = async (
     group.statuses.push(row.status);
   }
 
-  const MONTH_NAMES = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
-
   const results: ArchivedPayrollCutoff[] = [];
   for (const group of groups.values()) {
-    const [startYear, startMonth, startDay] = group.cutoffStart.split('-').map(Number);
-    const [, , endDay] = group.cutoffEnd.split('-').map(Number);
-    const monthName = MONTH_NAMES[(startMonth || 1) - 1] || 'Cutoff';
-    const label = `${monthName} ${startDay}–${endDay}, ${startYear}`;
+    const label = formatPayrollPeriod(group.cutoffStart, group.cutoffEnd);
 
     const normalizedStatuses = group.statuses.map(s => (s === 'pending' ? 'submitted' : s));
     const uniqueStatuses = new Set(normalizedStatuses);

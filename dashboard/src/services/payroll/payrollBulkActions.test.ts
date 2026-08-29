@@ -35,13 +35,20 @@ describe('payroll bulk selection eligibility', () => {
     });
   });
 
-  it('enables only payment for an all-Approved selection', () => {
-    expect(getPayrollBulkSelectionState([approved])).toEqual({
+  it('enables only payment for an all-Approved selection on legacy cutoffs', () => {
+    expect(getPayrollBulkSelectionState([approved], { cutoffStart: '2026-08-01', cutoffEnd: '2026-08-15' })).toEqual({
       count: 1,
       canApprove: false,
       canMarkPaid: true,
       feedback: null,
     });
+  });
+
+  it('disables payment for weekly payroll before earliest payable date', () => {
+    // Current date is 2026-08-30. Period is Aug 31 - Sep 6, payable Sep 14.
+    const result = getPayrollBulkSelectionState([approved], { cutoffStart: '2026-08-31', cutoffEnd: '2026-09-06' });
+    expect(result.canMarkPaid).toBe(false);
+    expect(result.feedback).toContain('2026-09-14');
   });
 
   it('keeps mixed statuses safe and explains why neither transition is available', () => {

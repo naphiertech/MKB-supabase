@@ -60,6 +60,7 @@ import {
   type PayrollEarningAdjustment,
 } from "../../services/payroll/payrollAdjustmentRecordsService";
 import { TraceablePayrollAdjustmentsCard } from "./TraceablePayrollAdjustmentsCard";
+import { formatPayrollPeriod, isPayrollPayable, getPayableDate } from "../../lib/payroll/payrollCalendar";
 
 export interface PayrollRecordShape {
   id: string;
@@ -427,7 +428,7 @@ export function PayrollDetailsModal({
       // Log this action to activity_logs
       await logActivity({
         eventType: "payroll_adjustments_update",
-        description: `Updated payroll adjustments for ${riderName} (${record.cutoff_start} to ${record.cutoff_end})`,
+        description: `Updated payroll adjustments for ${riderName} (${formatPayrollPeriod(record.cutoff_start, record.cutoff_end)})`,
         metadata: {
           record_id: record.id,
           adjustments: {
@@ -1096,18 +1097,31 @@ export function PayrollDetailsModal({
                           )}
 
                           {record.status === "approved" && (
-                            <button
-                              disabled={isUpdatingStatus}
-                              onClick={() => handleUpdateStatus("paid")}
-                              className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
-                            >
-                              {isUpdatingStatus ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              )}
-                              Mark as Paid
-                            </button>
+                            (() => {
+                              const payable = isPayrollPayable(record.cutoff_start, record.cutoff_end);
+                              const payableDate = getPayableDate(record.cutoff_start, record.cutoff_end);
+                              return (
+                                <div className="space-y-1.5">
+                                  <button
+                                    disabled={isUpdatingStatus || !payable}
+                                    onClick={() => handleUpdateStatus("paid")}
+                                    className="w-full h-9 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm transition disabled:opacity-50"
+                                  >
+                                    {isUpdatingStatus ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                    )}
+                                    Mark as Paid
+                                  </button>
+                                  {!payable && payableDate && (
+                                    <p className="text-[11px] text-amber-700 text-center font-medium">
+                                      Approved · Waiting for pay date ({payableDate})
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()
                           )}
 
                           {record.status === "paid" && (
