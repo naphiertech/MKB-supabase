@@ -13,8 +13,34 @@ describe('biometric asset delivery', () => {
     expect(index).not.toContain('opencv');
     expect(faceAi).not.toContain('@master');
     expect(faceAi).not.toContain('@mediapipe/tasks-vision@0.10.8');
-    expect(faceAi).toContain('@mediapipe/tasks-vision@0.10.35/wasm');
+    expect(faceAi).toContain('models/mediapipe/wasm');
+    expect(faceAi).toContain('models/mediapipe/face_landmarker.task');
+    expect(faceAi).not.toContain('storage.googleapis.com/mediapipe-models');
+    const mediaPipeLoader = faceAi.slice(
+      faceAi.indexOf('export async function loadMediaPipeLandmarker'),
+      faceAi.indexOf('export function calculateMediaPipeEAR'),
+    );
+    expect(mediaPipeLoader).not.toContain('cdn.jsdelivr.net');
     expect(packageJson.dependencies['@mediapipe/tasks-vision']).toBe('0.10.35');
+  });
+
+  it('ships the complete pinned MediaPipe runtime files and Face Landmarker model', () => {
+    const mediaPipeRoot = resolve(process.cwd(), 'public/models/mediapipe');
+    const requiredAssets = [
+      'wasm/vision_wasm_internal.js',
+      'wasm/vision_wasm_internal.wasm',
+      'wasm/vision_wasm_module_internal.js',
+      'wasm/vision_wasm_module_internal.wasm',
+      'wasm/vision_wasm_nosimd_internal.js',
+      'wasm/vision_wasm_nosimd_internal.wasm',
+      'face_landmarker.task',
+    ];
+
+    for (const asset of requiredAssets) {
+      const path = resolve(mediaPipeRoot, asset);
+      expect(existsSync(path), `${asset} should be bundled`).toBe(true);
+      if (existsSync(path)) expect(readFileSync(path).byteLength, `${asset} should not be empty`).toBeGreaterThan(0);
+    }
   });
 
   it('uses a versioned immutable model path without introducing Tiny Face Detector', () => {

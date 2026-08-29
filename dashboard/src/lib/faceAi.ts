@@ -11,6 +11,12 @@ export const FACE_MATCH_THRESHOLD = 0.45;
 export const FACE_DESCRIPTOR_LENGTH = 128;
 const FACE_DETECTION_MIN_CONFIDENCE = 0.45;
 const FACE_API_MODEL_PATH = '/models/face-api-0.22.2/';
+const MEDIAPIPE_WASM_ASSET_PATH = 'models/mediapipe/wasm';
+const MEDIAPIPE_FACE_LANDMARKER_ASSET_PATH = 'models/mediapipe/face_landmarker.task';
+
+function resolveBundledAssetUrl(path: string) {
+  return new URL(path, document.baseURI).toString();
+}
 
 interface FaceDetectionBox {
   box: { x: number; y: number; width: number; height: number };
@@ -374,11 +380,11 @@ export async function loadMediaPipeLandmarker() {
     try {
       const { FilesetResolver, FaceLandmarker } = await import('@mediapipe/tasks-vision');
       const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
+        resolveBundledAssetUrl(MEDIAPIPE_WASM_ASSET_PATH).replace(/\/$/, '')
       );
       landmarkerInstance = await FaceLandmarker.createFromOptions(vision, {
         baseOptions: {
-          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          modelAssetPath: resolveBundledAssetUrl(MEDIAPIPE_FACE_LANDMARKER_ASSET_PATH),
           delegate: "GPU"
         },
         runningMode: "VIDEO",
