@@ -40,6 +40,8 @@ export interface PayrollDeductionBalance extends BalanceRow {
   planned: number;
   outstanding: number;
   available_to_allocate: number;
+  financially_committed_at: string | null;
+  financially_locked: boolean;
   status: string;
 }
 
@@ -99,6 +101,8 @@ function normalizeBalance(row: BalanceRow): PayrollDeductionBalance {
     planned: Number(row.planned ?? 0),
     outstanding: Number(row.outstanding ?? 0),
     available_to_allocate: Number(row.available_to_allocate ?? 0),
+    financially_committed_at: row.financially_committed_at ?? null,
+    financially_locked: Boolean(row.financially_locked),
     status: row.status ?? 'open',
   };
 }

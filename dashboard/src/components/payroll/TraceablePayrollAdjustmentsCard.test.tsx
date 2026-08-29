@@ -7,6 +7,7 @@ const balance = (overrides: Partial<PayrollDeductionBalance>): PayrollDeductionB
   obligation_id: 'o1', rider_id: 'r1', hub_id: 'h1', adjustment_code: 'late_onhold',
   display_name: 'Late Onhold / FM', original_amount: 150, recovered: 0, committed: 0,
   planned: 0, outstanding: 150, available_to_allocate: 150, status: 'open',
+  financially_committed_at: null, financially_locked: false,
   adjustment_date: '2026-08-20', reason: 'Late onhold', reference: null, voided_at: null,
   ...overrides,
 });

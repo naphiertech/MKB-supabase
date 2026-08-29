@@ -51,8 +51,8 @@ describe('Payroll Adjustments Rider-first workspace', () => {
     });
     mocks.listEvents.mockResolvedValue({
       rows: [
-        { obligation_id: 'obligation-1500', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 1500, adjustment_date: '2026-08-20', reason: 'First incident', reference: 'LR-1', recovered: 0, committed: 0, planned: 0, outstanding: 1500, available_to_allocate: 1500, status: 'open', voided_at: null },
-        { obligation_id: 'obligation-500', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 500, adjustment_date: '2026-08-29', reason: 'Second incident', reference: 'LR-2', recovered: 0, committed: 0, planned: 0, outstanding: 500, available_to_allocate: 500, status: 'open', voided_at: null },
+        { obligation_id: 'obligation-1500', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 1500, adjustment_date: '2026-08-20', reason: 'First incident', reference: 'LR-1', recovered: 0, committed: 0, planned: 0, outstanding: 1500, available_to_allocate: 1500, financially_locked: false, financially_committed_at: null, status: 'open', voided_at: null },
+        { obligation_id: 'obligation-500', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 500, adjustment_date: '2026-08-29', reason: 'Second incident', reference: 'LR-2', recovered: 0, committed: 0, planned: 0, outstanding: 500, available_to_allocate: 500, financially_locked: false, financially_committed_at: null, status: 'open', voided_at: null },
       ],
       total: 2,
     });
@@ -69,6 +69,15 @@ describe('Payroll Adjustments Rider-first workspace', () => {
     vi.clearAllMocks();
     Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
   });
+
+  async function openFirstEventInEdit() {
+    await act(async () => { root.render(<PayrollAdjustments role="admin" />); });
+    const riderButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Rider One'));
+    await act(async () => { riderButton?.click(); });
+    const editButton = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.trim() === 'Edit');
+    await act(async () => { editButton?.click(); });
+    return document.querySelector<HTMLElement>('[role="dialog"]');
+  }
 
   it('loads server-filtered summaries and opens the selected Rider\'s independent events', async () => {
     await act(async () => { root.render(<PayrollAdjustments role="admin" />); });
@@ -133,7 +142,7 @@ describe('Payroll Adjustments Rider-first workspace', () => {
     await act(async () => { editButton?.click(); });
 
     mocks.listEvents.mockResolvedValue({
-      rows: [{ obligation_id: 'obligation-1500', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 1500, adjustment_date: '2026-08-20', reason: 'Corrected incident', reference: 'LR-1', recovered: 0, committed: 0, planned: 0, outstanding: 1500, available_to_allocate: 1500, status: 'open', voided_at: null }],
+      rows: [{ obligation_id: 'obligation-1500', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 1500, adjustment_date: '2026-08-20', reason: 'Corrected incident', reference: 'LR-1', recovered: 0, committed: 0, planned: 0, outstanding: 1500, available_to_allocate: 1500, financially_locked: false, financially_committed_at: null, status: 'open', voided_at: null }],
       total: 1,
     });
     const saveButton = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.includes('Save Correction'));
@@ -144,5 +153,33 @@ describe('Payroll Adjustments Rider-first workspace', () => {
     expect(document.body.textContent).toContain('Corrected incident');
     expect(document.body.textContent).toContain('Allocation History');
     expect(document.body.textContent).not.toContain('Save Correction');
+  });
+
+  it('locks amount and incident date while an active Draft allocation is planned', async () => {
+    mocks.listEvents.mockResolvedValue({
+      rows: [{ obligation_id: 'planned-obligation', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 150, adjustment_date: '2026-08-20', reason: 'Planned event', reference: null, recovered: 0, committed: 0, planned: 50, outstanding: 150, available_to_allocate: 100, financially_locked: false, financially_committed_at: null, status: 'open', voided_at: null }],
+      total: 1,
+    });
+    const drawer = await openFirstEventInEdit();
+    expect(drawer?.querySelector<HTMLInputElement>('input[type="number"]')?.disabled).toBe(true);
+    expect(drawer?.querySelector<HTMLInputElement>('input[type="date"]')?.disabled).toBe(true);
+    expect(drawer?.textContent).toContain('active Draft or Rejected payroll plan');
+  });
+
+  it('keeps amount and incident date locked after submitted history is detached', async () => {
+    mocks.listEvents.mockResolvedValue({
+      rows: [{ obligation_id: 'historical-obligation', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 150, adjustment_date: '2026-08-20', reason: 'Historical event', reference: null, recovered: 0, committed: 0, planned: 0, outstanding: 150, available_to_allocate: 150, financially_locked: true, financially_committed_at: '2026-08-21T00:00:00+08:00', status: 'open', voided_at: null }],
+      total: 1,
+    });
+    const drawer = await openFirstEventInEdit();
+    expect(drawer?.querySelector<HTMLInputElement>('input[type="number"]')?.disabled).toBe(true);
+    expect(drawer?.querySelector<HTMLInputElement>('input[type="date"]')?.disabled).toBe(true);
+    expect(drawer?.textContent).toContain('permanently locked after submitted payroll participation');
+  });
+
+  it('keeps never-allocated amount and incident date correctable', async () => {
+    const drawer = await openFirstEventInEdit();
+    expect(drawer?.querySelector<HTMLInputElement>('input[type="number"]')?.disabled).toBe(false);
+    expect(drawer?.querySelector<HTMLInputElement>('input[type="date"]')?.disabled).toBe(false);
   });
 });

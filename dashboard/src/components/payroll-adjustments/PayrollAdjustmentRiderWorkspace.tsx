@@ -62,6 +62,14 @@ function groupEvents(events: PayrollDeductionBalance[]) {
   return Array.from(groups.entries()).map(([code, group]) => ({ code, ...group }));
 }
 
+function hasPermanentFinancialLock(obligation: PayrollDeductionBalance) {
+  return obligation.financially_locked || obligation.committed > 0 || obligation.recovered > 0;
+}
+
+function financialFieldsLocked(obligation: PayrollDeductionBalance) {
+  return hasPermanentFinancialLock(obligation) || obligation.planned > 0;
+}
+
 export function PayrollAdjustmentRiderWorkspace({
   mode,
   hubs,
@@ -225,7 +233,7 @@ export function PayrollAdjustmentRiderWorkspace({
         reason: editReason,
         reference: editReference,
       });
-      const amountLocked = selectedObligation.recovered + selectedObligation.committed > 0;
+      const amountLocked = financialFieldsLocked(selectedObligation);
       const acceptedUpdate: PayrollDeductionBalance = {
         ...selectedObligation,
         original_amount: nextAmount,
@@ -303,7 +311,7 @@ export function PayrollAdjustmentRiderWorkspace({
 
       {selectedObligation && drawerMode === 'edit' && <>
         <div className="flex items-start justify-between border-b border-border px-5 py-4"><div><button type="button" onClick={() => setDrawerMode('details')} className="mb-2 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-primary"><ArrowLeft className="h-4 w-4" /> Back to Obligation Details</button><h2 className="font-semibold">Edit Deduction</h2><p className="mt-0.5 break-all font-mono text-[10px] text-muted-foreground">{selectedObligation.obligation_id}</p></div><button type="button" onClick={closeRider} className="ui-icon-button" aria-label="Close Rider adjustments"><X className="h-4 w-4" /></button></div>
-        <div className="flex-1 space-y-4 overflow-y-auto p-5"><div className="rounded-xl border border-border bg-panel-bg p-3 text-xs"><p><b>Rider:</b> {selectedRider?.rider_name ?? 'Unknown Rider'}</p><p className="mt-1"><b>Type:</b> {selectedObligation.display_name}</p><p className="mt-2 text-[10px] text-muted-foreground">This form corrects only the selected financial event.</p></div>{selectedObligation.recovered + selectedObligation.committed > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Total Amount and Incident Date are locked because this adjustment has already been used in submitted payroll. Reason and reference may still be corrected.</div>}<label className="block space-y-1"><span className="ui-eyebrow">Total Amount</span><input type="number" value={editAmount} disabled={selectedObligation.recovered + selectedObligation.committed > 0} onChange={(event) => setEditAmount(event.target.value)} min={selectedObligation.planned} className="ar-input" /></label><label className="block space-y-1"><span className="ui-eyebrow">Incident Date</span><input type="date" value={editDate} disabled={selectedObligation.recovered + selectedObligation.committed > 0} onChange={(event) => setEditDate(event.target.value)} className="ar-input" /></label><label className="block space-y-1"><span className="ui-eyebrow">Reason</span><textarea value={editReason} onChange={(event) => setEditReason(event.target.value)} rows={3} className="ar-textarea" /></label><label className="block space-y-1"><span className="ui-eyebrow">Reference</span><input value={editReference} onChange={(event) => setEditReference(event.target.value)} className="ar-input" /></label></div>
+        <div className="flex-1 space-y-4 overflow-y-auto p-5"><div className="rounded-xl border border-border bg-panel-bg p-3 text-xs"><p><b>Rider:</b> {selectedRider?.rider_name ?? 'Unknown Rider'}</p><p className="mt-1"><b>Type:</b> {selectedObligation.display_name}</p><p className="mt-2 text-[10px] text-muted-foreground">This form corrects only the selected financial event.</p></div>{financialFieldsLocked(selectedObligation) && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">{hasPermanentFinancialLock(selectedObligation) ? 'Total Amount and Incident Date are permanently locked after submitted payroll participation.' : 'Total Amount and Incident Date are locked while this obligation belongs to an active Draft or Rejected payroll plan.'} Reason and reference may still be corrected.</div>}<label className="block space-y-1"><span className="ui-eyebrow">Total Amount</span><input type="number" value={editAmount} disabled={financialFieldsLocked(selectedObligation)} onChange={(event) => setEditAmount(event.target.value)} min={selectedObligation.planned} className="ar-input" /></label><label className="block space-y-1"><span className="ui-eyebrow">Incident Date</span><input type="date" value={editDate} disabled={financialFieldsLocked(selectedObligation)} onChange={(event) => setEditDate(event.target.value)} className="ar-input" /></label><label className="block space-y-1"><span className="ui-eyebrow">Reason</span><textarea value={editReason} onChange={(event) => setEditReason(event.target.value)} rows={3} className="ar-textarea" /></label><label className="block space-y-1"><span className="ui-eyebrow">Reference</span><input value={editReference} onChange={(event) => setEditReference(event.target.value)} className="ar-input" /></label></div>
         <div className="flex justify-end gap-2 border-t border-border p-4"><button type="button" disabled={saving} onClick={() => setDrawerMode('details')} className="ui-button-secondary h-10 px-4">Cancel</button><button type="button" disabled={saving || Number(editAmount) <= 0 || !editReason.trim()} onClick={() => void saveObligation()} className="ui-button-primary inline-flex h-10 items-center gap-2 px-4">{saving && <Loader2 className="h-4 w-4 animate-spin" />} Save Correction</button></div>
       </>}
     </RightDrawer>

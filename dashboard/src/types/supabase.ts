@@ -1199,6 +1199,8 @@ export type Database = {
           adjustment_date: string
           created_at: string
           created_by: string | null
+          financially_committed_at: string | null
+          financially_committed_payroll_id: string | null
           hub_id: string
           id: string
           original_amount: number
@@ -1217,6 +1219,8 @@ export type Database = {
           adjustment_date: string
           created_at?: string
           created_by?: string | null
+          financially_committed_at?: string | null
+          financially_committed_payroll_id?: string | null
           hub_id: string
           id?: string
           original_amount: number
@@ -1235,6 +1239,8 @@ export type Database = {
           adjustment_date?: string
           created_at?: string
           created_by?: string | null
+          financially_committed_at?: string | null
+          financially_committed_payroll_id?: string | null
           hub_id?: string
           id?: string
           original_amount?: number
@@ -2983,6 +2989,8 @@ export type Database = {
           available_to_allocate: number | null
           committed: number | null
           display_name: string | null
+          financially_committed_at: string | null
+          financially_locked: boolean | null
           hub_id: string | null
           obligation_id: string | null
           original_amount: number | null
@@ -3454,6 +3462,8 @@ export type Database = {
           available_to_allocate: number
           committed: number
           display_name: string
+          financially_committed_at: string
+          financially_locked: boolean
           hub_id: string
           obligation_id: string
           original_amount: number
