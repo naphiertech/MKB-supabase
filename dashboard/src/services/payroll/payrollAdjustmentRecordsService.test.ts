@@ -10,9 +10,53 @@ import {
   savePayrollAdjustmentPlan,
   updatePayrollEarningAdjustment,
 } from './payrollAdjustmentRecordsService';
+import * as payrollAdjustmentRecordsService from './payrollAdjustmentRecordsService';
 
 describe('payroll adjustment record service', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('loads paginated Rider summaries through the server-side read RPC', async () => {
+    const listSummaries = (payrollAdjustmentRecordsService as Record<string, unknown>)
+      .listPayrollAdjustmentRiderSummaries as ((input: Record<string, unknown>) => Promise<unknown>) | undefined;
+
+    expect(listSummaries).toBeTypeOf('function');
+    if (!listSummaries) return;
+
+    mocks.rpc.mockResolvedValue({
+      data: [{ rider_id: 'rider-1', rider_name: 'Rider One', event_count: 2, total_count: 7 }],
+      error: null,
+    });
+
+    await listSummaries({ search: 'Rider', hubId: 'hub-1', adjustmentCode: 'late_remittance', status: 'actionable', page: 2, pageSize: 25 });
+
+    expect(mocks.rpc).toHaveBeenCalledWith('list_payroll_adjustment_rider_summaries', {
+      p_search: 'Rider',
+      p_hub_id: 'hub-1',
+      p_adjustment_code: 'late_remittance',
+      p_status: 'actionable',
+      p_page: 2,
+      p_page_size: 25,
+    });
+  });
+
+  it('loads one Rider\'s independent obligation events through the detail RPC', async () => {
+    const listEvents = (payrollAdjustmentRecordsService as Record<string, unknown>)
+      .listPayrollAdjustmentRiderEvents as ((input: Record<string, unknown>) => Promise<unknown>) | undefined;
+
+    expect(listEvents).toBeTypeOf('function');
+    if (!listEvents) return;
+
+    mocks.rpc.mockResolvedValue({ data: [], error: null });
+    await listEvents({ riderId: 'rider-1', adjustmentCode: null, status: 'actionable', page: 1, pageSize: 25 });
+
+    expect(mocks.rpc).toHaveBeenCalledWith('list_payroll_adjustment_rider_events', {
+      p_rider_id: 'rider-1',
+      p_adjustment_code: null,
+      p_status: 'actionable',
+      p_page: 1,
+      p_page_size: 25,
+    });
+  });
 
   it('loads the authoritative deduction balance view', async () => {
     const order = vi.fn().mockResolvedValue({ data: [], error: null });

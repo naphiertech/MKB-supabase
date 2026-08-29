@@ -3440,6 +3440,56 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      list_payroll_adjustment_rider_events: {
+        Args: {
+          p_adjustment_code?: string
+          p_page?: number
+          p_page_size?: number
+          p_rider_id: string
+          p_status?: string
+        }
+        Returns: {
+          adjustment_code: string
+          adjustment_date: string
+          available_to_allocate: number
+          committed: number
+          display_name: string
+          hub_id: string
+          obligation_id: string
+          original_amount: number
+          outstanding: number
+          planned: number
+          reason: string
+          recovered: number
+          reference: string
+          rider_id: string
+          status: string
+          total_count: number
+          voided_at: string
+        }[]
+      }
+      list_payroll_adjustment_rider_summaries: {
+        Args: {
+          p_adjustment_code?: string
+          p_hub_id?: string
+          p_page?: number
+          p_page_size?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          adjustment_type_count: number
+          event_count: number
+          hub_id: string
+          hub_name: string
+          latest_activity: string
+          rider_code: string
+          rider_id: string
+          rider_name: string
+          total_count: number
+          total_remaining: number
+        }[]
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }

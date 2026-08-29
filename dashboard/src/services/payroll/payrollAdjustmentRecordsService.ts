@@ -4,6 +4,29 @@ import type { Database, Json } from '../../types/supabase';
 export type PayrollEarningAdjustment = Database['public']['Tables']['payroll_earning_adjustments']['Row'];
 export type PayrollDeductionAllocation = Database['public']['Tables']['payroll_deduction_allocations']['Row'];
 type BalanceRow = Database['public']['Views']['v_payroll_deduction_balances']['Row'];
+type RiderSummaryRow = Database['public']['Functions']['list_payroll_adjustment_rider_summaries']['Returns'][number];
+type RiderEventRow = Database['public']['Functions']['list_payroll_adjustment_rider_events']['Returns'][number];
+
+export type PayrollAdjustmentStatusFilter =
+  | 'actionable' | 'history' | 'all'
+  | 'open' | 'partially_recovered' | 'settled' | 'voided';
+
+export interface PayrollAdjustmentRiderSummary {
+  rider_id: string;
+  rider_name: string;
+  rider_code: string;
+  hub_id: string;
+  hub_name: string;
+  event_count: number;
+  adjustment_type_count: number;
+  total_remaining: number;
+  latest_activity: string;
+}
+
+export interface PaginatedPayrollAdjustmentResult<T> {
+  rows: T[];
+  total: number;
+}
 
 export interface PayrollDeductionBalance extends BalanceRow {
   obligation_id: string;
@@ -87,6 +110,67 @@ export async function listPayrollDeductionBalances(): Promise<PayrollDeductionBa
     .order('adjustment_date', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(normalizeBalance);
+}
+
+export async function listPayrollAdjustmentRiderSummaries(input: {
+  search?: string | null;
+  hubId?: string | null;
+  adjustmentCode?: string | null;
+  status: PayrollAdjustmentStatusFilter;
+  page: number;
+  pageSize: number;
+}): Promise<PaginatedPayrollAdjustmentResult<PayrollAdjustmentRiderSummary>> {
+  const args = {
+    p_search: input.search?.trim() || null,
+    p_hub_id: input.hubId ?? null,
+    p_adjustment_code: input.adjustmentCode ?? null,
+    p_status: input.status,
+    p_page: input.page,
+    p_page_size: input.pageSize,
+  } as unknown as Database['public']['Functions']['list_payroll_adjustment_rider_summaries']['Args'];
+  const { data, error } = await supabase.rpc('list_payroll_adjustment_rider_summaries', args);
+  if (error) throw error;
+  const source = data ?? [];
+  return {
+    rows: source.map((row: RiderSummaryRow) => ({
+      rider_id: row.rider_id,
+      rider_name: row.rider_name,
+      rider_code: row.rider_code,
+      hub_id: row.hub_id,
+      hub_name: row.hub_name,
+      event_count: Number(row.event_count),
+      adjustment_type_count: Number(row.adjustment_type_count),
+      total_remaining: Number(row.total_remaining),
+      latest_activity: row.latest_activity,
+    })),
+    total: Number(source[0]?.total_count ?? 0),
+  };
+}
+
+export async function listPayrollAdjustmentRiderEvents(input: {
+  riderId: string;
+  adjustmentCode?: string | null;
+  status: PayrollAdjustmentStatusFilter;
+  page: number;
+  pageSize: number;
+}): Promise<PaginatedPayrollAdjustmentResult<PayrollDeductionBalance>> {
+  const args = {
+    p_rider_id: input.riderId,
+    p_adjustment_code: input.adjustmentCode ?? null,
+    p_status: input.status,
+    p_page: input.page,
+    p_page_size: input.pageSize,
+  } as unknown as Database['public']['Functions']['list_payroll_adjustment_rider_events']['Args'];
+  const { data, error } = await supabase.rpc('list_payroll_adjustment_rider_events', args);
+  if (error) throw error;
+  const source = data ?? [];
+  return {
+    rows: source.map((row: RiderEventRow) => {
+      const { total_count: _totalCount, ...balance } = row;
+      return normalizeBalance(balance as BalanceRow);
+    }),
+    total: Number(source[0]?.total_count ?? 0),
+  };
 }
 
 export async function listPayrollEarningAdjustments(payrollRecordId?: string): Promise<PayrollEarningAdjustment[]> {
