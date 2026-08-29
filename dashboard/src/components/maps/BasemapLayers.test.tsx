@@ -66,7 +66,10 @@ describe('keyless default basemaps', () => {
 
   beforeEach(() => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    vi.stubGlobal('ResizeObserver', class {
+      observe() { return undefined; }
+      disconnect() { return undefined; }
+    });
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(400);
     Object.defineProperty(L.Browser, 'svg', { configurable: true, value: true }); // jsdom supports SVG DOM, not feature detection.
