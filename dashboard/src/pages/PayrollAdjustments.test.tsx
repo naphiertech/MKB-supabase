@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   listHistory: vi.fn(),
   listEarnings: vi.fn(),
   listPayrolls: vi.fn(),
+  updateDeduction: vi.fn(),
+  voidDeduction: vi.fn(),
   useHub: vi.fn(),
 }));
 
@@ -26,9 +28,9 @@ vi.mock('../services/payroll/payrollAdjustmentRecordsService', () => ({
   listPayrollEarningAdjustments: mocks.listEarnings,
   listEditablePayrollOptions: mocks.listPayrolls,
   createPayrollAdjustmentsBatch: vi.fn(),
-  updatePayrollDeductionObligation: vi.fn(),
+  updatePayrollDeductionObligation: mocks.updateDeduction,
   updatePayrollEarningAdjustment: vi.fn(),
-  voidPayrollDeductionObligation: vi.fn(),
+  voidPayrollDeductionObligation: mocks.voidDeduction,
 }));
 
 import { PayrollAdjustments } from './PayrollAdjustments';
@@ -57,6 +59,8 @@ describe('Payroll Adjustments Rider-first workspace', () => {
     mocks.listHistory.mockResolvedValue([]);
     mocks.listEarnings.mockResolvedValue([]);
     mocks.listPayrolls.mockResolvedValue([]);
+    mocks.updateDeduction.mockResolvedValue(undefined);
+    mocks.voidDeduction.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -90,5 +94,55 @@ describe('Payroll Adjustments Rider-first workspace', () => {
     await act(async () => { historyTab?.click(); });
 
     expect(mocks.listSummaries).toHaveBeenCalledWith(expect.objectContaining({ status: 'history', page: 1 }));
+  });
+
+  it('navigates Rider summary to obligation edit and back inside one drawer', async () => {
+    await act(async () => { root.render(<PayrollAdjustments role="admin" />); });
+    const riderButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Rider One'));
+    await act(async () => { riderButton?.click(); });
+
+    let drawer = document.querySelector<HTMLElement>('[role="dialog"]');
+    const viewButton = Array.from(drawer?.querySelectorAll('button') ?? []).find((button) => button.textContent === 'View');
+    await act(async () => { viewButton?.click(); });
+
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('Allocation History');
+    const editButton = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.trim() === 'Edit');
+    await act(async () => { editButton?.click(); });
+    expect(document.body.textContent).toContain('Edit Deduction');
+
+    const cancelButton = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.trim() === 'Cancel');
+    await act(async () => { cancelButton?.click(); });
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('Allocation History');
+
+    const backButton = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.includes('Back to Rider Summary'));
+    await act(async () => { backButton?.click(); });
+    drawer = document.querySelector<HTMLElement>('[role="dialog"]');
+    expect(drawer?.textContent).toContain('Individual obligation events');
+    expect(drawer?.textContent).toContain('obligation-1500');
+  });
+
+  it('saves an audited correction and returns to the updated obligation detail', async () => {
+    await act(async () => { root.render(<PayrollAdjustments role="admin" />); });
+    const riderButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Rider One'));
+    await act(async () => { riderButton?.click(); });
+    const viewButton = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent === 'View');
+    await act(async () => { viewButton?.click(); });
+    const editButton = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.trim() === 'Edit');
+    await act(async () => { editButton?.click(); });
+
+    mocks.listEvents.mockResolvedValue({
+      rows: [{ obligation_id: 'obligation-1500', rider_id: 'rider-1', hub_id: 'hub-1', adjustment_code: 'late_remittance', display_name: 'Late Remittance', original_amount: 1500, adjustment_date: '2026-08-20', reason: 'Corrected incident', reference: 'LR-1', recovered: 0, committed: 0, planned: 0, outstanding: 1500, available_to_allocate: 1500, status: 'open', voided_at: null }],
+      total: 1,
+    });
+    const saveButton = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.includes('Save Correction'));
+    await act(async () => { saveButton?.click(); });
+
+    expect(mocks.updateDeduction).toHaveBeenCalledWith(expect.objectContaining({ obligationId: 'obligation-1500' }));
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('Corrected incident');
+    expect(document.body.textContent).toContain('Allocation History');
+    expect(document.body.textContent).not.toContain('Save Correction');
   });
 });

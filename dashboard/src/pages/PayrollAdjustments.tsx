@@ -9,16 +9,11 @@ import { PayrollAdjustmentBatchDrawer } from '../components/payroll-adjustments/
 import { PayrollAdjustmentRiderWorkspace } from '../components/payroll-adjustments/PayrollAdjustmentRiderWorkspace';
 import {
   createPayrollAdjustmentsBatch,
-  listDeductionAllocationHistory,
   listEditablePayrollOptions,
   listPayrollEarningAdjustments,
-  updatePayrollDeductionObligation,
   updatePayrollEarningAdjustment,
-  voidPayrollDeductionObligation,
   type EditablePayrollOption,
   type PayrollAdjustmentBatchItem,
-  type PayrollDeductionAllocation,
-  type PayrollDeductionBalance,
   type PayrollEarningAdjustment,
 } from '../services/payroll/payrollAdjustmentRecordsService';
 
@@ -38,16 +33,12 @@ export function PayrollAdjustments({ role }: PayrollAdjustmentsProps) {
   const [earningSearch, setEarningSearch] = useState('');
   const [earningType, setEarningType] = useState('all');
   const [batchOpen, setBatchOpen] = useState(false);
-  const [selectedDeduction, setSelectedDeduction] = useState<PayrollDeductionBalance | null>(null);
-  const [deductionHistory, setDeductionHistory] = useState<PayrollDeductionAllocation[]>([]);
-  const [deductionEdit, setDeductionEdit] = useState(false);
   const [selectedEarning, setSelectedEarning] = useState<PayrollEarningAdjustment | null>(null);
   const [earningEdit, setEarningEdit] = useState(false);
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
   const [editReason, setEditReason] = useState('');
   const [editReference, setEditReference] = useState('');
-  const [voidReason, setVoidReason] = useState('');
   const [saving, setSaving] = useState(false);
 
   const riderName = useCallback((id: string) => riders.find((rider) => rider.id === id)?.name ?? 'Unknown Rider', [riders]);
@@ -83,24 +74,6 @@ export function PayrollAdjustments({ role }: PayrollAdjustmentsProps) {
     } finally { setSaving(false); }
   };
 
-  const openDeduction = async (row: PayrollDeductionBalance, edit: boolean) => {
-    setSelectedDeduction(row); setDeductionEdit(edit); setVoidReason('');
-    setEditAmount(String(row.original_amount)); setEditDate(row.adjustment_date ?? '');
-    setEditReason(row.reason ?? ''); setEditReference(row.reference ?? '');
-    try { setDeductionHistory(await listDeductionAllocationHistory(row.obligation_id)); }
-    catch { setDeductionHistory([]); }
-  };
-  const saveDeductionEdit = async () => {
-    if (!selectedDeduction) return;
-    setSaving(true);
-    try {
-      await updatePayrollDeductionObligation({ obligationId: selectedDeduction.obligation_id, originalAmount: Number(editAmount), adjustmentDate: editDate, reason: editReason, reference: editReference });
-      pushToast({ title: 'Deduction updated', description: 'The audited correction was saved.', tone: 'success' });
-      setSelectedDeduction(null);
-      await refreshWorkspace();
-    } catch (saveError) { pushToast({ title: 'Unable to update deduction', description: saveError instanceof Error ? saveError.message : 'Please try again.', tone: 'error' }); }
-    finally { setSaving(false); }
-  };
   const saveEarningEdit = async () => {
     if (!selectedEarning) return;
     setSaving(true);
@@ -131,14 +104,13 @@ export function PayrollAdjustments({ role }: PayrollAdjustmentsProps) {
         <button type="button" onClick={() => setTab('earning')} className={`h-11 shrink-0 border-b-2 px-3 text-xs font-semibold ${tab === 'earning' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}>Earnings</button>
       </div>
 
-      {tab !== 'earning' && <PayrollAdjustmentRiderWorkspace key={tab} mode={tab} hubs={hubs} selectedHubId={selectedHubId} workspaceKey={workspaceKey} canManage={canManage} refreshToken={refreshToken} onOpenEvent={(event, edit) => void openDeduction(event, edit)} />}
+      {tab !== 'earning' && <PayrollAdjustmentRiderWorkspace key={tab} mode={tab} hubs={hubs} selectedHubId={selectedHubId} workspaceKey={workspaceKey} canManage={canManage} refreshToken={refreshToken} />}
 
       {tab === 'earning' && <><div className="grid gap-3 border-b border-border bg-panel-bg/40 p-4 sm:grid-cols-2"><label className="relative block"><span className="sr-only">Search earnings</span><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><input value={earningSearch} onChange={(event) => setEarningSearch(event.target.value)} placeholder="Search Rider or adjustment" className="ar-input pl-9" /></label><label><span className="sr-only">Earning type</span><select value={earningType} onChange={(event) => setEarningType(event.target.value)} className="ar-input"><option value="all">All types</option><option value="other_earnings">Other Earnings</option><option value="fm_pickup">FM Pick Up</option></select></label></div>{supportingLoading ? <StatePanel loading title="Loading earnings" description="Reading Rider earning adjustments…" /> : <div className="table-scroll-region" role="region" aria-label="Earning adjustments" tabIndex={0}><table className="data-table-wide w-full min-w-[860px] text-left text-xs"><thead><tr>{['Rider','Type','Amount','Cutoff','Date','Reason','Actions'].map((heading) => <th key={heading} className="px-4 py-3">{heading}</th>)}</tr></thead><tbody>{filteredEarnings.map((row) => { const editable=Boolean(row.payroll_record_id && editablePayrollIds.has(row.payroll_record_id)); return <tr key={row.id}><td className="px-4 py-3 font-semibold">{riderName(row.rider_id)}</td><td className="px-4 py-3">{row.adjustment_code === 'fm_pickup' ? 'FM Pick Up' : 'Other Earnings'}</td><td className="px-4 py-3 font-mono font-bold text-emerald-700">{php(Number(row.amount))}</td><td className="px-4 py-3 font-mono">{row.cutoff_start} – {row.cutoff_end}</td><td className="px-4 py-3">{row.adjustment_date}</td><td className="px-4 py-3">{row.reason}</td><td className="px-4 py-3"><div className="flex gap-1.5"><button type="button" onClick={() => { setSelectedEarning(row); setEarningEdit(false); }} className="ui-button-secondary h-8 px-3 text-[11px]">View</button>{canManage && <button type="button" disabled={!editable} title={editable ? 'Edit earning' : 'Locked because the payroll is submitted'} onClick={() => { if (!editable) return; setSelectedEarning(row); setEarningEdit(true); setEditAmount(String(row.amount)); setEditDate(row.adjustment_date); setEditReason(row.reason); setEditReference(row.reference ?? ''); }} className="ui-button-secondary inline-flex h-8 items-center gap-1 px-3 text-[11px] disabled:cursor-not-allowed disabled:opacity-50"><Pencil className="h-3 w-3" /> Edit</button>}</div></td></tr>; })}</tbody></table>{filteredEarnings.length === 0 && <StatePanel compact title="No earning adjustments" description="No records match the current filters." />}</div>}</>}
     </section>
 
     <PayrollAdjustmentBatchDrawer open={batchOpen} onClose={() => !saving && setBatchOpen(false)} riders={riders} payrolls={payrolls} onSave={recordBatch} />
 
-    <RightDrawer open={Boolean(selectedDeduction)} onClose={() => !saving && setSelectedDeduction(null)} dismissible={!saving} ariaLabel="Deduction details" widthClassName="max-w-xl">{selectedDeduction && <><div className="flex items-start justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold">{deductionEdit ? 'Edit Deduction' : selectedDeduction.display_name}</h2><p className="text-xs text-muted-foreground">{riderName(selectedDeduction.rider_id)} · {deductionEdit ? 'Audited correction' : 'Recovery history'}</p></div><button type="button" onClick={()=>setSelectedDeduction(null)} className="ui-icon-button" aria-label="Close deduction details"><X className="h-4 w-4" /></button></div><div className="flex-1 space-y-4 overflow-y-auto p-5">{deductionEdit ? <><div className="rounded-xl border border-border bg-panel-bg p-3 text-xs"><p><b>Rider:</b> {riderName(selectedDeduction.rider_id)}</p><p className="mt-1"><b>Type:</b> {selectedDeduction.display_name}</p><p className="mt-2 break-all font-mono text-[10px] text-muted-foreground">{selectedDeduction.obligation_id}</p></div>{selectedDeduction.recovered+selectedDeduction.committed>0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Total Amount and Incident Date are locked because this adjustment has already been used in submitted payroll. Reason and reference may still be corrected.</div>}<label className="block space-y-1"><span className="ui-eyebrow">Total Amount</span><input type="number" value={editAmount} disabled={selectedDeduction.recovered+selectedDeduction.committed>0} onChange={(event)=>setEditAmount(event.target.value)} min={selectedDeduction.planned} className="ar-input" /></label><label className="block space-y-1"><span className="ui-eyebrow">Incident Date</span><input type="date" value={editDate} disabled={selectedDeduction.recovered+selectedDeduction.committed>0} onChange={(event)=>setEditDate(event.target.value)} className="ar-input" /></label><label className="block space-y-1"><span className="ui-eyebrow">Reason</span><textarea value={editReason} onChange={(event)=>setEditReason(event.target.value)} rows={3} className="ar-textarea" /></label><label className="block space-y-1"><span className="ui-eyebrow">Reference</span><input value={editReference} onChange={(event)=>setEditReference(event.target.value)} className="ar-input" /></label></> : <><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{[['Total Amount',selectedDeduction.original_amount],['Already Deducted',selectedDeduction.recovered],['In Process',selectedDeduction.committed],['For This Payroll',selectedDeduction.planned],['Outstanding',selectedDeduction.outstanding],['Remaining',selectedDeduction.available_to_allocate]].map(([label,value]) => <div key={String(label)} className="rounded-xl border border-border p-3"><span className="ui-eyebrow">{label}</span><p className="mt-1 font-mono font-bold">{php(Number(value))}</p></div>)}</div><div><h3 className="ui-section-title">Allocation History</h3><div className="mt-2 divide-y divide-border rounded-xl border border-border">{deductionHistory.map((item) => <div key={item.id} className="flex justify-between p-3 text-xs"><span>{item.cutoff_start} – {item.cutoff_end}</span><span className="font-mono font-semibold">{php(Number(item.amount))}</span></div>)}{deductionHistory.length===0&&<p className="p-4 text-xs text-muted-foreground">No allocations yet.</p>}</div></div>{canManage&&selectedDeduction.recovered===0&&selectedDeduction.committed===0&&selectedDeduction.planned===0&&<div className="rounded-xl border border-border p-3"><label className="block space-y-1"><span className="ui-eyebrow">Void reason</span><textarea value={voidReason} onChange={(event)=>setVoidReason(event.target.value)} rows={2} className="ar-textarea" /></label><button type="button" disabled={!voidReason.trim()} onClick={() => void voidPayrollDeductionObligation(selectedDeduction.obligation_id,voidReason).then(async()=>{setSelectedDeduction(null);await refreshWorkspace();})} className="ui-button-secondary mt-3 h-9 px-3 text-xs">Void unused obligation</button></div>}</>}</div>{deductionEdit&&<div className="flex justify-end gap-2 border-t border-border p-4"><button type="button" onClick={()=>setSelectedDeduction(null)} className="ui-button-secondary h-10 px-4">Cancel</button><button type="button" disabled={saving||Number(editAmount)<=0||!editReason.trim()} onClick={()=>void saveDeductionEdit()} className="ui-button-primary inline-flex h-10 items-center gap-2 px-4">{saving&&<Loader2 className="h-4 w-4 animate-spin"/>} Save Correction</button></div>}</>}</RightDrawer>
 
     <RightDrawer open={Boolean(selectedEarning)} onClose={() => !saving && setSelectedEarning(null)} dismissible={!saving} ariaLabel="Earning details" widthClassName="max-w-md">{selectedEarning&&<><div className="flex items-start justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold">{earningEdit?'Edit Earning':selectedEarning.adjustment_code==='fm_pickup'?'FM Pick Up':'Other Earnings'}</h2><p className="text-xs text-muted-foreground">{riderName(selectedEarning.rider_id)} · {selectedEarning.cutoff_start} – {selectedEarning.cutoff_end}</p></div><button type="button" onClick={()=>setSelectedEarning(null)} className="ui-icon-button" aria-label="Close earning details"><X className="h-4 w-4"/></button></div><div className="flex-1 space-y-4 overflow-y-auto p-5"><div className="rounded-xl border border-border bg-panel-bg p-3 text-xs"><p><b>Rider:</b> {riderName(selectedEarning.rider_id)}</p><p className="mt-1"><b>Type:</b> {selectedEarning.adjustment_code==='fm_pickup'?'FM Pick Up':'Other Earnings'}</p><p className="mt-2 text-[10px] text-muted-foreground">Rider, type, and cutoff are locked. Submitted payroll earnings are read-only.</p></div>{earningEdit?<><label className="block space-y-1"><span className="ui-eyebrow">Amount</span><input type="number" min="0.01" value={editAmount} onChange={(event)=>setEditAmount(event.target.value)} className="ar-input"/></label><label className="block space-y-1"><span className="ui-eyebrow">Date</span><input type="date" value={editDate} onChange={(event)=>setEditDate(event.target.value)} className="ar-input"/></label><label className="block space-y-1"><span className="ui-eyebrow">Reason</span><textarea value={editReason} onChange={(event)=>setEditReason(event.target.value)} rows={3} className="ar-textarea"/></label><label className="block space-y-1"><span className="ui-eyebrow">Reference</span><input value={editReference} onChange={(event)=>setEditReference(event.target.value)} className="ar-input"/></label></>:<div className="space-y-3 rounded-xl border border-border p-4 text-xs"><div className="flex justify-between"><span>Amount</span><span className="font-mono font-bold text-emerald-700">{php(Number(selectedEarning.amount))}</span></div><div className="flex justify-between gap-4"><span>Date</span><span>{selectedEarning.adjustment_date}</span></div><div><span className="text-muted-foreground">Reason</span><p className="mt-1">{selectedEarning.reason}</p></div>{selectedEarning.reference&&<div><span className="text-muted-foreground">Reference</span><p className="mt-1">{selectedEarning.reference}</p></div>}</div>}</div>{earningEdit&&<div className="flex justify-end gap-2 border-t border-border p-4"><button type="button" onClick={()=>setSelectedEarning(null)} className="ui-button-secondary h-10 px-4">Cancel</button><button type="button" disabled={saving||Number(editAmount)<=0||!editReason.trim()} onClick={()=>void saveEarningEdit()} className="ui-button-primary inline-flex h-10 items-center gap-2 px-4">{saving&&<Loader2 className="h-4 w-4 animate-spin"/>} Save Correction</button></div>}</>}</RightDrawer>
   </div>;
