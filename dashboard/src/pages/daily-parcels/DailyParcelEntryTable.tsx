@@ -339,6 +339,8 @@ export function DailyParcelEntryTable({
                     <th className="px-4 py-3">Zone</th>
                     <th className="px-4 py-3">Attendance Status</th>
                     <th className="px-4 py-3">Time In</th>
+                    <th className="px-4 py-3">Parcel Manifest</th>
+                    <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -361,6 +363,27 @@ export function DailyParcelEntryTable({
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={row.attendanceStatus} /></td>
                       <td className="px-4 py-3 font-mono text-muted-foreground">{row.timeIn || '-'}</td>
+                      <td className="px-4 py-3">
+                        {row.parcelLogId ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            <PackageCheck className="w-3 h-3 text-emerald-600" />
+                            {row.deliveredParcels + row.heavyParcels} parcels (₱{row.dailyGross.toLocaleString()})
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground font-mono text-[11px]">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {row.parcelLogId ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenDrawer(row)}
+                            className="text-xs font-semibold text-primary hover:text-primary-hover hover:underline cursor-pointer"
+                          >
+                            View details
+                          </button>
+                        ) : null}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

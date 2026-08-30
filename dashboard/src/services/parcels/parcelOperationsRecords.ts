@@ -331,7 +331,7 @@ export async function getDailyParcelEntries(params: {
     const formattedTimeOut = formatTimeString(att?.raw_time_out, att?.time_out);
     const zoneObj = (Array.isArray(r.zones) ? r.zones[0] : r.zones) as unknown as { name: string } | null;
     const recorderInfo = formatRecorderIdentity(existingLog?.created_by);
-    const standardRate = Number(existingLog?.rate ?? resolveStandardRateForTimeIn(rateContext, att?.raw_time_in || att?.time_in));
+    const standardRate = Number(existingLog?.rate ?? (resolveStandardRateForTimeIn(rateContext, att?.raw_time_in || att?.time_in) ?? 0));
     const heavyRate = Number(existingLog?.heavy_rate ?? rateContext.heavyParcelRate);
     const standardDelivered = Number(existingLog?.parcels ?? 0);
     const heavyDelivered = Number(existingLog?.heavy_parcels ?? 0);
@@ -386,7 +386,7 @@ export async function getDailyParcelEntries(params: {
   const absentRiders = allRows.filter(r => r.attendanceStatus === 'absent' || r.attendanceStatus === 'on_leave');
 
   const totalEligibleCount = eligibleRiders.length;
-  const encodedCount = eligibleRiders.filter(r => encodedRiderMap.has(r.riderId)).length;
+  const encodedCount = allRows.filter(r => encodedRiderMap.has(r.riderId)).length;
   const absentCount = absentRiders.length;
 
   // Pending encoding queue: Present/Late riders without a parcel_log

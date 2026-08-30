@@ -64,6 +64,10 @@ const TITLES: Record<
     title: 'Audit Logs',
     subtitle: 'Security history and administrative activity trail'
   },
+  fms_import: {
+    title: 'Parcel Data Import',
+    subtitle: 'Import and review daily delivery data before applying it to Rider parcel records.'
+  },
   daily_parcels: {
     title: 'Daily Parcel Entry',
     subtitle: 'Operational manifest recording & delivery counts'
@@ -94,8 +98,8 @@ const TITLES: Record<
   }
 };
 const ALLOWED_PAGES_BY_ROLE: Record<TopbarRole, PageKey[]> = {
-  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'reviews', 'payroll', 'payroll_adjustments', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
-  hr: ['dashboard', 'monitoring', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'reviews', 'payroll', 'payroll_adjustments', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'daily_parcels', 'parcel_history'],
+  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'reviews', 'payroll', 'payroll_adjustments', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'fms_import', 'daily_parcels', 'parcel_history'],
+  hr: ['dashboard', 'monitoring', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'reviews', 'payroll', 'payroll_adjustments', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'fms_import', 'daily_parcels', 'parcel_history'],
   payroll: ['dashboard', 'computation', 'payroll_adjustments', 'reports', 'settings', 'attendance_policy', 'parcel_rates']
 };
 

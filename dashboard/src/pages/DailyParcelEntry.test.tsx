@@ -230,4 +230,47 @@ describe('DailyParcelEntry persistence characterization', () => {
       }),
     ], 'user-1');
   });
+
+  it('truthfully displays live counters and absent rider parcel manifests', async () => {
+    const absentWithManifest = makeRow('rider-absent', {
+      riderName: 'Absent Rider With Manifest',
+      attendanceStatus: 'absent',
+      timeIn: null,
+      deliveredParcels: 86,
+      heavyParcels: 0,
+      dailyGross: 860,
+      parcelLogId: 'log-absent-1',
+    });
+
+    mocks.getDailyParcelEntries.mockResolvedValueOnce({
+      rows: [],
+      absentRows: [absentWithManifest],
+      totalEligibleCount: 0,
+      encodedCount: 1, // 1 manifest exists (for absent rider)
+      absentCount: 1,
+      rateContext: {
+        id: 'rate-1', effectiveFrom: '2026-01-01', earlyStandardRate: 12,
+        regularStandardRate: 11, lateStandardRate: 10, heavyParcelRate: 17, heavyThresholdKg: 4,
+      },
+    });
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    await act(async () => { root.render(<DailyParcelEntry />); });
+    await flushAsyncWork();
+
+    // Verify counter snapshot
+    expect(document.body.textContent).toContain('Encoded Today: 1');
+    expect(document.body.textContent).toContain('Present/Late Today: 0');
+    expect(document.body.textContent).toContain('Absent/Off Duty Today: 1');
+    expect(document.body.textContent).toContain('Pending Queue: 0');
+
+    // Expand absent section
+    clickButton('Expand Section');
+    await flushAsyncWork();
+
+    expect(document.body.textContent).toContain('Absent Rider With Manifest');
+    expect(document.body.textContent).toContain('86 parcels (₱860)');
+    expect(document.body.textContent).toContain('View details');
+  });
 });

@@ -64,7 +64,7 @@ describe('heavy-aware parcel operations', () => {
   ])('combines the %s attendance rate with the fixed heavy rate', (_label, timeIn, rate, gross) => {
     const resolvedRate = resolveStandardRateForTimeIn(rates, timeIn);
     expect(resolvedRate).toBe(rate);
-    expect(metrics(resolvedRate).dailyGross).toBe(gross);
+    expect(metrics(resolvedRate!).dailyGross).toBe(gross);
   });
 
   it('gives failed and returned parcels zero earnings while including them in handled totals', () => {

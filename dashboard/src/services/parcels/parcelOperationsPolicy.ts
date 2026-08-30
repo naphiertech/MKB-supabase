@@ -75,11 +75,30 @@ function timeInMinutes(rawTimeIn: string | null | undefined): number | null {
   return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : null;
 }
 
-export function resolveStandardRateForTimeIn(rate: ParcelRateContext, rawTimeIn: string | null | undefined): number {
+export function resolveStandardRateForTimeIn(rate: ParcelRateContext, rawTimeIn: string | null | undefined): number | null {
   const minutes = timeInMinutes(rawTimeIn);
-  if (minutes !== null && minutes <= 8 * 60) return rate.earlyStandardRate;
-  if (minutes !== null && minutes <= 9 * 60) return rate.regularStandardRate;
+  if (minutes === null) return null;
+  if (minutes <= 8 * 60) return rate.earlyStandardRate;
+  if (minutes <= 9 * 60) return rate.regularStandardRate;
   return rate.lateStandardRate;
+}
+
+export function resolveRateTierInfo(rate: ParcelRateContext, rawTimeIn: string | null | undefined): {
+  rate: number | null;
+  tier: 'early' | 'regular' | 'late' | 'missing';
+  label: string;
+} {
+  const minutes = timeInMinutes(rawTimeIn);
+  if (minutes === null) {
+    return { rate: null, tier: 'missing', label: 'Missing Attendance' };
+  }
+  if (minutes <= 8 * 60) {
+    return { rate: rate.earlyStandardRate, tier: 'early', label: 'Early Standard' };
+  }
+  if (minutes <= 9 * 60) {
+    return { rate: rate.regularStandardRate, tier: 'regular', label: 'Regular Standard' };
+  }
+  return { rate: rate.lateStandardRate, tier: 'late', label: 'Late Standard' };
 }
 
 export async function getParcelRateContextForDate(date: string): Promise<ParcelRateContext> {

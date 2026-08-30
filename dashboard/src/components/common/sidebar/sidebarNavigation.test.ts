@@ -29,6 +29,7 @@ describe('Business configuration navigation', () => {
       'Audit Logs',
     ]);
     expect(sectionLabels(ADMIN_ITEMS, 'Parcel Operations')).toEqual([
+      'Parcel Data Import',
       'Daily Parcel Entry',
       'Parcel History',
       'Parcel Rates',
@@ -51,6 +52,7 @@ describe('Business configuration navigation', () => {
       'Audit Logs',
     ]);
     expect(sectionLabels(HR_ITEMS, 'Parcel Operations')).toEqual([
+      'Parcel Data Import',
       'Daily Parcel Entry',
       'Parcel History',
       'Parcel Rates',

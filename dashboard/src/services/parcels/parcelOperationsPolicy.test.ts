@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getParcelRateContextForDate,
   resolveStandardRateForTimeIn,
+  resolveRateTierInfo,
   type ParcelRateContext,
 } from './parcelOperationsPolicy';
 
@@ -55,8 +56,15 @@ describe('parcel operations rate policy characterization', () => {
     ['missing', null],
     ['undefined', undefined],
     ['invalid', 'not-a-time'],
-  ])('uses the late rate for %s Time In', (_label, timeIn) => {
-    expect(resolveStandardRateForTimeIn(rates, timeIn)).toBe(10);
+  ])('returns null for %s Time In', (_label, timeIn) => {
+    expect(resolveStandardRateForTimeIn(rates, timeIn)).toBeNull();
+  });
+
+  it('provides complete rate tier metadata through resolveRateTierInfo', () => {
+    expect(resolveRateTierInfo(rates, '07:55')).toEqual({ rate: 12, tier: 'early', label: 'Early Standard' });
+    expect(resolveRateTierInfo(rates, '08:30')).toEqual({ rate: 11, tier: 'regular', label: 'Regular Standard' });
+    expect(resolveRateTierInfo(rates, '09:15')).toEqual({ rate: 10, tier: 'late', label: 'Late Standard' });
+    expect(resolveRateTierInfo(rates, null)).toEqual({ rate: null, tier: 'missing', label: 'Missing Attendance' });
   });
 
   it('selects the active historical configuration covering the work date', async () => {

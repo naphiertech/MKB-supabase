@@ -39,6 +39,7 @@ const PayrollDashboard = lazy(() => import('./pages/PayrollDashboard').then((mod
 const PayrollComputation = lazy(() => import('./pages/PayrollComputation').then((module) => ({ default: module.PayrollComputation })));
 const PayrollReports = lazy(() => import('./pages/PayrollReports').then((module) => ({ default: module.PayrollReports })));
 const DailyParcelEntry = lazy(() => import('./pages/DailyParcelEntry').then((module) => ({ default: module.DailyParcelEntry })));
+const FMSDailyImport = lazy(() => import('./pages/FMSDailyImport').then((module) => ({ default: module.FMSDailyImport })));
 const ParcelHistory = lazy(() => import('./pages/ParcelHistory').then((module) => ({ default: module.ParcelHistory })));
 const PayrollHistory = lazy(() => import('./pages/PayrollHistory').then((module) => ({ default: module.PayrollHistory })));
 const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })));
@@ -475,6 +476,7 @@ export function App() {
         'payroll_adjustments',
         'parcel_rates',
         'audit_logs',
+        'fms_import',
         'daily_parcels',
         'parcel_history'
       ];
@@ -495,6 +497,7 @@ export function App() {
         'payroll_adjustments',
         'parcel_rates',
         'audit_logs',
+        'fms_import',
         'daily_parcels',
         'parcel_history'
       ];
@@ -586,6 +589,7 @@ export function App() {
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
                     {safePage === 'audit_logs' && <AuditLogs />}
+                    {safePage === 'fms_import' && <FMSDailyImport />}
                     {safePage === 'daily_parcels' && <DailyParcelEntry />}
                     {safePage === 'parcel_history' && <ParcelHistory />}
                   </>
@@ -604,6 +608,7 @@ export function App() {
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
                     {safePage === 'audit_logs' && <AuditLogs />}
+                    {safePage === 'fms_import' && <FMSDailyImport />}
                     {safePage === 'daily_parcels' && <DailyParcelEntry />}
                     {safePage === 'parcel_history' && <ParcelHistory />}
                   </>

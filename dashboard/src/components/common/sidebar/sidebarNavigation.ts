@@ -17,7 +17,8 @@ import {
   Route,
   Clock3,
   Coins,
-  BadgeDollarSign
+  BadgeDollarSign,
+  Upload
 } from 'lucide-react';
 
 export type PageKey =
@@ -32,6 +33,7 @@ export type PageKey =
   | 'payroll'
   | 'settings'
   | 'audit_logs'
+  | 'fms_import'
   | 'daily_parcels'
   | 'parcel_history'
   | 'payroll_history'
@@ -102,6 +104,7 @@ export const ADMIN_ITEMS: SidebarItem[] = [
     title: 'Parcel Operations',
     icon: PackageCheck,
     items: [
+      { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
       { key: 'parcel_history', label: 'Parcel History', icon: History },
       { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
@@ -153,6 +156,7 @@ export const HR_ITEMS: SidebarItem[] = [
     title: 'Parcel Operations',
     icon: PackageCheck,
     items: [
+      { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
       { key: 'parcel_history', label: 'Parcel History', icon: History },
       { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
