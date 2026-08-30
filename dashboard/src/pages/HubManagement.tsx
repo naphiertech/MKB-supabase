@@ -26,8 +26,10 @@ import {
 import { toast } from 'react-hot-toast';
 import { StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
 import { RightDrawer } from '../components/common/RightDrawer';
+import { HubLocationPickerMap } from '../components/hubs/HubLocationPickerMap';
 import { HubManagementSkeleton } from '../components/hubs/HubManagementSkeleton';
 import { useHub } from '../context/HubContext';
+import { formatLatLng, metersToReadable } from '../lib/geofenceUtils';
 import {
   assignZoneToHub,
   createHub,
@@ -81,6 +83,10 @@ export function HubManagement() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [attendanceRadiusM, setAttendanceRadiusM] = useState<number | null>(null);
+  const [radiusInput, setRadiusInput] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [assigningZoneId, setAssigningZoneId] = useState<string | null>(null);
@@ -178,6 +184,10 @@ export function HubManagement() {
     setEditing(null);
     setName('');
     setDescription('');
+    setLatitude(null);
+    setLongitude(null);
+    setAttendanceRadiusM(null);
+    setRadiusInput('');
     setShowForm(true);
   }
 
@@ -185,16 +195,82 @@ export function HubManagement() {
     setEditing(hub);
     setName(hub.name);
     setDescription(hub.description ?? '');
+    setLatitude(hub.latitude);
+    setLongitude(hub.longitude);
+    setAttendanceRadiusM(hub.attendanceRadiusM);
+    setRadiusInput(hub.attendanceRadiusM != null ? String(hub.attendanceRadiusM) : '');
     setShowForm(true);
   }
 
+  function handleRadiusInputChange(val: string) {
+    setRadiusInput(val);
+    const parsed = parseInt(val, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      setAttendanceRadiusM(parsed);
+    } else {
+      setAttendanceRadiusM(null);
+    }
+  }
+
+  function handleLocationChange(coords: { latitude: number; longitude: number }) {
+    setLatitude(coords.latitude);
+    setLongitude(coords.longitude);
+  }
+
+  const isCompleteGeofence = Boolean(
+    latitude != null &&
+    longitude != null &&
+    attendanceRadiusM != null &&
+    attendanceRadiusM > 0
+  );
+
+  const hasAnyGeofenceInput = Boolean(
+    latitude != null ||
+    longitude != null ||
+    radiusInput.trim() !== ''
+  );
+
+  const isGeofenceValid = editing
+    ? (editing.latitude == null && !hasAnyGeofenceInput ? true : isCompleteGeofence)
+    : isCompleteGeofence;
+
+  const canSubmit = Boolean(name.trim().length >= 2 && isGeofenceValid);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!name.trim()) return;
+    if (!canSubmit) return;
     setSaving(true);
     try {
-      if (editing) await updateHub(editing.id, { name, description });
-      else await createHub({ name, description });
+      if (editing) {
+        const payload: {
+          name: string;
+          description: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          attendanceRadiusM?: number | null;
+        } = {
+          name,
+          description,
+        };
+        if (isCompleteGeofence) {
+          payload.latitude = latitude;
+          payload.longitude = longitude;
+          payload.attendanceRadiusM = attendanceRadiusM;
+        }
+        await updateHub(editing.id, payload);
+      } else {
+        if (!isCompleteGeofence || latitude == null || longitude == null || attendanceRadiusM == null) {
+          toast.error('Please position the physical Hub pin and enter an attendance radius.');
+          return;
+        }
+        await createHub({
+          name,
+          description,
+          latitude,
+          longitude,
+          attendanceRadiusM,
+        });
+      }
       toast.success(editing ? 'Hub updated.' : 'Hub created.');
       setShowForm(false);
       await Promise.all([load(), refreshHubs()]);
@@ -286,7 +362,7 @@ export function HubManagement() {
         ariaLabelledBy={drawerTitleId}
         ariaDescribedBy={drawerDescriptionId}
         initialFocusRef={nameInputRef}
-        widthClassName="max-w-md"
+        widthClassName="max-w-xl"
         closeLabel="Close hub drawer"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-border bg-white px-4 py-3.5 sm:px-5 sm:py-4">
@@ -307,8 +383,8 @@ export function HubManagement() {
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5">
             <p id={drawerDescriptionId} className="text-xs leading-relaxed text-muted-foreground">
               {editing
-                ? 'Update this operational hub’s details for its Zamboanga City service area.'
-                : 'Specify details for a new operational hub in Zamboanga City.'}
+                ? 'Update this operational hub’s details and physical attendance geofence for Zamboanga City.'
+                : 'Specify details and physical attendance geofence for a new operational hub in Zamboanga City.'}
             </p>
 
             <div>
@@ -322,7 +398,7 @@ export function HubManagement() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="ui-control mt-1.5 min-h-11"
-                placeholder="e.g. Zamboanga City Operations Hub"
+                placeholder="e.g. Talon-Talon Operations Hub"
               />
             </div>
 
@@ -331,13 +407,76 @@ export function HubManagement() {
                 Description <span className="font-normal text-muted-foreground">(optional)</span>
               </label>
               <textarea
-                rows={4}
+                rows={3}
                 maxLength={500}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 className="ui-textarea mt-1.5"
                 placeholder="e.g. Operational hub serving assigned Zamboanga City zones and riders."
               />
+            </div>
+
+            {/* Attendance Geofence Section */}
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="block text-sm font-semibold text-foreground">
+                  Attendance Geofence {!editing && <span className="text-red-500">*</span>}
+                </label>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Set the physical Hub location and the attendance area around it. Click the map or drag the pin to adjust the location.
+                </p>
+              </div>
+
+              {/* Map Picker */}
+              <HubLocationPickerMap
+                latitude={latitude}
+                longitude={longitude}
+                radius={attendanceRadiusM}
+                onLocationChange={handleLocationChange}
+                disabled={saving}
+              />
+
+              {/* Geofence Form Controls: Coordinates & Radius */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground">
+                    Physical Coordinates
+                  </label>
+                  <div className="mt-1 flex min-h-10 items-center rounded-lg border border-border bg-panel-bg px-3 py-2 font-mono text-xs text-foreground">
+                    {latitude != null && longitude != null ? (
+                      formatLatLng([latitude, longitude], 6)
+                    ) : (
+                      <span className="text-muted-foreground italic">Pin not placed</span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-foreground">
+                    Attendance Radius {!editing && <span className="text-red-500">*</span>}
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={radiusInput}
+                      onChange={(e) => handleRadiusInputChange(e.target.value)}
+                      className="ui-control min-h-10 pr-16 font-mono text-xs"
+                      placeholder="e.g. 100"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                      meters
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {editing && editing.latitude == null && latitude == null && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800">
+                  <strong className="font-semibold">Legacy Hub:</strong> Attendance geofence is currently unconfigured. Place a pin and enter a radius to configure physical attendance enforcement for this Hub.
+                </div>
+              )}
             </div>
           </div>
 
@@ -350,7 +489,7 @@ export function HubManagement() {
               Cancel
             </button>
             <button
-              disabled={saving || !name.trim()}
+              disabled={saving || !canSubmit}
               className="ui-button-primary min-h-11"
             >
               {saving ? 'Saving…' : 'Save hub'}
@@ -632,6 +771,19 @@ export function HubManagement() {
                         <div className="grid min-w-0 gap-1 py-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
                           <dt className="text-xs font-medium text-muted-foreground">Status</dt>
                           <dd><HubStatusBadge active={selectedHub.active} /></dd>
+                        </div>
+                        <div className="grid min-w-0 gap-1 py-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
+                          <dt className="text-xs font-medium text-muted-foreground">Geofence</dt>
+                          <dd className="text-foreground">
+                            {selectedHub.latitude != null && selectedHub.longitude != null && selectedHub.attendanceRadiusM != null ? (
+                              <span className="inline-flex items-center gap-1.5 font-mono text-xs text-foreground">
+                                <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                                {formatLatLng([selectedHub.latitude, selectedHub.longitude], 5)} ({metersToReadable(selectedHub.attendanceRadiusM)} radius)
+                              </span>
+                            ) : (
+                              <span className="italic text-xs text-muted-foreground">Not configured</span>
+                            )}
+                          </dd>
                         </div>
                         <div className="grid min-w-0 gap-1 py-3 sm:grid-cols-[7rem_minmax(0,1fr)]">
                           <dt className="text-xs font-medium text-muted-foreground">Created</dt>

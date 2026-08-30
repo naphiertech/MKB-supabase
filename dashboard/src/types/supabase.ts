@@ -248,30 +248,39 @@ export type Database = {
       hubs: {
         Row: {
           active: boolean
+          attendance_radius_m: number | null
           created_at: string
           created_by: string | null
           description: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           active?: boolean
+          attendance_radius_m?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           active?: boolean
+          attendance_radius_m?: number | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           updated_at?: string
           updated_by?: string | null

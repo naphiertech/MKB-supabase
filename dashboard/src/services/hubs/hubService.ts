@@ -7,6 +7,9 @@ export interface Hub {
   name: string;
   description: string | null;
   active: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  attendanceRadiusM: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +38,9 @@ interface HubRow {
   name: string;
   description: string | null;
   active: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  attendance_radius_m?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,24 +51,43 @@ function mapHub(row: HubRow): Hub {
     name: row.name,
     description: row.description,
     active: row.active,
+    latitude: row.latitude != null ? Number(row.latitude) : null,
+    longitude: row.longitude != null ? Number(row.longitude) : null,
+    attendanceRadiusM: row.attendance_radius_m != null ? Number(row.attendance_radius_m) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
 export async function listAccessibleHubs(options: { activeOnly?: boolean } = {}): Promise<Hub[]> {
-  let query = supabase.from('hubs').select('id, name, description, active, created_at, updated_at').order('name');
-  if (options.activeOnly !== false) query = query.eq('active', true);
-  const { data, error } = await query;
+  let query = supabase
+    .from('hubs')
+    .select('id, name, description, active, latitude, longitude, attendance_radius_m, created_at, updated_at');
+  if (options.activeOnly !== false) {
+    query = query.eq('active', true);
+  }
+  const { data, error } = await query.order('name');
   if (error) throw error;
   return (data as HubRow[]).map(mapHub);
 }
 
-export async function createHub(input: { name: string; description?: string | null }): Promise<Hub> {
+export async function createHub(input: {
+  name: string;
+  description?: string | null;
+  latitude: number;
+  longitude: number;
+  attendanceRadiusM: number;
+}): Promise<Hub> {
   const { data, error } = await supabase
     .from('hubs')
-    .insert({ name: input.name.trim(), description: input.description?.trim() || null })
-    .select('id, name, description, active, created_at, updated_at')
+    .insert({
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      attendance_radius_m: input.attendanceRadiusM,
+    })
+    .select('id, name, description, active, latitude, longitude, attendance_radius_m, created_at, updated_at')
     .single();
   if (error) throw error;
   return mapHub(data as HubRow);
@@ -70,17 +95,28 @@ export async function createHub(input: { name: string; description?: string | nu
 
 export async function updateHub(
   hubId: string,
-  input: { name?: string; description?: string | null; active?: boolean },
+  input: {
+    name?: string;
+    description?: string | null;
+    active?: boolean;
+    latitude?: number | null;
+    longitude?: number | null;
+    attendanceRadiusM?: number | null;
+  },
 ): Promise<Hub> {
-  const values: Record<string, string | boolean | null> = {};
+  const values: Record<string, string | number | boolean | null> = {};
   if (input.name !== undefined) values.name = input.name.trim();
   if (input.description !== undefined) values.description = input.description?.trim() || null;
   if (input.active !== undefined) values.active = input.active;
+  if (input.latitude !== undefined) values.latitude = input.latitude;
+  if (input.longitude !== undefined) values.longitude = input.longitude;
+  if (input.attendanceRadiusM !== undefined) values.attendance_radius_m = input.attendanceRadiusM;
+
   const { data, error } = await supabase
     .from('hubs')
     .update(values)
     .eq('id', hubId)
-    .select('id, name, description, active, created_at, updated_at')
+    .select('id, name, description, active, latitude, longitude, attendance_radius_m, created_at, updated_at')
     .single();
   if (error) throw error;
   return mapHub(data as HubRow);
