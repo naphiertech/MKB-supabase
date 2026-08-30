@@ -10,6 +10,11 @@ function sectionLabels(items: typeof ADMIN_ITEMS, title: string) {
   return section?.type === 'section' ? section.items.map((item) => item.label) : [];
 }
 
+function findLink(items: typeof ADMIN_ITEMS, key: string) {
+  const item = items.find((i) => i.type === 'link' && i.key === key);
+  return item?.type === 'link' ? item : undefined;
+}
+
 describe('Rider Assignments navigation', () => {
   it('is available to Admin and HR but not Payroll', () => {
     expect(pageKeys(ADMIN_ITEMS)).toContain('rider_assignments');
@@ -24,12 +29,10 @@ describe('Business configuration navigation', () => {
       'Attendance logs',
       'Users Registry',
       'Rider Assignments',
-      'Courier Reviews',
       'Attendance Policy',
       'Audit Logs',
     ]);
     expect(sectionLabels(ADMIN_ITEMS, 'Parcel Operations')).toEqual([
-      'Parcel Data Import',
       'Daily Parcel Entry',
       'Parcel History',
       'Parcel Rates',
@@ -40,6 +43,7 @@ describe('Business configuration navigation', () => {
       'Payroll History',
       'Insights & Reports',
     ]);
+    expect(findLink(ADMIN_ITEMS, 'reviews')?.label).toBe('Reviews');
   });
 
   it('keeps HR read-only destinations and Payroll reference access visible', () => {
@@ -47,12 +51,10 @@ describe('Business configuration navigation', () => {
       'Attendance logs',
       'Users Registry',
       'Rider Assignments',
-      'Courier Reviews',
       'Attendance Policy',
       'Audit Logs',
     ]);
     expect(sectionLabels(HR_ITEMS, 'Parcel Operations')).toEqual([
-      'Parcel Data Import',
       'Daily Parcel Entry',
       'Parcel History',
       'Parcel Rates',
@@ -63,6 +65,7 @@ describe('Business configuration navigation', () => {
       'Payroll History',
       'Insights & Reports',
     ]);
+    expect(findLink(HR_ITEMS, 'reviews')?.label).toBe('Reviews');
     expect(sectionLabels(PAYROLL_ITEMS, 'Compensation')).toEqual([
       'Salary Computation',
       'Payroll Adjustments',

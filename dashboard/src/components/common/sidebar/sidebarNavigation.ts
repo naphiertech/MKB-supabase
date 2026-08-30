@@ -21,6 +21,8 @@ import {
   Upload
 } from 'lucide-react';
 
+export const FMS_IMPORT_NAV_ICON = Upload;
+
 export type PageKey =
   | 'dashboard'
   | 'monitoring'
@@ -94,7 +96,6 @@ export const ADMIN_ITEMS: SidebarItem[] = [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
       { key: 'users', label: 'Users Registry', icon: UsersIcon },
       { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
-      { key: 'reviews', label: 'Courier Reviews', icon: Star },
       { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]
@@ -104,7 +105,7 @@ export const ADMIN_ITEMS: SidebarItem[] = [
     title: 'Parcel Operations',
     icon: PackageCheck,
     items: [
-      { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
+      // { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
       { key: 'parcel_history', label: 'Parcel History', icon: History },
       { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
@@ -120,6 +121,12 @@ export const ADMIN_ITEMS: SidebarItem[] = [
       { key: 'payroll_history', label: 'Payroll History', icon: History },
       { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
     ]
+  },
+  {
+    type: 'link',
+    key: 'reviews',
+    label: 'Reviews',
+    icon: Star
   }
 ];
 
@@ -146,7 +153,6 @@ export const HR_ITEMS: SidebarItem[] = [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
       { key: 'users', label: 'Users Registry', icon: UsersIcon },
       { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
-      { key: 'reviews', label: 'Courier Reviews', icon: Star },
       { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]
@@ -156,7 +162,7 @@ export const HR_ITEMS: SidebarItem[] = [
     title: 'Parcel Operations',
     icon: PackageCheck,
     items: [
-      { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
+      // { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
       { key: 'parcel_history', label: 'Parcel History', icon: History },
       { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
@@ -172,6 +178,12 @@ export const HR_ITEMS: SidebarItem[] = [
       { key: 'payroll_history', label: 'Payroll History', icon: History },
       { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
     ]
+  },
+  {
+    type: 'link',
+    key: 'reviews',
+    label: 'Reviews',
+    icon: Star
   }
 ];
 
