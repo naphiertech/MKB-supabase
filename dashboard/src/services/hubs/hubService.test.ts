@@ -233,7 +233,7 @@ describe('hubService', () => {
           ],
         },
         error: null,
-      } as unknown as { data: unknown; error: null });
+      } as never);
 
       const snapshot = await getHubManagementSnapshot();
 

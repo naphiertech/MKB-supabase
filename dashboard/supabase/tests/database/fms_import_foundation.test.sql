@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 select pg_advisory_xact_lock(hashtext('fms_import_foundation_test'));
-select plan(21);
+select plan(41);
 
 -- 1. Existence and Signature Tests
 select ok(
@@ -31,10 +31,32 @@ select ok(
   'confirm_fms_daily_rider_observation RPC exists'
 );
 
+select ok(
+  to_regprocedure('public.cancel_fms_import_batch(uuid)') is not null,
+  'cancel_fms_import_batch RPC exists'
+);
+
+-- 1b. Verify Function Definition contains no stale column references
+select is(
+  (
+    select count(*)
+    from information_schema.routines
+    where specific_schema = 'public'
+      and routine_name = 'stage_fms_import_batch'
+      and (
+        routine_definition like '%total_delivered%'
+        or routine_definition like '%returned_parcels%'
+        or routine_definition like '%raw_payload%'
+      )
+  )::integer,
+  0,
+  'stage_fms_import_batch contains no references to total_delivered, returned_parcels, or raw_payload'
+);
+
 -- Setup test entities
-insert into public.hubs (id, name, description, active) values
-  ('e1100000-0000-4000-8000-000000000001', 'FMS Test Hub 1', 'Test Hub', true),
-  ('e1100000-0000-4000-8000-000000000002', 'FMS Other Hub 2', 'Other Hub', true);
+insert into public.hubs (id, name, description, active, latitude, longitude, attendance_radius_m) values
+  ('e1100000-0000-4000-8000-000000000001', 'FMS Test Hub 1', 'Test Hub', true, 6.9214000, 122.0790000, 150),
+  ('e1100000-0000-4000-8000-000000000002', 'FMS Other Hub 2', 'Other Hub', true, 6.9215000, 122.0791000, 150);
 
 insert into auth.users (id, email, email_confirmed_at) values
   ('e1200000-0000-4000-8000-000000000001', 'admin-fms-test@example.test', clock_timestamp()),
@@ -48,6 +70,10 @@ insert into public.riders (id, hub_id, name, mkb_id, email, status) values
 
 insert into public.users (id, full_name, email, role, rider_id, employment_status) values
   ('e1200000-0000-4000-8000-000000000002', 'FMS Test Rider 1', 'rider-fms-test1@example.test', 'rider', 'e1300000-0000-4000-8000-000000000001', 'active');
+
+insert into public.attendance_logs (rider_id, hub_id, date, status, time_in, source) values
+  ('e1300000-0000-4000-8000-000000000001', 'e1100000-0000-4000-8000-000000000001', '2026-09-01', 'present', '2026-09-01 07:45:00+08', 'system'),
+  ('e1300000-0000-4000-8000-000000000001', 'e1100000-0000-4000-8000-000000000001', '2026-09-02', 'present', '2026-09-02 07:45:00+08', 'system');
 
 -- Set actor to Admin
 set local role authenticated;
@@ -84,7 +110,44 @@ select ok(
   'stage_fms_import_batch succeeds for valid payload'
 );
 
--- 3. Exact-File Idempotency Test
+-- 2b. Field-level Observation Persisted Verification
+select is(
+  (select delivered from public.fms_daily_rider_observations where external_driver_id = '410740'),
+  86,
+  'observation.delivered is correctly persisted as 86'
+);
+
+select is(
+  (select assigned from public.fms_daily_rider_observations where external_driver_id = '410740'),
+  100,
+  'observation.assigned is correctly persisted as 100'
+);
+
+select is(
+  (select handed_over from public.fms_daily_rider_observations where external_driver_id = '410740'),
+  100,
+  'observation.handed_over is correctly persisted as 100'
+);
+
+select is(
+  (select delivering from public.fms_daily_rider_observations where external_driver_id = '410740'),
+  10,
+  'observation.delivering is correctly persisted as 10'
+);
+
+select is(
+  (select failed_delivery from public.fms_daily_rider_observations where external_driver_id = '410740'),
+  4,
+  'observation.failed_delivery is correctly persisted as 4'
+);
+
+select is(
+  (select confirmation_status from public.fms_daily_rider_observations where external_driver_id = '410740'),
+  'staged',
+  'observation initial confirmation_status is staged'
+);
+
+-- 3. Exact-File Same Context Idempotency Test
 select is(
   (
     select (stage_res->>'is_existing')::boolean
@@ -101,7 +164,39 @@ select is(
     ) q
   ),
   true,
-  'Re-staging identical SHA-256 returns existing batch without duplicate creation'
+  'Re-staging identical SHA-256 with same date and hub returns existing batch'
+);
+
+-- 3b. Context Conflict Tests (Same SHA + Different Date)
+select throws_ok(
+  $$select public.stage_fms_import_batch(
+    'spx_fms',
+    '2026-09-02'::date,
+    'Fleet_Overview_20260902.xlsx',
+    'sha256_hash_test_1234567890abcdef',
+    'e1100000-0000-4000-8000-000000000001'::uuid,
+    1,
+    '[]'::jsonb
+  )$$,
+  '23505',
+  null,
+  'Re-staging identical SHA-256 with different date raises FILE_ALREADY_STAGED'
+);
+
+-- 3c. Context Conflict Tests (Same SHA + Different Hub)
+select throws_ok(
+  $$select public.stage_fms_import_batch(
+    'spx_fms',
+    '2026-09-01'::date,
+    'Fleet_Overview_20260901.xlsx',
+    'sha256_hash_test_1234567890abcdef',
+    'e1100000-0000-4000-8000-000000000002'::uuid,
+    1,
+    '[]'::jsonb
+  )$$,
+  '23505',
+  null,
+  'Re-staging identical SHA-256 with different hub raises FILE_ALREADY_STAGED'
 );
 
 -- 4. Rider Mapping Test
@@ -116,10 +211,50 @@ select ok(
   'external_rider_mappings correctly persists driver mapping'
 );
 
+-- 4b. Auto Mapping on Staging Test: new batch with pre-existing mapping auto-resolves rider_id
+select ok(
+  (
+    select (stage_res->>'success')::boolean
+    from (
+      select public.stage_fms_import_batch(
+        'spx_fms',
+        '2026-09-05'::date,
+        'Fleet_Overview_20260905.xlsx',
+        'sha256_hash_test_mapped_rider_auto',
+        'e1100000-0000-4000-8000-000000000001'::uuid,
+        1,
+        jsonb_build_array(
+          jsonb_build_object(
+            'external_driver_id', '410740',
+            'external_driver_name', 'Shamera Habibun Asali',
+            'zone_id', 'Z-01',
+            'assigned', 90,
+            'delivered', 80,
+            'delivering', 5,
+            'failed_delivery', 5,
+            'handed_over', 90
+          )
+        )
+      ) as stage_res
+    ) q
+  ),
+  'Staging batch with mapped driver succeeds'
+);
+
+select is(
+  (
+    select rider_id
+    from public.fms_daily_rider_observations
+    where batch_id = (select id from public.fms_import_batches where file_sha256 = 'sha256_hash_test_mapped_rider_auto')
+  ),
+  'e1300000-0000-4000-8000-000000000001'::uuid,
+  'Observation correctly auto-resolves mapped rider_id'
+);
+
 -- Set observation to a known ID for subsequent tests
 update public.fms_daily_rider_observations
 set id = 'e1500000-0000-4000-8000-000000000001'
-where external_driver_id = '410740';
+where batch_id = (select id from public.fms_import_batches where file_sha256 = 'sha256_hash_test_1234567890abcdef');
 
 -- 5. OCC Test: Mismatched expectation when no row was reviewed, but row exists
 -- Insert a preexisting parcel log
@@ -269,6 +404,120 @@ select throws_ok(
   '42501',
   null,
   'Rider role is unauthorized to stage FMS import batches'
+);
+
+-- 15. Atomicity Test: Failed observation staging leaves no orphan batch row
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub": "e1200000-0000-4000-8000-000000000001", "role": "authenticated"}', true);
+
+select throws_ok(
+  $$select public.stage_fms_import_batch(
+    'spx_fms',
+    '2026-09-04'::date,
+    'Bad_File.xlsx',
+    'sha256_hash_test_failing_batch',
+    'e1100000-0000-4000-8000-000000000001'::uuid,
+    1,
+    jsonb_build_array(
+      jsonb_build_object(
+        'external_driver_id', null,
+        'external_driver_name', 'Bad Driver'
+      )
+    )
+  )$$,
+  '23502',
+  null,
+  'Staging with null external_driver_id throws not_null_violation'
+);
+
+-- 16. Hub Consistency Test: Mapped Rider belonging to Hub 1 rejects staging under Hub 2
+select throws_ok(
+  $$select public.stage_fms_import_batch(
+    'spx_fms',
+    '2026-09-06'::date,
+    'Hub2_Attempt.xlsx',
+    'sha256_hash_test_cross_hub_rejection',
+    'e1100000-0000-4000-8000-000000000002'::uuid, -- Hub 2
+    1,
+    jsonb_build_array(
+      jsonb_build_object(
+        'external_driver_id', '410740', -- Mapped to Hub 1 Rider
+        'external_driver_name', 'Shamera Habibun Asali',
+        'delivered', 50
+      )
+    )
+  )$$,
+  '22000',
+  null,
+  'Staging batch under Hub 2 with driver mapped to Hub 1 rider throws FMS_RIDER_HUB_MISMATCH'
+);
+
+select is(
+  (select count(*) from public.fms_import_batches where file_sha256 = 'sha256_hash_test_cross_hub_rejection')::integer,
+  0,
+  'Cross-hub staging rejection creates 0 batches'
+);
+
+-- 17. Safe Staged Batch Cancellation Test
+select ok(
+  (
+    select (cancel_res->>'success')::boolean
+    from (
+      select public.cancel_fms_import_batch(
+        (select id from public.fms_import_batches where file_sha256 = 'sha256_hash_test_mapped_rider_auto')
+      ) as cancel_res
+    ) q
+  ),
+  'cancel_fms_import_batch succeeds for staged batch with 0 confirmed records'
+);
+
+select is(
+  (select status from public.fms_import_batches where file_sha256 = 'sha256_hash_test_mapped_rider_auto'),
+  'cancelled',
+  'Batch status is updated to cancelled in database'
+);
+
+select ok(
+  exists(
+    select 1 from public.fms_daily_rider_observations
+    where batch_id = (select id from public.fms_import_batches where file_sha256 = 'sha256_hash_test_mapped_rider_auto')
+  ),
+  'Historical observations are preserved after cancellation'
+);
+
+-- 18. Reject Cancellation When Observations Already Confirmed
+select throws_ok(
+  $$select public.cancel_fms_import_batch(
+    (select id from public.fms_import_batches where file_sha256 = 'sha256_hash_test_1234567890abcdef')
+  )$$,
+  '22000',
+  null,
+  'Cancellation is rejected when batch has confirmed observations'
+);
+
+-- 19. Re-staging Same SHA after Cancellation Succeeds
+select ok(
+  (
+    select (stage_res->>'success')::boolean
+    from (
+      select public.stage_fms_import_batch(
+        'spx_fms',
+        '2026-09-05'::date,
+        'Fleet_Overview_20260905_restaged.xlsx',
+        'sha256_hash_test_mapped_rider_auto',
+        'e1100000-0000-4000-8000-000000000001'::uuid,
+        1,
+        jsonb_build_array(
+          jsonb_build_object(
+            'external_driver_id', '410740',
+            'external_driver_name', 'Shamera Habibun Asali',
+            'delivered', 80
+          )
+        )
+      ) as stage_res
+    ) q
+  ),
+  'Re-staging identical SHA after cancellation succeeds and creates new active batch'
 );
 
 select * from finish();

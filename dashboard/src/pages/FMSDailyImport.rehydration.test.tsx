@@ -313,6 +313,7 @@ vi.mock('../services/parcels/parcelOperationsPolicy', () => ({
 vi.mock('../lib/supabaseClient', () => {
   const createQueryBuilder = () => {
     const builder: any = {
+      neq: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       order: vi.fn().mockResolvedValue({
         data: [
@@ -539,6 +540,37 @@ describe('FMSDailyImport Wizard State Ownership & Navigation', () => {
 
     expect(container?.textContent).toContain('Confirm Parcel Results');
     expect(container?.textContent).toContain('This batch is cancelled. All parcel records are finalized and locked in read-only audit mode.');
+  });
+
+  it('synchronizes Step 1 date input and locks controls to activeBatch authority', async () => {
+    window.history.replaceState({}, '', '/?batchId=batch-staged-all-mapped');
+
+    await act(async () => {
+      root = createRoot(container!);
+      root.render(<FMSDailyImport />);
+    });
+    await flushPromises();
+
+    // Navigate to Step 1
+    const step1Btn = Array.from(container!.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Upload')
+    );
+    await act(async () => {
+      step1Btn?.click();
+    });
+    await flushPromises();
+
+    // Date input should reflect activeBatch.business_date ('2026-08-30') and be disabled
+    const dateInput = container!.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(dateInput).not.toBeNull();
+    expect(dateInput.value).toBe('2026-08-30');
+    expect(dateInput.disabled).toBe(true);
+
+    // Hub select should reflect activeBatch.hub_id ('hub-1') and be disabled
+    const hubSelect = container!.querySelector('select') as HTMLSelectElement;
+    expect(hubSelect).not.toBeNull();
+    expect(hubSelect.value).toBe('hub-1');
+    expect(hubSelect.disabled).toBe(true);
   });
 });
 

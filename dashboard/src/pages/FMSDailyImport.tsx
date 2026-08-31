@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Coins,
+  XCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useHub } from '../context/HubContext';
@@ -29,6 +30,7 @@ import {
 } from '../services/fms/fmsParser';
 import {
   stageFmsImportBatch,
+  cancelFmsImportBatch,
   confirmFmsDailyRiderObservation,
   getFmsBatchObservations,
   getFmsImportBatchById,
@@ -116,14 +118,18 @@ export function FMSDailyImport() {
   const [mapPage, setMapPage] = useState<number>(1);
   const mapPageSize = 25;
 
-  // Rate Context for the selected business date
+  // Business date and Hub authority: post-staging, activeBatch is canonical.
+  const effectiveBusinessDate = activeBatch?.business_date || businessDate;
+  const effectiveHubId = activeBatch?.hub_id || targetHubId;
+
+  // Rate Context for the effective business date
   const [rateContext, setRateContext] = useState<ParcelRateContext | null>(null);
 
   useEffect(() => {
-    getParcelRateContextForDate(businessDate)
+    getParcelRateContextForDate(effectiveBusinessDate)
       .then(setRateContext)
       .catch((err) => console.warn('Could not load parcel rate context for date:', err));
-  }, [businessDate]);
+  }, [effectiveBusinessDate]);
 
   // Observations State (for Classify, Review & Confirm)
   const [observations, setObservations] = useState<FmsObservationViewItem[]>([]);
@@ -149,8 +155,52 @@ export function FMSDailyImport() {
 
   // Current Hub object for display
   const currentHub = useMemo(() => {
-    return hubs.find((h) => h.id === targetHubId) || null;
-  }, [hubs, targetHubId]);
+    return hubs.find((h) => h.id === effectiveHubId) || null;
+  }, [hubs, effectiveHubId]);
+
+  // Hub mismatch detection during Step 2 (Validate)
+  const hubMismatches = useMemo(() => {
+    if (!parseResult || !targetHubId) return [];
+    const mismatches: Array<{
+      driverId: string;
+      driverName: string;
+      riderName: string;
+      riderMkbId: string | null;
+      riderHubId: string | null;
+      riderHubName: string;
+      targetHubName: string;
+    }> = [];
+
+    parseResult.rows.forEach((row) => {
+      const mapping = mappings[row.external_driver_id];
+      if (mapping?.rider?.hub_id && mapping.rider.hub_id !== targetHubId) {
+        const riderHub = hubs.find((h) => h.id === mapping.rider!.hub_id);
+        mismatches.push({
+          driverId: row.external_driver_id,
+          driverName: row.external_driver_name || mapping.external_display_name || row.external_driver_id,
+          riderName: mapping.rider.name,
+          riderMkbId: mapping.rider.mkb_id,
+          riderHubId: mapping.rider.hub_id,
+          riderHubName: riderHub?.name || 'Another Hub',
+          targetHubName: currentHub?.name || 'Selected Hub',
+        });
+      }
+    });
+
+    return mismatches;
+  }, [parseResult, targetHubId, mappings, hubs, currentHub]);
+
+  // Cancellation State & Authority
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
+  const [isCancelling, setIsCancelling] = useState<boolean>(false);
+
+  const isCancellable = useMemo(() => {
+    return (
+      activeBatch !== null &&
+      activeBatch.status === 'staged' &&
+      observations.every((o) => o.confirmation_status === 'staged' && !o.parcel_log_id)
+    );
+  }, [activeBatch, observations]);
 
   // Load mappings and hub riders on mount or hub change
   const loadReferenceData = useCallback(async () => {
@@ -161,25 +211,43 @@ export function FMSDailyImport() {
       let ridersQuery = supabase
         .from('riders')
         .select('id, name, mkb_id, hub_id')
-        .eq('status', 'offline'); // or any active status
+        .neq('status', 'archived');
 
-      if (targetHubId) {
-        ridersQuery = ridersQuery.eq('hub_id', targetHubId);
+      if (effectiveHubId) {
+        ridersQuery = ridersQuery.eq('hub_id', effectiveHubId);
       }
 
       const { data: rData } = await ridersQuery.order('name', { ascending: true });
       setHubRiders(rData || []);
 
-      const batches = await listFmsImportBatches(targetHubId || undefined);
+      const batches = await listFmsImportBatches(effectiveHubId || undefined);
       setRecentBatches(batches.slice(0, 5));
     } catch (err) {
       console.error('Error loading reference data:', err);
     }
-  }, [targetHubId]);
+  }, [effectiveHubId]);
 
   useEffect(() => {
     void loadReferenceData();
   }, [loadReferenceData]);
+
+  // Handle Safe Batch Cancellation
+  const handleCancelBatch = async () => {
+    if (!activeBatchId) return;
+    setIsCancelling(true);
+    try {
+      await cancelFmsImportBatch(activeBatchId);
+      toast.success('Import batch cancelled.');
+      setIsCancelModalOpen(false);
+      handleStartNewImport();
+      await loadReferenceData();
+    } catch (err: any) {
+      console.error('Error cancelling batch:', err);
+      toast.error(err.message || 'Failed to cancel staged batch.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   // Process File Buffer
   const processSelectedFile = async (file: File) => {
@@ -246,6 +314,8 @@ export function FMSDailyImport() {
       const batch = await getFmsImportBatchById(res.batchId);
       if (batch) {
         setActiveBatch(batch);
+        setBusinessDate(batch.business_date);
+        setTargetHubId(batch.hub_id);
       }
       setActiveBatchId(res.batchId);
       setUrlBatchId(res.batchId);
@@ -258,13 +328,15 @@ export function FMSDailyImport() {
         toast.success('Batch staged successfully.');
       }
 
+      const batchDate = batch?.business_date || res.businessDate || businessDate;
+
       // Check if unmapped riders exist
       const unmapped = parseResult.rows.filter((r) => !mappings[r.external_driver_id]);
       if (unmapped.length > 0) {
         setCurrentStep(3); // Map Riders
       } else {
         // All mapped, load observations and go to Classify
-        await loadBatchObservations(res.batchId);
+        await loadBatchObservations(res.batchId, batchDate);
         setCurrentStep(4);
       }
     } catch (err: any) {
@@ -277,10 +349,11 @@ export function FMSDailyImport() {
 
   // Load batch observations from database
   const loadBatchObservations = useCallback(
-    async (batchId: string) => {
+    async (batchId: string, overrideDate?: string) => {
       setIsLoadingObs(true);
       try {
-        const obsList = await getFmsBatchObservations(batchId, businessDate);
+        const targetDate = overrideDate || activeBatch?.business_date || businessDate;
+        const obsList = await getFmsBatchObservations(batchId, targetDate);
         setObservations(obsList);
 
         // Initialize classifications draft
@@ -303,7 +376,7 @@ export function FMSDailyImport() {
         setIsLoadingObs(false);
       }
     },
-    [businessDate]
+    [activeBatch?.business_date, businessDate]
   );
 
   // Save Rider Mappings
@@ -312,6 +385,11 @@ export function FMSDailyImport() {
       const entries = Object.entries(mappingDrafts);
       for (const [driverId, riderId] of entries) {
         if (!riderId) continue;
+        const selectedRider = hubRiders.find((r) => r.id === riderId);
+        if (selectedRider && effectiveHubId && selectedRider.hub_id && selectedRider.hub_id !== effectiveHubId) {
+          toast.error(`Rider ${selectedRider.name} belongs to another Hub and cannot be mapped in this Hub workspace.`);
+          return;
+        }
         const driverName =
           parseResult?.rows.find((r) => r.external_driver_id === driverId)?.external_driver_name ||
           observations.find((o) => o.external_driver_id === driverId)?.external_driver_name;
@@ -487,12 +565,20 @@ export function FMSDailyImport() {
       }
     }
 
+    setIsBulkConfirming(false);
+    if (successCount > 0 && failCount === 0) {
+      toast.success(`Confirmation complete: ${successCount} saved.`);
+    } else if (successCount > 0 && failCount > 0) {
+      toast(`Partial confirmation: ${successCount} saved, ${failCount} failed.`, {
+        icon: '⚠️',
+      });
+    } else {
+      toast.error(`Confirmation failed: 0 saved, ${failCount} failed.`);
+    }
+
     if (activeBatchId) {
       await loadBatchObservations(activeBatchId);
     }
-
-    setIsBulkConfirming(false);
-    toast.success(`Confirmation complete: ${successCount} saved, ${failCount} failed.`);
   };
 
   const mappedRidersInParse = useMemo(() => {
@@ -511,7 +597,7 @@ export function FMSDailyImport() {
         rowCount: parseResult.rowCount,
         mappedCount: mappedRidersInParse,
         hubName: currentHub?.name || 'Selected Hub',
-        businessDate: businessDate,
+        businessDate: effectiveBusinessDate,
         importedAt: null,
         statusLabel: 'Valid Format',
         warnings: parseResult.warnings,
@@ -546,7 +632,7 @@ export function FMSDailyImport() {
     }
 
     return null;
-  }, [parseResult, selectedFile, mappedRidersInParse, currentHub, businessDate, activeBatch, observations]);
+  }, [parseResult, selectedFile, mappedRidersInParse, currentHub, effectiveBusinessDate, activeBatch, observations]);
 
   // Normalized Step 3 Driver mapping rows (supporting pre-staged parseResult.rows and post-staged observations)
   const driverMappingRows = useMemo(() => {
@@ -560,18 +646,15 @@ export function FMSDailyImport() {
       }));
     }
 
-    if (observations.length > 0) {
-      return observations.map((obs) => ({
-        external_driver_id: obs.external_driver_id,
-        external_driver_name: obs.external_driver_name,
-        rider_id: obs.rider_id,
-        rider_name: obs.rider_name,
-        rider_mkb_id: obs.rider_mkb_id,
-      }));
-    }
-
-    return [];
-  }, [parseResult, mappings, observations]);
+    // When parseResult is null (e.g. reopened staged batch), derive mapping rows from persisted observations
+    return observations.map((obs) => ({
+      external_driver_id: obs.external_driver_id,
+      external_driver_name: obs.external_driver_name,
+      rider_id: obs.rider_id || null,
+      rider_name: obs.rider_name,
+      rider_mkb_id: obs.rider_mkb_id,
+    }));
+  }, [parseResult, observations, mappings]);
 
   const dateGroupedBatches = useMemo(() => {
     return groupBatchesByDate(recentBatches);
@@ -597,6 +680,11 @@ export function FMSDailyImport() {
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent text-primary border border-primary/20">
                 Assisted Workflow
               </span>
+              {activeBatch && (
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                  Batch: {activeBatch.id.slice(0, 8)}
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               Import and review daily delivery data before applying it to Rider parcel records.
@@ -609,10 +697,10 @@ export function FMSDailyImport() {
           <div className="flex items-center gap-1.5 bg-panel-bg px-2.5 py-1.5 rounded-lg border border-border">
             <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
             <select
-              value={targetHubId}
+              value={effectiveHubId}
               onChange={(e) => setTargetHubId(e.target.value)}
-              disabled={currentStep > 1}
-              className="bg-transparent text-xs font-medium text-foreground focus:outline-none cursor-pointer"
+              disabled={currentStep > 1 || Boolean(activeBatch)}
+              className="bg-transparent text-xs font-medium text-foreground focus:outline-none cursor-pointer disabled:cursor-not-allowed"
             >
               {hubs.map((h) => (
                 <option key={h.id} value={h.id}>
@@ -626,10 +714,10 @@ export function FMSDailyImport() {
             <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
             <input
               type="date"
-              value={businessDate}
+              value={effectiveBusinessDate}
               onChange={(e) => setBusinessDate(e.target.value)}
-              disabled={currentStep > 1}
-              className="bg-transparent text-xs font-medium text-foreground focus:outline-none cursor-pointer"
+              disabled={currentStep > 1 || Boolean(activeBatch)}
+              className="bg-transparent text-xs font-medium text-foreground focus:outline-none cursor-pointer disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -753,6 +841,16 @@ export function FMSDailyImport() {
                   <span>File already validated and staged. The original XLSX is not retained.</span>
                 </div>
                 <div className="flex items-center gap-2 self-end sm:self-auto">
+                  {isCancellable && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCancelModalOpen(true)}
+                      className="px-3 py-1 bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      Cancel Import
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleStartNewImport}
@@ -1009,6 +1107,34 @@ export function FMSDailyImport() {
               </div>
             </div>
 
+            {/* Hub Assignment Mismatch Alert */}
+            {hubMismatches.length > 0 && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-amber-900">
+                <div className="flex items-center gap-2 font-bold text-xs text-amber-800 uppercase tracking-wider">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  Hub Assignment Mismatch
+                </div>
+                <p className="text-xs text-amber-700">
+                  {hubMismatches.length} mapped Rider{hubMismatches.length > 1 ? 's belong' : ' belongs'} to another Hub.
+                </p>
+                <div className="space-y-1.5 pt-1">
+                  {hubMismatches.map((m) => (
+                    <div key={m.driverId} className="text-xs bg-white/70 rounded-lg p-2.5 border border-amber-200/60 space-y-0.5">
+                      <div className="font-semibold text-foreground">
+                        {m.riderName} {m.riderMkbId && <span className="font-mono text-[10px] text-muted-foreground">({m.riderMkbId})</span>}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Assigned: <span className="font-semibold text-amber-900">{m.riderHubName}</span> &middot; Import Workspace: <span className="font-semibold text-foreground">{m.targetHubName}</span>
+                      </div>
+                      <div className="text-[11px] text-amber-800 font-medium pt-0.5">
+                        Select {m.riderHubName} before staging this file.
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Warnings Alert if any */}
             {validateViewModel.warnings.length > 0 && (
               <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5 text-amber-900">
@@ -1021,6 +1147,13 @@ export function FMSDailyImport() {
                     <li key={idx}>{w}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {!validateViewModel.isFresh && (
+              <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 bg-muted/30 px-3 py-2 rounded-lg border border-border/50">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Staged Import &middot; Saved to the selected Hub workspace.</span>
               </div>
             )}
 
@@ -1057,22 +1190,37 @@ export function FMSDailyImport() {
               Back
             </button>
             {validateViewModel.isFresh ? (
-              <button
-                onClick={handleStageBatch}
-                disabled={isParsing}
-                className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs disabled:opacity-50"
-              >
-                Stage Batch in Hub Workspace
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleStageBatch}
+                  disabled={isParsing || hubMismatches.length > 0}
+                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs disabled:opacity-50"
+                  title={hubMismatches.length > 0 ? 'Resolve Hub assignment mismatches before staging' : undefined}
+                >
+                  Stage Batch in Hub Workspace
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             ) : (
-              <button
-                onClick={() => setCurrentStep(3)}
-                className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
-              >
-                Continue to Rider Mapping
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {isCancellable && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCancelModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg text-xs font-semibold transition"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Cancel Import
+                  </button>
+                )}
+                <button
+                  onClick={() => setCurrentStep(3)}
+                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
+                >
+                  Continue to Rider Mapping
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -1305,23 +1453,35 @@ export function FMSDailyImport() {
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Back to Validation
               </button>
-              {isReadOnly ? (
-                <button
-                  onClick={() => setCurrentStep(4)}
-                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
-                >
-                  Continue to Classify
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleSaveMappings}
-                  className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
-                >
-                  Save Mappings & Continue
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {isCancellable && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCancelModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg text-xs font-semibold transition"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Cancel Import
+                  </button>
+                )}
+                {isReadOnly ? (
+                  <button
+                    onClick={() => setCurrentStep(4)}
+                    className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
+                  >
+                    Continue to Classify
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSaveMappings}
+                    className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
+                  >
+                    Save Mappings & Continue
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -1494,13 +1654,25 @@ export function FMSDailyImport() {
               <ArrowLeft className="w-3.5 h-3.5" />
               Back
             </button>
-            <button
-              onClick={() => setCurrentStep(5)}
-              className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
-            >
-              Review Comparisons
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {isCancellable && (
+                <button
+                  type="button"
+                  onClick={() => setIsCancelModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg text-xs font-semibold transition"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Cancel Import
+                </button>
+              )}
+              <button
+                onClick={() => setCurrentStep(5)}
+                className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
+              >
+                Review Comparisons
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1641,13 +1813,25 @@ export function FMSDailyImport() {
               <ArrowLeft className="w-3.5 h-3.5" />
               Back
             </button>
-            <button
-              onClick={() => setCurrentStep(6)}
-              className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
-            >
-              Proceed to Confirmation
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {isCancellable && (
+                <button
+                  type="button"
+                  onClick={() => setIsCancelModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg text-xs font-semibold transition"
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Cancel Import
+                </button>
+              )}
+              <button
+                onClick={() => setCurrentStep(6)}
+                className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-primary/90 shadow-xs"
+              >
+                Proceed to Confirmation
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1865,18 +2049,62 @@ export function FMSDailyImport() {
                 <ArrowLeft className="w-3.5 h-3.5" />
                 Back to Review
               </button>
-              <button
-                onClick={handleStartNewImport}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-border bg-white rounded-lg text-xs font-medium hover:bg-muted"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Import Another File
-              </button>
+              <div className="flex items-center gap-2">
+                {isCancellable && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCancelModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg text-xs font-semibold transition"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Cancel Import
+                  </button>
+                )}
+                <button
+                  onClick={handleStartNewImport}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 border border-border bg-white rounded-lg text-xs font-medium hover:bg-muted"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Import Another File
+                </button>
+              </div>
             </div>
           </div>
         );
       })()}
+
+      {/* Safe Cancel Staged Import Confirmation Modal */}
+      {isCancelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white border border-border rounded-xl shadow-lg max-w-md w-full p-5 space-y-4">
+            <div className="flex items-center gap-2.5 text-rose-600">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="text-sm font-bold text-foreground">Cancel this staged import?</h3>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              No parcel records have been confirmed. The import will remain in history as <span className="font-semibold text-foreground">Cancelled</span> and will free this delivery file to be re-staged if needed.
+            </p>
+            <div className="flex justify-end items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                disabled={isCancelling}
+                className="px-3.5 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted text-foreground"
+              >
+                Keep Staged Batch
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelBatch}
+                disabled={isCancelling}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold bg-rose-600 text-white rounded-lg hover:bg-rose-700 disabled:opacity-50"
+              >
+                {isCancelling ? 'Cancelling...' : 'Yes, Cancel Import'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
-

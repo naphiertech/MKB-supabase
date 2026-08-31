@@ -99,6 +99,11 @@ begin
         user_id,
         hub_id,
         event_type,
+        description,
+        metadata
+      ) values (
+        actor_id,
+        new.id,
         case
           when old.latitude is distinct from new.latitude
             or old.longitude is distinct from new.longitude

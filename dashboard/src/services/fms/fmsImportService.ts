@@ -97,6 +97,7 @@ export async function stageFmsImportBatch(payload: {
   isExisting: boolean;
   batchId: string;
   businessDate: string;
+  hubId: string;
   filename: string;
   sourceRowCount: number;
   status: string;
@@ -122,6 +123,7 @@ export async function stageFmsImportBatch(payload: {
     isExisting: Boolean(res.is_existing),
     batchId: res.batch_id,
     businessDate: res.business_date,
+    hubId: res.hub_id,
     filename: res.filename,
     sourceRowCount: res.source_row_count,
     status: res.status,
@@ -174,6 +176,35 @@ export async function confirmFmsDailyRiderObservation(payload: {
     heavyDelivered: res.heavy_delivered,
     failed: res.failed,
     returned: res.returned,
+  };
+}
+
+/**
+ * Safely cancels a staged FMS import batch with no confirmed parcel records.
+ */
+export async function cancelFmsImportBatch(batchId: string): Promise<{
+  success: boolean;
+  batchId: string;
+  status: string;
+  cancelledAt: string;
+  cancelledBy: string;
+}> {
+  const { data, error } = await supabase.rpc('cancel_fms_import_batch', {
+    p_batch_id: batchId,
+  });
+
+  if (error) {
+    console.error('Error cancelling FMS import batch:', error);
+    throw error;
+  }
+
+  const res = data as any;
+  return {
+    success: Boolean(res.success),
+    batchId: res.batch_id,
+    status: res.status,
+    cancelledAt: res.cancelled_at,
+    cancelledBy: res.cancelled_by,
   };
 }
 

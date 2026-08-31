@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   stageFmsImportBatch,
   confirmFmsDailyRiderObservation,
+  cancelFmsImportBatch,
   listFmsImportBatches,
   getFmsImportBatchById,
   resolveBatchResumeStep,
@@ -13,14 +14,43 @@ vi.mock('../../lib/supabaseClient', () => {
   return {
     supabase: {
       rpc: vi.fn(async (funcName: string, args: any) => {
+        if (funcName === 'cancel_fms_import_batch') {
+          if (args.p_batch_id === 'confirmed_batch_id') {
+            return {
+              data: null,
+              error: {
+                code: '22000',
+                message: 'BATCH_CANNOT_BE_CANCELLED: Batch contains confirmed observations.',
+              },
+            };
+          }
+          return {
+            data: {
+              success: true,
+              batch_id: args.p_batch_id,
+              status: 'cancelled',
+            },
+            error: null,
+          };
+        }
         if (funcName === 'stage_fms_import_batch') {
           if (args.p_file_sha256 === 'existing_sha256') {
+            if (args.p_business_date !== '2026-08-30' || args.p_hub_id !== 'h1') {
+              return {
+                data: null,
+                error: {
+                  code: '23505',
+                  message: 'FILE_ALREADY_STAGED: This delivery file was already staged for Aug 30, 2026 at Talon-Talon Hub (Batch ID: existing_batch_id). It cannot be reused for ' + args.p_business_date + '.',
+                },
+              };
+            }
             return {
               data: {
                 success: true,
                 is_existing: true,
                 batch_id: 'existing_batch_id',
-                business_date: args.p_business_date,
+                business_date: '2026-08-30',
+                hub_id: 'h1',
                 filename: args.p_filename,
                 source_row_count: args.p_source_row_count,
                 status: 'staged',
@@ -34,6 +64,7 @@ vi.mock('../../lib/supabaseClient', () => {
               is_existing: false,
               batch_id: 'new_batch_id',
               business_date: args.p_business_date,
+              hub_id: args.p_hub_id,
               filename: args.p_filename,
               source_row_count: args.p_source_row_count,
               status: 'staged',
@@ -160,10 +191,10 @@ describe('fmsImportService', () => {
     expect(res.batchId).toBe('new_batch_id');
   });
 
-  it('detects existing batch when SHA-256 is identical', async () => {
+  it('detects existing batch when SHA-256, date, and hub are identical', async () => {
     const res = await stageFmsImportBatch({
-      businessDate: '2026-09-01',
-      filename: 'Fleet_20260901.xlsx',
+      businessDate: '2026-08-30',
+      filename: 'Fleet_20260830.xlsx',
       fileSha256: 'existing_sha256',
       hubId: 'h1',
       sourceRowCount: 1,
@@ -173,6 +204,34 @@ describe('fmsImportService', () => {
     expect(res.success).toBe(true);
     expect(res.isExisting).toBe(true);
     expect(res.batchId).toBe('existing_batch_id');
+    expect(res.businessDate).toBe('2026-08-30');
+    expect(res.hubId).toBe('h1');
+  });
+
+  it('throws FILE_ALREADY_STAGED when identical SHA-256 is uploaded with a different date', async () => {
+    await expect(
+      stageFmsImportBatch({
+        businessDate: '2026-08-31',
+        filename: 'Fleet_20260831.xlsx',
+        fileSha256: 'existing_sha256',
+        hubId: 'h1',
+        sourceRowCount: 1,
+        observations: [],
+      })
+    ).rejects.toThrow(/FILE_ALREADY_STAGED/);
+  });
+
+  it('throws FILE_ALREADY_STAGED when identical SHA-256 is uploaded with a different hub', async () => {
+    await expect(
+      stageFmsImportBatch({
+        businessDate: '2026-08-30',
+        filename: 'Fleet_20260830.xlsx',
+        fileSha256: 'existing_sha256',
+        hubId: 'h2',
+        sourceRowCount: 1,
+        observations: [],
+      })
+    ).rejects.toThrow(/FILE_ALREADY_STAGED/);
   });
 
   it('confirms observation and derives standard delivered', async () => {
@@ -222,6 +281,20 @@ describe('fmsImportService', () => {
     expect(batch).not.toBeNull();
     expect(batch?.id).toBe('b1');
     expect(batch?.filename).toBe('Fleet_20260901.xlsx');
+  });
+
+  describe('cancelFmsImportBatch', () => {
+    it('cancels a staged batch successfully', async () => {
+      const result = await cancelFmsImportBatch('staged_batch_id');
+      expect(result.success).toBe(true);
+      expect(result.status).toBe('cancelled');
+    });
+
+    it('throws when trying to cancel a batch with confirmed records', async () => {
+      await expect(cancelFmsImportBatch('confirmed_batch_id')).rejects.toThrow(
+        /BATCH_CANNOT_BE_CANCELLED/
+      );
+    });
   });
 
   describe('resolveBatchResumeStep', () => {
