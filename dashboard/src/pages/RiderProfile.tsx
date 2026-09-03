@@ -13,6 +13,7 @@ import { updateRiderContact } from '../services/riders/riderService';
 import { fetchRiderProfileWithSWR, type CachedProfilePayload } from '../services/riders/riderCacheService';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import { pushToast } from '../hooks/useToast';
+import { PasswordSecurityFeedback } from '../components/auth/PasswordSecurityFeedback';
 import { STREET_BASEMAP } from '../components/maps/mapProviders';
 
 interface RiderProfileProps {
@@ -155,10 +156,10 @@ export function RiderProfile({ userId, riderId, restricted, onBack, onSignOut }:
       });
       return;
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       pushToast({
         title: 'Password too short',
-        description: 'Password must be at least 6 characters.',
+        description: 'Password must be at least 8 characters.',
         tone: 'error'
       });
       return;
@@ -335,7 +336,8 @@ export function RiderProfile({ userId, riderId, restricted, onBack, onSignOut }:
                     <div className="relative">
                       <input
                         type={showPass ? 'text' : 'password'}
-                        placeholder="New Password"
+                        placeholder="Min. 8 characters"
+                        minLength={8}
                         value={newPassword}
                         onChange={e => setNewPassword(e.target.value)}
                         disabled={isSavingPassword}
@@ -349,9 +351,11 @@ export function RiderProfile({ userId, riderId, restricted, onBack, onSignOut }:
                         {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    <PasswordSecurityFeedback password={newPassword} />
                     <input
                       type={showPass ? 'text' : 'password'}
                       placeholder="Confirm New Password"
+                      minLength={8}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       disabled={isSavingPassword}

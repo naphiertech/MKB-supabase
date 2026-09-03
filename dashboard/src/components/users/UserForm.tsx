@@ -10,6 +10,7 @@ import {
   Loader2,
   Trash2,
   ArrowLeft,
+  ShieldCheck,
 } from "lucide-react";
 import type { AppUser, UserRole, Zone } from "../../services/types";
 import { pushToast } from "../../hooks/useToast";
@@ -532,63 +533,63 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
         )}
 
         <div
-          className={`grid gap-6 ${isRider ? "grid-cols-1 lg:grid-cols-3" : "max-w-3xl mx-auto grid-cols-1"}`}
+          className={`grid gap-6 ${isRider ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1"}`}
         >
-          {/* LEFT AREA: Spacious details (2/3 width for Rider, full for non-Rider) */}
-          <div className={`space-y-6 ${isRider ? "lg:col-span-2" : ""}`}>
-            {/* CARD 1: Account Info */}
-            <div id="personal" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-5">
-              <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
-                Personal Information
-              </div>
+            {/* LEFT AREA: Spacious details (2/3 width for Rider, full for non-Rider) */}
+            <div className={`space-y-6 ${isRider ? "lg:col-span-2" : ""}`}>
+              {/* CARD 1: Account Info */}
+              <div id="personal" className="bg-white rounded-xl border border-border p-5 md:p-6 shadow-sm space-y-5">
+                <div className="text-sm font-bold text-accent-foreground uppercase tracking-wider border-b border-border pb-2">
+                  Personal Information
+                </div>
 
-              {/* Name Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Field
-                  label="First Name"
-                  required
-                  error={errors.firstName}
-                  innerRef={(el) => (fieldRefs.current.firstName = el)}
-                >
-                  <input
-                    value={form.firstName}
-                    onChange={(e) => setField("firstName", e.target.value)}
-                    placeholder="e.g. Juan"
-                    className="ar-input"
-                    disabled={submitting}
-                  />
-                </Field>
-                <Field
-                  label="Middle Name (Opt)"
-                  error={errors.middleName}
-                  innerRef={(el) => (fieldRefs.current.middleName = el)}
-                >
-                  <input
-                    value={form.middleName}
-                    onChange={(e) => setField("middleName", e.target.value)}
-                    placeholder="e.g. Santos"
-                    className="ar-input"
-                    disabled={submitting}
-                  />
-                </Field>
-                <Field
-                  label="Last Name"
-                  required
-                  error={errors.lastName}
-                  innerRef={(el) => (fieldRefs.current.lastName = el)}
-                >
-                  <input
-                    value={form.lastName}
-                    onChange={(e) => setField("lastName", e.target.value)}
-                    placeholder="e.g. dela Cruz"
-                    className="ar-input"
-                    disabled={submitting}
-                  />
-                </Field>
-              </div>
+                {/* Name Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-5">
+                  <Field
+                    label="First Name"
+                    required
+                    error={errors.firstName}
+                    innerRef={(el) => (fieldRefs.current.firstName = el)}
+                  >
+                    <input
+                      value={form.firstName}
+                      onChange={(e) => setField("firstName", e.target.value)}
+                      placeholder="e.g. Juan"
+                      className="ar-input"
+                      disabled={submitting}
+                    />
+                  </Field>
+                  <Field
+                    label="Middle Name (Opt)"
+                    error={errors.middleName}
+                    innerRef={(el) => (fieldRefs.current.middleName = el)}
+                  >
+                    <input
+                      value={form.middleName}
+                      onChange={(e) => setField("middleName", e.target.value)}
+                      placeholder="e.g. Santos"
+                      className="ar-input"
+                      disabled={submitting}
+                    />
+                  </Field>
+                  <Field
+                    label="Last Name"
+                    required
+                    error={errors.lastName}
+                    innerRef={(el) => (fieldRefs.current.lastName = el)}
+                  >
+                    <input
+                      value={form.lastName}
+                      onChange={(e) => setField("lastName", e.target.value)}
+                      placeholder="e.g. dela Cruz"
+                      className="ar-input"
+                      disabled={submitting}
+                    />
+                  </Field>
+                </div>
 
-              {/* Contact & Email */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Contact & Email */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
                 <Field
                   label="Email Address"
                   required
@@ -634,7 +635,7 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
               </div>
 
               {/* Employment details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
                 <Field
                   label="Employment Type"
                   required
@@ -831,130 +832,169 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
                   Account Configuration &amp; Credentials
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Account Status" required>
-                    <div className={`h-9 rounded-md border px-3 inline-flex items-center text-xs capitalize font-bold ${form.status === 'suspended' ? 'bg-red-50 border-red-500/40 text-red-700' : 'bg-emerald-50 border-emerald-500/40 text-emerald-700'}`}>{form.status}</div>
-                    <p className="mt-1.5 text-[10px] text-muted-foreground">Use the employee list account action to restrict or restore Rider access, or suspend or reactivate staff access.</p>
-                  </Field>
-
-                  {currentUserRole !== "hr" && (
-                    <Field
-                      label="System Role"
-                      required
-                      error={errors.role}
-                      innerRef={(el) => (fieldRefs.current.role = el)}
-                    >
-                      <select
-                        value={form.role}
-                        onChange={(e) =>
-                          setField("role", e.target.value as EditableRole)
-                        }
-                        className="ar-input capitalize"
-                        disabled={submitting}
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r.value} value={r.value}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  {/* LEFT COLUMN: Account Status, System Role, Hub Access */}
+                  <div className="space-y-4">
+                    <Field label="Account Status" required>
+                      <div className={`h-9 rounded-md border px-3 inline-flex items-center text-xs capitalize font-bold ${form.status === 'suspended' ? 'bg-red-50 border-red-500/40 text-red-700' : 'bg-emerald-50 border-emerald-500/40 text-emerald-700'}`}>{form.status}</div>
+                      <p className="mt-1.5 text-[10px] text-muted-foreground">Use the employee list account action to restrict or restore Rider access, or suspend or reactivate staff access.</p>
                     </Field>
-                  )}
 
-                  {currentUserRole === "admin" && isStaffRole(form.role) && (
-                    <Field label="Hub access" required error={errors.hubIds} innerRef={(el) => (fieldRefs.current.hubIds = el)}>
-                      <div className="space-y-3 rounded-lg border border-border bg-panel-bg p-3">
-                        <label className="flex items-center gap-2 text-xs font-medium">
-                          <input type="radio" checked={form.hubAccessScope === 'global'} onChange={() => setField('hubAccessScope', 'global')} disabled={submitting} />
-                          Global access (All Hubs and any specific hub)
-                        </label>
-                        <label className="flex items-center gap-2 text-xs font-medium">
-                          <input type="radio" checked={form.hubAccessScope === 'assigned'} onChange={() => setField('hubAccessScope', 'assigned')} disabled={submitting} />
-                          Assigned hubs only
-                        </label>
-                        {form.hubAccessScope === 'assigned' && (
-                          <div className="grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
-                            {hubs.length === 0 ? <p className="text-xs text-muted-foreground">Create a hub before assigning local staff.</p> : hubs.map((hub) => (
-                              <label key={hub.id} className="flex items-center gap-2 text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={form.hubIds.includes(hub.id)}
-                                  onChange={(event) => setField('hubIds', event.target.checked ? [...form.hubIds, hub.id] : form.hubIds.filter((id) => id !== hub.id))}
-                                  disabled={submitting}
-                                />
-                                {hub.name}{hub.active ? '' : ' (Inactive)'}
-                              </label>
-                            ))}
-                          </div>
-                        )}
+                    {currentUserRole !== "hr" && (
+                      <Field
+                        label="System Role"
+                        required
+                        error={errors.role}
+                        innerRef={(el) => (fieldRefs.current.role = el)}
+                      >
+                        <select
+                          value={form.role}
+                          onChange={(e) =>
+                            setField("role", e.target.value as EditableRole)
+                          }
+                          className="ar-input capitalize"
+                          disabled={submitting}
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    )}
+
+                    {currentUserRole === "admin" && isStaffRole(form.role) && (
+                      <Field label="Hub access" required error={errors.hubIds} innerRef={(el) => (fieldRefs.current.hubIds = el)}>
+                        <div className="space-y-3 rounded-lg border border-border bg-panel-bg p-3">
+                          <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                            <input type="radio" checked={form.hubAccessScope === 'global'} onChange={() => setField('hubAccessScope', 'global')} disabled={submitting} />
+                            Global access (All Hubs and any specific hub)
+                          </label>
+                          <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                            <input type="radio" checked={form.hubAccessScope === 'assigned'} onChange={() => setField('hubAccessScope', 'assigned')} disabled={submitting} />
+                            Assigned hubs only
+                          </label>
+                          {form.hubAccessScope === 'assigned' && (
+                            <div className="grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
+                              {hubs.length === 0 ? <p className="text-xs text-muted-foreground">Create a hub before assigning local staff.</p> : hubs.map((hub) => (
+                                <label key={hub.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={form.hubIds.includes(hub.id)}
+                                    onChange={(event) => setField('hubIds', event.target.checked ? [...form.hubIds, hub.id] : form.hubIds.filter((id) => id !== hub.id))}
+                                    disabled={submitting}
+                                  />
+                                  {hub.name}{hub.active ? '' : ' (Inactive)'}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </Field>
+                    )}
+                  </div>
+
+                  {/* RIGHT COLUMN: Temporary Password & Credential Helper Content */}
+                  <div className="space-y-4">
+                    <Field
+                      label={
+                        mode === "edit"
+                          ? "Password Changes"
+                          : "Temporary Password"
+                      }
+                      error={errors.tempPassword}
+                      required={mode === "create"}
+                      controlId="employee-password"
+                      innerRef={(el) => (fieldRefs.current.tempPassword = el)}
+                      helper={
+                        mode === "edit"
+                          ? "Use Send Password Reset from the employee list. Passwords are never displayed here."
+                          : "User will change this on first login."
+                      }
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative flex-1">
+                          <input
+                            id="employee-password"
+                            type={showPassword ? "text" : "password"}
+                            value={form.tempPassword}
+                            onChange={(e) =>
+                              setField("tempPassword", e.target.value)
+                            }
+                            placeholder={mode === "edit" ? "Use Send Password Reset" : "Min. 8 characters"}
+                            className="ar-input pr-9"
+                            autoComplete="new-password"
+                            disabled={submitting || mode === "edit"}
+                          />
+                          {mode === "create" && <button
+                            type="button"
+                            onClick={() => setShowPassword((s) => !s)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>}
+                        </div>
+                        {mode === "create" && <button
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => {
+                            const chars =
+                              "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+                            let pass = "";
+                            for (let i = 0; i < 12; i++) {
+                              pass += chars.charAt(
+                                Math.floor(Math.random() * chars.length),
+                              );
+                            }
+                            setField("tempPassword", pass);
+                            setShowPassword(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-border text-xs text-foreground hover:border-primary/30 hover:text-primary transition shrink-0 cursor-pointer font-semibold"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> Generate
+                        </button>}
                       </div>
                     </Field>
-                  )}
-                </div>
 
-                <Field
-                  label={
-                    mode === "edit"
-                      ? "Password Changes"
-                      : "Temporary Password"
-                  }
-                  error={errors.tempPassword}
-                  required={mode === "create"}
-                  controlId="employee-password"
-                  innerRef={(el) => (fieldRefs.current.tempPassword = el)}
-                  helper={
-                    mode === "edit"
-                      ? "Use Send Password Reset from the employee list. Passwords are never displayed here."
-                      : "User will change this on first login."
-                  }
-                >
-                  <div className="flex items-center gap-1.5">
-                    <div className="relative flex-1">
-                        <input
-                          id="employee-password"
-                        type={showPassword ? "text" : "password"}
-                        value={form.tempPassword}
-                        onChange={(e) =>
-                          setField("tempPassword", e.target.value)
-                        }
-                        placeholder={mode === "edit" ? "Use Send Password Reset" : "Min. 8 characters"}
-                        className="ar-input pr-9"
-                        autoComplete="new-password"
-                        disabled={submitting || mode === "edit"}
-                      />
-                      {mode === "create" && <button
-                        type="button"
-                        onClick={() => setShowPassword((s) => !s)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
-                      >
-                        {showPassword ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>}
-                    </div>
-                    <button
-                      type="button"
-                      disabled={submitting}
-                      onClick={() => {
-                        const chars =
-                          "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
-                        let pass = "";
-                        for (let i = 0; i < 12; i++) {
-                          pass += chars.charAt(
-                            Math.floor(Math.random() * chars.length),
-                          );
-                        }
-                        setField("tempPassword", pass);
-                        setShowPassword(true);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md bg-white border border-border text-xs text-foreground hover:border-primary/30 hover:text-primary transition shrink-0 cursor-pointer font-semibold"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> Generate
-                    </button>
+                    {mode === "create" ? (
+                      <div className="rounded-lg border border-border bg-panel-bg/60 p-3.5 space-y-2.5">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                          <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                          <span>Credential Security Policy</span>
+                        </div>
+                        <ul className="text-[11px] text-muted-foreground space-y-1.5 leading-relaxed">
+                          <li className="flex items-start gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>Temporary password requires at least 8 characters.</span>
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>Staff will be prompted to set a personal password upon first sign-in.</span>
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>Account becomes active immediately upon saving.</span>
+                          </li>
+                        </ul>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-border bg-panel-bg/60 p-3.5 space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                          <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                          <span>Password Management</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          Active staff passwords are encrypted and cannot be viewed or changed directly. Use the Send Password Reset action from the Users Registry list to dispatch a secure reset link.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </Field>
+                </div>
               </div>
             )}
 

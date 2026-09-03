@@ -11,8 +11,17 @@ export async function requestPasswordRecovery(email: string, redirectTo: string)
   throwIfError(error);
 }
 
+export const MIN_PASSWORD_LENGTH = 8;
+export const PASSWORD_MIN_LENGTH_ERROR = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+
+export function validatePasswordPolicy(password: string): void {
+  if (!password || password.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(PASSWORD_MIN_LENGTH_ERROR);
+  }
+}
+
 export async function completePasswordRecovery(password: string): Promise<void> {
-  if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+  validatePasswordPolicy(password);
   const { error } = await supabase.auth.updateUser({ password });
   throwIfError(error);
 }

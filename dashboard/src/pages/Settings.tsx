@@ -29,6 +29,7 @@ import { useNotificationContext } from '../context/NotificationContext';
 import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '../services/notifications/notificationPreferenceService';
 import { getMissingStaffProfileFields, isSameEmail, isStaffRole, validateStaffEmail } from '../lib/users/staffProfilePolicy';
 import { StaffEmailStatus } from '../components/settings/StaffEmailStatus';
+import { PasswordSecurityFeedback } from '../components/auth/PasswordSecurityFeedback';
 
 type TabType = 'Personal Detail' | 'Security' | 'Notification';
 
@@ -900,7 +901,7 @@ export function Settings() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <div>
                         <label htmlFor="settings-password" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">
                           New Password
@@ -925,6 +926,8 @@ export function Settings() {
                         </div>
                         {errors.password && <p className="text-xs text-red-600 mt-1">{errors.password}</p>}
                       </div>
+
+                      <PasswordSecurityFeedback password={password} />
 
                       <div>
                         <label htmlFor="settings-confirm-password" className="block text-[11px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">

@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabaseClient';
 import { FACE_MATCH_THRESHOLD, verifyFaceIdentity } from '../../lib/faceAi';
 import { getSelectedHubId } from '../../lib/hubWorkspaceState';
+import { validatePasswordPolicy } from '../auth/authSecurity';
 
 export interface EmployeeDuplicateCheckParams {
   mkbRiderId?: string;
@@ -424,7 +425,8 @@ export const updateUserAuthCredentials = async (input: {
     authUpdates.email = input.email.trim();
   }
 
-  if (input.password) {
+  if (input.password !== undefined) {
+    validatePasswordPolicy(input.password);
     authUpdates.password = input.password;
   }
 
