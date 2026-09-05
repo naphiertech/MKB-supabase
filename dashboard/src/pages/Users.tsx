@@ -466,7 +466,17 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
     }
   };
 
-  if (loading && view === 'list') return <UsersSkeleton />;
+  if (loading && view === 'list') {
+    const estimatedRows = userList.length > 0 ? Math.min(pageSize, userList.length) : 4;
+    const showSkeletonFooter = userList.length > pageSize;
+    return (
+      <UsersSkeleton
+        role={currentUserRole === 'hr' ? 'hr' : 'admin'}
+        rows={estimatedRows}
+        showFooter={showSkeletonFooter}
+      />
+    );
+  }
 
   return (
     <>

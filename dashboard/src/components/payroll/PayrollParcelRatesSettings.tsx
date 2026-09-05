@@ -4,6 +4,7 @@ import type { Role } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
 import { Modal } from '../common/Modal';
 import { RightDrawer } from '../common/RightDrawer';
+import { ParcelRatesSkeleton } from './ParcelRatesSkeleton';
 import {
   createFutureParcelRateConfiguration,
   deactivateFutureParcelRateConfiguration,
@@ -143,7 +144,7 @@ export function PayrollParcelRatesSettings({ role }: PayrollParcelRatesSettingsP
     }
   };
 
-  if (loading) return <div className="ui-card flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading parcel rates…</div>;
+  if (loading) return <ParcelRatesSkeleton />;
 
   return (
     <div className="space-y-5 animate-fade-in">

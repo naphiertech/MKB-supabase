@@ -115,12 +115,12 @@ export interface SkeletonTableProps {
 }
 
 export function SkeletonTable({
-  rows = 5,
+  rows = 4,
   columns = 5,
   columnWeights,
   className = '',
   minWidthClassName = '',
-  showToolbar = true,
+  showToolbar = false,
   showFooter = false,
   mobileCards = true,
   mobileBreakpoint = 'sm',
@@ -139,7 +139,7 @@ export function SkeletonTable({
 
   return (
     <div className={`min-w-0 overflow-hidden rounded-xl border border-border bg-white shadow-sm ${className}`} data-skeleton-table>
-      {showToolbar && <div className="flex items-center justify-between p-4 border-b border-border gap-3 flex-wrap">
+      {showToolbar && <div className="flex items-center justify-between p-4 border-b border-border gap-3 flex-wrap" aria-label="Table loading tools">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg ar-shimmer shrink-0" />
           <div className="space-y-1">
@@ -226,9 +226,9 @@ export function SkeletonTable({
   );
 }
 
-export function SkeletonMap() {
+export function SkeletonMap({ className = '' }: { className?: string } = {}) {
   return (
-    <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
+    <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${className}`}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="space-y-1.5 flex-1">
           <div className="w-32 h-3.5 rounded ar-shimmer" />

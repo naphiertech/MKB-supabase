@@ -415,13 +415,13 @@ export function ParcelHistory() {
       <div className="bg-white border border-border rounded-xl overflow-hidden shadow-xs">
         {loading ? (
           <SkeletonTable
-            rows={8}
+            rows={historyItems.length > 0 ? Math.min(pageSize, historyItems.length) : 4}
             columns={10}
             columnWeights={[1, 1.6, 1.2, 0.75, 0.65, 0.65, 0.75, 0.8, 1, 0.45]}
             className="rounded-none border-0 shadow-none"
             minWidthClassName="data-table-extra-wide"
             showToolbar={false}
-            showFooter
+            showFooter={totalCount > pageSize}
             mobileBreakpoint="lg"
           />
         ) : historyItems.length === 0 ? (

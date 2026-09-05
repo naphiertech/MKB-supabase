@@ -7,6 +7,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { StatePanel, StatusBadge } from '../components/common/DashboardPrimitives';
+import { RiderScheduleSkeleton } from '../components/rider/RiderRouteSkeletons';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import {
   addBusinessDays,
@@ -133,7 +134,7 @@ export function RiderSchedule({ userId, riderId }: RiderScheduleProps) {
   const upcoming = schedules.filter((schedule) => schedule.workDate >= today).slice(0, 4);
 
   if (loading && schedules.length === 0) {
-    return <StatePanel loading title="Loading My Schedule" description="Reading your published Rider schedule." />;
+    return <RiderScheduleSkeleton />;
   }
 
   if (error && schedules.length === 0) {

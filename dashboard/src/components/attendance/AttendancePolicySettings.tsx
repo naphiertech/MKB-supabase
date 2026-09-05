@@ -17,6 +17,7 @@ import type { Role } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
 import { Modal } from '../common/Modal';
 import { RightDrawer } from '../common/RightDrawer';
+import { AttendancePolicySkeleton } from './AttendancePolicySkeleton';
 import {
   createFutureAttendancePolicy,
   deactivateFutureAttendancePolicy,
@@ -188,12 +189,7 @@ export function AttendancePolicySettings({ role }: AttendancePolicySettingsProps
   };
 
   if (loading) {
-    return (
-      <div className="ui-card flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        <span>Loading attendance policies…</span>
-      </div>
-    );
+    return <AttendancePolicySkeleton />;
   }
 
   if (loadError && configurations.length === 0) {

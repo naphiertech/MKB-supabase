@@ -18,6 +18,7 @@ import {
 } from '../../services/payroll/payrollAdjustmentRecordsService';
 import { RightDrawer } from '../common/RightDrawer';
 import { StatePanel, StatusBadge } from '../common/DashboardPrimitives';
+import { SkeletonTable } from '../common/SkeletonPrimitives';
 
 const PAGE_SIZE = 25;
 const php = (amount: number) => `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -281,8 +282,15 @@ export function PayrollAdjustmentRiderWorkspace({
       <label><span className="sr-only">Status</span><select value={status} onChange={(event) => resetForFilter(() => setStatus(event.target.value as PayrollAdjustmentStatusFilter))} className="ar-input">{mode === 'working' ? <><option value="actionable">All open obligations</option><option value="open">Open</option><option value="partially_recovered">Partially Recovered</option></> : <><option value="history">All history</option><option value="settled">Settled</option><option value="voided">Voided</option></>}</select></label>
     </div>
 
-    {loading ? <StatePanel loading title="Loading Rider summaries" description="Reading the selected adjustment workspace…" />
-      : error ? <StatePanel icon={AlertTriangle} title="Unable to load Payroll Adjustments" description={error} action={<button type="button" onClick={() => void loadSummaries()} className="ui-button-secondary">Retry</button>} />
+    {loading ? (
+      <SkeletonTable
+        rows={4}
+        columns={6}
+        columnWeights={[2, 1.2, 1.2, 1.2, 1.2, 0.8]}
+        showToolbar={false}
+        showFooter={false}
+      />
+    ) : error ? <StatePanel icon={AlertTriangle} title="Unable to load Payroll Adjustments" description={error} action={<button type="button" onClick={() => void loadSummaries()} className="ui-button-secondary">Retry</button>} />
       : rows.length === 0 ? <StatePanel icon={mode === 'history' ? History : Users} title={mode === 'history' ? 'No historical obligations' : 'No open obligations'} description="No Rider records match the current server-side filters." />
       : <div className="table-scroll-region" role="region" aria-label={mode === 'history' ? 'Historical Rider adjustment summaries' : 'Open Rider adjustment summaries'} tabIndex={0}>
         <table className="data-table-wide w-full min-w-[760px] text-left text-xs"><thead><tr>{['Rider', mode === 'history' ? 'History Events' : 'Open Events', 'Adjustment Types', 'Total Remaining', 'Latest Activity', ''].map((heading) => <th key={heading} className="px-4 py-3">{heading}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.rider_id}>

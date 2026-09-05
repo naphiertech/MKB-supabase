@@ -14,6 +14,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { Modal } from '../components/common/Modal';
 import { StatePanel, StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
+import { LeaveAbsenceSkeleton } from '../components/leave/LeaveAbsenceSkeleton';
 import { useHub } from '../context/HubContext';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import {
@@ -189,7 +190,7 @@ export function LeaveAbsence() {
   const approvedCount = requests.filter((request) => request.status === 'approved').length;
 
   if (loading && requests.length === 0) {
-    return <StatePanel loading title="Loading Leave & Absence" description="Preparing the authorized Hub review queue." />;
+    return <LeaveAbsenceSkeleton />;
   }
 
   return (

@@ -39,7 +39,17 @@ import { SettingsSkeleton } from '../settings/SettingsSkeleton';
 import { UsersSkeleton } from '../users/UsersSkeleton';
 import { HubManagementSkeleton } from '../hubs/HubManagementSkeleton';
 import { RiderAssignmentsSkeleton } from '../assignments/RiderAssignmentsSkeleton';
-import { RiderAttendanceSkeleton, RiderMonitoringSkeleton } from '../rider/RiderRouteSkeletons';
+import {
+  RiderAttendanceSkeleton,
+  RiderMonitoringSkeleton,
+  RiderScheduleSkeleton,
+  RiderLeaveAbsenceSkeleton
+} from '../rider/RiderRouteSkeletons';
+import { AttendancePolicySkeleton } from '../attendance/AttendancePolicySkeleton';
+import { ParcelRatesSkeleton } from '../payroll/ParcelRatesSkeleton';
+import { PayrollAdjustmentsSkeleton } from '../payroll-adjustments/PayrollAdjustmentsSkeleton';
+import { FMSDailyImportSkeleton } from '../fms/FMSDailyImportSkeleton';
+import { LeaveAbsenceSkeleton } from '../leave/LeaveAbsenceSkeleton';
 
 // Re-export all skeletons for public API compatibility
 export {
@@ -74,6 +84,13 @@ export {
   RiderAssignmentsSkeleton,
   RiderAttendanceSkeleton,
   RiderMonitoringSkeleton,
+  RiderScheduleSkeleton,
+  RiderLeaveAbsenceSkeleton,
+  AttendancePolicySkeleton,
+  ParcelRatesSkeleton,
+  PayrollAdjustmentsSkeleton,
+  FMSDailyImportSkeleton,
+  LeaveAbsenceSkeleton,
   SkeletonStatCard as StatCardSkeleton,
   SkeletonMap as MapSkeleton,
   SkeletonTable as AttendanceTableSkeleton,
@@ -113,23 +130,35 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
     case 'attendance':
       return role === 'rider' ? <RiderAttendanceSkeleton /> : <AttendanceSkeleton />;
 
+    case 'attendance_policy':
+      return <AttendancePolicySkeleton />;
+
     case 'computation':
       return <SalaryComputationSkeleton />;
 
     case 'payroll':
       return role === 'payroll' ? <PayrollDashboardSkeleton /> : <PayrollChecklistSkeleton />;
 
+    case 'payroll_adjustments':
+      return <PayrollAdjustmentsSkeleton />;
+
     case 'daily_parcels':
       return <DailyParcelEntrySkeleton />;
 
+    case 'fms_import':
+      return <FMSDailyImportSkeleton />;
+
     case 'parcel_history':
       return <ParcelHistorySkeleton />;
+
+    case 'parcel_rates':
+      return <ParcelRatesSkeleton />;
 
     case 'payroll_history':
       return <PayrollHistorySkeleton />;
 
     case 'users':
-      return <UsersSkeleton />;
+      return <UsersSkeleton role={role === 'rider' ? undefined : role} />;
 
     case 'hubs':
       return <HubManagementSkeleton />;
@@ -151,19 +180,11 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
         </SkeletonPage>
       );
 
+    case 'schedule' as PageKey:
+      return <RiderScheduleSkeleton />;
+
     case 'leave_absence':
-      return (
-        <SkeletonPage className="space-y-5" label="Loading Leave & Absence">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => <SkeletonStatCard key={index} compact />)}
-          </div>
-          <div className="space-y-4 rounded-xl border border-border bg-white p-5 shadow-sm">
-            <div className="space-y-2"><SkeletonBlock className="h-4 w-44" /><SkeletonBlock className="h-3 w-80 max-w-full" /></div>
-            <SkeletonBlock className="h-11 w-full rounded-lg" />
-            <SkeletonBlock className="h-[320px] w-full rounded-xl" />
-          </div>
-        </SkeletonPage>
-      );
+      return role === 'rider' ? <RiderLeaveAbsenceSkeleton /> : <LeaveAbsenceSkeleton />;
 
     case 'reports':
       return role === 'payroll' ? <PayrollReportsSkeleton /> : <ReportsSkeleton />;

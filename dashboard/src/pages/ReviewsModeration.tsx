@@ -4,7 +4,7 @@ import { Star, Trash2, CheckCircle2, Clock, ThumbsUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import { StatePanel, ToolbarSurface } from '../components/common/DashboardPrimitives';
-import { ReviewsSkeleton } from '../components/common/ReviewsSkeleton';
+import { ReviewCardsSkeleton, ReviewsSkeleton } from '../components/common/ReviewsSkeleton';
 
 interface DBReview {
   id: string;
@@ -132,7 +132,7 @@ export function ReviewsModeration() {
 
       {/* Loading state */}
       {loading ? (
-        <div className="ui-card"><StatePanel title="Fetching reviews…" loading /></div>
+        <ReviewCardsSkeleton />
       ) : displayedReviews.length === 0 ? (
         /* Empty State */
         <div className="ui-card"><StatePanel

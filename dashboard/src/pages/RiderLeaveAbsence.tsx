@@ -14,6 +14,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { Modal } from '../components/common/Modal';
 import { StatePanel, StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
+import { RiderLeaveAbsenceSkeleton } from '../components/rider/RiderRouteSkeletons';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { createSyncOperationId } from '../lib/storage';
 import {
@@ -302,7 +303,7 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
   }
 
   if (loading && requests.length === 0) {
-    return <StatePanel loading title="Loading Leave & Absence" description="Preparing your private request history." />;
+    return <RiderLeaveAbsenceSkeleton />;
   }
 
   return (
