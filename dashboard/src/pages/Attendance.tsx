@@ -19,7 +19,7 @@ import { AttendanceTable } from '../components/attendance/AttendanceTable';
 import { getRidersLookup } from '../services/riders/riderService';
 import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetailsPanels';
 import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/attendance/dtrParserService';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 import { exportAttendanceCsv, exportAttendancePdf } from '../lib/exports/attendanceExport';
 import { getCachedAvatar } from '../lib/avatarCache';
@@ -143,7 +143,7 @@ export function Attendance() {
       })
       .catch((error) => {
         console.error('Error fetching riders:', error);
-        toast.error('Failed to load riders list');
+        appToast.error('Failed to load riders list');
       });
   }, []);
 
@@ -361,14 +361,14 @@ export function Attendance() {
       const logs = await parseDTRPdf(importFile, ridersList, setParsingStatus);
       setParsedLogs(logs);
       if (logs.length === 0) {
-        toast.error('No attendance records parsed from PDF. Please check file format.');
+        appToast.error('No attendance records parsed from PDF. Please check file format.');
       } else {
-        toast.success(`Successfully parsed ${logs.length} attendance records!`);
+        appToast.success(`Successfully parsed ${logs.length} attendance records!`);
       }
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error(err);
-      toast.error(`Import failed: ${errorMsg}`);
+      appToast.error(`Import failed: ${errorMsg}`);
     } finally {
       setIsParsing(false);
       setParsingStatus('');
@@ -380,7 +380,7 @@ export function Attendance() {
     try {
       const { count, error } = await saveImportedLogs(parsedLogs);
       if (error) throw error;
-      toast.success(`Successfully saved ${count} records to database!`);
+      appToast.success(`Successfully saved ${count} records to database!`);
       setImportModalOpen(false);
       setImportFile(null);
       setParsedLogs([]);
@@ -388,7 +388,7 @@ export function Attendance() {
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error(err);
-      toast.error(`Save failed: ${errorMsg}`);
+      appToast.error(`Save failed: ${errorMsg}`);
     } finally {
       setIsSaving(false);
     }

@@ -19,7 +19,6 @@ import { useHub } from './context/HubContext';
 
 import { useNotifications } from './hooks/useNotifications';
 import { useRiderSignOut } from './hooks/useRiderSignOut';
-import { Toaster } from 'react-hot-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { HelpSupportModal, type HelpTab } from './components/common/HelpSupportModal';
 import { initSyncEngine, startSyncEngine, stopSyncEngine } from './lib/sync/SyncEngine';
@@ -348,10 +347,10 @@ export function App() {
   }
 
   if (isPasswordRecovery) {
-    return <><PasswordRecovery onReturnToLogin={() => {
+    return <PasswordRecovery onReturnToLogin={() => {
       window.history.replaceState(null, '', window.location.pathname);
       setIsPasswordRecovery(false);
-    }} /><Toaster position="top-right" reverseOrder={false} /></>;
+    }} />;
   }
 
   if (session && (!isAuthReady || mfaSettledSessionId !== session.id || mfaChecking)) {
@@ -367,17 +366,12 @@ export function App() {
   }
 
   if (session && mfaRequired) {
-    return <><MfaChallenge onVerified={() => void refreshMfaGate()} onSignOut={signOut} /><Toaster position="top-right" reverseOrder={false} /></>;
+    return <MfaChallenge onVerified={() => void refreshMfaGate()} onSignOut={signOut} />;
   }
 
   // Unauthenticated — show login
   if (!session || !user) {
-    return (
-      <>
-        <Login />
-        <Toaster position="top-right" reverseOrder={false} />
-      </>);
-
+    return <Login />;
   }
   // Rider role — dedicated top-nav layout (no sidebar)
   if (role === 'rider') {
@@ -459,7 +453,6 @@ export function App() {
           </AnimatePresence>
         </main>
         {riderWarningModal}
-        <Toaster position="top-right" reverseOrder={false} />
       </div>);
 
   }
@@ -645,7 +638,6 @@ export function App() {
           </AnimatePresence>
         </main>
       </div>
-      <Toaster position="top-right" reverseOrder={false} />
       <HelpSupportModal
         open={helpOpen}
         onClose={() => setHelpOpen(false)}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getReviews, approveReview, deleteReview } from '../services/reviews/reviewService';
 import { Star, Trash2, CheckCircle2, Clock, ThumbsUp } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import { useAuth } from '../hooks/useAuth';
 import { StatePanel, ToolbarSurface } from '../components/common/DashboardPrimitives';
 import { ReviewCardsSkeleton, ReviewsSkeleton } from '../components/common/ReviewsSkeleton';
@@ -35,7 +35,7 @@ export function ReviewsModeration() {
       setReviews(data as DBReview[] || []);
     } catch (err: unknown) {
       console.error('Error fetching reviews:', err);
-      toast.error('Failed to load reviews.');
+      appToast.error('Failed to load reviews.');
     } finally {
       hasLoadedRef.current = true;
       setLoading(false);
@@ -51,14 +51,14 @@ export function ReviewsModeration() {
     try {
       await approveReview(id);
       
-      toast.success('Review approved successfully!');
+      appToast.success('Review approved successfully!');
       // Update local state
       setReviews((prev) =>
         prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r))
       );
     } catch (err: unknown) {
       console.error('Error approving review:', err);
-      toast.error('Failed to approve review.');
+      appToast.error('Failed to approve review.');
     } finally {
       setActioningId(null);
     }
@@ -70,12 +70,12 @@ export function ReviewsModeration() {
     try {
       await deleteReview(id);
 
-      toast.success('Review deleted permanently.');
+      appToast.success('Review deleted permanently.');
       // Remove from local state
       setReviews((prev) => prev.filter((r) => r.id !== id));
     } catch (err: unknown) {
       console.error('Error deleting review:', err);
-      toast.error('Failed to delete review.');
+      appToast.error('Failed to delete review.');
     } finally {
       setActioningId(null);
     }

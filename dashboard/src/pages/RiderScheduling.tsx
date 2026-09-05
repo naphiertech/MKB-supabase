@@ -10,7 +10,7 @@ import {
   Save,
   X,
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import { Modal } from '../components/common/Modal';
 import { StatePanel, StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
 import { useHub } from '../context/HubContext';
@@ -186,10 +186,10 @@ export function RiderScheduling() {
           expectedRevision: editor.expectedRevision,
           reason: editor.reason,
         });
-        toast.success(editor.status === 'published' ? 'Published schedule updated.' : 'Draft schedule updated.');
+        appToast.success(editor.status === 'published' ? 'Published schedule updated.' : 'Draft schedule updated.');
       } else {
         await createRiderSchedule({ ...input, reason: editor.reason });
-        toast.success('Draft schedule created.');
+        appToast.success('Draft schedule created.');
       }
       setEditor(null);
       await load();
@@ -210,7 +210,7 @@ export function RiderScheduling() {
     setEditorError(null);
     try {
       await publishRiderSchedule(editor.scheduleId, editor.expectedRevision, editor.reason);
-      toast.success('Schedule published to the Rider.');
+      appToast.success('Schedule published to the Rider.');
       setEditor(null);
       await load();
     } catch (error) {
@@ -230,7 +230,7 @@ export function RiderScheduling() {
     setEditorError(null);
     try {
       await cancelRiderSchedule(editor.scheduleId, editor.expectedRevision, editor.reason);
-      toast.success('Schedule cancelled.');
+      appToast.success('Schedule cancelled.');
       setEditor(null);
       await load();
     } catch (error) {

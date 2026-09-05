@@ -11,7 +11,7 @@ import {
   ShieldAlert,
   Undo2,
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import { Modal } from '../components/common/Modal';
 import { StatePanel, StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
 import { RiderLeaveAbsenceSkeleton } from '../components/rider/RiderRouteSkeletons';
@@ -230,7 +230,7 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
     plannedAttemptSignature.current = signature;
     try {
       await submitPlannedLeave({ startDate: plannedStart, endDate: plannedEnd, reason: plannedReason, requestKey });
-      toast.success('Planned Leave submitted for review.');
+      appToast.success('Planned Leave submitted for review.');
       setPlannedReason('');
       plannedAttemptSignature.current = null;
       setPlannedRequestKey(createSyncOperationId());
@@ -264,7 +264,7 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
     absenceAttemptSignature.current = signature;
     try {
       await submitAbsenceNotice({ date: absenceDate, reason: absenceReason, requestKey });
-      toast.success('Absence Notice submitted for review.');
+      appToast.success('Absence Notice submitted for review.');
       setAbsenceReason('');
       absenceAttemptSignature.current = null;
       setAbsenceRequestKey(createSyncOperationId());
@@ -291,7 +291,7 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
     setActionError(null);
     try {
       await withdrawRiderAbsenceRequest(withdrawTarget.id, withdrawTarget.revision, withdrawReason);
-      toast.success('Request withdrawn.');
+      appToast.success('Request withdrawn.');
       setWithdrawTarget(null);
       setWithdrawReason('');
       await load();

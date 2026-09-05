@@ -18,7 +18,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import { StatePanel, StatusBadge, SummaryCard, type SemanticTone } from '../components/common/DashboardPrimitives';
 import { RightDrawer } from '../components/common/RightDrawer';
 import { RiderAssignmentsSkeleton } from '../components/assignments/RiderAssignmentsSkeleton';
@@ -107,7 +107,7 @@ export function RiderAssignments() {
         }
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load Rider Assignments.');
+      appToast.error(error instanceof Error ? error.message : 'Failed to load Rider Assignments.');
     } finally {
       hasLoadedRef.current = true;
       setLoading(false);
@@ -156,9 +156,9 @@ export function RiderAssignments() {
     if (!selectedRider || !drawerMode || drawerMode === 'history') return;
     if ((drawerMode === 'transfer' || drawerMode === 'deploy')) {
       const targetError = validateAssignmentTarget(targetHubId, targetZoneId, zones);
-      if (targetError) { toast.error(targetError); return; }
+      if (targetError) { appToast.error(targetError); return; }
     }
-    if (reason.trim().length < 3) { toast.error('A reason of at least 3 characters is required.'); return; }
+    if (reason.trim().length < 3) { appToast.error('A reason of at least 3 characters is required.'); return; }
 
     setSaving(true);
     try {
@@ -166,26 +166,26 @@ export function RiderAssignments() {
         await transferRiderPermanently({
           riderId: selectedRider.riderId, targetHubId, targetZoneId, effectiveDate, reason,
         });
-        toast.success('Permanent Rider assignment updated.');
+        appToast.success('Permanent Rider assignment updated.');
       } else if (drawerMode === 'deploy') {
         if (endDate < effectiveDate) throw new Error('End Date must be on or after Start Date.');
         await deployRiderTemporarily({
           riderId: selectedRider.riderId, targetHubId, targetZoneId, startDate: effectiveDate, endDate, reason,
         });
-        toast.success('Temporary deployment started.');
+        appToast.success('Temporary deployment started.');
       } else if (drawerMode === 'extend') {
         if (!selectedRider.assignmentId) throw new Error('Active deployment was not found.');
         await extendRiderDeployment(selectedRider.assignmentId, endDate, reason);
-        toast.success('Temporary deployment extended.');
+        appToast.success('Temporary deployment extended.');
       } else {
         if (!selectedRider.assignmentId) throw new Error('Active deployment was not found.');
         await endRiderDeploymentEarly(selectedRider.assignmentId, reason);
-        toast.success('Temporary deployment ended. Rider returned to the Home assignment.');
+        appToast.success('Temporary deployment ended. Rider returned to the Home assignment.');
       }
       setDrawerMode(null);
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The assignment could not be saved.');
+      appToast.error(error instanceof Error ? error.message : 'The assignment could not be saved.');
     } finally {
       setSaving(false);
     }

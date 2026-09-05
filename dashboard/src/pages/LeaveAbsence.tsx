@@ -11,7 +11,7 @@ import {
   ShieldAlert,
   X,
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import { Modal } from '../components/common/Modal';
 import { StatePanel, StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
 import { LeaveAbsenceSkeleton } from '../components/leave/LeaveAbsenceSkeleton';
@@ -147,7 +147,7 @@ export function LeaveAbsence() {
       const nextDetail = await getRiderAbsenceRequestDetail(request.id);
       if (sequence === detailSequence.current) setDetail(nextDetail);
     } catch (error) {
-      if (sequence === detailSequence.current) toast.error(error instanceof Error ? error.message : 'Unable to load request history.');
+      if (sequence === detailSequence.current) appToast.error(error instanceof Error ? error.message : 'Unable to load request history.');
     } finally {
       if (sequence === detailSequence.current) setDetailLoading(false);
     }
@@ -157,21 +157,21 @@ export function LeaveAbsence() {
     if (!selected) return;
     if (!isOnline) {
       setReason('');
-      toast.error('Review actions require an online connection and were not queued.');
+      appToast.error('Review actions require an online connection and were not queued.');
       return;
     }
     if (reason.trim().length < 3) {
-      toast.error(nextDecision === 'cancelled' ? 'Add a cancellation reason.' : 'Add a review reason.');
+      appToast.error(nextDecision === 'cancelled' ? 'Add a cancellation reason.' : 'Add a review reason.');
       return;
     }
     setSaving(true);
     try {
       if (nextDecision === 'cancelled') {
         await cancelApprovedRiderAbsenceRequest(selected.id, selected.revision, reason);
-        toast.success('Approved request cancelled.');
+        appToast.success('Approved request cancelled.');
       } else {
         await reviewRiderAbsenceRequest(selected.id, selected.revision, nextDecision, reason);
-        toast.success(nextDecision === 'approved' ? 'Request approved.' : 'Request rejected.');
+        appToast.success(nextDecision === 'approved' ? 'Request approved.' : 'Request rejected.');
       }
       setSelected(null);
       setDetail(null);
@@ -179,7 +179,7 @@ export function LeaveAbsence() {
       setReason('');
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to save the request decision.');
+      appToast.error(error instanceof Error ? error.message : 'Unable to save the request decision.');
     } finally {
       setSaving(false);
     }

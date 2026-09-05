@@ -57,6 +57,55 @@
   --primary-hover: #a04e00;
   --panel-bg: #fafaf7;
   --subtle-text: #6b6258;
+  --sileo-width: min(350px, calc(100vw - 32px));
+}
+
+/* Sileo Toast Presentation & Viewport */
+[data-sileo-viewport] {
+  top: 16px !important;
+  right: 16px !important;
+  z-index: 9999 !important;
+}
+
+/* White Toast Visual Card Style */
+[data-sileo-toast] {
+  color: #1a1410 !important;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.22))
+          drop-shadow(0 4px 14px rgba(0, 0, 0, 0.08))
+          drop-shadow(0 1px 3px rgba(0, 0, 0, 0.04));
+}
+
+[data-sileo-pill],
+[data-sileo-body] {
+  fill: #ffffff !important;
+}
+
+[data-sileo-svg] {
+  max-width: 100%;
+}
+
+[data-sileo-title] {
+  color: #1a1410 !important;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+[data-sileo-description] {
+  color: #4b443c !important;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+[data-sileo-button]:not([data-state]) {
+  background-color: #f5f2eb !important;
+  color: #1a1410 !important;
+  border: 1px solid #e7e0d6;
+}
+
+[data-sileo-button]:not([data-state]):hover {
+  background-color: #ebe5db !important;
 }
 /* Dark mode intentionally mirrors light tokens — AttenRider is a light-only brand now */
 :root.dark {

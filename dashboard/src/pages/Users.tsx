@@ -25,7 +25,7 @@ import { useAuth } from '../hooks/useAuth';
 import { clearCachedAvatar } from '../lib/avatarCache';
 import { exportXLSXFile } from '../lib/exports/excelHelper';
 import { buildExportFilename } from '../lib/exports/exportUtils';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import {
   archiveEmployee,
   hasOpenAttendance,
@@ -247,7 +247,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
       }
     } catch (err) {
       console.error('Error loading users:', err);
-      toast.error('Failed to load users list');
+      appToast.error('Failed to load users list');
     } finally {
       setLoading(false);
     }
@@ -373,9 +373,9 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
     try {
       const redirectTo = recoveryRedirectUrl(window.location);
       await requestStaffPasswordReset({ id: target.id, email: target.email, name: target.name }, redirectTo);
-      toast.success(`Recovery email sent to ${target.email}`);
+      appToast.success(`Recovery email sent to ${target.email}`);
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Password recovery email could not be sent.');
+      appToast.error(error instanceof Error ? error.message : 'Password recovery email could not be sent.');
       throw error;
     }
   };
@@ -387,12 +387,12 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
       const verb = target.role === 'rider'
         ? suspended ? 'restricted' : 'restored to full access'
         : suspended ? 'suspended' : 'reactivated';
-      toast.success(`${target.name} was ${verb}.`);
+      appToast.success(`${target.name} was ${verb}.`);
     } catch (error: unknown) {
       const action = target.role === 'rider'
         ? suspended ? 'restrict' : 'restore full access to'
         : suspended ? 'suspend' : 'reactivate';
-      toast.error(error instanceof Error ? error.message : `Unable to ${action} this account.`);
+      appToast.error(error instanceof Error ? error.message : `Unable to ${action} this account.`);
       throw error;
     }
   };
@@ -440,7 +440,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
         remarks: input.remarks,
         requestId: lifecycleRequestId,
       });
-      toast.success(`${lifecycleTarget.name} was archived. Historical records were preserved.`);
+      appToast.success(`${lifecycleTarget.name} was archived. Historical records were preserved.`);
       setLifecycleTarget(null);
       await loadData();
     } catch (error: unknown) {
@@ -456,7 +456,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
     setLifecycleError(null);
     try {
       await restoreEmployment(lifecycleTarget.id, { reason, requestId: lifecycleRequestId });
-      toast.success(`${lifecycleTarget.name}'s employment was restored. Full account access must still be restored separately.`);
+      appToast.success(`${lifecycleTarget.name}'s employment was restored. Full account access must still be restored separately.`);
       setLifecycleTarget(null);
       await loadData();
     } catch (error: unknown) {

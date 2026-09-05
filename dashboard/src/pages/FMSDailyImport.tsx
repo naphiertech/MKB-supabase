@@ -22,7 +22,7 @@ import {
   Coins,
   XCircle,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import { useHub } from '../context/HubContext';
 import {
   parseFmsFleetOverviewXlsx,
@@ -237,13 +237,13 @@ export function FMSDailyImport() {
     setIsCancelling(true);
     try {
       await cancelFmsImportBatch(activeBatchId);
-      toast.success('Import batch cancelled.');
+      appToast.success('Import batch cancelled.');
       setIsCancelModalOpen(false);
       handleStartNewImport();
       await loadReferenceData();
     } catch (err: any) {
       console.error('Error cancelling batch:', err);
-      toast.error(err.message || 'Failed to cancel staged batch.');
+      appToast.error(err.message || 'Failed to cancel staged batch.');
     } finally {
       setIsCancelling(false);
     }
@@ -252,7 +252,7 @@ export function FMSDailyImport() {
   // Process File Buffer
   const processSelectedFile = async (file: File) => {
     if (!targetHubId) {
-      toast.error('Please select an operational Hub workspace first.');
+      appToast.error('Please select an operational Hub workspace first.');
       return;
     }
 
@@ -266,11 +266,11 @@ export function FMSDailyImport() {
       });
 
       setParseResult(result);
-      toast.success(`Parsed ${result.rowCount} driver rows.`);
+      appToast.success(`Parsed ${result.rowCount} driver rows.`);
       setCurrentStep(2); // Move to Validate step
     } catch (err: any) {
       console.error('Parsing error:', err);
-      toast.error(err.message || 'Failed to parse delivery file.');
+      appToast.error(err.message || 'Failed to parse delivery file.');
       setSelectedFile(null);
       setParseResult(null);
     } finally {
@@ -321,11 +321,9 @@ export function FMSDailyImport() {
       setUrlBatchId(res.batchId);
 
       if (res.isExisting) {
-        toast('This delivery file was previously staged. Loaded existing batch.', {
-          icon: 'ℹ️',
-        });
+        appToast.info('This delivery file was previously staged. Loaded existing batch.');
       } else {
-        toast.success('Batch staged successfully.');
+        appToast.success('Batch staged successfully.');
       }
 
       const batchDate = batch?.business_date || res.businessDate || businessDate;
@@ -341,7 +339,7 @@ export function FMSDailyImport() {
       }
     } catch (err: any) {
       console.error('Staging error:', err);
-      toast.error(err.message || 'Failed to stage delivery batch.');
+      appToast.error(err.message || 'Failed to stage delivery batch.');
     } finally {
       setIsParsing(false);
     }
@@ -371,7 +369,7 @@ export function FMSDailyImport() {
         setClassifications(initClass);
       } catch (err: any) {
         console.error('Error loading observations:', err);
-        toast.error('Failed to load staged observations.');
+        appToast.error('Failed to load staged observations.');
       } finally {
         setIsLoadingObs(false);
       }
@@ -387,7 +385,7 @@ export function FMSDailyImport() {
         if (!riderId) continue;
         const selectedRider = hubRiders.find((r) => r.id === riderId);
         if (selectedRider && effectiveHubId && selectedRider.hub_id && selectedRider.hub_id !== effectiveHubId) {
-          toast.error(`Rider ${selectedRider.name} belongs to another Hub and cannot be mapped in this Hub workspace.`);
+          appToast.error(`Rider ${selectedRider.name} belongs to another Hub and cannot be mapped in this Hub workspace.`);
           return;
         }
         const driverName =
@@ -404,11 +402,11 @@ export function FMSDailyImport() {
       if (activeBatchId) {
         await loadBatchObservations(activeBatchId);
       }
-      toast.success('Rider mappings saved.');
+      appToast.success('Rider mappings saved.');
       setCurrentStep(4); // Move to Classify step
     } catch (err: any) {
       console.error('Error saving mappings:', err);
-      toast.error('Failed to save rider mappings.');
+      appToast.error('Failed to save rider mappings.');
     }
   };
 
@@ -419,7 +417,7 @@ export function FMSDailyImport() {
       try {
         const batch = initialBatch || (await getFmsImportBatchById(batchId));
         if (!batch) {
-          toast.error('Batch not found or unavailable.');
+          appToast.error('Batch not found or unavailable.');
           setUrlBatchId(null);
           setActiveBatchId(null);
           setActiveBatch(null);
@@ -456,7 +454,7 @@ export function FMSDailyImport() {
         setCurrentStep(resumeStep);
       } catch (err: any) {
         console.error('Error opening batch:', err);
-        toast.error('Failed to open delivery batch.');
+        appToast.error('Failed to open delivery batch.');
         setUrlBatchId(null);
         setActiveBatchId(null);
         setActiveBatch(null);
@@ -504,21 +502,21 @@ export function FMSDailyImport() {
         isExistingRecord: Boolean(obs.existingParcelLog),
       });
 
-      toast.success(`Saved parcel record for ${obs.rider_name || obs.external_driver_name}`);
+      appToast.success(`Saved parcel record for ${obs.rider_name || obs.external_driver_name}`);
       if (activeBatchId) {
         await loadBatchObservations(activeBatchId);
       }
     } catch (err: any) {
       console.error('Confirmation error:', err);
       if (err.message?.includes('PARCEL_LOG_CONFLICT')) {
-        toast.error('Parcel record was modified since reviewed. Refreshing data...', { duration: 5000 });
+        appToast.error('Parcel record was modified since reviewed. Refreshing data...', { duration: 5000 });
         if (activeBatchId) await loadBatchObservations(activeBatchId);
       } else if (err.message?.includes('PAYROLL_PERIOD_LOCKED')) {
-        toast.error('Direct update is blocked: Cutoff period is already submitted/locked. Submit a correction request.', {
+        appToast.error('Direct update is blocked: Cutoff period is already submitted/locked. Submit a correction request.', {
           duration: 6000,
         });
       } else {
-        toast.error(err.message || 'Failed to confirm parcel record.');
+        appToast.error(err.message || 'Failed to confirm parcel record.');
       }
     } finally {
       setConfirmingIds((prev) => {
@@ -539,7 +537,7 @@ export function FMSDailyImport() {
     );
 
     if (eligible.length === 0) {
-      toast('No eligible unconfirmed records to process.');
+      appToast.show('No eligible unconfirmed records to process.');
       return;
     }
 
@@ -567,13 +565,11 @@ export function FMSDailyImport() {
 
     setIsBulkConfirming(false);
     if (successCount > 0 && failCount === 0) {
-      toast.success(`Confirmation complete: ${successCount} saved.`);
+      appToast.success(`Confirmation complete: ${successCount} saved.`);
     } else if (successCount > 0 && failCount > 0) {
-      toast(`Partial confirmation: ${successCount} saved, ${failCount} failed.`, {
-        icon: '⚠️',
-      });
+      appToast.warning(`Partial confirmation: ${successCount} saved, ${failCount} failed.`);
     } else {
-      toast.error(`Confirmation failed: 0 saved, ${failCount} failed.`);
+      appToast.error(`Confirmation failed: 0 saved, ${failCount} failed.`);
     }
 
     if (activeBatchId) {
@@ -1693,7 +1689,7 @@ export function FMSDailyImport() {
                 onClick={async () => {
                   if (activeBatchId) {
                     await loadBatchObservations(activeBatchId);
-                    toast.success('Refreshed attendance and comparison data.');
+                    appToast.success('Refreshed attendance and comparison data.');
                   }
                 }}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold bg-panel-bg border border-border text-foreground rounded-lg hover:bg-muted transition shadow-xs"
@@ -1924,7 +1920,7 @@ export function FMSDailyImport() {
                       onClick={async () => {
                         if (activeBatchId) {
                           await loadBatchObservations(activeBatchId);
-                          toast.success('Refreshed attendance records.');
+                          appToast.success('Refreshed attendance records.');
                         }
                       }}
                       className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-white border border-amber-300 text-amber-900 rounded-lg hover:bg-amber-100/60 transition shadow-xs cursor-pointer"

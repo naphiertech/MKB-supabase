@@ -78,7 +78,6 @@ vi.mock('./pages/RiderAttendance', () => ({ RiderAttendance: () => null }));
 vi.mock('./pages/RiderMonitoring', () => ({ RiderMonitoring: () => null }));
 vi.mock('./pages/RiderProfile', () => ({ RiderProfile: () => null }));
 vi.mock('./components/rider/RiderTopNav', () => ({ RiderTopNav: () => null }));
-vi.mock('react-hot-toast', () => ({ Toaster: () => null }));
 vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   motion: {
@@ -271,3 +270,4 @@ describe('application MFA security-gate lifecycle', () => {
     expect(container.textContent).toContain('Admin dashboard');
   });
 });
+

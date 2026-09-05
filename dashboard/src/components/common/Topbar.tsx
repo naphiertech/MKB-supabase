@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import type { PageKey } from './Sidebar';
 import { NotificationDropdown } from './NotificationDropdown';
 import type { Notification } from '../../hooks/useNotifications';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../../hooks/useToast';
 import { getSearchIndexData } from '../../services/users/userService';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { HubSelector } from './HubSelector';
@@ -227,7 +227,7 @@ export function Topbar({
       setHasLoadedData(true);
     } catch (err) {
       console.error('Failed to load search index:', err);
-      toast.error('Failed to initialize search database');
+      appToast.error('Failed to initialize search database');
     }
   }, [hasLoadedData]);
 

@@ -23,7 +23,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { appToast } from '../hooks/useToast';
 import { StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
 import { RightDrawer } from '../components/common/RightDrawer';
 import { HubLocationPickerMap } from '../components/hubs/HubLocationPickerMap';
@@ -106,7 +106,7 @@ export function HubManagement() {
           : next.hubs[0]?.id ?? null
       ));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to load hubs.');
+      appToast.error(error instanceof Error ? error.message : 'Unable to load hubs.');
     } finally {
       hasLoadedRef.current = true;
       setLoading(false);
@@ -260,7 +260,7 @@ export function HubManagement() {
         await updateHub(editing.id, payload);
       } else {
         if (!isCompleteGeofence || latitude == null || longitude == null || attendanceRadiusM == null) {
-          toast.error('Please position the physical Hub pin and enter an attendance radius.');
+          appToast.error('Please position the physical Hub pin and enter an attendance radius.');
           return;
         }
         await createHub({
@@ -271,11 +271,11 @@ export function HubManagement() {
           attendanceRadiusM,
         });
       }
-      toast.success(editing ? 'Hub updated.' : 'Hub created.');
+      appToast.success(editing ? 'Hub updated.' : 'Hub created.');
       setShowForm(false);
       await Promise.all([load(), refreshHubs()]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to save hub.');
+      appToast.error(error instanceof Error ? error.message : 'Unable to save hub.');
     } finally {
       setSaving(false);
     }
@@ -284,10 +284,10 @@ export function HubManagement() {
   async function toggleActive(hub: HubManagementHub) {
     try {
       await updateHub(hub.id, { active: !hub.active });
-      toast.success(hub.active ? 'Hub deactivated.' : 'Hub activated.');
+      appToast.success(hub.active ? 'Hub deactivated.' : 'Hub activated.');
       await Promise.all([load(), refreshHubs()]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to change hub status.');
+      appToast.error(error instanceof Error ? error.message : 'Unable to change hub status.');
     }
   }
 
@@ -295,10 +295,10 @@ export function HubManagement() {
     setAssigningZoneId(zoneId);
     try {
       await assignZoneToHub(zoneId, hubId);
-      toast.success('Zone assignment updated.');
+      appToast.success('Zone assignment updated.');
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to assign zone.');
+      appToast.error(error instanceof Error ? error.message : 'Unable to assign zone.');
     } finally {
       setAssigningZoneId(null);
     }

@@ -8,11 +8,18 @@ import * as hubService from '../services/hubs/hubService';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-vi.mock('react-hot-toast', () => ({
-  toast: {
+vi.mock('../hooks/useToast', () => ({
+  appToast: {
     success: vi.fn(),
     error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+    show: vi.fn(),
+    dismiss: vi.fn(),
+    clear: vi.fn(),
   },
+  pushToast: vi.fn(),
+  dismissToast: vi.fn(),
 }));
 
 vi.mock('../context/HubContext', () => ({
