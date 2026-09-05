@@ -137,6 +137,34 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
     case 'rider_assignments':
       return <RiderAssignmentsSkeleton />;
 
+    case 'rider_scheduling':
+      return (
+        <SkeletonPage className="space-y-5" label="Loading Rider Scheduling">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => <SkeletonStatCard key={index} compact />)}
+          </div>
+          <div className="space-y-4 rounded-xl border border-border bg-white p-5 shadow-sm">
+            <div className="space-y-2"><SkeletonBlock className="h-4 w-40" /><SkeletonBlock className="h-3 w-72 max-w-full" /></div>
+            <SkeletonBlock className="h-12 w-full rounded-lg" />
+            <SkeletonBlock className="h-[360px] w-full rounded-xl" />
+          </div>
+        </SkeletonPage>
+      );
+
+    case 'leave_absence':
+      return (
+        <SkeletonPage className="space-y-5" label="Loading Leave & Absence">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => <SkeletonStatCard key={index} compact />)}
+          </div>
+          <div className="space-y-4 rounded-xl border border-border bg-white p-5 shadow-sm">
+            <div className="space-y-2"><SkeletonBlock className="h-4 w-44" /><SkeletonBlock className="h-3 w-80 max-w-full" /></div>
+            <SkeletonBlock className="h-11 w-full rounded-lg" />
+            <SkeletonBlock className="h-[320px] w-full rounded-xl" />
+          </div>
+        </SkeletonPage>
+      );
+
     case 'reports':
       return role === 'payroll' ? <PayrollReportsSkeleton /> : <ReportsSkeleton />;
 

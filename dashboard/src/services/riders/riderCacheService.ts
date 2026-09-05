@@ -6,6 +6,8 @@ import { getRouteForRider, computeRouteStats, type RoutePoint, type RouteStats }
 import { type RiderStatus, type Zone } from '../types';
 import { clearCachedAvatar } from '../../lib/avatarCache';
 import { clearCachedDescriptor } from '../../lib/descriptorCache';
+import { clearRiderScheduleCache } from '../workforce/riderScheduleService';
+import { clearRiderAbsenceRequestCache } from '../workforce/riderAbsenceRequestService';
 
 export interface DBUserProfileRow {
   id: string;
@@ -252,6 +254,8 @@ export async function clearRiderSensitiveCache(userId: string, riderId?: string)
     storage.removeItem(`${DASHBOARD_CACHE_PREFIX}${userId}`),
     storage.removeItem(`${MONITORING_CACHE_PREFIX}${userId}`),
     storage.removeItem(`${PROFILE_CACHE_PREFIX}${userId}`),
+    clearRiderScheduleCache(userId, riderId),
+    clearRiderAbsenceRequestCache(userId, riderId),
   ]);
   if (typeof localStorage !== 'undefined') localStorage.removeItem(`custom_avatar_${userId}`);
   if (riderId) {

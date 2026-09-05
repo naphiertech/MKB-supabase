@@ -58,6 +58,7 @@ describe('rider cache identity', () => {
     await storage.setItem('rider_dashboard_cache_auth-user-1', { secret: true });
     await storage.setItem('rider_monitoring_cache_auth-user-1', { secret: true });
     await storage.setItem('rider_profile_cache_auth-user-1', { secret: true });
+    await storage.setItem('rider_absence_request_cache_v1:auth-user-1:rider-1:2026-09-01:2026-09-30', { secret: true });
     await storage.setItem('unrelated', { keep: true });
     await storage.enqueue({
       action: 'LOCATION_PING',
@@ -73,6 +74,7 @@ describe('rider cache identity', () => {
     expect(await storage.getItem('rider_dashboard_cache_auth-user-1')).toBeNull();
     expect(await storage.getItem('rider_monitoring_cache_auth-user-1')).toBeNull();
     expect(await storage.getItem('rider_profile_cache_auth-user-1')).toBeNull();
+    expect(await storage.getItem('rider_absence_request_cache_v1:auth-user-1:rider-1:2026-09-01:2026-09-30')).toBeNull();
     expect(await storage.getItem('unrelated')).toEqual({ keep: true });
     expect(await storage.getQueue()).toHaveLength(1);
   });

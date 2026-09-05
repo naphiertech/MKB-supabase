@@ -18,8 +18,11 @@ function findLink(items: typeof ADMIN_ITEMS, key: string) {
 describe('Rider Assignments navigation', () => {
   it('is available to Admin and HR but not Payroll', () => {
     expect(pageKeys(ADMIN_ITEMS)).toContain('rider_assignments');
+    expect(pageKeys(ADMIN_ITEMS)).toContain('rider_scheduling');
     expect(pageKeys(HR_ITEMS)).toContain('rider_assignments');
+    expect(pageKeys(HR_ITEMS)).toContain('rider_scheduling');
     expect(pageKeys(PAYROLL_ITEMS)).not.toContain('rider_assignments');
+    expect(pageKeys(PAYROLL_ITEMS)).not.toContain('rider_scheduling');
   });
 });
 
@@ -29,6 +32,8 @@ describe('Business configuration navigation', () => {
       'Attendance logs',
       'Users Registry',
       'Rider Assignments',
+      'Rider Scheduling',
+      'Leave & Absence',
       'Attendance Policy',
       'Audit Logs',
     ]);
@@ -51,6 +56,8 @@ describe('Business configuration navigation', () => {
       'Attendance logs',
       'Users Registry',
       'Rider Assignments',
+      'Rider Scheduling',
+      'Leave & Absence',
       'Attendance Policy',
       'Audit Logs',
     ]);

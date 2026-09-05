@@ -16,6 +16,8 @@ import {
   Building2,
   Route,
   Clock3,
+//  CalendarDays,
+  FileWarning,
   Coins,
   BadgeDollarSign,
   Upload
@@ -41,6 +43,8 @@ export type PageKey =
   | 'payroll_history'
   | 'hubs'
   | 'rider_assignments'
+  | 'rider_scheduling'
+  | 'leave_absence'
   | 'attendance_policy'
   | 'parcel_rates'
   | 'payroll_adjustments';
@@ -96,6 +100,8 @@ export const ADMIN_ITEMS: SidebarItem[] = [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
       { key: 'users', label: 'Users Registry', icon: UsersIcon },
       { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
+     // { key: 'rider_scheduling', label: 'Rider Scheduling', icon: CalendarDays },
+      { key: 'leave_absence', label: 'Leave & Absence', icon: FileWarning },
       { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]
@@ -153,6 +159,8 @@ export const HR_ITEMS: SidebarItem[] = [
       { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
       { key: 'users', label: 'Users Registry', icon: UsersIcon },
       { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
+    //  { key: 'rider_scheduling', label: 'Rider Scheduling', icon: CalendarDays },
+      { key: 'leave_absence', label: 'Leave & Absence', icon: FileWarning },
       { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
       { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
     ]

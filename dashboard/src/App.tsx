@@ -9,6 +9,8 @@ import { RiderDashboard } from './pages/RiderDashboard';
 import { RiderAttendance } from './pages/RiderAttendance';
 import { RiderMonitoring } from './pages/RiderMonitoring';
 import { RiderProfile } from './pages/RiderProfile';
+import { RiderSchedule } from './pages/RiderSchedule';
+import { RiderLeaveAbsence } from './pages/RiderLeaveAbsence';
 import { RiderTopNav, type RiderPageKey } from './components/rider/RiderTopNav';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabaseClient';
@@ -45,6 +47,8 @@ const PayrollHistory = lazy(() => import('./pages/PayrollHistory').then((module)
 const Settings = lazy(() => import('./pages/Settings').then((module) => ({ default: module.Settings })));
 const HubManagement = lazy(() => import('./pages/HubManagement').then((module) => ({ default: module.HubManagement })));
 const RiderAssignments = lazy(() => import('./pages/RiderAssignments').then((module) => ({ default: module.RiderAssignments })));
+const RiderScheduling = lazy(() => import('./pages/RiderScheduling').then((module) => ({ default: module.RiderScheduling })));
+const LeaveAbsence = lazy(() => import('./pages/LeaveAbsence').then((module) => ({ default: module.LeaveAbsence })));
 const AttendancePolicy = lazy(() => import('./pages/AttendancePolicy').then((module) => ({ default: module.AttendancePolicy })));
 const ParcelRates = lazy(() => import('./pages/ParcelRates').then((module) => ({ default: module.ParcelRates })));
 const PayrollAdjustments = lazy(() => import('./pages/PayrollAdjustments').then((module) => ({ default: module.PayrollAdjustments })));
@@ -437,6 +441,12 @@ export function App() {
                     restricted={user.status === 'suspended'}
                     onBack={() => setRiderPage('dashboard')} />
                 }
+                {riderPage === 'schedule' &&
+                  <RiderSchedule userId={user.id} riderId={riderId} />
+                }
+                {riderPage === 'leave_absence' &&
+                  <RiderLeaveAbsence userId={user.id} riderId={riderId} />
+                }
                 {riderPage === 'profile' &&
                   <RiderProfile
                     userId={user.id}
@@ -470,6 +480,8 @@ export function App() {
         'reports',
         'users',
         'rider_assignments',
+        'rider_scheduling',
+        'leave_absence',
         'reviews',
         'payroll',
         'payroll_history',
@@ -492,6 +504,8 @@ export function App() {
         'reviews',
         'users',
         'rider_assignments',
+        'rider_scheduling',
+        'leave_absence',
         'payroll',
         'payroll_history',
         'payroll_adjustments',
@@ -585,6 +599,8 @@ export function App() {
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} onManageAssignment={handleManageAssignment} />}
                     {safePage === 'rider_assignments' && <RiderAssignments />}
+                    {safePage === 'rider_scheduling' && <RiderScheduling />}
+                    {safePage === 'leave_absence' && <LeaveAbsence />}
                     {safePage === 'reviews' && <ReviewsModeration />}
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
@@ -605,6 +621,8 @@ export function App() {
                     {safePage === 'reviews' && <ReviewsModeration />}
                     {safePage === 'users' && <Users onlineUserIds={onlineUserIds} onManageAssignment={handleManageAssignment} />}
                     {safePage === 'rider_assignments' && <RiderAssignments />}
+                    {safePage === 'rider_scheduling' && <RiderScheduling />}
+                    {safePage === 'leave_absence' && <LeaveAbsence />}
                     {safePage === 'payroll' && <ErrorBoundary><PayrollDashboard role={dashRole} onNavigate={handleNavigate} /></ErrorBoundary>}
                     {safePage === 'payroll_history' && <PayrollHistory role={dashRole} onNavigate={handleNavigate} />}
                     {safePage === 'audit_logs' && <AuditLogs />}

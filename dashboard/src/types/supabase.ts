@@ -2106,6 +2106,385 @@ export type Database = {
           },
         ]
       }
+      rider_absence_request_audit_events: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          hub_id: string
+          id: string
+          new_values: Json
+          old_values: Json | null
+          reason: string
+          request_id: string
+          revision: number
+          rider_id: string
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string
+          hub_id: string
+          id?: string
+          new_values: Json
+          old_values?: Json | null
+          reason: string
+          request_id: string
+          revision: number
+          rider_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          hub_id?: string
+          id?: string
+          new_values?: Json
+          old_values?: Json | null
+          reason?: string
+          request_id?: string
+          revision?: number
+          rider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rider_absence_request_audit_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_request_audit_events_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_request_audit_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "rider_absence_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_request_audit_events_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rider_absence_requests: {
+        Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          end_date: string
+          hub_id: string
+          id: string
+          reason: string
+          request_key: string
+          request_kind: Database["public"]["Enums"]["rider_absence_request_kind"]
+          review_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision: number
+          rider_id: string
+          start_date: string
+          status: Database["public"]["Enums"]["rider_absence_request_status"]
+          submitted_at: string
+          submitted_by: string
+          updated_at: string
+          updated_by: string
+          withdrawal_reason: string | null
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          end_date: string
+          hub_id: string
+          id?: string
+          reason: string
+          request_key?: string
+          request_kind: Database["public"]["Enums"]["rider_absence_request_kind"]
+          review_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision?: number
+          rider_id: string
+          start_date: string
+          status?: Database["public"]["Enums"]["rider_absence_request_status"]
+          submitted_at?: string
+          submitted_by: string
+          updated_at?: string
+          updated_by: string
+          withdrawal_reason?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          end_date?: string
+          hub_id?: string
+          id?: string
+          reason?: string
+          request_key?: string
+          request_kind?: Database["public"]["Enums"]["rider_absence_request_kind"]
+          review_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision?: number
+          rider_id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["rider_absence_request_status"]
+          submitted_at?: string
+          submitted_by?: string
+          updated_at?: string
+          updated_by?: string
+          withdrawal_reason?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rider_absence_requests_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_requests_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_requests_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_requests_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_requests_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_absence_requests_withdrawn_by_fkey"
+            columns: ["withdrawn_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rider_schedule_audit_events: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string
+          hub_id: string
+          id: string
+          new_values: Json
+          old_values: Json | null
+          reason: string
+          revision: number
+          rider_id: string
+          schedule_id: string
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string
+          hub_id: string
+          id?: string
+          new_values: Json
+          old_values?: Json | null
+          reason: string
+          revision: number
+          rider_id: string
+          schedule_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string
+          hub_id?: string
+          id?: string
+          new_values?: Json
+          old_values?: Json | null
+          reason?: string
+          revision?: number
+          rider_id?: string
+          schedule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rider_schedule_audit_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_schedule_audit_events_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_schedule_audit_events_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_schedule_audit_events_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "rider_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rider_schedules: {
+        Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          created_by: string
+          day_kind: Database["public"]["Enums"]["rider_schedule_day_kind"]
+          ends_at: string | null
+          hub_id: string
+          id: string
+          published_at: string | null
+          published_by: string | null
+          revision: number
+          rider_id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["rider_schedule_status"]
+          updated_at: string
+          updated_by: string
+          work_date: string
+        }
+        Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by: string
+          day_kind: Database["public"]["Enums"]["rider_schedule_day_kind"]
+          ends_at?: string | null
+          hub_id: string
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          revision?: number
+          rider_id: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["rider_schedule_status"]
+          updated_at?: string
+          updated_by: string
+          work_date: string
+        }
+        Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by?: string
+          day_kind?: Database["public"]["Enums"]["rider_schedule_day_kind"]
+          ends_at?: string | null
+          hub_id?: string
+          id?: string
+          published_at?: string | null
+          published_by?: string | null
+          revision?: number
+          rider_id?: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["rider_schedule_status"]
+          updated_at?: string
+          updated_by?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rider_schedules_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_schedules_hub_id_fkey"
+            columns: ["hub_id"]
+            isOneToOne: false
+            referencedRelation: "hubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_schedules_published_by_fkey"
+            columns: ["published_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_schedules_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "riders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rider_schedules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       riders: {
         Row: {
           avatar_url: string | null
@@ -3045,6 +3424,30 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_approved_rider_absence_request: {
+        Args: { p_expected_revision: number; p_reason: string; p_request_id: string }
+        Returns: string
+      }
+      cancel_rider_schedule: {
+        Args: { p_expected_revision: number; p_reason: string; p_schedule_id: string }
+        Returns: string
+      }
+      create_rider_schedule: {
+        Args: {
+          p_day_kind: Database["public"]["Enums"]["rider_schedule_day_kind"]
+          p_ends_at: string | null
+          p_hub_id: string
+          p_reason: string
+          p_rider_id: string
+          p_starts_at: string | null
+          p_work_date: string
+        }
+        Returns: string
+      }
+      get_rider_absence_request_detail: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       _postgis_deprecate: {
         Args: { newname: string; oldname: string; version: string }
         Returns: undefined
@@ -3436,6 +3839,96 @@ export type Database = {
           zone_name: string
         }[]
       }
+      list_rider_absence_requests: {
+        Args: {
+          p_from_date: string
+          p_hub_id?: string | null
+          p_request_kind?: Database["public"]["Enums"]["rider_absence_request_kind"] | null
+          p_rider_id?: string | null
+          p_status?: Database["public"]["Enums"]["rider_absence_request_status"] | null
+          p_to_date: string
+        }
+        Returns: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          end_date: string
+          hub_id: string
+          hub_name: string
+          id: string
+          reason: string
+          request_kind: Database["public"]["Enums"]["rider_absence_request_kind"]
+          review_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision: number
+          rider_id: string
+          rider_mkb_id: string
+          rider_name: string
+          start_date: string
+          status: Database["public"]["Enums"]["rider_absence_request_status"]
+          submitted_at: string
+          submitted_by: string
+          submitted_by_name: string | null
+          updated_at: string
+          updated_by: string
+          withdrawal_reason: string | null
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          reviewer_name: string | null
+        }[]
+      }
+      list_rider_schedules: {
+        Args: {
+          p_from_date: string
+          p_hub_id?: string | null
+          p_rider_id?: string | null
+          p_to_date: string
+        }
+        Returns: {
+          cancelled_at: string | null
+          cancellation_reason: string | null
+          created_at: string
+          day_kind: Database["public"]["Enums"]["rider_schedule_day_kind"]
+          ends_at: string | null
+          hub_id: string
+          hub_name: string
+          id: string
+          published_at: string | null
+          revision: number
+          rider_id: string
+          rider_mkb_id: string
+          rider_name: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["rider_schedule_status"]
+          updated_at: string
+          work_date: string
+        }[]
+      }
+      review_rider_absence_request: {
+        Args: {
+          p_decision: string
+          p_expected_revision: number
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: string
+      }
+      submit_rider_absence_request: {
+        Args: {
+          p_end_date: string
+          p_reason: string
+          p_request_key: string
+          p_request_kind: Database["public"]["Enums"]["rider_absence_request_kind"]
+          p_start_date: string
+        }
+        Returns: string
+      }
+      withdraw_rider_absence_request: {
+        Args: { p_expected_revision: number; p_reason: string; p_request_id: string }
+        Returns: string
+      }
       gettransactionid: { Args: never; Returns: unknown }
       is_point_in_polygon: {
         Args: { p_lat: number; p_lng: number; polygon_coords: Json }
@@ -3551,6 +4044,10 @@ export type Database = {
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
       refresh_rider_assignment_statuses: { Args: never; Returns: number }
+      publish_rider_schedule: {
+        Args: { p_expected_revision: number; p_reason: string; p_schedule_id: string }
+        Returns: string
+      }
       refresh_stale_rider_statuses: {
         Args: { stale_after?: string }
         Returns: number
@@ -3569,6 +4066,18 @@ export type Database = {
           p_change_reason: string
           p_effective_from: string
           p_late_threshold: string
+        }
+        Returns: string
+      }
+      update_rider_schedule: {
+        Args: {
+          p_day_kind: Database["public"]["Enums"]["rider_schedule_day_kind"]
+          p_ends_at: string | null
+          p_expected_revision: number
+          p_hub_id: string
+          p_reason: string
+          p_schedule_id: string
+          p_starts_at: string | null
         }
         Returns: string
       }
@@ -4271,6 +4780,8 @@ export type Database = {
       attendance_status: "present" | "late" | "absent" | "on_leave"
       device_status: "trusted" | "revoked"
       employment_status: "active" | "archived"
+      rider_absence_request_kind: "planned_leave" | "absence_notice"
+      rider_absence_request_status: "pending" | "approved" | "rejected" | "withdrawn" | "cancelled"
       notification_category:
         | "attendance"
         | "payroll"
@@ -4291,6 +4802,8 @@ export type Database = {
         | "rejected"
         | "draft"
       rider_status: "active" | "idle" | "violation" | "offline"
+      rider_schedule_day_kind: "work" | "day_off"
+      rider_schedule_status: "draft" | "published" | "cancelled"
       shift_type: "Morning" | "Afternoon" | "Evening"
       support_ticket_category:
         | "account_login"
@@ -4444,6 +4957,8 @@ export const Constants = {
       attendance_status: ["present", "late", "absent", "on_leave"],
       device_status: ["trusted", "revoked"],
       employment_status: ["active", "archived"],
+      rider_absence_request_kind: ["planned_leave", "absence_notice"],
+      rider_absence_request_status: ["pending", "approved", "rejected", "withdrawn", "cancelled"],
       notification_category: [
         "attendance",
         "payroll",

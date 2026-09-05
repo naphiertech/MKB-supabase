@@ -5,6 +5,8 @@ import {
   X,
   LayoutDashboard,
   Clock4,
+  CalendarDays,
+  FileWarning,
   MapPin,
   User,
   LogOut
@@ -39,6 +41,16 @@ const ITEMS: {
     key: 'attendance',
     label: 'Time-In/Out',
     icon: Clock4
+  },
+  {
+    key: 'schedule',
+    label: 'My Schedule',
+    icon: CalendarDays
+  },
+  {
+    key: 'leave_absence',
+    label: 'Leave & Absence',
+    icon: FileWarning
   },
   {
     key: 'monitoring',

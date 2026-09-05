@@ -4,6 +4,8 @@ import {
   Activity,
   LayoutDashboard,
   Clock4,
+  CalendarDays,
+  FileWarning,
   MapPin,
   User,
   LogOut,
@@ -19,7 +21,7 @@ import type { Notification } from '../../hooks/useNotifications';
 import { useSyncQueueStatus } from '../../hooks/useSyncQueueStatus';
 import { SyncQueueDiagnosticsModal } from './SyncQueueDiagnosticsModal';
 import { RiderMobileDrawer } from './RiderMobileDrawer';
-export type RiderPageKey = 'dashboard' | 'attendance' | 'monitoring' | 'profile';
+export type RiderPageKey = 'dashboard' | 'attendance' | 'schedule' | 'leave_absence' | 'monitoring' | 'profile';
 interface RiderTopNavProps {
   current: RiderPageKey;
   onNavigate: (page: RiderPageKey) => void;
@@ -51,6 +53,18 @@ const ITEMS: {
   label: 'Time-In/Out',
   icon: Clock4,
   route: '/rider/attendance'
+},
+{
+  key: 'schedule',
+  label: 'My Schedule',
+  icon: CalendarDays,
+  route: '/rider/schedule'
+},
+{
+  key: 'leave_absence',
+  label: 'Leave & Absence',
+  icon: FileWarning,
+  route: '/rider/leave_absence'
 },
 {
   key: 'monitoring',
@@ -182,7 +196,7 @@ export function RiderTopNav({
             onClose={() => setNotifOpen(false)}
             onNavigate={(path) => {
               const key = path.replace('/rider/', '').replace('/', '') as RiderPageKey;
-              if (onNavigate && (key === 'dashboard' || key === 'attendance' || key === 'monitoring' || key === 'profile')) {
+              if (onNavigate && (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'profile')) {
                 onNavigate(key);
               }
             }}
