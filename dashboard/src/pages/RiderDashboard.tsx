@@ -41,6 +41,7 @@ import {
 } from './rider-dashboard/riderDashboardModel';
 import { useRiderDashboardData } from './rider-dashboard/useRiderDashboardData';
 import { useRiderShiftController } from './rider-dashboard/useRiderShiftController';
+import { getAttendanceContextLabel, type AttendanceContextCode } from '../services/attendance/attendanceContextService';
 
 interface RiderDashboardProps {
   userId: string;
@@ -632,6 +633,8 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
                 const isPresent = log.status === 'present';
                 const isAbsent = log.status === 'absent';
                 const isLeave = log.status === 'on_leave';
+                const isDayOff = log.status === 'day_off';
+                const isPending = log.status === 'not_finalized';
                 
                 let badgeClass = 'bg-gray-50 text-gray-700 border-gray-200';
                 let badgeText = log.status;
@@ -647,6 +650,12 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
                 } else if (isLeave) {
                   badgeClass = 'bg-blue-50 text-blue-700 border-blue-200/50';
                   badgeText = 'On Leave';
+                } else if (isDayOff) {
+                  badgeClass = 'bg-slate-50 text-slate-700 border-slate-200/50';
+                  badgeText = 'Day Off';
+                } else if (isPending) {
+                  badgeClass = 'bg-slate-50 text-slate-600 border-slate-200/50';
+                  badgeText = 'Pending Finalization';
                 }
 
                 const d = new Date(log.date);
@@ -660,10 +669,17 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
                         {log.time_in ? format12h(toHHMM(log.time_in) || '00:00') : '—'} – {log.time_out ? format12h(toHHMM(log.time_out) || '00:00') : '—'}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider ${badgeClass}`}>
-                        {badgeText}
-                      </span>
+                    <div className="flex items-center gap-3 flex-wrap justify-end">
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`px-2 py-0.5 rounded-md border text-xs font-medium uppercase tracking-wider ${badgeClass}`}>
+                          {badgeText}
+                        </span>
+                        {log.contextCode && (
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {getAttendanceContextLabel(log.contextCode as AttendanceContextCode)}
+                          </span>
+                        )}
+                      </div>
                       <span className="font-semibold font-mono text-sm text-foreground">
                         {log.hours ? `${log.hours.toFixed(1)} hrs` : '—'}
                       </span>

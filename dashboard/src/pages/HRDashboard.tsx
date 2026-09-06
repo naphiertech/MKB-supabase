@@ -3,15 +3,16 @@ import { BadgeCheck, ClipboardCheck, UserX, AlertCircle } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
 import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
 import { getZones } from '../services/geofencing/geofenceService';
-import { getAttendanceLogs, getHrTodayKpis, deriveHrStatus, getLocalDateString } from '../services/attendance/attendanceService';
-import type { Zone, AttendanceLog } from '../services/types';
+import { getLocalDateString } from '../services/attendance/attendanceService';
+import { getPresentationCompletionState, getPresentationStatus, listAttendanceContext, type AttendancePresentationLog } from '../services/attendance/attendanceContextService';
+import type { Zone } from '../services/types';
 import { QuickReportShortcuts, type QuickReportKey } from '../components/hr/QuickReportShortcuts';
 import { HRAttendanceOverview } from '../components/hr/HRAttendanceOverview';
 import { RiderStatusGrid } from '../components/hr/RiderStatusGrid';
 import { HRViolationSummary } from '../components/hr/HRViolationSummary';
 import { HRDetailsPanel } from '../components/hr/HRDetailsPanels';
 import { NeedsAttention } from '../components/hr/NeedsAttention';
-import { useAttendanceRealtimeVersion } from '../context/attendanceRealtimeContext';
+import { useAttendanceContextVersion } from '../hooks/useAttendanceContextVersion';
 
 interface HRDashboardProps {
   onNavigate: (page: 'monitoring' | 'attendance' | 'reports', params?: Record<string, string>) => void;
@@ -26,9 +27,10 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
     pending: 0
   });
   const [zonesList, setZonesList] = useState<Zone[]>([]);
-  const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
+  const [attendanceList, setAttendanceList] = useState<AttendancePresentationLog[]>([]);
   const [activeSummaryPanel, setActiveSummaryPanel] = useState<'on_duty' | 'complete' | 'absent' | 'pending' | null>(null);
-  const attendanceRealtimeVersion = useAttendanceRealtimeVersion();
+  const attendanceRealtimeVersion = useAttendanceContextVersion();
+  const today = getLocalDateString();
 
   useEffect(() => {
     getZones().then(setZonesList);
@@ -36,15 +38,21 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([getHrTodayKpis(), getAttendanceLogs()]).then(([nextKpis, logs]) => {
+    const fromDate = new Date(`${today}T00:00:00.000Z`);
+    fromDate.setUTCDate(fromDate.getUTCDate() - 7);
+    void listAttendanceContext({ fromDate: fromDate.toISOString().slice(0, 10), toDate: today }).then((logs) => {
       if (!active) return;
-      setKpis(nextKpis);
+      const todayLogs = logs.filter(log => log.date === today);
+      setKpis({
+        onDuty: todayLogs.filter(log => getPresentationStatus(log) === 'present' || getPresentationStatus(log) === 'late').length,
+        complete: todayLogs.filter(log => getPresentationCompletionState(log) === 'complete').length,
+        absent: todayLogs.filter(log => getPresentationStatus(log) === 'absent').length,
+        pending: todayLogs.filter(log => log.source === 'manual' || (Boolean(log.timeIn) && !log.timeOut)).length,
+      });
       setAttendanceList(logs);
     });
     return () => { active = false; };
-  }, [attendanceRealtimeVersion]);
-
-  const today = getLocalDateString();
+  }, [attendanceRealtimeVersion, today]);
   const yesterday = useMemo(() => {
     const d = new Date(`${today}T00:00:00`);
     d.setDate(d.getDate() - 1);
@@ -88,7 +96,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
     };
   }, [kpis.absent, yesterdayLogs]);
 
-  const lateCount = useMemo(() => todayLogs.filter((l) => deriveHrStatus(l) === 'Late').length, [todayLogs]);
+  const lateCount = useMemo(() => todayLogs.filter((l) => getPresentationStatus(l) === 'late').length, [todayLogs]);
 
   function handleQuickReport(key: QuickReportKey) {
     onNavigate('reports', { preset: key });

@@ -1,24 +1,37 @@
 import { useMemo, useState } from 'react';
 import { ClipboardCheck, Download, ScanFace, UserCheck, X } from 'lucide-react';
-import type { AttendanceLog, Zone } from '../../services/types';
+import type { Zone } from '../../services/types';
 import {
-  deriveHrStatus,
-  exportLogsCsv,
-  type HrLogStatus
-} from '../../services/attendance/attendanceService';
+  getAttendanceContextLabel,
+  getPresentationStatus,
+  type AttendancePresentationLog,
+} from '../../services/attendance/attendanceContextService';
+import { exportLogsCsv, getLocalDateString, type HrLogStatus } from '../../services/attendance/attendanceService';
 import { pushToast } from '../../hooks/useToast';
 import { StatusBadge } from '../common/DashboardPrimitives';
 
 interface HRAttendanceOverviewProps {
-  logs: AttendanceLog[];
+  logs: AttendancePresentationLog[];
   zones: Zone[];
 }
 
 type Range = 'today' | 'week' | 'all';
-type StatusFilter = 'all' | HrLogStatus;
+type OverviewStatus = HrLogStatus | 'On Leave' | 'Day Off' | 'Pending';
+type StatusFilter = 'all' | OverviewStatus;
 
-function HrStatusPill({ status }: { status: HrLogStatus }) {
-  const tone = status === 'Complete' ? 'success' : status === 'Absent' ? 'danger' : 'warning';
+function resolveOverviewStatus(log: AttendancePresentationLog): OverviewStatus {
+  const status = getPresentationStatus(log);
+  if (status === 'day_off') return 'Day Off';
+  if (status === 'not_finalized') return 'Pending';
+  if (!log.timeIn && status === 'on_leave') return 'On Leave';
+  if (log.timeIn && log.timeOut) return 'Complete';
+  if (status === 'late') return 'Late';
+  if (log.timeIn) return 'Incomplete';
+  return 'Absent';
+}
+
+function HrStatusPill({ status }: { status: OverviewStatus }) {
+  const tone = status === 'Complete' ? 'success' : status === 'Absent' ? 'danger' : status === 'On Leave' ? 'info' : status === 'Day Off' ? 'neutral' : 'warning';
   return (
     <StatusBadge tone={tone} dot>
       {status}
@@ -26,7 +39,8 @@ function HrStatusPill({ status }: { status: HrLogStatus }) {
   );
 }
 
-function VerificationBadge({ source, lat }: { source: 'face-scan' | 'manual' | 'system'; lat?: number }) {
+function VerificationBadge({ source, lat, hasClock }: { source: 'face-scan' | 'manual' | 'system' | null; lat?: number | null; hasClock: boolean }) {
+  if (!hasClock) return <StatusBadge tone="neutral">Not applicable</StatusBadge>;
   if (source === 'system') {
     return (
       <StatusBadge tone="neutral">Auto-Cutoff</StatusBadge>
@@ -50,14 +64,14 @@ function VerificationBadge({ source, lat }: { source: 'face-scan' | 'manual' | '
 function daysAgo(n: number) {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return getLocalDateString(d);
 }
 
 export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps) {
   const [range, setRange] = useState<Range>('today');
   const [zoneId, setZoneId] = useState<string>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
-  const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AttendancePresentationLog | null>(null);
 
   const filtered = useMemo(() => {
     const today = daysAgo(0);
@@ -67,7 +81,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
         if (range === 'today' && l.date !== today) return false;
         if (range === 'week' && (l.date < weekAgo || l.date > today)) return false;
         if (zoneId !== 'all' && l.zoneId !== zoneId) return false;
-        const s = deriveHrStatus(l);
+        const s = resolveOverviewStatus(l);
         if (status !== 'all' && s !== status) return false;
         return true;
       })
@@ -148,6 +162,9 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
           <option value="Missing Time Out">Missing Time Out</option>
           <option value="Late">Late</option>
           <option value="Absent">Absent</option>
+          <option value="On Leave">On Leave</option>
+          <option value="Day Off">Day Off</option>
+          <option value="Pending">Pending Finalization</option>
         </select>
 
         <div className="flex-1" />
@@ -172,10 +189,10 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
           </thead>
           <tbody>
             {filtered.slice(0, 30).map((l, idx) => {
-              const s = deriveHrStatus(l);
+              const s = resolveOverviewStatus(l);
               return (
                 <tr
-                  key={l.id}
+                  key={l.id || `${l.riderId}-${l.date}`}
                   onClick={() => setSelectedLog(l)}
                   className={`border-b border-border/70 last:border-0 hover:bg-accent/40 transition cursor-pointer ${
                     idx % 2 === 1 ? 'bg-panel-bg/40' : ''
@@ -200,7 +217,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
                     </span>
                   </td>
                   <td className="py-2.5 px-4">
-                    <VerificationBadge source={l.source} lat={l.lat} />
+                    <VerificationBadge source={l.source} lat={l.lat} hasClock={Boolean(l.timeIn)} />
                   </td>
                   <td className="py-2.5 px-4 font-mono text-foreground tabular-nums">{l.timeIn ?? '—'}</td>
                   <td className="py-2.5 px-4 font-mono text-muted-foreground tabular-nums">{l.timeOut ?? '—'}</td>
@@ -208,7 +225,10 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
                     {l.hours && l.hours > 0 ? `${l.hours.toFixed(1)}` : '—'}
                   </td>
                   <td className="py-2.5 px-4">
-                    <HrStatusPill status={s} />
+                    <div className="flex flex-col items-start gap-1">
+                      <HrStatusPill status={s} />
+                      {'contextCode' in l && l.contextCode && <span className="text-[10px] font-medium text-muted-foreground">{getAttendanceContextLabel(l.contextCode)}</span>}
+                    </div>
                   </td>
                 </tr>
               );
@@ -266,7 +286,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
               <div>
                 <span className="text-[10px] uppercase font-mono font-bold text-muted-foreground">Status</span>
                 <div>
-                  <HrStatusPill status={deriveHrStatus(selectedLog)} />
+                  <HrStatusPill status={resolveOverviewStatus(selectedLog)} />
                 </div>
               </div>
             </div>
@@ -276,7 +296,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
               <div className="p-3 bg-white border border-border rounded-xl space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Auth Method:</span>
-                  <VerificationBadge source={selectedLog.source} lat={selectedLog.lat} />
+                  <VerificationBadge source={selectedLog.source} lat={selectedLog.lat} hasClock={Boolean(selectedLog.timeIn)} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Engine:</span>

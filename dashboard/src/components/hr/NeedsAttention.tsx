@@ -1,22 +1,23 @@
 import { AlertCircle, Clock, ShieldAlert, UserCheck, ArrowRight } from 'lucide-react';
-import type { AttendanceLog, ViolationEvent } from '../../services/types';
+import type { ViolationEvent } from '../../services/types';
+import { getPresentationCompletionState, getPresentationStatus, type AttendancePresentationLog } from '../../services/attendance/attendanceContextService';
 import { isActiveViolation } from '../../lib/violationPresentation';
 
 interface NeedsAttentionProps {
-  attendanceLogs: AttendanceLog[];
+  attendanceLogs: AttendancePresentationLog[];
   violations: ViolationEvent[];
   onNavigate: (page: 'attendance' | 'monitoring' | 'reports', params?: Record<string, string>) => void;
 }
 
 export function NeedsAttention({ attendanceLogs, violations, onNavigate }: NeedsAttentionProps) {
   // 1. Pending Manual Validations
-  const manualLogs = attendanceLogs.filter((l) => l.source === 'manual' || l.notes?.toLowerCase().includes('manual'));
+  const manualLogs = attendanceLogs.filter((l) => l.source === 'manual' || ('notes' in l && l.notes?.toLowerCase().includes('manual')));
   
   // 2. Previous work dates that have a real Time In but no recorded Time Out.
-  const missingTimeOut = attendanceLogs.filter((l) => l.completionStatus === 'missing_time_out');
+  const missingTimeOut = attendanceLogs.filter((l) => getPresentationCompletionState(l) === 'missing_time_out');
 
   // 3. Late arrivals
-  const lateArrivals = attendanceLogs.filter((l) => l.status === 'late');
+  const lateArrivals = attendanceLogs.filter((l) => getPresentationStatus(l) === 'late');
 
   // 4. Active unresolved geofence violations
   const activeViolations = violations.filter(isActiveViolation);

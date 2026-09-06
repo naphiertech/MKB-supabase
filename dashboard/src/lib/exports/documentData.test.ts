@@ -114,6 +114,59 @@ describe('replaceable employee document models', () => {
     expect(data?.rows[0]).toMatchObject({ day: 1, amIn: '08:00', pmOut: '17:30', overtimeIn: '17:00', overtimeOut: '17:30' });
     expect(data?.rows[31]).toMatchObject({ day: 'TOTAL', undertimeHours: '8h', undertimeMinutes: '30m' });
   });
+
+  it('preserves all context-bearing dates beyond six entries without truncation or leaking private fields', () => {
+    const build = (employeeExport as typeof employeeExport & {
+      buildDtrDocumentData?: (input: Record<string, unknown>) => {
+        rows: Array<{ day: number | 'TOTAL'; amIn: string; pmOut: string; statusText?: string; contextText?: string }>;
+        contextNotes: string[];
+      };
+    }).buildDtrDocumentData;
+
+    const sampleLogs = [
+      { date: '2026-08-01', timeIn: null, timeOut: null, hours: 0, status: 'on_leave', contextCode: 'approved_leave' },
+      { date: '2026-08-02', timeIn: null, timeOut: null, hours: 0, status: 'day_off', contextCode: 'published_day_off' },
+      { date: '2026-08-03', timeIn: null, timeOut: null, hours: 0, status: 'absent', contextCode: 'accepted_notice' },
+      { date: '2026-08-04', timeIn: null, timeOut: null, hours: 0, status: 'absent', contextCode: 'notice_rejected' },
+      { date: '2026-08-05', timeIn: null, timeOut: null, hours: 0, status: 'absent', contextCode: 'leave_rejected' },
+      { date: '2026-08-06', timeIn: null, timeOut: null, hours: 0, status: 'day_off' }, // no explicit contextCode
+      { date: '2026-08-07', timeIn: null, timeOut: null, hours: 0, status: 'on_leave', contextCode: 'approved_leave' },
+      { date: '2026-08-08', timeIn: '08:00:00', timeOut: '17:00:00', hours: 8, status: 'present', contextCode: 'worked_during_approved_leave' },
+      { date: '2026-08-09', timeIn: null, timeOut: null, hours: 0, status: 'day_off', contextCode: 'published_day_off' },
+      { date: '2026-08-10', timeIn: null, timeOut: null, hours: 0, status: 'absent', contextCode: 'no_notice' },
+    ];
+
+    const data = build?.({
+      riderName: 'Juan Rider',
+      riderRole: 'rider',
+      zoneName: 'North Hub',
+      calendarDate: new Date('2026-08-01T00:00:00+08:00'),
+      logs: sampleLogs,
+    });
+
+    // 10 context-bearing dates must all be captured in contextNotes without truncation after 6
+    expect(data?.contextNotes).toHaveLength(10);
+    expect(data?.contextNotes[0]).toBe('2026-08-01: On Leave · Approved Leave');
+    expect(data?.contextNotes[1]).toBe('2026-08-02: Day Off · Published Day Off');
+    expect(data?.contextNotes[2]).toBe('2026-08-03: Absent · Accepted Notice');
+    expect(data?.contextNotes[3]).toBe('2026-08-04: Absent · Notice Rejected');
+    expect(data?.contextNotes[4]).toBe('2026-08-05: Absent · Leave Rejected');
+    expect(data?.contextNotes[5]).toBe('2026-08-06: Day Off · Published Day Off');
+    expect(data?.contextNotes[6]).toBe('2026-08-07: On Leave · Approved Leave');
+    expect(data?.contextNotes[7]).toBe('2026-08-08: Present · Worked During Approved Leave');
+    expect(data?.contextNotes[8]).toBe('2026-08-09: Day Off · Published Day Off');
+    expect(data?.contextNotes[9]).toBe('2026-08-10: Absent · No Notice');
+
+    // Clocks for worked day preserved, not invented for unworked days
+    expect(data?.rows[7]).toMatchObject({ day: 8, amIn: '08:00', pmOut: '17:00' });
+    expect(data?.rows[0]).toMatchObject({ day: 1, amIn: '', pmOut: '' });
+
+    // No private reason, review note, or audit string present
+    const serialized = JSON.stringify(data?.contextNotes);
+    expect(serialized).not.toContain('reason');
+    expect(serialized).not.toContain('review');
+    expect(serialized).not.toContain('audit');
+  });
 });
 
 describe('official payslip isolation', () => {

@@ -1,4 +1,10 @@
 import type { AttendanceLog, ViolationEvent } from '../services/types';
+import type { AttendanceContextCode, AttendanceContextStatus } from '../services/attendance/attendanceContextService';
+
+export type AttendanceAnalyticsLog = AttendanceLog & {
+  effectiveStatus?: AttendanceContextStatus;
+  contextCode?: AttendanceContextCode | null;
+};
 
 export interface ReportsFilters {
   from: string;
@@ -8,8 +14,8 @@ export interface ReportsFilters {
 }
 
 export interface ReportsAnalyticsInput {
-  currentLogs: AttendanceLog[];
-  previousLogs: AttendanceLog[];
+  currentLogs: AttendanceAnalyticsLog[];
+  previousLogs: AttendanceAnalyticsLog[];
   currentViolations: ViolationEvent[];
   previousViolations: ViolationEvent[];
   filters: ReportsFilters;
@@ -31,9 +37,10 @@ export interface ReportsAnalytics {
     late: number;
     absent: number;
     onLeave: number;
+    dayOff: number;
     total: number;
   };
-  attendanceTrend: Array<{ date: string; present: number; late: number; absent: number; onLeave: number }>;
+  attendanceTrend: Array<{ date: string; present: number; late: number; absent: number; onLeave: number; dayOff: number }>;
   riderPerformance: Array<{
     riderId: string;
     riderName: string;
@@ -89,7 +96,7 @@ function recordMatchesScope(
   return true;
 }
 
-function filterLogs(logs: AttendanceLog[], filters: ReportsFilters): AttendanceLog[] {
+function filterLogs(logs: AttendanceAnalyticsLog[], filters: ReportsFilters): AttendanceAnalyticsLog[] {
   return logs.filter(log => (
     log.date >= filters.from
     && log.date <= filters.to
@@ -106,14 +113,23 @@ function filterViolations(violations: ViolationEvent[], filters: ReportsFilters)
   });
 }
 
-function presenceCategory(log: AttendanceLog): 'present' | 'late' | 'absent' | 'onLeave' {
-  if (log.presence === 'on_leave' || log.status === 'on_leave') return 'onLeave';
-  if (log.presence === 'absent' || log.status === 'absent') return 'absent';
+function presenceCategory(log: AttendanceAnalyticsLog): 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff' {
+  // 1. Day Off primary precedence is LOCKED.
+  // Published Day Off + Approved Leave must remain: Primary category: Day Off.
+  // Do NOT let contextCode === 'approved_leave' convert effectiveStatus === 'day_off' into On Leave.
+  if (log.effectiveStatus === 'day_off' || (log.status as string) === 'day_off' || log.contextCode === 'published_day_off') {
+    return 'dayOff';
+  }
+  if (log.effectiveStatus === 'present' || log.effectiveStatus === 'late') return log.effectiveStatus;
+  if (log.effectiveStatus === 'on_leave' || log.presence === 'on_leave' || log.status === 'on_leave' || log.contextCode === 'approved_leave') {
+    return 'onLeave';
+  }
+  if (log.effectiveStatus === 'absent' || log.presence === 'absent' || log.status === 'absent') return 'absent';
   if (log.punctuality === 'late' || log.status === 'late') return 'late';
   return 'present';
 }
 
-function attendanceRate(logs: AttendanceLog[]): number | null {
+function attendanceRate(logs: AttendanceAnalyticsLog[]): number | null {
   if (logs.length === 0) return null;
   const attended = logs.filter(log => {
     const category = presenceCategory(log);
@@ -137,16 +153,16 @@ export function previousPeriodRange(from: string, to: string): { from: string; t
   return { from: formatDateOnly(previousFrom), to: formatDateOnly(previousTo) };
 }
 
-function deriveBreakdown(logs: AttendanceLog[]): ReportsAnalytics['attendanceBreakdown'] {
-  const breakdown = { present: 0, late: 0, absent: 0, onLeave: 0, total: logs.length };
+function deriveBreakdown(logs: AttendanceAnalyticsLog[]): ReportsAnalytics['attendanceBreakdown'] {
+  const breakdown = { present: 0, late: 0, absent: 0, onLeave: 0, dayOff: 0, total: logs.length };
   logs.forEach(log => { breakdown[presenceCategory(log)] += 1; });
   return breakdown;
 }
 
-function deriveTrend(logs: AttendanceLog[]): ReportsAnalytics['attendanceTrend'] {
+function deriveTrend(logs: AttendanceAnalyticsLog[]): ReportsAnalytics['attendanceTrend'] {
   const byDate = new Map<string, ReportsAnalytics['attendanceTrend'][number]>();
   logs.forEach(log => {
-    const row = byDate.get(log.date) ?? { date: log.date, present: 0, late: 0, absent: 0, onLeave: 0 };
+    const row = byDate.get(log.date) ?? { date: log.date, present: 0, late: 0, absent: 0, onLeave: 0, dayOff: 0 };
     row[presenceCategory(log)] += 1;
     byDate.set(log.date, row);
   });
@@ -154,10 +170,10 @@ function deriveTrend(logs: AttendanceLog[]): ReportsAnalytics['attendanceTrend']
 }
 
 function deriveRiderPerformance(
-  logs: AttendanceLog[],
+  logs: AttendanceAnalyticsLog[],
   violations: ViolationEvent[],
 ): ReportsAnalytics['riderPerformance'] {
-  const byRider = new Map<string, AttendanceLog[]>();
+  const byRider = new Map<string, AttendanceAnalyticsLog[]>();
   logs.forEach(log => byRider.set(log.riderId, [...(byRider.get(log.riderId) ?? []), log]));
 
   return [...byRider.entries()].map(([riderId, riderLogs]) => {
@@ -176,10 +192,10 @@ function deriveRiderPerformance(
 }
 
 function deriveZoneCoverage(
-  logs: AttendanceLog[],
+  logs: AttendanceAnalyticsLog[],
   violations: ViolationEvent[],
 ): ReportsAnalytics['zoneCoverage'] {
-  const byZone = new Map<string, AttendanceLog[]>();
+  const byZone = new Map<string, AttendanceAnalyticsLog[]>();
   logs.forEach(log => byZone.set(log.zoneId, [...(byZone.get(log.zoneId) ?? []), log]));
   violations.forEach(violation => {
     const key = violation.zoneId ?? `name:${violation.zoneName}`;
@@ -214,8 +230,8 @@ function deriveViolationByZone(violations: ViolationEvent[]): ReportsAnalytics['
     .sort((a, b) => b.violations - a.violations || a.zoneName.localeCompare(b.zoneName));
 }
 
-function countAttentionRiders(logs: AttendanceLog[]): number {
-  const logsByRider = new Map<string, AttendanceLog[]>();
+function countAttentionRiders(logs: AttendanceAnalyticsLog[]): number {
+  const logsByRider = new Map<string, AttendanceAnalyticsLog[]>();
   logs.forEach(log => logsByRider.set(log.riderId, [...(logsByRider.get(log.riderId) ?? []), log]));
   return [...logsByRider.values()].filter(riderLogs => {
     const ordered = [...riderLogs].sort((a, b) => a.date.localeCompare(b.date));

@@ -1,9 +1,10 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { AppUser, AttendanceLog } from '../../services/types';
+import type { AppUser } from '../../services/types';
 import {
   buildDtrDocumentData,
   buildEmployeeProfileDocumentData,
+  type DtrAttendanceLog,
   type DtrDocumentData,
   type EmployeeProfileDocumentData,
 } from './employeeDocument';
@@ -131,7 +132,7 @@ interface ExportDTROptions {
   riderRole: string;
   zoneName: string;
   calendarDate: Date;
-  logs: AttendanceLog[];
+  logs: DtrAttendanceLog[];
 }
 
 /**
@@ -252,7 +253,24 @@ export function renderEmployeeDtrPdf(data: DtrDocumentData): void {
         }
       });
 
-      const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6;
+      let finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6;
+
+      if (data.contextNotes.length > 0 && data.contextNotes.length <= 4) {
+        doc.setFontSize(5.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ATTENDANCE CONTEXT', startX + 3, finalY);
+        doc.setFont('helvetica', 'normal');
+        const contextLines = doc.splitTextToSize(data.contextNotes.join('\n'), 78);
+        doc.text(contextLines, startX + 3, finalY + 4);
+        finalY += 5 + contextLines.length * 2.8;
+      } else if (data.contextNotes.length > 4) {
+        doc.setFontSize(5.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ATTENDANCE CONTEXT', startX + 3, finalY);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Supplemental context attached (${data.contextNotes.length} date entries).`, startX + 3, finalY + 4);
+        finalY += 8;
+      }
 
       doc.setFontSize(6.5);
       doc.setFont('helvetica', 'normal');
@@ -278,6 +296,47 @@ export function renderEmployeeDtrPdf(data: DtrDocumentData): void {
 
     // Draw right DTR
     drawSingleDTR(110);
+
+    // If context notes exceed 4, render a minimal dual-copy continuation sheet preserving all dates
+    if (data.contextNotes.length > 4) {
+      doc.addPage('a4', 'portrait');
+
+      const drawSingleSupplemental = (startX: number) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.text('DAILY TIME RECORD', startX + 43, 15, { align: 'center' });
+        doc.setFontSize(7);
+        doc.text('SUPPLEMENTAL ATTENDANCE CONTEXT', startX + 43, 20, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.text(`${data.employee.name.toUpperCase()} · ${monthName} ${year}`, startX + 43, 25, { align: 'center' });
+        doc.line(startX + 3, 27, startX + 83, 27);
+
+        const tableBody = data.contextNotes.map((note) => {
+          const colonIdx = note.indexOf(':');
+          const datePart = colonIdx > -1 ? note.slice(0, colonIdx).trim() : '';
+          const detailPart = colonIdx > -1 ? note.slice(colonIdx + 1).trim() : note;
+          return [datePart, detailPart];
+        });
+
+        autoTable(doc, {
+          startY: 30,
+          head: [['DATE', 'STATUS & CONTEXT ANNOTATION']],
+          body: tableBody,
+          theme: 'grid',
+          styles: { fontSize: 6.5, cellPadding: { top: 1.2, bottom: 1.2, left: 1, right: 1 }, font: 'helvetica', textColor: 0 },
+          headStyles: { fillColor: 245, textColor: 0, fontStyle: 'bold', lineWidth: 0.1, lineColor: 0 },
+          columnStyles: {
+            0: { cellWidth: 22, halign: 'center' },
+            1: { cellWidth: 58, halign: 'left' },
+          },
+          margin: { left: startX + 3, right: doc.internal.pageSize.getWidth() - (startX + 83) },
+        });
+      };
+
+      drawSingleSupplemental(10);
+      drawSingleSupplemental(110);
+    }
 
     const filename = buildExportFilename({
       prefix: 'dtr',

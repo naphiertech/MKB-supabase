@@ -3879,6 +3879,55 @@ export type Database = {
           reviewer_name: string | null
         }[]
       }
+      list_rider_attendance_context: {
+        Args: {
+          p_from_date: string
+          p_hub_id?: string | null
+          p_page_offset?: number
+          p_page_size?: number
+          p_rider_id?: string | null
+          p_to_date: string
+        }
+        Returns: {
+          absence_notice_effective: boolean
+          absence_notice_request_id: string | null
+          absence_notice_request_revision: number | null
+          absence_notice_state: Database["public"]["Enums"]["rider_absence_request_status"] | null
+          attendance_log_id: string | null
+          attendance_source: Database["public"]["Enums"]["attendance_source"] | null
+          business_date: string
+          completion_state: string
+          context_code: string | null
+          context_request_id: string | null
+          context_request_kind: Database["public"]["Enums"]["rider_absence_request_kind"] | null
+          context_request_revision: number | null
+          effective_status: string
+          expected_to_work: boolean
+          expected_work_basis: string
+          excusal_state: string
+          hub_id: string | null
+          hours: number | null
+          is_finalized: boolean
+          planned_leave_effective: boolean
+          planned_leave_request_id: string | null
+          planned_leave_request_revision: number | null
+          planned_leave_state: Database["public"]["Enums"]["rider_absence_request_status"] | null
+          punctuality_state: string
+          raw_status: Database["public"]["Enums"]["attendance_status"] | null
+          rider_id: string
+          rider_avatar: string | null
+          rider_lat: number | null
+          rider_mkb_id: string | null
+          rider_name: string
+          rider_lng: number | null
+          schedule_day_kind: Database["public"]["Enums"]["rider_schedule_day_kind"] | null
+          schedule_id: string | null
+          time_in: string | null
+          time_out: string | null
+          zone_id: string | null
+          zone_name: string | null
+        }[]
+      }
       list_rider_schedules: {
         Args: {
           p_from_date: string

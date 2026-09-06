@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useNow, relativeTime } from '../../hooks/useNow';
-import type { Rider, AttendanceLog, ViolationEvent, Zone } from '../../services/types';
+import type { Rider, ViolationEvent, Zone } from '../../services/types';
+import {
+  hasUnderlyingAttendanceLog,
+  type AttendancePresentationLog,
+} from '../../services/attendance/attendanceContextService';
 import { 
   Search, 
   Phone, 
@@ -18,10 +22,10 @@ interface StatDetailsPanelProps {
   onClose: () => void;
   riders: Rider[];
   zones: Zone[];
-  logs: AttendanceLog[];
+  logs: AttendancePresentationLog[];
   violations: ViolationEvent[];
   onViewViolation: (riderId: string) => void;
-  attendanceList: AttendanceLog[];
+  attendanceList: AttendancePresentationLog[];
 }
 
 export function StatDetailsPanel({
@@ -243,7 +247,7 @@ function ActiveRidersDetail({ riders, zones, now }: { riders: Rider[]; zones: Zo
 /* ==========================================================================
    2. On Duty Details Sub-component
    ========================================================================== */
-function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
+function OnDutyDetail({ logs }: { logs: AttendancePresentationLog[] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'present' | 'late'>('all');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
@@ -260,7 +264,7 @@ function OnDutyDetail({ logs }: { logs: AttendanceLog[] }) {
   const presentCount = logs.filter(l => l.status === 'present').length;
   const lateCount = logs.filter(l => l.status === 'late').length;
 
-  const getStatusBadge = (status: AttendanceLog['status']) => {
+  const getStatusBadge = (status: AttendancePresentationLog['status']) => {
     switch (status) {
       case 'present':
         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">Present</span>;
@@ -523,7 +527,7 @@ function ViolationsDetail({
 /* ==========================================================================
    4. Attendance Details Sub-component
    ========================================================================== */
-function AttendanceDetail({ logs }: { logs: AttendanceLog[] }) {
+function AttendanceDetail({ logs }: { logs: AttendancePresentationLog[] }) {
   const getLocalDateStringStr = (d: Date) => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -531,8 +535,9 @@ function AttendanceDetail({ logs }: { logs: AttendanceLog[] }) {
     return `${year}-${month}-${day}`;
   };
 
-  const presentCount = logs.filter(l => l.status === 'present' || l.status === 'late').length;
-  const totalCount = logs.length;
+  const rawLogs = logs.filter(hasUnderlyingAttendanceLog);
+  const presentCount = rawLogs.filter(l => l.status === 'present' || l.status === 'late').length;
+  const totalCount = rawLogs.length;
   const rate = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
   const target = 92;
   const targetMet = rate >= target;
@@ -543,7 +548,7 @@ function AttendanceDetail({ logs }: { logs: AttendanceLog[] }) {
     d.setDate(d.getDate() - i);
     const dateStr = getLocalDateStringStr(d);
     
-    const dayLogs = logs.filter(l => l.date === dateStr);
+    const dayLogs = rawLogs.filter(l => l.date === dateStr);
     const dayPresent = dayLogs.filter(l => l.status === 'present' || l.status === 'late').length;
     const dayRate = dayLogs.length ? Math.round((dayPresent / dayLogs.length) * 100) : null;
     

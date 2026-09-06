@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { AttendanceLog, Rider } from '../../services/types';
+import type { Rider } from '../../services/types';
+import { getPresentationCompletionState, getPresentationStatus, type AttendancePresentationLog } from '../../services/attendance/attendanceContextService';
 import { 
   Search, 
   Clock, 
@@ -13,7 +14,7 @@ import {
 interface HRDetailsPanelProps {
   type: 'on_duty' | 'complete' | 'absent' | 'pending';
   onClose: () => void;
-  logs: AttendanceLog[];
+  logs: AttendancePresentationLog[];
   riders: Rider[];
 }
 
@@ -81,12 +82,12 @@ export function HRDetailsPanel({
         <CompleteHRDetail logs={logs.filter(l => !!l.timeIn && !!l.timeOut)} />
       )}
       {type === 'absent' && (
-        <AbsentHRDetail logs={logs.filter(l => l.status === 'absent' || !l.timeIn)} riders={riders} />
+        <AbsentHRDetail logs={logs.filter(l => getPresentationStatus(l) === 'absent')} riders={riders} />
       )}
       {type === 'pending' && (
         <PendingValidationHRDetail logs={logs.filter(
-          l => (l.source === 'manual' && l.status !== 'absent') || 
-               (!!l.timeIn && !l.timeOut && l.status !== 'on_leave')
+          l => (l.source === 'manual' && getPresentationStatus(l) !== 'absent') ||
+               (!!l.timeIn && !l.timeOut && getPresentationStatus(l) !== 'on_leave')
         )} />
       )}
     </div>
@@ -96,7 +97,7 @@ export function HRDetailsPanel({
 /* ==========================================================================
    1. Riders On Duty Sub-component
    ========================================================================== */
-function OnDutyHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider[] }) {
+function OnDutyHRDetail({ logs, riders }: { logs: AttendancePresentationLog[]; riders: Rider[] }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
@@ -140,7 +141,7 @@ function OnDutyHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider
             </thead>
             <tbody className="divide-y divide-border">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-accent/20 transition-all">
+                <tr key={log.id || `${log.riderId}-${log.date}`} className="hover:bg-accent/20 transition-all">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       {log.riderAvatar ? (
@@ -182,7 +183,7 @@ function OnDutyHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider
 /* ==========================================================================
    2. Complete Attendance Sub-component
    ========================================================================== */
-function CompleteHRDetail({ logs }: { logs: AttendanceLog[] }) {
+function CompleteHRDetail({ logs }: { logs: AttendancePresentationLog[] }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
@@ -223,7 +224,7 @@ function CompleteHRDetail({ logs }: { logs: AttendanceLog[] }) {
             </thead>
             <tbody className="divide-y divide-border">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-emerald-50/10 transition-all">
+                <tr key={log.id || `${log.riderId}-${log.date}`} className="hover:bg-emerald-50/10 transition-all">
                   <td className="px-4 py-3 font-semibold text-foreground">{log.riderName}</td>
                   <td className="px-4 py-3 text-muted-foreground">{log.zoneName}</td>
                   <td className="px-4 py-3 font-mono">{log.timeIn || '—'}</td>
@@ -247,7 +248,7 @@ function CompleteHRDetail({ logs }: { logs: AttendanceLog[] }) {
 /* ==========================================================================
    3. Absent / No Time-In Sub-component
    ========================================================================== */
-function AbsentHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider[] }) {
+function AbsentHRDetail({ logs, riders }: { logs: AttendancePresentationLog[]; riders: Rider[] }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
@@ -301,7 +302,7 @@ function AbsentHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider
               {filteredLogs.map((log) => {
                 const phone = getRiderPhone(log.riderId);
                 return (
-                  <tr key={log.id} className="hover:bg-red-50/10 transition-all">
+                  <tr key={log.id || `${log.riderId}-${log.date}`} className="hover:bg-red-50/10 transition-all">
                     <td className="px-4 py-3 font-semibold text-foreground">{log.riderName}</td>
                     <td className="px-4 py-3 text-muted-foreground">{log.zoneName}</td>
                     <td className="px-4 py-3">
@@ -337,7 +338,7 @@ function AbsentHRDetail({ logs, riders }: { logs: AttendanceLog[]; riders: Rider
 /* ==========================================================================
    4. Pending Validation Sub-component
    ========================================================================== */
-function PendingValidationHRDetail({ logs }: { logs: AttendanceLog[] }) {
+function PendingValidationHRDetail({ logs }: { logs: AttendancePresentationLog[] }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
@@ -345,7 +346,7 @@ function PendingValidationHRDetail({ logs }: { logs: AttendanceLog[] }) {
     l.zoneName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getReasonLabel = (log: AttendanceLog) => {
+  const getReasonLabel = (log: AttendancePresentationLog) => {
     if (log.source === 'manual') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
@@ -353,7 +354,7 @@ function PendingValidationHRDetail({ logs }: { logs: AttendanceLog[] }) {
         </span>
       );
     }
-    if (log.completionStatus === 'missing_time_out') {
+    if (getPresentationCompletionState(log) === 'missing_time_out') {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
           Missing Time Out
@@ -407,7 +408,7 @@ function PendingValidationHRDetail({ logs }: { logs: AttendanceLog[] }) {
             </thead>
             <tbody className="divide-y divide-border">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-amber-50/10 transition-all">
+                <tr key={log.id || `${log.riderId}-${log.date}`} className="hover:bg-amber-50/10 transition-all">
                   <td className="px-4 py-3 font-semibold text-foreground">{log.riderName}</td>
                   <td className="px-4 py-3 text-muted-foreground">{log.zoneName}</td>
                   <td className="px-4 py-3">{getReasonLabel(log)}</td>

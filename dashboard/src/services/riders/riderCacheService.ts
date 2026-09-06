@@ -8,6 +8,7 @@ import { clearCachedAvatar } from '../../lib/avatarCache';
 import { clearCachedDescriptor } from '../../lib/descriptorCache';
 import { clearRiderScheduleCache } from '../workforce/riderScheduleService';
 import { clearRiderAbsenceRequestCache } from '../workforce/riderAbsenceRequestService';
+import { listAttendanceContext, type AttendanceContextLog } from '../attendance/attendanceContextService';
 
 export interface DBUserProfileRow {
   id: string;
@@ -76,12 +77,26 @@ export interface CachedDashboardPayload {
   todayAttendance: DBAttendanceRow | null;
   latestViolation: DBViolationRow | null;
   monthAttendance: DBAttendanceRow[];
+  monthAttendanceContext?: AttendanceContextLog[];
   monthViolationCount: number;
   timestamp: number;
 }
 
 const DASHBOARD_CACHE_PREFIX = 'rider_dashboard_cache_';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days cache validity offline
+
+const activeRequestGenerations = new Map<string, number>();
+
+export function getActiveRequestGeneration(userId: string): number {
+  return activeRequestGenerations.get(userId) ?? 0;
+}
+
+function sanitizeAttendanceContextLogs(logs: AttendanceContextLog[]): AttendanceContextLog[] {
+  return logs.map(log => ({
+    ...log,
+    events: [],
+  }));
+}
 
 /**
  * Retrieves cached dashboard data from IndexedDB.
@@ -136,6 +151,9 @@ export async function fetchRiderDashboardWithSWR(
     onFreshDataLoaded?: (data: CachedDashboardPayload) => void;
   }
 ): Promise<CachedDashboardPayload | null> {
+  const requestGeneration = (activeRequestGenerations.get(userId) ?? 0) + 1;
+  activeRequestGenerations.set(userId, requestGeneration);
+
   let hasServedCache = false;
 
   // 1. Try reading from local storage
@@ -167,6 +185,63 @@ export async function fetchRiderDashboardWithSWR(
       firstDayOfMonthIso
     );
 
+    let monthAttendanceContext: AttendanceContextLog[] = [];
+    try {
+      const fetchedContext = await listAttendanceContext({
+        fromDate: firstDayStr,
+        toDate: todayStr,
+        riderId: resolvedRiderId,
+      });
+      monthAttendanceContext = sanitizeAttendanceContextLogs(fetchedContext);
+    } catch (contextError) {
+      console.warn('[AttendanceContext] Failed to refresh Rider context, using stale fallback:', contextError);
+      if (cached?.monthAttendanceContext?.length) {
+        monthAttendanceContext = sanitizeAttendanceContextLogs(cached.monthAttendanceContext);
+      }
+    }
+
+    // Merge valid local/persisted clocks into context rows by canonical (riderId, business_date)
+    // so valid clocks override stale On Leave / Absent context
+    if (monthAttendanceContext.length > 0) {
+      const clocksByDate = new Map<string, DBAttendanceRow>();
+      for (const row of monthAttendance) {
+        if (row.time_in) clocksByDate.set(row.date, row);
+      }
+      if (todayAttendance?.time_in) {
+        clocksByDate.set(todayAttendance.date, todayAttendance);
+      }
+      for (const ctx of monthAttendanceContext) {
+        const clockRow = clocksByDate.get(ctx.date);
+        if (clockRow && clockRow.time_in) {
+          ctx.id = clockRow.id;
+          ctx.attendanceLogId = clockRow.id;
+          ctx.timeIn = clockRow.time_in;
+          ctx.timeOut = clockRow.time_out;
+          ctx.rawTimeIn = clockRow.time_in;
+          ctx.rawTimeOut = clockRow.time_out;
+          ctx.rawStatus = clockRow.status as typeof ctx.rawStatus;
+          ctx.status = clockRow.status as typeof ctx.status;
+          ctx.presence = ctx.status;
+          ctx.punctuality = clockRow.status === 'late' ? 'late' : 'on_time';
+          if (ctx.plannedLeaveEffective) ctx.contextCode = 'worked_during_approved_leave';
+          else if (ctx.absenceNoticeEffective) ctx.contextCode = 'worked_despite_accepted_notice';
+        }
+      }
+    }
+
+    // Previous-owner isolation: verify that the request generation is still current (not superseded)
+    if (activeRequestGenerations.get(userId) !== requestGeneration) {
+      console.warn('[OfflineCache] Discarding delayed revalidation result for superseded request.');
+      return null;
+    }
+
+    // Verify cache ownership has not changed to a different rider while in flight
+    const currentCached = await getCachedRiderDashboard(userId);
+    if (currentCached && currentCached.resolvedRiderId !== fallbackRiderId) {
+      console.warn('[OfflineCache] Discarding delayed result because cache owner changed.');
+      return null;
+    }
+
     const freshPayload: CachedDashboardPayload = {
       resolvedRiderId,
       dbUser,
@@ -174,6 +249,7 @@ export async function fetchRiderDashboardWithSWR(
       todayAttendance,
       latestViolation,
       monthAttendance,
+      monthAttendanceContext,
       monthViolationCount,
       timestamp: Date.now()
     };
@@ -206,6 +282,24 @@ export async function updateCachedAttendanceState(
     const cached = await getCachedRiderDashboard(userId);
     if (cached?.resolvedRiderId === riderId && (!attLog || attLog.rider_id === riderId)) {
       cached.todayAttendance = attLog;
+      if (attLog && cached.monthAttendanceContext) {
+        const context = cached.monthAttendanceContext.find(row => (row.riderId ? row.riderId === riderId : true) && row.date === attLog.date);
+        if (context) {
+          context.id = attLog.id;
+          context.attendanceLogId = attLog.id;
+          context.timeIn = attLog.time_in;
+          context.timeOut = attLog.time_out;
+          context.rawTimeIn = attLog.time_in;
+          context.rawTimeOut = attLog.time_out;
+          context.rawStatus = attLog.status as typeof context.rawStatus;
+          context.status = attLog.status as typeof context.status;
+          context.presence = context.status;
+          context.source = attLog.source as typeof context.source;
+          context.punctuality = attLog.status === 'late' ? 'late' : 'on_time';
+          if (context.plannedLeaveEffective) context.contextCode = 'worked_during_approved_leave';
+          else if (context.absenceNoticeEffective) context.contextCode = 'worked_despite_accepted_notice';
+        }
+      }
       await setCachedRiderDashboard(userId, cached);
     }
   } catch (err) {
@@ -227,7 +321,7 @@ export async function patchCachedAttendanceState(
     if (!cached || cached.resolvedRiderId !== riderId) return;
 
     const current = cached.todayAttendance;
-    if (current && current.id !== patch.id) return;
+    if (current && current.rider_id !== riderId) return;
 
     cached.todayAttendance = {
       id: patch.id,
@@ -239,6 +333,23 @@ export async function patchCachedAttendanceState(
       status: patch.status || current?.status || 'present',
       source: patch.source !== undefined ? patch.source : current?.source
     };
+    const context = cached.monthAttendanceContext?.find(row => (row.riderId ? row.riderId === riderId : true) && row.date === patch.date);
+    if (context) {
+      const nextStatus = patch.status || 'present';
+      context.id = patch.id;
+      context.attendanceLogId = patch.id;
+      context.timeIn = patch.time_in !== undefined ? patch.time_in : context.timeIn;
+      context.timeOut = patch.time_out !== undefined ? patch.time_out : context.timeOut;
+      context.rawTimeIn = context.timeIn;
+      context.rawTimeOut = context.timeOut;
+      context.rawStatus = nextStatus as typeof context.rawStatus;
+      context.status = nextStatus as typeof context.status;
+      context.presence = context.status;
+      context.source = patch.source !== undefined ? patch.source as typeof context.source : context.source;
+      context.punctuality = nextStatus === 'late' ? 'late' : context.timeIn ? 'on_time' : 'none';
+      if (context.plannedLeaveEffective) context.contextCode = 'worked_during_approved_leave';
+      else if (context.absenceNoticeEffective) context.contextCode = 'worked_despite_accepted_notice';
+    }
     await setCachedRiderDashboard(userId, cached);
   } catch (err) {
     console.warn('[OfflineCache] Failed to patch cached attendance state:', err);

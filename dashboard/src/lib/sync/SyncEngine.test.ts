@@ -135,6 +135,10 @@ class RecordingSyncEngine extends SyncEngine {
 }
 
 class DatabaseSyncEngine extends SyncEngine {
+  replayTimeIn(item: QueueItem): Promise<void> {
+    return super.syncTimeIn(item);
+  }
+
   replayTimeOut(item: QueueItem): Promise<void> {
     return super.syncTimeOut(item);
   }
@@ -453,7 +457,14 @@ describe('SyncEngine recovery and replay guarantees', () => {
     query.eq.mockReturnValue(query);
     query.select.mockReturnValue(query);
     query.maybeSingle.mockResolvedValue({ data: null, error: null });
-    supabaseMocks.from.mockReturnValueOnce(query);
+    const canonicalLookup = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    canonicalLookup.select.mockReturnValue(canonicalLookup);
+    canonicalLookup.eq.mockReturnValue(canonicalLookup);
+    supabaseMocks.from.mockReturnValueOnce(query).mockReturnValueOnce(canonicalLookup);
     const item = queueItem('TIME_OUT', {
       eventTimestamp: '2026-08-05T09:00:00+08:00',
       payload: {
@@ -468,5 +479,121 @@ describe('SyncEngine recovery and replay guarantees', () => {
       .rejects.toThrow('was not available for TIME_OUT replay');
 
     expect(query.eq).toHaveBeenCalledWith('date', '2026-08-05');
+  });
+
+  it('replays a queued Time Out after Time In adopts the existing system row ID', async () => {
+    const timeInLookup = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'system-absent' }, error: null }),
+    };
+    timeInLookup.select.mockReturnValue(timeInLookup);
+    timeInLookup.eq.mockReturnValue(timeInLookup);
+    const timeInUpsert = { upsert: vi.fn().mockResolvedValue({ error: null }) };
+    const riderActiveUpdate = { update: vi.fn(), eq: vi.fn().mockResolvedValue({ error: null }) };
+    riderActiveUpdate.update.mockReturnValue(riderActiveUpdate);
+
+    const oldTimeOutUpdate = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    oldTimeOutUpdate.update.mockReturnValue(oldTimeOutUpdate);
+    oldTimeOutUpdate.eq.mockReturnValue(oldTimeOutUpdate);
+    oldTimeOutUpdate.select.mockReturnValue(oldTimeOutUpdate);
+
+    const canonicalLookup = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'system-absent' }, error: null }),
+    };
+    canonicalLookup.select.mockReturnValue(canonicalLookup);
+    canonicalLookup.eq.mockReturnValue(canonicalLookup);
+    const canonicalTimeOutUpdate = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'system-absent' }, error: null }),
+    };
+    canonicalTimeOutUpdate.update.mockReturnValue(canonicalTimeOutUpdate);
+    canonicalTimeOutUpdate.eq.mockReturnValue(canonicalTimeOutUpdate);
+    canonicalTimeOutUpdate.select.mockReturnValue(canonicalTimeOutUpdate);
+    const riderInactiveUpdate = { update: vi.fn(), eq: vi.fn().mockResolvedValue({ error: null }) };
+    riderInactiveUpdate.update.mockReturnValue(riderInactiveUpdate);
+
+    supabaseMocks.from
+      .mockReturnValueOnce(timeInLookup)
+      .mockReturnValueOnce(timeInUpsert)
+      .mockReturnValueOnce(riderActiveUpdate)
+      .mockReturnValueOnce(oldTimeOutUpdate)
+      .mockReturnValueOnce(canonicalLookup)
+      .mockReturnValueOnce(canonicalTimeOutUpdate)
+      .mockReturnValueOnce(riderInactiveUpdate);
+
+    const timeIn = queueItem('TIME_IN', {
+      eventTimestamp: '2026-08-04T00:03:00.000Z',
+      payload: {
+        id: 'offline-attendance',
+        attendance_log_id: 'offline-attendance',
+        rider_id: 'rider-1',
+        date: '2026-08-04',
+        status: 'present',
+        source: 'face-scan',
+      },
+    });
+    const timeOut = queueItem('TIME_OUT', {
+      eventTimestamp: '2026-08-04T09:00:00.000Z',
+      payload: {
+        id: 'offline-attendance',
+        attendance_log_id: 'offline-attendance',
+        rider_id: 'rider-1',
+        date: '2026-08-04',
+        time_in: '2026-08-04T00:03:00.000Z',
+      },
+    });
+    const storage = new MemoryStorageAdapter([timeIn, timeOut]);
+    let online = true;
+    riderActiveUpdate.eq.mockImplementation(async () => {
+      online = false; // connectivity lost after Time In; Time Out stays in storage
+      return { error: null };
+    });
+    const firstEngine = new SyncEngine({ ...engineOptions(storage), isOnline: () => online });
+    await firstEngine.start(identity);
+    firstEngine.stop();
+    const persistedQueue = JSON.parse(JSON.stringify(await storage.getQueue())) as QueueItem[];
+    expect(persistedQueue).toHaveLength(1);
+    expect(persistedQueue[0].payload.attendance_log_id).toBe('offline-attendance');
+    const restartedStorage = new MemoryStorageAdapter(persistedQueue);
+    const restartedOptions = engineOptions(restartedStorage);
+    const restartedEngine = new SyncEngine(restartedOptions);
+    await restartedEngine.start(identity);
+    expect(await restartedStorage.getQueue()).toEqual([]);
+    expect(restartedOptions.patchAttendanceCache).toHaveBeenCalledWith('auth-user-1','rider-1',expect.objectContaining({ id: 'system-absent' }));
+
+    expect(oldTimeOutUpdate.eq).toHaveBeenCalledWith('id', 'offline-attendance');
+    expect(canonicalLookup.eq).toHaveBeenCalledWith('rider_id', 'rider-1');
+    expect(canonicalLookup.eq).toHaveBeenCalledWith('date', '2026-08-04');
+    expect(canonicalTimeOutUpdate.eq).toHaveBeenCalledWith('id', 'system-absent');
+  });
+
+  it('persists Time In when the finalizer wins between canonical lookup and insert', async () => {
+    const lookup = (data: { id: string } | null) => {
+      const query = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn().mockResolvedValue({ data, error: null }) };
+      query.select.mockReturnValue(query); query.eq.mockReturnValue(query);
+      return query;
+    };
+    const firstInsert = { upsert: vi.fn().mockResolvedValue({ error: { code: '23505', message: 'duplicate rider date' } }) };
+    const retry = { upsert: vi.fn().mockResolvedValue({ error: null }) };
+    const riderUpdate = { update: vi.fn(), eq: vi.fn().mockResolvedValue({ error: null }) };
+    riderUpdate.update.mockReturnValue(riderUpdate);
+    supabaseMocks.from.mockReset();
+    const attendanceQueries = [lookup(null), firstInsert, lookup({ id: 'finalizer-row' }), retry];
+    supabaseMocks.from.mockImplementation((table: string) => table === 'riders' ? riderUpdate : attendanceQueries.shift());
+    const item = queueItem('TIME_IN', { eventTimestamp: '2026-08-04T00:03:00Z', payload: { id: 'offline-row', rider_id: 'rider-1', date: '2026-08-04' } });
+    await new DatabaseSyncEngine(engineOptions(new MemoryStorageAdapter())).replayTimeIn(item);
+    expect(retry.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: 'finalizer-row', time_in: '2026-08-04T00:03:00Z' }));
+    expect(retry.upsert.mock.calls[0][0]).not.toHaveProperty('time_out');
+    expect(item.payload.attendance_log_id).toBe('finalizer-row');
   });
 });

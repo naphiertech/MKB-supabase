@@ -7,12 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   channel: vi.fn(),
   getAttendanceLogs: vi.fn(),
+  listAttendanceContext: vi.fn(),
   getHrTodayKpis: vi.fn(),
   getNotifications: vi.fn(),
   getRidersLookup: vi.fn(),
   getZones: vi.fn(),
   loadPreferences: vi.fn(),
   removeChannel: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock('../hooks/useAuth', () => ({
@@ -24,7 +26,7 @@ vi.mock('../context/HubContext', () => ({
 }));
 
 vi.mock('../lib/supabaseClient', () => ({
-  supabase: { channel: mocks.channel, removeChannel: mocks.removeChannel },
+  supabase: { channel: mocks.channel, removeChannel: mocks.removeChannel, rpc: mocks.rpc },
 }));
 
 vi.mock('../services/notifications/notificationService', async () => {
@@ -51,6 +53,11 @@ vi.mock('../services/attendance/attendanceService', async () => {
     getAttendanceLogs: mocks.getAttendanceLogs,
     getHrTodayKpis: mocks.getHrTodayKpis,
   };
+});
+
+vi.mock('../services/attendance/attendanceContextService', async () => {
+  const actual = await vi.importActual<typeof import('../services/attendance/attendanceContextService')>('../services/attendance/attendanceContextService');
+  return { ...actual, listAttendanceContext: mocks.listAttendanceContext };
 });
 
 vi.mock('../services/geofencing/geofenceService', async () => {
@@ -80,6 +87,8 @@ import { NotificationProvider } from '../context/NotificationContext';
 import { AdminDashboard } from './AdminDashboard';
 import { Attendance } from './Attendance';
 import { HRDashboard } from './HRDashboard';
+import { reviewRiderAbsenceRequest } from '../services/workforce/riderAbsenceRequestService';
+import { ATTENDANCE_CONTEXT_INVALIDATED } from '../services/attendance/attendanceContextInvalidation';
 
 async function flush(): Promise<void> {
   await act(async () => {
@@ -105,6 +114,8 @@ describe('Admin and HR attendance Realtime refresh', () => {
     attendanceHandler = undefined;
 
     mocks.getAttendanceLogs.mockResolvedValue([]);
+    mocks.listAttendanceContext.mockResolvedValue([]);
+    mocks.rpc.mockResolvedValue({ data: 'request-1', error: null });
     mocks.getHrTodayKpis.mockResolvedValue({ onDuty: 0, complete: 0, absent: 0, pending: 0 });
     mocks.getNotifications.mockResolvedValue([]);
     mocks.getRidersLookup.mockResolvedValue([]);
@@ -153,6 +164,28 @@ describe('Admin and HR attendance Realtime refresh', () => {
     await flush();
   }
 
+  it.each([
+    ['Leave approval', 'approved'], ['Leave rejection', 'rejected'],
+    ['Notice acceptance', 'approved'], ['Notice rejection', 'rejected'],
+  ] as const)('refreshes mounted Attendance after local %s without private event data', async (_label, decision) => {
+    act(() => root.render(<NotificationProvider><Attendance /></NotificationProvider>));
+    await flush();
+    const before = mocks.listAttendanceContext.mock.calls.length;
+    const events: Event[] = [];
+    const listener = (event: Event) => events.push(event);
+    window.addEventListener(ATTENDANCE_CONTEXT_INVALIDATED, listener);
+    try {
+      await act(async () => { await reviewRiderAbsenceRequest('private-request-id', 1, decision, 'private review note'); });
+      await flush();
+      expect(mocks.listAttendanceContext).toHaveBeenCalledTimes(before + 1);
+      expect(events).toHaveLength(1);
+      expect(events[0]).not.toHaveProperty('detail');
+      expect(JSON.stringify(events[0])).not.toMatch(/private-request-id|private review note|reason|audit/);
+    } finally {
+      window.removeEventListener(ATTENDANCE_CONTEXT_INVALIDATED, listener);
+    }
+  });
+
   it('refetches the Admin dashboard attendance data after Rider Time In', async () => {
     act(() => root.render(
       <NotificationProvider>
@@ -160,10 +193,10 @@ describe('Admin and HR attendance Realtime refresh', () => {
       </NotificationProvider>
     ));
     await flush();
-    expect(mocks.getAttendanceLogs).toHaveBeenCalledTimes(1);
+    expect(mocks.listAttendanceContext).toHaveBeenCalledTimes(1);
 
     await emitAttendance('INSERT');
-    expect(mocks.getAttendanceLogs).toHaveBeenCalledTimes(2);
+    expect(mocks.listAttendanceContext).toHaveBeenCalledTimes(2);
   });
 
   it('refetches the HR dashboard attendance data and KPIs after Rider Time Out', async () => {
@@ -173,12 +206,12 @@ describe('Admin and HR attendance Realtime refresh', () => {
       </NotificationProvider>
     ));
     await flush();
-    expect(mocks.getAttendanceLogs).toHaveBeenCalledTimes(1);
-    expect(mocks.getHrTodayKpis).toHaveBeenCalledTimes(1);
+    expect(mocks.listAttendanceContext).toHaveBeenCalledTimes(1);
+    expect(mocks.getHrTodayKpis).not.toHaveBeenCalled();
 
     await emitAttendance('UPDATE');
-    expect(mocks.getAttendanceLogs).toHaveBeenCalledTimes(2);
-    expect(mocks.getHrTodayKpis).toHaveBeenCalledTimes(2);
+    expect(mocks.listAttendanceContext).toHaveBeenCalledTimes(2);
+    expect(mocks.getHrTodayKpis).not.toHaveBeenCalled();
   });
 
   it('refetches the Attendance Logs page after an attendance event', async () => {

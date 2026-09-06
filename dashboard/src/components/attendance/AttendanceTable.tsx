@@ -19,12 +19,13 @@ import {
   Layers,
   AlertTriangle
 } from 'lucide-react';
+import { getAttendanceContextLabel, type AttendanceContextLog } from '../../services/attendance/attendanceContextService';
 import type { AttendanceLog } from '../../services/types';
 import { getLocalDateString } from '../../services/attendance/attendanceService';
 import { StatusPill, PunctualityPill } from './StatusPill';
 
 interface AttendanceTableProps {
-  logs: AttendanceLog[];
+  logs: Array<AttendanceLog | AttendanceContextLog>;
 }
 
 type SortKey = 'date' | 'riderName' | 'zoneName' | 'hours' | 'status' | 'punctuality';
@@ -49,7 +50,7 @@ interface TimelineNode {
  * 6. Geofence Re-entry (if applicable)
  * 7. Clock Out
  */
-function buildDynamicTimelineNodes(l: AttendanceLog): TimelineNode[] {
+function buildDynamicTimelineNodes(l: AttendanceLog | AttendanceContextLog): TimelineNode[] {
   const nodes: TimelineNode[] = [];
 
   if (l.timeIn) {
@@ -217,24 +218,25 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
           </thead>
           <tbody>
             {sorted.map((l, idx) => {
-              const isOpen = expanded === l.id;
+              const rowKey = l.id || `context-${l.riderId}-${l.date}`;
+              const isOpen = expanded === rowKey;
               const timelineNodes = buildDynamicTimelineNodes(l);
 
               // Deterministic Face Match calculation
               const faceMatch = (() => {
                 let sum = 0;
-                for (let i = 0; i < l.id.length; i++) {
-                  sum += l.id.charCodeAt(i);
+                for (let i = 0; i < rowKey.length; i++) {
+                  sum += rowKey.charCodeAt(i);
                 }
                 return (95.0 + (sum % 48) / 10).toFixed(1);
               })();
 
               const hasExitBreach = l.events.some((e) => e.type === 'exit');
-              const presenceVal = l.presence || (l.status === 'on_leave' ? 'on_leave' : l.timeIn ? 'present' : 'absent');
-              const punctualityVal = l.punctuality || (l.status === 'late' ? 'late' : l.timeIn ? 'on_time' : 'none');
+              const presenceVal = 'contextCode' in l ? l.status : l.presence;
+              const punctualityVal = l.punctuality;
 
               return (
-                <Fragment key={l.id}>
+                <Fragment key={rowKey}>
                   <tr
                     className={`border-b border-border/70 hover:bg-accent/40 transition-colors ${
                       idx % 2 === 1 ? 'bg-panel-bg/40' : ''
@@ -243,7 +245,7 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                     {/* Expand Toggle */}
                     <td className="py-3 px-4">
                       <button
-                        onClick={() => setExpanded(isOpen ? null : l.id)}
+                        onClick={() => setExpanded(isOpen ? null : rowKey)}
                         className="text-muted-foreground hover:text-primary transition cursor-pointer p-1 rounded-md hover:bg-white"
                         aria-label="Toggle details"
                       >
@@ -271,7 +273,10 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                       {(() => {
                         const todayStr = getLocalDateString();
                         const isToday = l.date === todayStr;
-                        const isMissingTimeOut = l.completionStatus === 'missing_time_out'
+                        const completionState = 'completionStatus' in l
+                          ? l.completionStatus
+                          : 'completionState' in l ? l.completionState : undefined;
+                        const isMissingTimeOut = completionState === 'missing_time_out'
                           || (!l.timeOut && !isToday && !!l.timeIn);
                         return (
                           <div className="flex flex-col font-mono text-xs">
@@ -292,7 +297,12 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
 
                     {/* Status (Presence) */}
                     <td className="py-3 px-4">
-                      <StatusPill status={presenceVal} />
+                      <div className="flex min-w-[7rem] flex-col items-start gap-1">
+                        <StatusPill status={presenceVal} />
+                        <span className="max-w-full truncate text-[10px] font-medium text-muted-foreground">
+                          {'contextCode' in l && l.contextCode ? getAttendanceContextLabel(l.contextCode) : '—'}
+                        </span>
+                      </div>
                     </td>
 
                     {/* Punctuality (Arrival) */}
@@ -304,15 +314,15 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-                          l.source === 'face-scan' ? 'text-primary' : 'text-muted-foreground'
+                          !l.timeIn ? 'text-muted-foreground' : l.source === 'face-scan' ? 'text-primary' : 'text-muted-foreground'
                         }`}
                       >
-                        {l.source === 'face-scan' ? (
+                        {l.timeIn && l.source === 'face-scan' ? (
                           <ScanFace className="w-3.5 h-3.5" />
-                        ) : (
+                        ) : l.timeIn ? (
                           <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
-                        )}
-                        {l.source === 'face-scan' ? 'Face Scan' : 'Manual'}
+                        ) : null}
+                        {l.timeIn ? (l.source === 'face-scan' ? 'Face Scan' : 'Manual') : 'Not applicable'}
                       </span>
                     </td>
                   </tr>
@@ -339,50 +349,60 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
 
                               <div className="flex items-start gap-3 mb-3">
                                 {/* Face Scan Photo Thumbnail */}
-                                <div
-                                  onClick={() =>
-                                    setSelectedPhoto({
-                                      url: l.faceScanUrl || l.riderAvatar,
-                                      name: l.riderName
-                                    })
-                                  }
-                                  className="w-16 h-16 rounded-xl border border-border overflow-hidden bg-panel-bg shrink-0 relative group cursor-pointer shadow-2xs"
-                                >
-                                  <img
-                                    src={l.faceScanUrl || l.riderAvatar}
-                                    alt="Face scan"
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                  />
-                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-medium">
-                                    View
+                                {l.timeIn ? (
+                                  <div
+                                    onClick={() =>
+                                      setSelectedPhoto({
+                                        url: l.riderAvatar,
+                                        name: l.riderName
+                                      })
+                                    }
+                                    className="w-16 h-16 rounded-xl border border-border overflow-hidden bg-panel-bg shrink-0 relative group cursor-pointer shadow-2xs"
+                                  >
+                                    <img
+                                      src={l.riderAvatar}
+                                      alt="Attendance profile"
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                    />
+                                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-medium">
+                                      View
+                                    </div>
                                   </div>
-                                </div>
+                                ) : (
+                                  <div className="w-16 h-16 rounded-xl border border-dashed border-border bg-panel-bg shrink-0 flex items-center justify-center text-center text-[10px] font-semibold text-muted-foreground px-2">
+                                    No clock evidence
+                                  </div>
+                                )}
 
                                 <div className="space-y-1 text-xs min-w-0">
                                   <div className="text-foreground font-semibold flex items-center gap-1.5">
-                                    {l.source === 'face-scan' ? (
+                                    {l.timeIn && l.source === 'face-scan' ? (
                                       <>
                                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                         <span>Face Match: {faceMatch}%</span>
                                       </>
-                                    ) : (
+                                    ) : l.timeIn ? (
                                       <>
                                         <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                         <span>Manual Admin Log</span>
                                       </>
+                                    ) : (
+                                      <span>No clock evidence</span>
                                     )}
                                   </div>
-                                  <div className="text-[11px] text-muted-foreground">
-                                    Liveness: {l.source === 'face-scan' ? 'Verified (Passed)' : 'Bypassed'}
-                                  </div>
-                                  <div className="text-[11px] text-muted-foreground">
-                                    Method: {l.source === 'face-scan' ? 'Facial Biometrics' : 'Manual Override'}
-                                  </div>
+                                  {l.timeIn ? <>
+                                    <div className="text-[11px] text-muted-foreground">
+                                      Liveness: {l.source === 'face-scan' ? 'Verified (Passed)' : 'Bypassed'}
+                                    </div>
+                                    <div className="text-[11px] text-muted-foreground">
+                                      Method: {l.source === 'face-scan' ? 'Facial Biometrics' : 'Manual Override'}
+                                    </div>
+                                  </> : <div className="text-[11px] text-muted-foreground">Not applicable</div>}
                                 </div>
                               </div>
 
                               {/* Engines Metadata */}
-                              <div className="space-y-1.5 pt-2.5 border-t border-border/60 text-[11px]">
+                              {l.timeIn && <div className="space-y-1.5 pt-2.5 border-t border-border/60 text-[11px]">
                                 <div className="flex justify-between items-center text-muted-foreground">
                                   <span className="flex items-center gap-1.5">
                                     <Cpu className="w-3 h-3 text-muted-foreground" /> Recognition Engine
@@ -395,11 +415,11 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                                   </span>
                                   <span className="font-mono text-foreground font-medium">MediaPipe</span>
                                 </div>
-                              </div>
+                              </div>}
                             </div>
 
-                            <div className="pt-2 border-t border-border/60 text-[10px] font-mono text-muted-foreground truncate" title={l.id}>
-                              ID: {l.id}
+                            <div className="pt-2 border-t border-border/60 text-[10px] font-mono text-muted-foreground truncate" title={l.id || rowKey}>
+                              {l.id ? `ID: ${l.id}` : 'Logical context · no stored attendance row'}
                             </div>
                           </div>
 
@@ -471,8 +491,8 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                                   <span className="text-muted-foreground flex items-center gap-1.5">
                                     <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" /> Geofence Result
                                   </span>
-                                  <span className={`font-semibold text-xs ${hasExitBreach ? 'text-red-600' : 'text-emerald-600'}`}>
-                                    {hasExitBreach ? 'Breach Detected' : 'Valid (Inside Zone)'}
+                                  <span className={`font-semibold text-xs ${!l.timeIn ? 'text-muted-foreground' : hasExitBreach ? 'text-red-600' : 'text-emerald-600'}`}>
+                                    {!l.timeIn ? 'Not applicable' : hasExitBreach ? 'Breach Detected' : 'Valid (Inside Zone)'}
                                   </span>
                                 </div>
 
@@ -501,7 +521,7 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                                     <ScanFace className="w-3.5 h-3.5 text-muted-foreground" /> Attendance Source
                                   </span>
                                   <span className="font-medium text-foreground">
-                                    {l.source === 'face-scan' ? 'Face Scan (Biometric)' : 'Manual Override'}
+                                    {l.timeIn ? (l.source === 'face-scan' ? 'Face Scan (Biometric)' : 'Manual Override') : 'Not applicable'}
                                   </span>
                                 </div>
                               </div>
@@ -509,9 +529,11 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
 
                             {/* Geofence Status Note */}
                             <div className={`mt-2 p-2 rounded-lg text-[11px] font-medium flex items-center gap-1.5 ${
-                              hasExitBreach ? 'bg-red-50 text-red-700 border border-red-200/60' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                              !l.timeIn ? 'bg-panel-bg text-muted-foreground border border-border' : hasExitBreach ? 'bg-red-50 text-red-700 border border-red-200/60' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
                             }`}>
-                              {hasExitBreach ? (
+                              {!l.timeIn ? (
+                                <span>No clock evidence; biometric and geofence details are not applicable.</span>
+                              ) : hasExitBreach ? (
                                 <>
                                   <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
                                   <span>Boundary exit breach recorded on this date.</span>

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { ClipboardCheck, ChevronRight } from 'lucide-react';
-import type { AttendanceLog } from '../../services/types';
+import { getAttendanceContextLabel, getPresentationContextCode, getPresentationStatus, type AttendancePresentationLog } from '../../services/attendance/attendanceContextService';
 import { getLocalDateString } from '../../services/attendance/attendanceService';
 import { StatusPill } from './StatusPill';
 interface AttendanceLogsProps {
-  logs: AttendanceLog[];
+  logs: AttendancePresentationLog[];
   onViewAll?: () => void;
 }
 type Range = 'today' | 'week';
@@ -68,7 +68,7 @@ export function AttendanceLogs({ logs, onViewAll }: AttendanceLogsProps) {
           <tbody>
             {filtered.map((l, idx) =>
             <tr
-              key={l.id}
+              key={l.id || `${l.riderId}-${l.date}`}
               className={`border-b border-border/70 last:border-0 hover:bg-accent/40 ${idx % 2 === 1 ? 'bg-panel-bg/40' : ''}`}>
               
                 <td className="py-2.5 px-4">
@@ -96,7 +96,14 @@ export function AttendanceLogs({ logs, onViewAll }: AttendanceLogsProps) {
                 </td>
                 <td className="py-2.5 px-4 text-foreground">{l.zoneName}</td>
                 <td className="py-2.5 px-4">
-                  <StatusPill status={l.status} />
+                  <div className="flex flex-col items-start gap-1">
+                    <StatusPill status={getPresentationStatus(l)} />
+                    {getPresentationContextCode(l) && (
+                      <span className="text-[10px] font-medium text-muted-foreground">
+                        {getAttendanceContextLabel(getPresentationContextCode(l))}
+                      </span>
+                    )}
+                  </div>
                 </td>
               </tr>
             )}

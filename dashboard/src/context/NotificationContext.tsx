@@ -219,6 +219,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const isRoleTarget = !newRow.recipient_id && newRow.target_roles?.includes(userRole);
 
           if ((isDirectTarget || isRoleTarget) && shouldHandleRealtimeEvent('notifications', payload)) {
+            const metadata = newRow.metadata as { request_id?: string; event?: string } | null;
+            if (newRow.action_link === '/leave_absence' || newRow.action_link === '/rider/leave_absence' || metadata?.request_id) {
+              setAttendanceInvalidationVersion(version => version + 1);
+            }
             void refreshNotifications();
 
             // Presentation preferences never remove the persisted Notification Center row.

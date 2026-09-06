@@ -16,6 +16,8 @@ import { deriveReportsAnalytics, type ReportsAnalytics, type ReportsFilters } fr
 import { generateReport, ReportError, type ReportFormat } from '../lib/exports/reportExport';
 import { getLocalDateString } from '../services/attendance/attendanceService';
 import { loadReportsData } from '../services/reports/reportsDataService';
+import { useAttendanceContextVersion } from '../hooks/useAttendanceContextVersion';
+import { useAuth } from '../hooks/useAuth';
 
 type CategoryTab = 'weekly_attendance' | 'violation_summary' | 'zone_coverage' | 'rider_performance';
 type DatePreset = '7d' | '14d' | '30d' | 'custom';
@@ -48,6 +50,8 @@ export function Reports() {
   const [refreshKey, setRefreshKey] = useState(0);
   const requestId = useRef(0);
   const exportJob = useExportJob();
+  const attendanceRealtimeVersion = useAttendanceContextVersion();
+  const { session } = useAuth();
   const { zones: zonesList } = useRiderZone();
   const { selectedHubId, selectedHub, isReady: hubReady, workspaceKey } = useHub();
 
@@ -78,7 +82,7 @@ export function Reports() {
       return;
     }
     setIsLoading(true);
-    void loadReportsData(filters)
+    void loadReportsData(filters, session?.role === 'admin' || session?.role === 'hr')
       .then(data => {
         if (currentRequest !== requestId.current) return;
         setAnalytics(deriveReportsAnalytics({ ...data, filters }));
@@ -91,7 +95,7 @@ export function Reports() {
       .finally(() => {
         if (currentRequest === requestId.current) setIsLoading(false);
       });
-  }, [dateFrom, dateTo, filters, hubReady, refreshKey, workspaceKey]);
+  }, [dateFrom, dateTo, filters, hubReady, refreshKey, workspaceKey, attendanceRealtimeVersion, session?.role]);
 
   const scopeLabel = selectedHub ? selectedHub.name : 'All authorized Hubs';
   const zoneLabel = selectedZone === 'all'
@@ -129,6 +133,7 @@ export function Reports() {
           from: dateFrom,
           to: dateTo,
           zoneIds: selectedZone === 'all' ? [] : [selectedZone],
+          includeAttendanceContext: session?.role === 'admin' || session?.role === 'hr',
         });
       });
       if (!outcome.started || !outcome.value) return;

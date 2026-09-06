@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { AttendanceLog } from '../../services/types';
+import type { AttendanceContextLog } from '../../services/attendance/attendanceContextService';
+import { getAttendanceContextLabel } from '../../services/attendance/attendanceContextService';
 import { 
   Search, 
   Clock, 
@@ -15,7 +16,7 @@ import {
 interface AttendanceDetailsPanelProps {
   type: 'present' | 'late' | 'absent' | 'on_leave';
   onClose: () => void;
-  logs: AttendanceLog[];
+  logs: AttendanceContextLog[];
 }
 
 export function AttendanceDetailsPanel({
@@ -115,7 +116,7 @@ export function AttendanceDetailsPanel({
    1. Present Riders Details
    ========================================================================== */
 interface DetailProps {
-  logs: AttendanceLog[];
+  logs: AttendanceContextLog[];
   onSelectPhoto: (url: string) => void;
 }
 
@@ -148,7 +149,7 @@ function PresentRidersDetail({ logs, onSelectPhoto }: DetailProps) {
           </div>
         ) : (
           filteredLogs.map((log) => (
-            <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-border rounded-xl hover:border-emerald-500/25 transition-all">
+            <div key={log.id || `${log.riderId}-${log.date}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-border rounded-xl hover:border-emerald-500/25 transition-all">
               <div className="flex items-center gap-3">
                 {log.riderAvatar ? (
                   <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
@@ -230,7 +231,7 @@ function LateRidersDetail({ logs, onSelectPhoto }: DetailProps) {
           </div>
         ) : (
           filteredLogs.map((log) => (
-            <div key={log.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-amber-200 rounded-xl hover:border-amber-500/25 transition-all">
+            <div key={log.id || `${log.riderId}-${log.date}`} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-amber-200 rounded-xl hover:border-amber-500/25 transition-all">
               <div className="flex items-center gap-3">
                 {log.riderAvatar ? (
                   <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
@@ -283,7 +284,7 @@ function LateRidersDetail({ logs, onSelectPhoto }: DetailProps) {
 /* ==========================================================================
    3. Absent Riders Details
    ========================================================================== */
-function AbsentRidersDetail({ logs }: { logs: AttendanceLog[] }) {
+function AbsentRidersDetail({ logs }: { logs: AttendanceContextLog[] }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
@@ -298,7 +299,7 @@ function AbsentRidersDetail({ logs }: { logs: AttendanceLog[] }) {
       <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl">
         <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
         <div className="text-[11px] text-red-900 font-medium">
-          Absent riders are offline. Supervisors should verify logs or contact riders to confirm status.
+            No clocks were recorded for these Riders. Review the context badge before following up.
         </div>
       </div>
 
@@ -320,7 +321,7 @@ function AbsentRidersDetail({ logs }: { logs: AttendanceLog[] }) {
           </div>
         ) : (
           filteredLogs.map((log) => (
-            <div key={log.id} className="flex items-center justify-between gap-3 p-3 bg-white border border-red-100 hover:border-red-200 rounded-xl transition-all">
+            <div key={log.id || `${log.riderId}-${log.date}`} className="flex items-center justify-between gap-3 p-3 bg-white border border-red-100 hover:border-red-200 rounded-xl transition-all">
               <div className="flex items-center gap-3 min-w-0">
                 {log.riderAvatar ? (
                   <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
@@ -331,6 +332,7 @@ function AbsentRidersDetail({ logs }: { logs: AttendanceLog[] }) {
                 )}
                 <div className="min-w-0">
                   <h4 className="text-xs font-semibold text-foreground truncate">{log.riderName}</h4>
+                  {log.contextCode && <div className="mt-1 text-[10px] font-medium text-muted-foreground">{getAttendanceContextLabel(log.contextCode)}</div>}
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-primary/70" />
@@ -355,7 +357,7 @@ function AbsentRidersDetail({ logs }: { logs: AttendanceLog[] }) {
 /* ==========================================================================
    4. On Leave Riders Details
    ========================================================================== */
-function OnLeaveRidersDetail({ logs }: { logs: AttendanceLog[] }) {
+function OnLeaveRidersDetail({ logs }: { logs: AttendanceContextLog[] }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
@@ -384,7 +386,7 @@ function OnLeaveRidersDetail({ logs }: { logs: AttendanceLog[] }) {
           </div>
         ) : (
           filteredLogs.map((log) => (
-            <div key={log.id} className="flex items-center justify-between gap-3 p-3 bg-white border border-border rounded-xl hover:border-blue-500/25 transition-all">
+            <div key={log.id || `${log.riderId}-${log.date}`} className="flex items-center justify-between gap-3 p-3 bg-white border border-border rounded-xl hover:border-blue-500/25 transition-all">
               <div className="flex items-center gap-3">
                 {log.riderAvatar ? (
                   <img src={log.riderAvatar} alt={log.riderName} className="w-10 h-10 rounded-full object-cover border border-border" />
@@ -393,8 +395,9 @@ function OnLeaveRidersDetail({ logs }: { logs: AttendanceLog[] }) {
                     {log.riderName.charAt(0)}
                   </div>
                 )}
-                <div>
-                  <h4 className="text-xs font-semibold text-foreground">{log.riderName}</h4>
+                  <div>
+                    <h4 className="text-xs font-semibold text-foreground">{log.riderName}</h4>
+                    {log.contextCode && <div className="mt-1 text-[10px] font-medium text-muted-foreground">{getAttendanceContextLabel(log.contextCode)}</div>}
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-primary/70" />
@@ -406,7 +409,7 @@ function OnLeaveRidersDetail({ logs }: { logs: AttendanceLog[] }) {
 
               <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-100 rounded-md">
                 <Calendar className="w-3.5 h-3.5" />
-                Scheduled Leave
+                {getAttendanceContextLabel(log.contextCode) || 'On Leave'}
               </span>
             </div>
           ))

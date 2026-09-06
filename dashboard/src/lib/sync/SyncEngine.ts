@@ -492,16 +492,29 @@ export class SyncEngine {
       .maybeSingle();
     if (lookupError) throw lookupError;
 
-    const attendanceLogId = existing?.id || requestedId;
-    const { error } = await supabase.from('attendance_logs').upsert({
+    let attendanceLogId = existing?.id || requestedId;
+    const record = {
       id: attendanceLogId,
       rider_id: item.riderId,
       date: payload.date,
       time_in: item.eventTimestamp,
       status: payload.status || 'present',
       source: payload.source || 'face-scan'
-    });
-    if (error && !isDuplicateError(error)) throw error;
+    };
+    const { error } = await supabase.from('attendance_logs').upsert(record);
+    if (error) {
+      if (!isDuplicateError(error)) throw error;
+      // The finalizer can insert between lookup and upsert. A uniqueness
+      // conflict is not successful replay until the clock is persisted.
+      const { data: canonical, error: canonicalError } = await supabase
+        .from('attendance_logs').select('id')
+        .eq('rider_id', item.riderId).eq('date', payload.date).maybeSingle();
+      if (canonicalError) throw canonicalError;
+      if (!canonical) throw error;
+      attendanceLogId = canonical.id;
+      const { error: retryError } = await supabase.from('attendance_logs').upsert({ ...record, id: attendanceLogId });
+      if (retryError) throw retryError;
+    }
 
     payload.attendance_log_id = attendanceLogId;
     const { error: riderError } = await supabase
@@ -514,12 +527,12 @@ export class SyncEngine {
   protected async syncTimeOut(item: QueueItem): Promise<void> {
     const payload = item.payload as TimeOutPayload;
     assertRiderIdentity(item, payload.rider_id);
-    const attendanceLogId = payload.attendance_log_id || payload.id;
+    let attendanceLogId = payload.attendance_log_id || payload.id;
     if (!attendanceLogId || !payload.date) {
       throw new PermanentSyncError('Invalid TIME_OUT payload: missing attendance log ID, rider ID, or date.');
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('attendance_logs')
       .update({ time_out: item.eventTimestamp })
       .eq('id', attendanceLogId)
@@ -528,8 +541,31 @@ export class SyncEngine {
       .select('id')
       .maybeSingle();
     if (error) throw error;
-    if (!data) throw new Error(`Attendance log ${attendanceLogId} was not available for TIME_OUT replay.`);
+    if (!data) {
+      const { data: canonical, error: canonicalLookupError } = await supabase
+        .from('attendance_logs')
+        .select('id')
+        .eq('rider_id', item.riderId)
+        .eq('date', payload.date)
+        .maybeSingle();
+      if (canonicalLookupError) throw canonicalLookupError;
+      if (!canonical) throw new Error(`Attendance log ${attendanceLogId} was not available for TIME_OUT replay.`);
 
+      attendanceLogId = canonical.id;
+      ({ data, error } = await supabase
+        .from('attendance_logs')
+        .update({ time_out: item.eventTimestamp })
+        .eq('id', attendanceLogId)
+        .eq('rider_id', item.riderId)
+        .eq('date', payload.date)
+        .select('id')
+        .maybeSingle());
+      if (error) throw error;
+      if (!data) throw new Error(`Attendance log ${attendanceLogId} was not available for TIME_OUT replay.`);
+    }
+
+    // Cache patching must use the same canonical row that was just persisted.
+    payload.attendance_log_id = attendanceLogId;
     const riderUpdate: Record<string, unknown> = {
       status: 'offline',
       last_ping: item.eventTimestamp

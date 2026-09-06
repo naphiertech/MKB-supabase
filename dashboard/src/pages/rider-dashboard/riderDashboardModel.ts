@@ -1,8 +1,8 @@
 import type {
   CachedDashboardPayload,
-  DBAttendanceRow,
   DBRiderRow,
 } from '../../services/riders/riderCacheService';
+import type { AttendanceContextLog } from '../../services/attendance/attendanceContextService';
 import type { Rider } from '../../services/types';
 
 export interface DashboardAttendanceLog {
@@ -14,6 +14,9 @@ export interface DashboardAttendanceLog {
   hours: number | null;
   status: string;
   source?: string | null;
+  contextCode?: string | null;
+  expectedToWork?: boolean;
+  excusalState?: string;
 }
 
 export interface DashboardViolation {
@@ -53,7 +56,7 @@ export interface DashboardPayloadState {
   rider: DashboardRider | undefined;
   attendance: DashboardAttendanceState;
   activeViolation: DashboardActiveViolation | null;
-  monthAttendanceLogs: DBAttendanceRow[];
+  monthAttendanceLogs: DashboardAttendanceLog[];
   stats: DashboardStats;
 }
 
@@ -141,6 +144,26 @@ export function mapDbRiderToDashboardRider(dbRider: DBRiderRow): DashboardRider 
   };
 }
 
+function mapContextToDashboardLog(log: AttendanceContextLog): DashboardAttendanceLog {
+  const timeIn = log.rawTimeIn || log.timeIn;
+  const timeOut = log.rawTimeOut || log.timeOut;
+  const hasClocks = !!timeIn;
+  const status = hasClocks ? (log.rawStatus || 'present') : log.status;
+  return {
+    id: log.id || '',
+    rider_id: log.riderId,
+    date: log.date,
+    time_in: timeIn,
+    time_out: timeOut,
+    hours: log.hours,
+    status,
+    source: log.source,
+    contextCode: log.contextCode,
+    expectedToWork: log.expectedToWork,
+    excusalState: log.excusalState,
+  };
+}
+
 export function deriveDashboardStats(
   monthLogs: Array<{ status: string; date: string; hours: number | null }>,
   firstDayOfWeekStr: string,
@@ -170,12 +193,27 @@ export function mapCachedDashboardPayloadToState(
   firstDayOfWeekStr: string,
   currentBusinessDate?: string,
 ): DashboardPayloadState {
-  const monthAttendanceLogs = payload.monthAttendance || [];
+  const monthAttendanceLogs = payload.monthAttendanceContext?.length
+    ? payload.monthAttendanceContext.map((log) => {
+        if (payload.todayAttendance && payload.todayAttendance.date === log.date && payload.todayAttendance.time_in) {
+          return mapContextToDashboardLog({
+            ...log,
+            rawTimeIn: payload.todayAttendance.time_in,
+            rawTimeOut: payload.todayAttendance.time_out,
+            timeIn: payload.todayAttendance.time_in,
+            timeOut: payload.todayAttendance.time_out,
+            hours: payload.todayAttendance.hours ?? log.hours,
+            rawStatus: payload.todayAttendance.status as any,
+            status: payload.todayAttendance.status as any,
+          });
+        }
+        return mapContextToDashboardLog(log);
+      })
+    : payload.monthAttendance || [];
   const violationData = payload.latestViolation;
   const todayAttendance = !currentBusinessDate || payload.todayAttendance?.date === currentBusinessDate
     ? payload.todayAttendance
     : null;
-
   return {
     resolvedRiderId: payload.resolvedRiderId,
     rider: payload.dbRider ? mapDbRiderToDashboardRider(payload.dbRider) : undefined,

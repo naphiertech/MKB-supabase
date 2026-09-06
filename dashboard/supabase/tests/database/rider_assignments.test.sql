@@ -18,9 +18,9 @@ insert into rider_assignment_tap_results select ok(to_regprocedure('public.end_r
 insert into rider_assignment_tap_results select ok(not has_table_privilege('authenticated', 'public.rider_assignments', 'INSERT'), 'clients cannot insert assignment history directly');
 insert into rider_assignment_tap_results select ok(not has_table_privilege('authenticated', 'public.rider_assignments', 'UPDATE'), 'clients cannot update assignment history directly');
 
-insert into public.hubs (id, name) values
-  ('a3100000-0000-4000-8000-000000000001', 'Assignment Test Hub A'),
-  ('a3100000-0000-4000-8000-000000000002', 'Assignment Test Hub B');
+insert into public.hubs (id, name, latitude, longitude, attendance_radius_m) values
+  ('a3100000-0000-4000-8000-000000000001', 'Assignment Test Hub A', 6.9214, 122.0790, 100),
+  ('a3100000-0000-4000-8000-000000000002', 'Assignment Test Hub B', 6.9214, 122.0790, 100);
 
 insert into public.zones (id, hub_id, name, lat, lng, radius, color, status) values
   ('b3100000-0000-4000-8000-000000000001', 'a3100000-0000-4000-8000-000000000001', 'Assignment Test Zone A', 1, 1, 100, '#111111', 'active'),
@@ -54,6 +54,9 @@ insert into public.users (id, full_name, email, role, rider_id, hub_access_scope
 
 insert into public.user_hub_access (user_id, hub_id, assigned_by) values
   ('d3100000-0000-4000-8000-000000000002', 'a3100000-0000-4000-8000-000000000001', 'd3100000-0000-4000-8000-000000000001');
+
+insert into public.attendance_logs (id, rider_id, date, time_in, time_out, status, source) values
+  ('f3100000-0000-4000-8000-000000000000', 'c3100000-0000-4000-8000-000000000001', (clock_timestamp() at time zone 'Asia/Manila')::date - 1, clock_timestamp() - interval '1 day', clock_timestamp() - interval '1 day' + interval '8 hours', 'present', 'system');
 
 insert into public.parcel_logs (id, rider_id, date, parcels, heavy_parcels, failed_parcels, returned_parcels, created_by) values
   ('e3100000-0000-4000-8000-000000000001', 'c3100000-0000-4000-8000-000000000001', (clock_timestamp() at time zone 'Asia/Manila')::date - 1, 1, 0, 0, 0, 'd3100000-0000-4000-8000-000000000001');

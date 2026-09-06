@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { type AttendanceLog, type Zone, type ViolationEvent } from '../../services/types';
+import { getAttendanceContextLabel, getPresentationStatus, listAttendanceContext, type AttendanceContextCode, type AttendanceContextStatus } from '../../services/attendance/attendanceContextService';
 import { getAttendanceLogs } from '../../services/attendance/attendanceService';
 import { getViolationsForReport } from '../../services/monitoring/monitoringService';
 import { getZones } from '../../services/geofencing/geofenceService';
@@ -46,6 +47,7 @@ export interface BuilderOptions {
 export interface GenerateOptions extends BuilderOptions {
   template: ReportTemplate;
   format: ReportFormat;
+  includeAttendanceContext?: boolean;
 }
 
 export class ReportError extends Error {
@@ -69,7 +71,12 @@ function inDateRange(date: string, from: string, to: string): boolean {
   return date >= from && date <= to;
 }
 
-function filterAttendance(opts: BuilderOptions, attendanceLogsList: AttendanceLog[]): AttendanceLog[] {
+type ReportAttendanceLog = AttendanceLog & {
+  effectiveStatus?: AttendanceContextStatus;
+  contextCode?: AttendanceContextCode | null;
+};
+
+function filterAttendance(opts: BuilderOptions, attendanceLogsList: ReportAttendanceLog[]): ReportAttendanceLog[] {
   return attendanceLogsList.filter((log) => {
     if (!inDateRange(log.date, opts.from, opts.to)) return false;
     if (opts.zoneIds.length > 0 && !opts.zoneIds.includes(log.zoneId))
@@ -78,7 +85,7 @@ function filterAttendance(opts: BuilderOptions, attendanceLogsList: AttendanceLo
   });
 }
 
-export function buildWeeklyAttendance(opts: BuilderOptions, attendanceLogsList: AttendanceLog[]): ReportData {
+export function buildWeeklyAttendance(opts: BuilderOptions, attendanceLogsList: ReportAttendanceLog[]): ReportData {
   const rows = filterAttendance(opts, attendanceLogsList).map((log) => [
     log.riderName,
     log.zoneName,
@@ -86,7 +93,8 @@ export function buildWeeklyAttendance(opts: BuilderOptions, attendanceLogsList: 
     log.timeIn ?? '—',
     log.timeOut ?? '—',
     log.hours,
-    log.status
+    getPresentationStatus(log),
+    getAttendanceContextLabel(log.contextCode) || ''
   ]);
   return {
     title: TEMPLATE_TITLES.weekly_attendance,
@@ -97,7 +105,8 @@ export function buildWeeklyAttendance(opts: BuilderOptions, attendanceLogsList: 
       'Time-In',
       'Time-Out',
       'Hours',
-      'Status'
+      'Status',
+      'Context'
     ],
     rows
   };
@@ -137,7 +146,7 @@ export function buildViolationSummary(
 
 export function buildZoneCoverage(
   opts: BuilderOptions,
-  attendanceLogsList: AttendanceLog[],
+  attendanceLogsList: ReportAttendanceLog[],
   zonesList: Zone[],
   violationsList: ViolationEvent[]
 ): ReportData {
@@ -176,7 +185,7 @@ export function buildZoneCoverage(
 
 export function buildRiderPerformance(
   opts: BuilderOptions,
-  attendanceLogsList: AttendanceLog[],
+  attendanceLogsList: ReportAttendanceLog[],
   violationsList: ViolationEvent[]
 ): ReportData {
   const logs = filterAttendance(opts, attendanceLogsList);
@@ -186,11 +195,11 @@ export function buildRiderPerformance(
   logs.forEach(log => logsByRider.set(log.riderId, [...(logsByRider.get(log.riderId) ?? []), log]));
   const rows = [...logsByRider.entries()].map(([riderId, riderLogs]) => {
     const daysPresent = riderLogs.filter(
-      (l) => l.status === 'present' || l.status === 'late'
+      (l) => getPresentationStatus(l) === 'present' || getPresentationStatus(l) === 'late'
     ).length;
     const totalHours =
     Math.round(riderLogs.reduce((sum, l) => sum + l.hours, 0) * 10) / 10;
-    const lateCount = riderLogs.filter((l) => l.status === 'late').length;
+    const lateCount = riderLogs.filter((l) => getPresentationStatus(l) === 'late').length;
     const riderViolations = violationsList.filter(
       (v) => v.riderId === riderId && v.ts >= fromTs && v.ts <= toTs
     ).length;
@@ -221,7 +230,7 @@ export function buildRiderPerformance(
 function buildReport(
   template: ReportTemplate,
   opts: BuilderOptions,
-  attendanceLogsList: AttendanceLog[],
+  attendanceLogsList: ReportAttendanceLog[],
   zonesList: Zone[],
   violationsList: ViolationEvent[]
 ): ReportData {
@@ -403,7 +412,16 @@ export async function generateReport(
     getZones(),
     getViolationsForReport({ from: opts.from, to: opts.to, zoneIds: opts.zoneIds })
   ]);
-  const logsData = await enrichAttendanceWithHistoricalZones(rawLogsData);
+  let reportLogs = rawLogsData as ReportAttendanceLog[];
+  if (opts.includeAttendanceContext && opts.template !== 'violation_summary') {
+    const contextRows = await listAttendanceContext({ fromDate: opts.from, toDate: opts.to });
+    const contextByKey = new Map(contextRows.map(row => [`${row.riderId}:${row.date}`, row]));
+    reportLogs = reportLogs.map(log => {
+      const context = contextByKey.get(`${log.riderId}:${log.date}`);
+      return context ? { ...log, effectiveStatus: context.status, contextCode: context.contextCode } : log;
+    });
+  }
+  const logsData = await enrichAttendanceWithHistoricalZones(reportLogs) as ReportAttendanceLog[];
 
   const data = buildReport(opts.template, {
     from: opts.from,

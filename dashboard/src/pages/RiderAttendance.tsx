@@ -62,12 +62,13 @@ function formatDateLabel(dateStr: string): string {
 interface DBAttendanceLog {
   id: string;
   date: string;
-  status: 'present' | 'late' | 'on_leave' | 'absent';
+  status: 'present' | 'late' | 'on_leave' | 'absent' | 'day_off' | 'not_finalized';
   hours: number | null;
   time_in: string | null;
   time_out: string | null;
   presence?: AttendancePresence;
   punctuality?: PunctualityStatus;
+  contextCode?: string | null;
 }
 
 export function RiderAttendance({ userId, riderId, onBack }: RiderAttendanceProps) {
@@ -103,7 +104,26 @@ export function RiderAttendance({ userId, riderId, onBack }: RiderAttendanceProp
         const firstDayOfWeekStr = getLocalDateString(firstDayOfWeek);
 
         const applyPayload = (payload: CachedDashboardPayload) => {
-          const { dbRider, todayAttendance: attLog, monthAttendance: monthAtt } = payload;
+          const { dbRider, todayAttendance: attLog } = payload;
+          const monthAtt = payload.monthAttendanceContext?.length
+            ? payload.monthAttendanceContext.map((log) => {
+                const isToday = attLog && attLog.date === log.date && attLog.time_in;
+                const timeIn = isToday ? attLog.time_in : (log.rawTimeIn || log.timeIn);
+                const timeOut = isToday ? attLog.time_out : (log.rawTimeOut || log.timeOut);
+                const status = timeIn ? (isToday ? attLog.status : (log.rawStatus || 'present')) : log.status;
+                return {
+                  id: log.id || (isToday ? attLog.id : ''),
+                  date: log.date,
+                  status,
+                  hours: isToday ? attLog.hours : log.hours,
+                  time_in: timeIn,
+                  time_out: timeOut,
+                  presence: timeIn ? 'present' : (log.presence === 'on_leave' ? 'on_leave' : 'absent'),
+                  punctuality: log.punctuality,
+                  contextCode: log.contextCode,
+                } as DBAttendanceLog;
+              })
+            : payload.monthAttendance;
           if (dbRider) {
             const mappedRider: Rider = {
               id: dbRider.id,
@@ -134,9 +154,9 @@ export function RiderAttendance({ userId, riderId, onBack }: RiderAttendanceProp
 
           if (monthAtt) {
             const typedLogs = (monthAtt as DBAttendanceLog[]).map(l => {
-              const isLate = l.status === 'late';
-              const isPresent = !!l.time_in || l.status === 'present' || isLate;
-              const presence: AttendancePresence = l.status === 'on_leave' ? 'on_leave' : isPresent ? 'present' : 'absent';
+              const isLate = l.status === 'late' || l.punctuality === 'late';
+              const isPresent = l.status === 'present' || isLate || !!l.time_in;
+              const presence: AttendancePresence = isPresent ? 'present' : (l.status === 'on_leave' ? 'on_leave' : 'absent');
               const punctuality: PunctualityStatus = isLate ? 'late' : isPresent ? 'on_time' : 'none';
               return { ...l, presence, punctuality };
             });

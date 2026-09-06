@@ -1,4 +1,5 @@
-import type { AppUser, AttendanceLog } from '../../services/types';
+import type { AppUser } from '../../services/types';
+import { getAttendanceContextLabel, type AttendanceContextCode } from '../../services/attendance/attendanceContextService';
 import { formatManilaDate } from './exportUtils';
 
 export interface EmployeeProfileDocumentInput {
@@ -56,12 +57,21 @@ export function buildEmployeeProfileDocumentData({
   };
 }
 
+export interface DtrAttendanceLog {
+  date: string;
+  timeIn: string | null;
+  timeOut: string | null;
+  hours: number;
+  status?: string;
+  contextCode?: string | null;
+}
+
 export interface DtrDocumentInput {
   riderName: string;
   riderRole: string;
   zoneName: string;
   calendarDate: Date;
-  logs: AttendanceLog[];
+  logs: DtrAttendanceLog[];
 }
 
 export interface DtrDocumentRow {
@@ -74,12 +84,15 @@ export interface DtrDocumentRow {
   overtimeOut: string;
   undertimeHours: string;
   undertimeMinutes: string;
+  statusText?: string;
+  contextText?: string;
 }
 
 export interface DtrDocumentData {
   employee: { name: string; role: string; zoneName: string };
   month: { year: number; monthName: string; daysInMonth: number };
   rows: DtrDocumentRow[];
+  contextNotes: string[];
 }
 
 function formatDtrTimeString(value: string | null): string {
@@ -105,6 +118,7 @@ export function buildDtrDocumentData(input: DtrDocumentInput): DtrDocumentData {
   const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
   let totalMinutes = 0;
   const rows: DtrDocumentRow[] = [];
+  const contextNotes: string[] = [];
 
   for (let day = 1; day <= 31; day += 1) {
     const row: DtrDocumentRow = {
@@ -115,6 +129,15 @@ export function buildDtrDocumentData(input: DtrDocumentInput): DtrDocumentData {
       const date = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const log = input.logs.find(item => item.date === date);
       if (log) {
+        const statusText = log.status ? log.status.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase()) : undefined;
+        const contextText = getAttendanceContextLabel(log.contextCode as AttendanceContextCode | null | undefined) ?? undefined;
+        row.statusText = statusText;
+        row.contextText = contextText;
+        const resolvedContext = contextText ?? (log.status === 'day_off' ? 'Published Day Off' : (log.status === 'on_leave' ? 'Approved Leave' : undefined));
+        if (resolvedContext) {
+          const detail = contextText && contextText !== statusText ? ` · ${contextText}` : (statusText && statusText !== resolvedContext ? ` · ${resolvedContext}` : '');
+          contextNotes.push(`${date}: ${statusText || resolvedContext}${detail}`);
+        }
         const timeIn = formatDtrTimeString(log.timeIn);
         const timeOut = formatDtrTimeString(log.timeOut);
         if (timeIn) (Number(timeIn.slice(0, 2)) < 12 ? row.amIn = timeIn : row.pmIn = timeIn);
@@ -138,5 +161,6 @@ export function buildDtrDocumentData(input: DtrDocumentInput): DtrDocumentData {
     employee: { name: input.riderName, role: input.riderRole, zoneName: input.zoneName },
     month: { year, monthName, daysInMonth },
     rows,
+    contextNotes,
   };
 }

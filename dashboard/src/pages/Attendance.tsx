@@ -11,9 +11,14 @@ import {
   Search,
   RotateCcw
 } from 'lucide-react';
-import { getAttendanceLogs, getLocalDateString, isAttendanceFinalized } from '../services/attendance/attendanceService';
+import { getAttendanceLogs, getLocalDateString } from '../services/attendance/attendanceService';
+import {
+  listAttendanceContext,
+  mergeAttendanceContextDetails,
+  type AttendanceContextLog,
+} from '../services/attendance/attendanceContextService';
 import { getZones } from '../services/geofencing/geofenceService';
-import type { AttendanceLog, Zone } from '../services/types';
+import type { Zone } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
 import { AttendanceTable } from '../components/attendance/AttendanceTable';
 import { getRidersLookup } from '../services/riders/riderService';
@@ -22,10 +27,8 @@ import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/attenda
 import { appToast } from '../hooks/useToast';
 import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 import { exportAttendanceCsv, exportAttendancePdf } from '../lib/exports/attendanceExport';
-import { getCachedAvatar } from '../lib/avatarCache';
-import { isEmploymentActiveOnDate } from '../lib/workforce/employmentLifecycle';
 import type { EmploymentStatus } from '../services/types';
-import { useAttendanceRealtimeVersion } from '../context/attendanceRealtimeContext';
+import { useAttendanceContextVersion } from '../hooks/useAttendanceContextVersion';
 
 type QuickRange = 'today' | 'this_week' | 'this_cutoff' | 'this_month' | 'custom';
 
@@ -80,7 +83,7 @@ export function Attendance() {
   const [dateTo, setDateTo] = useState<string>(today);
   const [activeQuickRange, setActiveQuickRange] = useState<QuickRange>('today');
 
-  const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
+  const [attendanceList, setAttendanceList] = useState<AttendanceContextLog[]>([]);
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [activeSummaryModal, setActiveSummaryModal] = useState<'present' | 'late' | 'absent' | 'on_leave' | null>(null);
 
@@ -106,7 +109,7 @@ export function Attendance() {
   const [isParsing, setIsParsing] = useState(false);
   const [parsedLogs, setParsedLogs] = useState<ParsedDTRLog[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const attendanceRealtimeVersion = useAttendanceRealtimeVersion();
+  const attendanceRealtimeVersion = useAttendanceContextVersion();
 
   useEffect(() => {
     getZones().then(setZonesList);
@@ -149,69 +152,26 @@ export function Attendance() {
 
   useEffect(() => {
     let active = true;
-    void getAttendanceLogs().then((logs) => {
-      if (active) setAttendanceList(logs);
+    const previousDate = new Date(`${dateFrom}T00:00:00.000Z`);
+    previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+    const contextFrom = dateFrom === dateTo ? previousDate.toISOString().slice(0, 10) : dateFrom;
+
+    void Promise.all([
+      listAttendanceContext({ fromDate: contextFrom, toDate: dateTo }),
+      getAttendanceLogs(
+        { dateFrom: contextFrom, dateTo },
+        { finalizeDaily: false, throwOnError: true, includeEvents: true },
+      ),
+    ]).then(([contextRows, rawRows]) => {
+      if (active) setAttendanceList(mergeAttendanceContextDetails(contextRows, rawRows));
+    }).catch((error) => {
+      if (active) console.error('Error fetching attendance context:', error);
     });
+
     return () => { active = false; };
-  }, [attendanceRealtimeVersion]);
+  }, [attendanceRealtimeVersion, dateFrom, dateTo]);
 
-  const fullAttendanceList = useMemo(() => {
-    if (ridersList.length === 0) return attendanceList;
-
-    // Existing log map: key = `${riderId}_${date}`
-    const existingLogMap = new Set<string>();
-    attendanceList.forEach((log) => {
-      existingLogMap.add(`${log.riderId}_${log.date}`);
-    });
-
-    const effectiveTo = dateTo > today ? today : dateTo;
-    const synthesizedAbsentLogs: AttendanceLog[] = [];
-
-    if (dateFrom <= effectiveTo) {
-      const curDate = new Date(dateFrom);
-      const endDate = new Date(effectiveTo);
-
-      while (curDate <= endDate) {
-        const dateStr = getLocalDateString(curDate);
-        // Only classify riders without Time In as Absent if the date/time is finalized (5:00 PM cutoff for today, or any past date)
-        if (isAttendanceFinalized(dateStr, 17)) {
-          ridersList.forEach((rider) => {
-            if (!isEmploymentActiveOnDate(rider, dateStr)) return;
-            const key = `${rider.id}_${dateStr}`;
-            if (!existingLogMap.has(key)) {
-              synthesizedAbsentLogs.push({
-                id: `absent_${rider.id}_${dateStr}`,
-                riderId: rider.id,
-                riderName: rider.name,
-                riderAvatar:
-                  getCachedAvatar(rider.id) ||
-                  `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(rider.name)}`,
-                date: dateStr,
-                timeIn: null,
-                timeOut: null,
-                rawTimeIn: null,
-                rawTimeOut: null,
-                hours: 0,
-                zoneId: rider.zone_id || '',
-                zoneName: rider.zoneName || 'Zamboanga City',
-                status: 'absent',
-                presence: 'absent',
-                punctuality: 'none',
-                source: 'system',
-                notes: 'Auto-generated absent record by system cutoff (5:00 PM)',
-                lat: 0,
-                lng: 0,
-                events: []
-              });
-            }
-          });
-        }
-        curDate.setDate(curDate.getDate() + 1);
-      }
-    }
-
-    return [...attendanceList, ...synthesizedAbsentLogs];
-  }, [attendanceList, ridersList, dateFrom, dateTo, today]);
+  const fullAttendanceList = attendanceList;
 
   const kpiLogs = useMemo(() => {
     const targetDate = dateFrom === dateTo ? dateFrom : today;
@@ -224,9 +184,9 @@ export function Attendance() {
 
   const kpis = useMemo(() => {
     return {
-      present: kpiLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'present').length,
-      late: kpiLogs.filter((l) => (l.punctuality || (l.status === 'late' ? 'late' : 'none')) === 'late').length,
-      absent: kpiLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'absent').length,
+      present: kpiLogs.filter((l) => l.status === 'present').length,
+      late: kpiLogs.filter((l) => l.status === 'late').length,
+      absent: kpiLogs.filter((l) => l.status === 'absent').length,
       onLeave: kpiLogs.filter((l) => l.status === 'on_leave').length
     };
   }, [kpiLogs]);
@@ -251,7 +211,7 @@ export function Attendance() {
 
   const presentTrend = useMemo(() => {
     if (prevKpiLogs.length === 0) return undefined;
-    const prevCount = prevKpiLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'present').length;
+    const prevCount = prevKpiLogs.filter((l) => l.status === 'present').length;
     const delta = kpis.present - prevCount;
     return {
       direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
@@ -261,7 +221,7 @@ export function Attendance() {
 
   const lateTrend = useMemo(() => {
     if (prevKpiLogs.length === 0) return undefined;
-    const prevCount = prevKpiLogs.filter((l) => (l.punctuality || (l.status === 'late' ? 'late' : 'none')) === 'late').length;
+    const prevCount = prevKpiLogs.filter((l) => l.status === 'late').length;
     const delta = kpis.late - prevCount;
     return {
       direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
@@ -272,7 +232,7 @@ export function Attendance() {
 
   const absentTrend = useMemo(() => {
     if (prevKpiLogs.length === 0) return undefined;
-    const prevCount = prevKpiLogs.filter((l) => (l.presence || (l.timeIn ? 'present' : 'absent')) === 'present').length;
+    const prevCount = prevKpiLogs.filter((l) => l.status === 'absent').length;
     const delta = kpis.absent - prevCount;
     return {
       direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
@@ -283,8 +243,8 @@ export function Attendance() {
 
   const filtered = useMemo(() => {
     return fullAttendanceList.filter((l) => {
-      const presenceVal = l.presence || (l.status === 'on_leave' ? 'on_leave' : l.timeIn ? 'present' : 'absent');
-      const punctualityVal = l.punctuality || (l.status === 'late' ? 'late' : l.timeIn ? 'on_time' : 'none');
+      const presenceVal = l.status;
+      const punctualityVal = l.punctuality;
 
       return (
         l.date >= dateFrom &&
@@ -336,21 +296,30 @@ export function Attendance() {
     exportAttendancePdf(filtered, { from: dateFrom, to: dateTo });
   };
 
-  const handleDownloadDTR = (riderId: string) => {
+  const handleDownloadDTR = async (riderId: string) => {
     const selectedDtrRider = ridersList.find((r) => r.id === riderId);
     if (!selectedDtrRider) return;
 
     const riderZone = selectedDtrRider.zoneName || 'Zamboanga City';
-    const start = new Date(dtrDateFrom);
-    const riderLogs = attendanceList.filter((l) => l.riderId === riderId);
+    const monthStart = `${dtrDateFrom.slice(0, 7)}-01`;
+    const monthEndDate = new Date(`${monthStart}T00:00:00.000Z`);
+    monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
+    monthEndDate.setUTCDate(0);
+    const monthEnd = monthEndDate.toISOString().slice(0, 10);
 
-    exportEmployeeDTR({
-      riderName: selectedDtrRider.name,
-      riderRole: 'RIDER',
-      zoneName: riderZone,
-      calendarDate: start,
-      logs: riderLogs
-    });
+    try {
+      const riderLogs = await listAttendanceContext({ fromDate: monthStart, toDate: monthEnd, riderId });
+      exportEmployeeDTR({
+        riderName: selectedDtrRider.name,
+        riderRole: 'RIDER',
+        zoneName: riderZone,
+        calendarDate: new Date(`${monthStart}T00:00:00.000Z`),
+        logs: riderLogs,
+      });
+    } catch (error) {
+      console.error('Failed to load Attendance context for DTR:', error);
+      appToast.error('Unable to load Attendance context for this DTR.');
+    }
   };
 
   const handleProcessImport = async () => {
@@ -384,7 +353,15 @@ export function Attendance() {
       setImportModalOpen(false);
       setImportFile(null);
       setParsedLogs([]);
-      getAttendanceLogs().then(setAttendanceList);
+      void Promise.all([
+        listAttendanceContext({ fromDate: dateFrom, toDate: dateTo }),
+        getAttendanceLogs(
+          { dateFrom, dateTo },
+          { finalizeDaily: false, throwOnError: true, includeEvents: true },
+        ),
+      ]).then(([contextRows, rawRows]) => {
+        setAttendanceList(mergeAttendanceContextDetails(contextRows, rawRows));
+      });
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error(err);

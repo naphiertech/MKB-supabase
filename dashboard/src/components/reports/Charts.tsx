@@ -25,7 +25,7 @@ function useChartReady(): boolean {
 export function AttendanceRateChart({ data }: { data: ReportsAnalytics['attendanceTrend'] }) {
   const ready = useChartReady();
   const chartData = useMemo(() => data.map(row => {
-    const total = row.present + row.late + row.absent + row.onLeave;
+    const total = row.present + row.late + row.absent + row.onLeave + (row.dayOff || 0);
     const attended = row.present + row.late;
     return { date: row.date.slice(5), present: attended, total, rate: total ? Math.round(attended / total * 1000) / 10 : 0 };
   }), [data]);
@@ -80,6 +80,7 @@ export function AttendanceDistributionChart({ data }: { data: ReportsAnalytics['
     { name: 'Late', value: data.late, color: '#F59E0B' },
     { name: 'Absent', value: data.absent, color: '#EF4444' },
     { name: 'On Leave', value: data.onLeave, color: '#3B82F6' },
+    { name: 'Day Off', value: data.dayOff || 0, color: '#94A3B8' },
   ].map(item => ({ ...item, pct: data.total ? Math.round(item.value / data.total * 100) : 0 }));
   const pieData = data.total ? distribution : [{ name: 'No Data', value: 1, color: '#EFEAE2', pct: 0 }];
   return (

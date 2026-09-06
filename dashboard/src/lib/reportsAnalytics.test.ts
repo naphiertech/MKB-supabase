@@ -16,7 +16,7 @@ type ReportsAnalyticsModule = {
       ridersReporting: number;
     };
     comparisons: { attendanceRateDeltaPoints: number | null; violationDelta: number | null };
-    attendanceBreakdown: { present: number; late: number; absent: number; onLeave: number; total: number };
+    attendanceBreakdown: { present: number; late: number; absent: number; onLeave: number; dayOff: number; total: number };
     riderPerformance: Array<{ riderName: string; totalHours: number; attendanceRate: number; violationCount: number }>;
     violationByZone: Array<{ zoneName: string; violations: number }>;
     insights: {
@@ -73,6 +73,17 @@ function violation(overrides: Partial<ViolationEvent> & { id: string; riderId: s
 const filters = { from: '2026-08-01', to: '2026-08-15', hubId: null, zoneId: 'all' };
 
 describe('Reports period and dataset integrity', () => {
+  it('gives derived worked status priority over raw absence without changing the denominator', async () => {
+    const { deriveReportsAnalytics } = await import('./reportsAnalytics');
+    const raw = attendance({ id: 'a1', riderId: 'r1', date: '2026-08-01', status: 'absent', presence: 'absent' });
+    const result = deriveReportsAnalytics({
+      currentLogs: [{ ...raw, effectiveStatus: 'present', contextCode: 'worked_during_approved_leave' },
+        { ...raw, id: 'a2', effectiveStatus: 'on_leave', contextCode: 'approved_leave' }],
+      previousLogs: [], currentViolations: [], previousViolations: [], filters,
+    });
+    expect(result.attendanceBreakdown).toMatchObject({ present: 1, absent: 0, onLeave: 1, dayOff: 0, total: 2 });
+    expect(result.metrics.attendanceRate).toBe(50);
+  });
   it('uses an equally sized inclusive previous period', async () => {
     const module = await loadAnalytics();
     expect(typeof module.previousPeriodRange).toBe('function');
@@ -142,7 +153,7 @@ describe('Reports period and dataset integrity', () => {
     const result = module.deriveReportsAnalytics!({
       currentLogs, previousLogs: [], currentViolations, previousViolations: [], filters,
     });
-    expect(result.attendanceBreakdown).toEqual({ present: 0, late: 2, absent: 1, onLeave: 1, total: 4 });
+    expect(result.attendanceBreakdown).toEqual({ present: 0, late: 2, absent: 1, onLeave: 1, dayOff: 0, total: 4 });
     expect(result.riderPerformance[0]).toMatchObject({ riderName: 'Juan', totalHours: 18, attendanceRate: 100, violationCount: 1 });
     expect(result.metrics.totalViolations).toBe(1);
   });
@@ -182,5 +193,59 @@ describe('Reports period and dataset integrity', () => {
     expect(result.violationByZone[0]).toEqual({ zoneName: 'North', violations: 2 });
     expect(result.insights.geofenceHotspot).toContain('North');
     expect(result.insights.geofenceHotspot).toContain('100%');
+  });
+
+  it('LOCKS Day Off primary precedence: Published Day Off + Approved Leave must remain Day Off and not convert to On Leave', async () => {
+    const { deriveReportsAnalytics } = await import('./reportsAnalytics');
+    const raw = attendance({ id: 'a-dayoff', riderId: 'r-off', date: '2026-08-01', status: 'present', presence: 'present' });
+
+    // Published Day Off + Approved Leave context
+    const publishedDayOffWithLeave = {
+      ...raw,
+      effectiveStatus: 'day_off' as const,
+      contextCode: 'approved_leave' as const,
+    };
+
+    const result = deriveReportsAnalytics({
+      currentLogs: [publishedDayOffWithLeave],
+      previousLogs: [],
+      currentViolations: [],
+      previousViolations: [],
+      filters,
+    });
+
+    // Primary effective/reporting category must remain Day Off
+    expect(result.attendanceBreakdown.dayOff).toBe(1);
+    expect(result.attendanceBreakdown.onLeave).toBe(0);
+    expect(result.attendanceBreakdown.present).toBe(0);
+    expect(result.attendanceBreakdown.total).toBe(1);
+    expect(result.attendanceTrend[0].dayOff).toBe(1);
+    expect(result.attendanceTrend[0].onLeave).toBe(0);
+  });
+
+  it('does NOT change attendance-rate denominators merely by adding Day Off reporting', async () => {
+    const { deriveReportsAnalytics } = await import('./reportsAnalytics');
+    const logPresent = attendance({ id: 'p1', riderId: 'r1', date: '2026-08-01', status: 'present' });
+    const logLate = attendance({ id: 'l1', riderId: 'r2', date: '2026-08-01', status: 'late', punctuality: 'late' });
+    const logDayOff = {
+      ...attendance({ id: 'd1', riderId: 'r3', date: '2026-08-01', status: 'absent' }),
+      effectiveStatus: 'day_off' as const,
+      contextCode: 'published_day_off' as const,
+    };
+
+    const result = deriveReportsAnalytics({
+      currentLogs: [logPresent, logLate, logDayOff],
+      previousLogs: [],
+      currentViolations: [],
+      previousViolations: [],
+      filters,
+    });
+
+    // Total denominator = 3, Attended = 2 (present + late), Day Off does not count as attended
+    expect(result.attendanceBreakdown.total).toBe(3);
+    expect(result.attendanceBreakdown.present).toBe(1);
+    expect(result.attendanceBreakdown.late).toBe(1);
+    expect(result.attendanceBreakdown.dayOff).toBe(1);
+    expect(result.metrics.attendanceRate).toBe(66.7);
   });
 });

@@ -19,8 +19,8 @@ import {
   Smartphone,
   RotateCcw
 } from 'lucide-react';
-import type { AppUser, Zone, AttendanceLog } from '../../services/types';
-import { supabase } from '../../lib/supabaseClient';
+import type { AppUser, Zone } from '../../services/types';
+import { listAttendanceContext, type AttendanceContextLog } from '../../services/attendance/attendanceContextService';
 import { exportEmployeeProfileCard, exportEmployeeDTR } from '../../lib/exports/employeeExport';
 import { useAuth } from '../../hooks/useAuth';
 import { pushToast } from '../../hooks/useToast';
@@ -29,9 +29,11 @@ import { DeviceResetModal, type TrustedDeviceInfo } from './DeviceResetModal';
 import { RiderDocumentsTab } from './RiderDocumentsTab';
 import { getMissingStaffProfileFields, isStaffRole } from '../../lib/users/staffProfilePolicy';
 import { getRiderAssignmentWorkspace, type RiderAssignmentRow } from '../../services/riders/riderAssignmentService';
+import { useAttendanceContextVersion } from '../../hooks/useAttendanceContextVersion';
 
 function formatTimeString(dateStr: string | null): string {
   if (!dateStr) return '—';
+  if (/^\d{2}:\d{2}/.test(dateStr)) return dateStr.slice(0, 5);
   const d = new Date(dateStr.replace(' ', 'T'));
   return isNaN(d.getTime()) ? '—' : d.toTimeString().slice(0, 5);
 }
@@ -55,13 +57,14 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
         dateOfHire: user.dateOfHire,
       })
     : [];
-  const [logs, setLogs] = useState<AttendanceLog[]>([]);
+  const [logs, setLogs] = useState<AttendanceContextLog[]>([]);
   const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [activeTab, setActiveTab] = useState<'profile' | 'attendance' | 'documents'>('profile');
   const [device, setDevice] = useState<TrustedDeviceInfo | null>(null);
   const [deviceLoading, setDeviceLoading] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [assignment, setAssignment] = useState<RiderAssignmentRow | null>(null);
+  const attendanceRealtimeVersion = useAttendanceContextVersion();
 
   useEffect(() => {
     if (!isRider || !user.riderId) { setAssignment(null); return; }
@@ -94,45 +97,20 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
 
     const fetchLogs = async () => {
       try {
-        const { data, error } = await supabase
-          .from('attendance_logs')
-          .select('*')
-          .eq('rider_id', user.riderId)
-          .order('date', { ascending: false });
-
-        if (!error && data && active) {
-          const mappedLogs: AttendanceLog[] = (data as {
-            id: string;
-            rider_id: string;
-            date: string;
-            time_in: string | null;
-            time_out: string | null;
-            hours: number | null;
-            zone_id: string | null;
-            status: string;
-            source: string | null;
-            events?: AttendanceLog['events'];
-          }[]).map((log) => ({
-            id: log.id,
-            riderId: log.rider_id,
-            riderName: user.name,
-            riderAvatar: user.avatar,
-            date: log.date,
-            timeIn: log.time_in,
-            timeOut: log.time_out,
-            hours: log.hours || 0,
-            zoneId: log.zone_id || '',
-            zoneName: '',
-            status: log.status as AttendanceLog['status'],
-            presence: (log.status === 'on_leave' ? 'on_leave' : log.time_in ? 'present' : 'absent'),
-            punctuality: (log.status === 'late' ? 'late' : log.time_in ? 'on_time' : 'none'),
-            source: (log.source || 'manual') as AttendanceLog['source'],
-            events: log.events || []
-          }));
-          setLogs(mappedLogs);
-        }
+        const year = calendarDate.getFullYear();
+        const month = String(calendarDate.getMonth() + 1).padStart(2, '0');
+        const monthStart = `${year}-${month}-01`;
+        const monthEndDate = new Date(`${monthStart}T00:00:00.000Z`);
+        monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
+        monthEndDate.setUTCDate(0);
+        const contextLogs = await listAttendanceContext({
+          fromDate: monthStart,
+          toDate: monthEndDate.toISOString().slice(0, 10),
+          riderId: user.riderId,
+        });
+        if (active) setLogs(contextLogs);
       } catch (err) {
-        console.error('Failed to load attendance logs:', err);
+        console.error('Failed to load attendance context:', err);
       }
     };
 
@@ -140,7 +118,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
     return () => {
       active = false;
     };
-  }, [user.riderId, isRider, user.name, user.avatar]);
+  }, [user.riderId, isRider, calendarDate, attendanceRealtimeVersion]);
 
   const zoneName = useMemo(() => {
     if (!user.zoneId) return 'Unassigned';
@@ -245,7 +223,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
     return days;
   }, [calendarDate]);
 
-  const [selectedDayLog, setSelectedDayLog] = useState<AttendanceLog | null>(null);
+  const [selectedDayLog, setSelectedDayLog] = useState<AttendanceContextLog | null>(null);
 
   const handleExportPDF = () => {
     exportEmployeeProfileCard({
@@ -818,11 +796,6 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
                         const todayStr = new Date().toISOString().split('T')[0];
                         const isToday = cDay.dateStr === todayStr;
                         
-                        // Check if date is on or after date of hire
-                        const hireDateStr = user.dateOfHire ? new Date(user.dateOfHire).toISOString().split('T')[0] : null;
-                        const isAfterOrOnHireDate = !hireDateStr || cDay.dateStr >= hireDateStr;
-                        const isPastWorkDay = cDay.isCurrentMonth && isAfterOrOnHireDate && cDay.dateStr < todayStr;
-
                         let bgStyle = 'bg-panel-bg text-muted-foreground/60';
                         if (cDay.isCurrentMonth) {
                           bgStyle = 'bg-white border border-border text-foreground hover:border-primary/50';
@@ -831,10 +804,9 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
                           if (dayLog.status === 'present') bgStyle = 'bg-emerald-500 text-white font-bold hover:bg-emerald-600';
                           else if (dayLog.status === 'late') bgStyle = 'bg-amber-500 text-white font-bold hover:bg-amber-600';
                           else if (dayLog.status === 'on_leave') bgStyle = 'bg-indigo-500 text-white font-bold hover:bg-indigo-600';
+                          else if (dayLog.status === 'day_off') bgStyle = 'bg-slate-400 text-white font-bold hover:bg-slate-500';
+                          else if (dayLog.status === 'not_finalized') bgStyle = 'bg-slate-200 text-slate-700 font-bold hover:bg-slate-300';
                           else if (dayLog.status === 'absent') bgStyle = 'bg-red-500 text-white font-bold hover:bg-red-600';
-                        } else if (isPastWorkDay) {
-                          // Past working days within employment without a clock-in log are ABSENT (RED)
-                          bgStyle = 'bg-red-500 text-white font-bold hover:bg-red-600';
                         }
 
                         const isSelected = selectedDayLog?.date === cDay.dateStr;
@@ -846,25 +818,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
                             disabled={!cDay.isCurrentMonth}
                             onClick={() => {
                               if (dayLog) setSelectedDayLog(dayLog);
-                              else {
-                                setSelectedDayLog({
-                                  id: '',
-                                  riderId: user.riderId || '',
-                                  riderName: user.name,
-                                  riderAvatar: user.avatar,
-                                  date: cDay.dateStr,
-                                  timeIn: null,
-                                  timeOut: null,
-                                  hours: 0,
-                                  zoneId: '',
-                                  zoneName: '',
-                                  status: 'absent',
-                                  presence: 'absent',
-                                  punctuality: 'none',
-                                  source: 'manual',
-                                  events: []
-                                });
-                              }
+                              else setSelectedDayLog(null);
                             }}
                             className={`h-9 flex flex-col items-center justify-center rounded-lg text-xs relative transition cursor-pointer ${bgStyle} ${
                               isSelected ? 'ring-2 ring-primary ring-offset-1' : ''
@@ -892,7 +846,7 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
                           const hireDateStr = user.dateOfHire ? new Date(user.dateOfHire).toISOString().split('T')[0] : null;
                           const isAfterOrOnHireDate = !hireDateStr || selectedDayLog.date >= hireDateStr;
                           const isPastWorkDay = isAfterOrOnHireDate && selectedDayLog.date < todayStr;
-                          const isNoLogAbsent = selectedDayLog.id === '' && isPastWorkDay;
+                          const isNoLogAbsent = selectedDayLog.id === null && selectedDayLog.status === 'absent' && isPastWorkDay;
 
                           return (
                             <span className={`px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider ${
@@ -908,10 +862,15 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
                                         ? 'bg-indigo-50 text-indigo-700 border border-indigo-500/10'
                                         : 'bg-red-50 text-red-700 border border-red-500/10'
                             }`}>
-                              {isNoLogAbsent ? 'Absent (No Clock-In)' : selectedDayLog.id === '' ? 'No Attendance Log' : selectedDayLog.status}
+                              {isNoLogAbsent ? 'Absent (No Clock-In)' : selectedDayLog.status === 'day_off' ? 'Day Off' : selectedDayLog.status === 'not_finalized' ? 'Pending Finalization' : selectedDayLog.status}
                             </span>
                           );
                         })()}
+                        {selectedDayLog.contextCode && (
+                          <span className="ml-2 rounded border border-border bg-panel-bg px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {selectedDayLog.contextCode.replace(/_/g, ' ')}
+                          </span>
+                        )}
                       </div>
                       {selectedDayLog.id !== '' ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

@@ -32,9 +32,9 @@ select is(
   'attendance finalization retries every five minutes'
 );
 
-insert into public.hubs (id, name, description, active) values
-  ('af100000-0000-4000-8000-000000000001', 'Attendance Lifecycle Hub One', 'Test', true),
-  ('af100000-0000-4000-8000-000000000002', 'Attendance Lifecycle Hub Two', 'Test', true);
+insert into public.hubs (id, name, description, active, latitude, longitude, attendance_radius_m) values
+  ('af100000-0000-4000-8000-000000000001', 'Attendance Lifecycle Hub One', 'Test', true, 6.9214, 122.0790, 100),
+  ('af100000-0000-4000-8000-000000000002', 'Attendance Lifecycle Hub Two', 'Test', true, 6.9214, 122.0790, 100);
 
 insert into public.riders (id, hub_id, name, mkb_id, email, status) values
   ('af200000-0000-4000-8000-000000000001', 'af100000-0000-4000-8000-000000000001', 'Lifecycle Rider One', 'TEST-ATT-001', 'lifecycle-rider-1@example.test', 'offline'),

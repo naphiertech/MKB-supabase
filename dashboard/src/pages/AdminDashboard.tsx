@@ -8,10 +8,14 @@ import {
 import { useRealtimeLocation } from "../hooks/useRealtimeLocation";
 import { getZones } from "../services/geofencing/geofenceService";
 import {
-  getAttendanceLogs,
   getLocalDateString,
 } from "../services/attendance/attendanceService";
-import type { Zone, AttendanceLog } from "../services/types";
+import {
+  listAttendanceContext,
+  hasUnderlyingAttendanceLog,
+  type AttendancePresentationLog,
+} from "../services/attendance/attendanceContextService";
+import type { Zone } from "../services/types";
 import { StatCard } from "../components/common/StatCard";
 import { LiveMonitoringMap } from "../components/maps/LiveMonitoringMap";
 import { OnlineRiders } from "../components/monitoring/OnlineRiders";
@@ -22,7 +26,7 @@ import {
   markViolationRead,
 } from "../services/monitoring/monitoringService";
 import { StatDetailsPanel } from "../components/dashboard/StatDetailsPanels";
-import { useAttendanceRealtimeVersion } from "../context/attendanceRealtimeContext";
+import { useAttendanceContextVersion } from "../hooks/useAttendanceContextVersion";
 
 interface AdminDashboardProps {
   onNavigate: (page: "monitoring" | "attendance") => void;
@@ -35,8 +39,8 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const activeCount = riders.filter((r) => r.status !== "offline").length;
   const violationCount = riders.filter((r) => r.status === "violation").length;
   const [zonesList, setZonesList] = useState<Zone[]>([]);
-  const [attendanceList, setAttendanceList] = useState<AttendanceLog[]>([]);
-  const attendanceRealtimeVersion = useAttendanceRealtimeVersion();
+  const [attendanceList, setAttendanceList] = useState<AttendancePresentationLog[]>([]);
+  const attendanceRealtimeVersion = useAttendanceContextVersion();
 
   useEffect(() => {
     getZones().then(setZonesList);
@@ -44,7 +48,10 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
   useEffect(() => {
     let active = true;
-    void getAttendanceLogs().then((logs) => {
+    const today = getLocalDateString();
+    const fromDate = new Date(`${today}T00:00:00.000Z`);
+    fromDate.setUTCDate(fromDate.getUTCDate() - 7);
+    void listAttendanceContext({ fromDate: fromDate.toISOString().slice(0, 10), toDate: today }).then((logs) => {
       if (active) setAttendanceList(logs);
     });
     return () => { active = false; };
@@ -52,52 +59,55 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 
   const today = getLocalDateString();
   const yesterday = useMemo(() => {
-    const d = new Date(`${today}T00:00:00`);
-    d.setDate(d.getDate() - 1);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const d = new Date(`${today}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   }, [today]);
 
   const todayLogs = useMemo(() => attendanceList.filter((l) => l.date === today), [attendanceList, today]);
   const yesterdayLogs = useMemo(() => attendanceList.filter((l) => l.date === yesterday), [attendanceList, yesterday]);
 
+  const rawTodayLogs = useMemo(() => todayLogs.filter(hasUnderlyingAttendanceLog), [todayLogs]);
+  const rawYesterdayLogs = useMemo(() => yesterdayLogs.filter(hasUnderlyingAttendanceLog), [yesterdayLogs]);
+
   const presentToday = useMemo(
-    () => todayLogs.filter((l) => l.status === "present" || l.status === "late").length,
-    [todayLogs]
+    () => rawTodayLogs.filter((l) => l.status === "present" || l.status === "late").length,
+    [rawTodayLogs]
   );
   const yesterdayPresent = useMemo(
-    () => yesterdayLogs.filter((l) => l.status === "present" || l.status === "late").length,
-    [yesterdayLogs]
+    () => rawYesterdayLogs.filter((l) => l.status === "present" || l.status === "late").length,
+    [rawYesterdayLogs]
   );
 
   const attendanceRate = useMemo(
-    () => (todayLogs.length ? Math.round((presentToday / todayLogs.length) * 100) : 0),
-    [todayLogs.length, presentToday]
+    () => (rawTodayLogs.length ? Math.round((presentToday / rawTodayLogs.length) * 100) : 0),
+    [rawTodayLogs.length, presentToday]
   );
   const yesterdayRate = useMemo(
-    () => (yesterdayLogs.length ? Math.round((yesterdayPresent / yesterdayLogs.length) * 100) : null),
-    [yesterdayLogs.length, yesterdayPresent]
+    () => (rawYesterdayLogs.length ? Math.round((yesterdayPresent / rawYesterdayLogs.length) * 100) : null),
+    [rawYesterdayLogs.length, yesterdayPresent]
   );
 
   const onDutyTrend = useMemo(() => {
-    if (yesterdayLogs.length === 0) return undefined;
+    if (rawYesterdayLogs.length === 0) return undefined;
     const delta = presentToday - yesterdayPresent;
     return {
       direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
       value: `${delta >= 0 ? '+' : ''}${delta} vs yesterday`,
     };
-  }, [presentToday, yesterdayPresent, yesterdayLogs.length]);
+  }, [presentToday, yesterdayPresent, rawYesterdayLogs.length]);
 
   const attendanceRateTrend = useMemo(() => {
-    if (yesterdayRate === null || todayLogs.length === 0) return undefined;
+    if (yesterdayRate === null || rawTodayLogs.length === 0) return undefined;
     const delta = attendanceRate - yesterdayRate;
     return {
       direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
       value: `${delta >= 0 ? '+' : ''}${delta}% vs yesterday`,
     };
-  }, [attendanceRate, yesterdayRate, todayLogs.length]);
+  }, [attendanceRate, yesterdayRate, rawTodayLogs.length]);
 
   function handleViewViolation(riderId: string) {
     setFocusRiderId(riderId);
@@ -107,6 +117,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
       markViolationRead(v.id).catch(err => console.error("Failed to mark violation read:", err));
     }
   }
+
   return (
     <div className="dashboard-page space-y-5">
       {/* Top stats */}

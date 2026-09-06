@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient';
+import { invalidateAttendanceContext } from '../attendance/attendanceContextInvalidation';
 import { createSyncOperationId, getStorageAdapter } from '../../lib/storage';
 import type { Database, Json } from '../../types/supabase';
 
@@ -189,6 +190,7 @@ export async function submitPlannedLeave(input: PlannedLeaveInput): Promise<stri
     p_request_key: input.requestKey ?? createSyncOperationId(),
   });
   if (error) throw new Error(getErrorMessage(error, 'Unable to submit planned leave.'));
+  invalidateAttendanceContext();
   return data;
 }
 
@@ -204,6 +206,7 @@ export async function submitAbsenceNotice(input: AbsenceNoticeInput): Promise<st
     p_request_key: input.requestKey ?? createSyncOperationId(),
   });
   if (error) throw new Error(getErrorMessage(error, 'Unable to submit the Absence Notice.'));
+  invalidateAttendanceContext();
   return data;
 }
 
@@ -219,6 +222,7 @@ export async function withdrawRiderAbsenceRequest(
     p_reason: trimmed(reason),
   });
   if (error) throw new Error(getErrorMessage(error, 'Unable to withdraw the request.'));
+  invalidateAttendanceContext();
   return data;
 }
 
@@ -236,6 +240,7 @@ export async function reviewRiderAbsenceRequest(
     p_reason: trimmed(reason),
   });
   if (error) throw new Error(getErrorMessage(error, 'Unable to review the request.'));
+  invalidateAttendanceContext();
   return data;
 }
 
@@ -251,6 +256,7 @@ export async function cancelApprovedRiderAbsenceRequest(
     p_reason: trimmed(reason),
   });
   if (error) throw new Error(getErrorMessage(error, 'Unable to cancel the approved request.'));
+  invalidateAttendanceContext();
   return data;
 }
 

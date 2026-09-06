@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRiderZone } from '../../context/RiderZoneContext';
+import { useAttendanceContextVersion } from '../../hooks/useAttendanceContextVersion';
 import { setCachedDescriptor } from '../../lib/descriptorCache';
 import {
   fetchRiderDashboardWithSWR,
@@ -55,6 +56,7 @@ export function useRiderDashboardData({
     violationsThisMonth: 0,
   });
   const [monthAttendanceLogs, setMonthAttendanceLogs] = useState<DashboardAttendanceLog[]>([]);
+  const attendanceRealtimeVersion = useAttendanceContextVersion();
   const mountedRef = useRef(true);
   const requestIdRef = useRef(0);
 
@@ -128,7 +130,7 @@ export function useRiderDashboardData({
     return () => {
       requestIdRef.current += 1;
     };
-  }, [reload]);
+  }, [reload, attendanceRealtimeVersion]);
 
   useEffect(() => {
     const resolvedZone = rider?.zoneId

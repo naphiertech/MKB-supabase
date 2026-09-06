@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Users as UsersIcon, Search } from 'lucide-react';
-import type { Rider, Zone, AttendanceLog } from '../../services/types';
+import type { Rider, Zone } from '../../services/types';
+import type { AttendancePresentationLog } from '../../services/attendance/attendanceContextService';
 import { RiderStatusCard } from './RiderStatusCard';
 interface RiderStatusGridProps {
   riders: Rider[];
   zones: Zone[];
-  todayLogs: AttendanceLog[];
+  todayLogs: AttendancePresentationLog[];
   onSelectRider?: (riderId: string) => void;
 }
 type Filter = 'all' | 'online' | 'idle' | 'violation' | 'offline';

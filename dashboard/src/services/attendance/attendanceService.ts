@@ -8,6 +8,12 @@ import {
   resolveAttendancePunctuality,
   resolveAttendanceSummaryFacts,
 } from '../../lib/attendance/attendanceSummaryPolicy';
+import {
+  getAttendanceContextLabel,
+  getPresentationContextCode,
+  getPresentationStatus,
+  type AttendancePresentationLog,
+} from './attendanceContextService';
 
 // Helper to convert dynamic timestamps (timestamptz) back to HH:MM format in local timezone
 function toHHMM(dateStr: string | null): string | null {
@@ -301,8 +307,8 @@ export function deriveHrStatus(log: AttendanceLog): HrLogStatus {
   return 'Incomplete';
 }
 
-export function exportLogsCsv(logs: AttendanceLog[], filename = 'attendance_logs.csv') {
-  const headers = ['Rider Name', 'Date', 'Time In', 'Time Out', 'Hours', 'Zone', 'Status', 'Source'];
+export function exportLogsCsv(logs: AttendancePresentationLog[], filename = 'attendance_logs.csv') {
+  const headers = ['Rider Name', 'Date', 'Time In', 'Time Out', 'Hours', 'Zone', 'Status', 'Context', 'Source'];
   const rows = logs.map((l) => [
     l.riderName,
     l.date,
@@ -310,8 +316,9 @@ export function exportLogsCsv(logs: AttendanceLog[], filename = 'attendance_logs
     l.timeOut || '',
     l.hours ? l.hours.toFixed(2) : '0.00',
     l.zoneName,
-    l.status,
-    l.source
+    getPresentationStatus(l),
+    getAttendanceContextLabel(getPresentationContextCode(l)) || '',
+    l.source || ''
   ]);
 
   downloadCsv([headers, ...rows], filename);
