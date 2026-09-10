@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { AttendanceContextLog } from '../../services/attendance/attendanceContextService';
 import { getAttendanceContextLabel } from '../../services/attendance/attendanceContextService';
+import { isPresentAttendance } from '../../services/attendance/attendanceService';
 import { 
   Search, 
   Clock, 
@@ -124,7 +125,7 @@ function PresentRidersDetail({ logs, onSelectPhoto }: DetailProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
-    l.status === 'present' &&
+    isPresentAttendance(l) &&
     (l.riderName.toLowerCase().includes(searchQuery.toLowerCase()) || 
      l.zoneName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -167,6 +168,12 @@ function PresentRidersDetail({ logs, onSelectPhoto }: DetailProps) {
                     </span>
                     <span>•</span>
                     <span className="capitalize">Method: {log.source}</span>
+                    {(log.punctuality === 'late' || log.status === 'late') && (
+                      <>
+                        <span>•</span>
+                        <span className="font-semibold text-amber-600">Late</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -174,7 +181,7 @@ function PresentRidersDetail({ logs, onSelectPhoto }: DetailProps) {
               <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
                 <div className="text-left sm:text-right">
                   <span className="text-[9px] text-muted-foreground uppercase">Arrival Time</span>
-                  <div className="text-xs font-mono font-semibold text-emerald-600 flex items-center gap-1">
+                  <div className={`text-xs font-mono font-semibold flex items-center gap-1 ${(log.punctuality === 'late' || log.status === 'late') ? 'text-amber-600' : 'text-emerald-600'}`}>
                     <UserCheck className="w-3.5 h-3.5" />
                     {log.timeIn || '—'}
                   </div>
@@ -206,7 +213,7 @@ function LateRidersDetail({ logs, onSelectPhoto }: DetailProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
-    l.status === 'late' &&
+    (l.status === 'late' || l.punctuality === 'late') &&
     (l.riderName.toLowerCase().includes(searchQuery.toLowerCase()) || 
      l.zoneName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -288,6 +295,7 @@ function AbsentRidersDetail({ logs }: { logs: AttendanceContextLog[] }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
+    !isPresentAttendance(l) &&
     l.status === 'absent' &&
     (l.riderName.toLowerCase().includes(searchQuery.toLowerCase()) || 
      l.zoneName.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -361,6 +369,7 @@ function OnLeaveRidersDetail({ logs }: { logs: AttendanceContextLog[] }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLogs = logs.filter(l => 
+    !isPresentAttendance(l) &&
     l.status === 'on_leave' &&
     (l.riderName.toLowerCase().includes(searchQuery.toLowerCase()) || 
      l.zoneName.toLowerCase().includes(searchQuery.toLowerCase()))

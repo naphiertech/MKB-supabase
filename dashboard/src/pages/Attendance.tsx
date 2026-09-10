@@ -11,7 +11,12 @@ import {
   Search,
   RotateCcw
 } from 'lucide-react';
-import { getAttendanceLogs, getLocalDateString } from '../services/attendance/attendanceService';
+import {
+  getAttendanceLogs,
+  getLocalDateString,
+  isPresentAttendance,
+  matchesAttendanceStatusFilter,
+} from '../services/attendance/attendanceService';
 import {
   listAttendanceContext,
   mergeAttendanceContextDetails,
@@ -184,10 +189,10 @@ export function Attendance() {
 
   const kpis = useMemo(() => {
     return {
-      present: kpiLogs.filter((l) => l.status === 'present').length,
-      late: kpiLogs.filter((l) => l.status === 'late').length,
-      absent: kpiLogs.filter((l) => l.status === 'absent').length,
-      onLeave: kpiLogs.filter((l) => l.status === 'on_leave').length
+      present: kpiLogs.filter(isPresentAttendance).length,
+      late: kpiLogs.filter((l) => l.status === 'late' || l.punctuality === 'late').length,
+      absent: kpiLogs.filter((l) => !isPresentAttendance(l) && l.status === 'absent').length,
+      onLeave: kpiLogs.filter((l) => !isPresentAttendance(l) && l.status === 'on_leave').length
     };
   }, [kpiLogs]);
 
@@ -211,7 +216,7 @@ export function Attendance() {
 
   const presentTrend = useMemo(() => {
     if (prevKpiLogs.length === 0) return undefined;
-    const prevCount = prevKpiLogs.filter((l) => l.status === 'present').length;
+    const prevCount = prevKpiLogs.filter(isPresentAttendance).length;
     const delta = kpis.present - prevCount;
     return {
       direction: delta > 0 ? ('up' as const) : delta < 0 ? ('down' as const) : ('flat' as const),
@@ -243,15 +248,15 @@ export function Attendance() {
 
   const filtered = useMemo(() => {
     return fullAttendanceList.filter((l) => {
-      const presenceVal = l.status;
-      const punctualityVal = l.punctuality;
+      const isStatusMatch = matchesAttendanceStatusFilter(l, statusFilter);
+      const isPunctualityMatch = punctualityFilter === 'all' || l.punctuality === punctualityFilter;
 
       return (
         l.date >= dateFrom &&
         l.date <= dateTo &&
         (zoneFilter === 'all' || l.zoneId === zoneFilter) &&
-        (statusFilter === 'all' || presenceVal === statusFilter) &&
-        (punctualityFilter === 'all' || punctualityVal === punctualityFilter) &&
+        isStatusMatch &&
+        isPunctualityMatch &&
         (searchQuery === '' ||
           l.riderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           l.riderId.toLowerCase().includes(searchQuery.toLowerCase()))

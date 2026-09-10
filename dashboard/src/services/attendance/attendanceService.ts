@@ -5,9 +5,18 @@ import { createSyncOperationId, getStorageAdapter, type QueueEnqueueInput } from
 import { dispatchNotificationSafe } from '../notifications/notificationService';
 import { downloadCsv } from '../../lib/exports/exportUtils';
 import {
+  isPresentAttendance,
+  matchesAttendanceStatusFilter,
   resolveAttendancePunctuality,
   resolveAttendanceSummaryFacts,
+  type PresentAttendanceCandidate,
 } from '../../lib/attendance/attendanceSummaryPolicy';
+
+export {
+  isPresentAttendance,
+  matchesAttendanceStatusFilter,
+  type PresentAttendanceCandidate,
+};
 import {
   getAttendanceContextLabel,
   getPresentationContextCode,
@@ -279,10 +288,10 @@ export async function getTodayKpis() {
   const today = getLocalDateString();
   const todays = await getAttendanceLogs({ dateFrom: today, dateTo: today });
   return {
-    present: todays.filter((l) => l.status === 'present').length,
-    late: todays.filter((l) => l.status === 'late').length,
-    absent: todays.filter((l) => l.status === 'absent').length,
-    onLeave: todays.filter((l) => l.status === 'on_leave').length
+    present: todays.filter(isPresentAttendance).length,
+    late: todays.filter((l) => l.status === 'late' || l.punctuality === 'late').length,
+    absent: todays.filter((l) => !isPresentAttendance(l) && l.status === 'absent').length,
+    onLeave: todays.filter((l) => !isPresentAttendance(l) && l.status === 'on_leave').length
   };
 }
 
