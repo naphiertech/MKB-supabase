@@ -31,6 +31,12 @@ vi.mock('../services/workforce/riderAbsenceRequestService', async () => {
   };
 });
 
+vi.mock('../services/attendance/absenceAssessmentService', () => ({
+  listAbsenceAssessments: vi.fn().mockResolvedValue([]),
+  getAssessmentStatusLabel: (status: string) => status,
+  getAssessmentReasonLabel: (reason: string) => reason,
+}));
+
 import { LeaveAbsence } from './LeaveAbsence';
 
 const pendingRequest = {
@@ -155,5 +161,25 @@ describe('LeaveAbsence', () => {
     });
     expect(container.textContent).toContain('Displayed range: Aug 1, 2026 – Aug 31, 2026');
     expect(container.textContent).toContain('Aug 10, 2026');
+  });
+
+  it('switches to the Assessments tab and renders absence assessments', async () => {
+    await act(async () => {
+      root.render(<LeaveAbsence />);
+    });
+    await flushEffects();
+
+    const assessmentsTabBtn = Array.from(container.querySelectorAll<HTMLButtonElement>('button[role="tab"]')).find(
+      (button) => button.textContent === 'Assessments'
+    );
+    expect(assessmentsTabBtn).toBeDefined();
+
+    await act(async () => {
+      assessmentsTabBtn?.click();
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('Absence Assessments');
+    expect(container.textContent).toContain('V1 · Provisional');
   });
 });

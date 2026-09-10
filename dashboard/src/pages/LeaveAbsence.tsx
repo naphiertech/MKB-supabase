@@ -15,6 +15,7 @@ import { appToast } from '../hooks/useToast';
 import { Modal } from '../components/common/Modal';
 import { StatePanel, StatusBadge, SummaryCard } from '../components/common/DashboardPrimitives';
 import { LeaveAbsenceSkeleton } from '../components/leave/LeaveAbsenceSkeleton';
+import { AbsenceAssessmentsTab } from '../components/leave-absence/AbsenceAssessmentsTab';
 import { useHub } from '../context/HubContext';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import {
@@ -30,7 +31,7 @@ import {
   type RiderAbsenceRequestStatus,
 } from '../services/workforce/riderAbsenceRequestService';
 
-type StaffLeaveView = 'pending' | 'notices' | 'approved' | 'rejected' | 'history';
+type StaffLeaveView = 'pending' | 'notices' | 'approved' | 'rejected' | 'history' | 'assessments';
 
 const DAY_FORMATTER = new Intl.DateTimeFormat('en-PH', {
   timeZone: 'Asia/Manila',
@@ -71,6 +72,7 @@ const TAB_LABELS: Array<[StaffLeaveView, string]> = [
   ['approved', 'Approved / Accepted'],
   ['rejected', 'Rejected'],
   ['history', 'History'],
+  ['assessments', 'Assessments'],
 ];
 
 export function LeaveAbsence() {
@@ -113,6 +115,10 @@ export function LeaveAbsence() {
   }, [view]);
 
   const load = useCallback(async () => {
+    if (view === 'assessments') {
+      setLoading(false);
+      return;
+    }
     const sequence = ++loadSequence.current;
     setLoading(true);
     setLoadError(null);
@@ -130,7 +136,7 @@ export function LeaveAbsence() {
     } finally {
       if (sequence === loadSequence.current) setLoading(false);
     }
-  }, [filters.requestKind, filters.status, fromDate, selectedHubId, toDate]);
+  }, [filters.requestKind, filters.status, fromDate, selectedHubId, toDate, view]);
 
   useEffect(() => {
     void load();
@@ -227,7 +233,13 @@ export function LeaveAbsence() {
 
         {loadError && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800" role="alert"><span>{loadError}</span><button type="button" onClick={() => void load()} className="ui-button-secondary inline-flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Retry</button></div>}
 
-        {requests.length === 0 ? (
+        {view === 'assessments' ? (
+          <AbsenceAssessmentsTab
+            startDate={fromDate}
+            endDate={toDate}
+            hubId={selectedHubId}
+          />
+        ) : requests.length === 0 ? (
           <StatePanel compact icon={view === 'notices' ? ShieldAlert : History} title="No requests in this view" description="Change the review section or Hub workspace, or wait for a Rider submission." />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-border" role="region" aria-label="Leave and absence request list" tabIndex={0}>
