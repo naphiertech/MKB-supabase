@@ -1198,6 +1198,19 @@ SELECT ok(
   'API projection never leaks notes, review_reason, audit, or medical fields'
 );
 
+-- Explicit return column check: ensures no private fields in the RPC interface
+SELECT is(
+  (SELECT count(*)::integer
+   FROM pg_proc p
+   CROSS JOIN LATERAL unnest(p.proargnames, p.proargmodes) AS u(col_name, arg_mode)
+   WHERE p.proname = 'list_rider_absence_assessments'
+     AND u.arg_mode = 't'
+     AND u.col_name IN ('reason', 'review_reason', 'review_notes', 'notes', 'audit_events', 'withdrawal_reason', 'medical')
+  ),
+  0,
+  'Public function return column list contains no private or audit fields'
+);
+
 -- Reset claims and role
 SELECT set_config('request.jwt.claims', '{}', true);
 RESET ROLE;
