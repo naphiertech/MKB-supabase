@@ -14,6 +14,88 @@ export type Database = {
   }
   public: {
     Tables: {
+      absence_policy_rules: {
+        Row: {
+          assessment_status: string
+          created_at: string
+          policy_version_id: string
+          priority: number
+          reason_code: string
+          rule_key: string
+        }
+        Insert: {
+          assessment_status: string
+          created_at?: string
+          policy_version_id: string
+          priority: number
+          reason_code: string
+          rule_key: string
+        }
+        Update: {
+          assessment_status?: string
+          created_at?: string
+          policy_version_id?: string
+          priority?: number
+          reason_code?: string
+          rule_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "absence_policy_rules_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "absence_policy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      absence_policy_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          lifecycle: string
+          policy_name: string
+          policy_type: string
+          published_at: string | null
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          id?: string
+          lifecycle: string
+          policy_name: string
+          policy_type: string
+          published_at?: string | null
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          lifecycle?: string
+          policy_name?: string
+          policy_type?: string
+          published_at?: string | null
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "absence_policy_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_logs: {
         Row: {
           created_at: string
@@ -3877,6 +3959,31 @@ export type Database = {
           withdrawn_at: string | null
           withdrawn_by: string | null
           reviewer_name: string | null
+        }[]
+      }
+      list_rider_absence_assessments: {
+        Args: {
+          p_assessment_status?: string | null
+          p_end_date: string
+          p_hub_id?: string | null
+          p_limit?: number
+          p_offset?: number
+          p_rider_id?: string | null
+          p_start_date: string
+        }
+        Returns: {
+          assessment_reason: string
+          assessment_status: string
+          attendance_log_id: string | null
+          business_date: string
+          context_code: string | null
+          effective_status: string | null
+          expected_to_work: boolean
+          is_finalized: boolean
+          policy_type: string
+          policy_version_id: string
+          policy_version_number: number
+          rider_id: string
         }[]
       }
       list_rider_attendance_context: {
