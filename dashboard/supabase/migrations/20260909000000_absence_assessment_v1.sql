@@ -175,3 +175,158 @@ CREATE POLICY absence_policy_rules_read_auth
 
 GRANT SELECT ON TABLE public.absence_policy_versions TO authenticated;
 GRANT SELECT ON TABLE public.absence_policy_rules TO authenticated;
+
+-- 8. Server-Authoritative Absence Assessment Resolver
+CREATE OR REPLACE FUNCTION private.resolve_rider_absence_assessment(
+  p_rider_id uuid,
+  p_business_date date,
+  p_as_of timestamptz DEFAULT pg_catalog.clock_timestamp()
+)
+RETURNS TABLE (
+  rider_id uuid,
+  business_date date,
+  effective_status text,
+  context_code text,
+  expected_to_work boolean,
+  is_finalized boolean,
+  assessment_status text,
+  assessment_reason text,
+  policy_version_id uuid,
+  policy_version_number integer,
+  policy_type text,
+  attendance_log_id uuid
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_ctx record;
+  v_policy_id uuid;
+  v_policy_version integer;
+  v_policy_type text;
+  v_rule_key text;
+  v_assessment_status text;
+  v_assessment_reason text;
+  v_has_valid_clock boolean := false;
+BEGIN
+  IF p_rider_id IS NULL OR p_business_date IS NULL OR p_as_of IS NULL THEN
+    RAISE EXCEPTION 'Rider absence assessment requires a Rider, business date, and server moment.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- 1. Resolve underlying Attendance Context
+  SELECT *
+  INTO v_ctx
+  FROM private.resolve_rider_attendance_context(p_rider_id, p_business_date, p_as_of);
+
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+
+  -- 2. Select policy applicable to Manila business date
+  SELECT v.id, v.version_number, v.policy_type
+  INTO v_policy_id, v_policy_version, v_policy_type
+  FROM public.absence_policy_versions v
+  WHERE v.lifecycle = 'published'
+    AND v.effective_from <= p_business_date
+  ORDER BY v.effective_from DESC, v.version_number DESC
+  LIMIT 1;
+
+  -- If no published policy applies for this date, return no classification
+  IF v_policy_id IS NULL THEN
+    RETURN QUERY SELECT
+      v_ctx.rider_id,
+      v_ctx.business_date,
+      v_ctx.effective_status,
+      v_ctx.context_code,
+      v_ctx.expected_to_work,
+      v_ctx.is_finalized,
+      NULL::text AS assessment_status,
+      NULL::text AS assessment_reason,
+      NULL::uuid AS policy_version_id,
+      NULL::integer AS policy_version_number,
+      NULL::text AS policy_type,
+      v_ctx.attendance_log_id;
+    RETURN;
+  END IF;
+
+  -- 3. Determine if attendance has valid clock evidence
+  v_has_valid_clock := (v_ctx.time_in IS NOT NULL OR v_ctx.time_out IS NOT NULL);
+
+  -- 4. Map Attendance Context to stable rule key:
+  -- Precedence:
+  -- 1. Actual valid attendance -> 'actual_attendance'
+  -- 2. Published Day Off -> 'published_day_off'
+  -- 3. Approved Planned Leave -> 'approved_leave'
+  -- 4. Accepted Absence Notice -> 'accepted_notice'
+  -- 5. Pending review:
+  --    leave pending -> 'leave_pending_review'
+  --    notice pending -> 'notice_pending_review'
+  -- 6. Rejected / withdrawn / cancelled / no_notice:
+  --    Must only resolve to unexcused if finalized.
+  --    Pre-finalization workday without clocks does NOT become unexcused.
+  IF v_has_valid_clock THEN
+    v_rule_key := 'actual_attendance';
+  ELSIF v_ctx.effective_status = 'day_off' THEN
+    v_rule_key := 'published_day_off';
+  ELSIF v_ctx.effective_status = 'on_leave' AND v_ctx.context_code = 'approved_leave' THEN
+    v_rule_key := 'approved_leave';
+  ELSIF v_ctx.context_code = 'accepted_notice' THEN
+    v_rule_key := 'accepted_notice';
+  ELSIF v_ctx.context_code IN ('leave_pending', 'leave_pending_review') THEN
+    v_rule_key := 'leave_pending_review';
+  ELSIF v_ctx.context_code IN ('notice_pending', 'notice_pending_review') THEN
+    v_rule_key := 'notice_pending_review';
+  ELSIF NOT v_ctx.is_finalized THEN
+    -- A no-clock expected workday before Attendance Context considers the day finalized must not become unexcused.
+    v_rule_key := NULL;
+  ELSIF v_ctx.context_code = 'leave_rejected' THEN
+    v_rule_key := 'leave_rejected';
+  ELSIF v_ctx.context_code = 'notice_rejected' THEN
+    v_rule_key := 'notice_rejected';
+  ELSIF v_ctx.context_code = 'leave_withdrawn' THEN
+    v_rule_key := 'leave_withdrawn';
+  ELSIF v_ctx.context_code = 'notice_withdrawn' THEN
+    v_rule_key := 'notice_withdrawn';
+  ELSIF v_ctx.context_code = 'leave_cancelled' THEN
+    v_rule_key := 'leave_cancelled';
+  ELSIF v_ctx.context_code = 'notice_cancelled' THEN
+    v_rule_key := 'notice_cancelled';
+  ELSIF v_ctx.context_code = 'no_notice' THEN
+    v_rule_key := 'no_notice';
+  ELSE
+    v_rule_key := NULL;
+  END IF;
+
+  -- 5. Look up policy rule
+  IF v_rule_key IS NOT NULL THEN
+    SELECT r.assessment_status, r.reason_code
+    INTO v_assessment_status, v_assessment_reason
+    FROM public.absence_policy_rules r
+    WHERE r.policy_version_id = v_policy_id
+      AND r.rule_key = v_rule_key;
+  END IF;
+
+  RETURN QUERY SELECT
+    v_ctx.rider_id,
+    v_ctx.business_date,
+    v_ctx.effective_status,
+    v_ctx.context_code,
+    v_ctx.expected_to_work,
+    v_ctx.is_finalized,
+    v_assessment_status,
+    v_assessment_reason,
+    v_policy_id,
+    v_policy_version,
+    v_policy_type,
+    v_ctx.attendance_log_id;
+END;
+$$;
+
+COMMENT ON FUNCTION private.resolve_rider_absence_assessment(uuid, date, timestamptz) IS
+  'Server-authoritative derivation of absence assessment from Attendance Context and versioned absence policy.';
+
+REVOKE ALL ON FUNCTION private.resolve_rider_absence_assessment(uuid, date, timestamptz)
+FROM PUBLIC, anon, authenticated, service_role;
