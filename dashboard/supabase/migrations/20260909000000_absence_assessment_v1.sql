@@ -330,3 +330,164 @@ COMMENT ON FUNCTION private.resolve_rider_absence_assessment(uuid, date, timesta
 
 REVOKE ALL ON FUNCTION private.resolve_rider_absence_assessment(uuid, date, timestamptz)
 FROM PUBLIC, anon, authenticated, service_role;
+
+-- 9. Bounded HR/Admin Absence Assessment API
+CREATE OR REPLACE FUNCTION public.list_rider_absence_assessments(
+  p_start_date date,
+  p_end_date date,
+  p_hub_id uuid DEFAULT NULL,
+  p_rider_id uuid DEFAULT NULL,
+  p_assessment_status text DEFAULT NULL,
+  p_limit integer DEFAULT 500,
+  p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+  rider_id uuid,
+  business_date date,
+  effective_status text,
+  context_code text,
+  expected_to_work boolean,
+  is_finalized boolean,
+  assessment_status text,
+  assessment_reason text,
+  policy_version_id uuid,
+  policy_version_number integer,
+  policy_type text,
+  attendance_log_id uuid
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  actor_id uuid := (SELECT auth.uid());
+  actor_role public.user_role := (SELECT public.get_my_role());
+BEGIN
+  -- 1. Authorization
+  IF actor_id IS NULL OR actor_role IS NULL THEN
+    RAISE EXCEPTION 'Authentication is required to read Absence assessments.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF actor_role NOT IN (
+    'admin'::public.user_role,
+    'hr'::public.user_role
+  ) THEN
+    RAISE EXCEPTION 'This account has no access to Absence assessments.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- 2. Bound validation
+  IF p_start_date IS NULL OR p_end_date IS NULL OR p_end_date < p_start_date THEN
+    RAISE EXCEPTION 'A valid Absence assessment date range is required.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_end_date - p_start_date > 31 THEN
+    RAISE EXCEPTION 'Absence assessment reads are limited to 32 calendar days.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_limit IS NULL OR p_limit < 1 OR p_limit > 500 THEN
+    RAISE EXCEPTION 'Absence assessment page size must be between 1 and 500.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_offset IS NULL OR p_offset < 0 OR p_offset > 100000 THEN
+    RAISE EXCEPTION 'Absence assessment page offset must be between 0 and 100000.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_assessment_status IS NOT NULL AND p_assessment_status NOT IN (
+    'excused',
+    'unexcused',
+    'pending_review',
+    'not_absent',
+    'not_applicable'
+  ) THEN
+    RAISE EXCEPTION 'Unsupported assessment status: %', p_assessment_status
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF actor_role = 'hr'::public.user_role
+     AND p_hub_id IS NOT NULL
+     AND NOT private.user_can_access_hub(p_hub_id) THEN
+    RAISE EXCEPTION 'You are not authorized to read Absence assessments for the requested Hub.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- 3. Query and projection
+  RETURN QUERY
+  WITH candidates AS (
+    SELECT
+      rider.id AS candidate_rider_id,
+      rider.name AS candidate_rider_name,
+      series::date AS candidate_date
+    FROM public.riders rider
+    CROSS JOIN LATERAL generate_series(
+      p_start_date::timestamp,
+      p_end_date::timestamp,
+      interval '1 day'
+    ) series
+    WHERE (p_rider_id IS NULL OR rider.id = p_rider_id)
+      AND public.is_rider_employed_on(rider.id, series::date)
+  ), resolved AS (
+    SELECT
+      candidate.candidate_rider_id,
+      candidate.candidate_rider_name,
+      context.hub_id,
+      assessment.*
+    FROM candidates candidate
+    CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+      candidate.candidate_rider_id,
+      candidate.candidate_date,
+      pg_catalog.clock_timestamp()
+    ) context
+    CROSS JOIN LATERAL private.resolve_rider_absence_assessment(
+      candidate.candidate_rider_id,
+      candidate.candidate_date,
+      pg_catalog.clock_timestamp()
+    ) assessment
+  )
+  SELECT
+    resolved.rider_id,
+    resolved.business_date,
+    resolved.effective_status,
+    resolved.context_code,
+    resolved.expected_to_work,
+    resolved.is_finalized,
+    resolved.assessment_status,
+    resolved.assessment_reason,
+    resolved.policy_version_id,
+    resolved.policy_version_number,
+    resolved.policy_type,
+    resolved.attendance_log_id
+  FROM resolved
+  WHERE (
+    actor_role = 'admin'::public.user_role
+    OR (
+      actor_role = 'hr'::public.user_role
+      AND resolved.hub_id IS NOT NULL
+      AND private.user_can_access_hub(resolved.hub_id)
+    )
+  )
+    AND (p_hub_id IS NULL OR resolved.hub_id = p_hub_id)
+    AND resolved.assessment_status IS NOT NULL
+    AND (p_assessment_status IS NULL OR resolved.assessment_status = p_assessment_status)
+  ORDER BY resolved.business_date, resolved.candidate_rider_name, resolved.candidate_rider_id
+  OFFSET p_offset
+  LIMIT p_limit;
+END;
+$$;
+
+COMMENT ON FUNCTION public.list_rider_absence_assessments(date, date, uuid, uuid, text, integer, integer) IS
+  'Bounded authorized Absence assessment read. Returns safe classification and policy metadata without Leave reasons or review details.';
+
+REVOKE ALL ON FUNCTION public.list_rider_absence_assessments(
+  date, date, uuid, uuid, text, integer, integer
+) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.list_rider_absence_assessments(
+  date, date, uuid, uuid, text, integer, integer
+) TO authenticated;

@@ -308,8 +308,169 @@ COMMENT ON FUNCTION private.resolve_rider_absence_assessment(uuid, date, timesta
 REVOKE ALL ON FUNCTION private.resolve_rider_absence_assessment(uuid, date, timestamptz)
 FROM PUBLIC, anon, authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION public.list_rider_absence_assessments(
+  p_start_date date,
+  p_end_date date,
+  p_hub_id uuid DEFAULT NULL,
+  p_rider_id uuid DEFAULT NULL,
+  p_assessment_status text DEFAULT NULL,
+  p_limit integer DEFAULT 500,
+  p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+  rider_id uuid,
+  business_date date,
+  effective_status text,
+  context_code text,
+  expected_to_work boolean,
+  is_finalized boolean,
+  assessment_status text,
+  assessment_reason text,
+  policy_version_id uuid,
+  policy_version_number integer,
+  policy_type text,
+  attendance_log_id uuid
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  actor_id uuid := (SELECT auth.uid());
+  actor_role public.user_role := (SELECT public.get_my_role());
+BEGIN
+  -- 1. Authorization
+  IF actor_id IS NULL OR actor_role IS NULL THEN
+    RAISE EXCEPTION 'Authentication is required to read Absence assessments.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF actor_role NOT IN (
+    'admin'::public.user_role,
+    'hr'::public.user_role
+  ) THEN
+    RAISE EXCEPTION 'This account has no access to Absence assessments.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- 2. Bound validation
+  IF p_start_date IS NULL OR p_end_date IS NULL OR p_end_date < p_start_date THEN
+    RAISE EXCEPTION 'A valid Absence assessment date range is required.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_end_date - p_start_date > 31 THEN
+    RAISE EXCEPTION 'Absence assessment reads are limited to 32 calendar days.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_limit IS NULL OR p_limit < 1 OR p_limit > 500 THEN
+    RAISE EXCEPTION 'Absence assessment page size must be between 1 and 500.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_offset IS NULL OR p_offset < 0 OR p_offset > 100000 THEN
+    RAISE EXCEPTION 'Absence assessment page offset must be between 0 and 100000.'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_assessment_status IS NOT NULL AND p_assessment_status NOT IN (
+    'excused',
+    'unexcused',
+    'pending_review',
+    'not_absent',
+    'not_applicable'
+  ) THEN
+    RAISE EXCEPTION 'Unsupported assessment status: %', p_assessment_status
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF actor_role = 'hr'::public.user_role
+     AND p_hub_id IS NOT NULL
+     AND NOT private.user_can_access_hub(p_hub_id) THEN
+    RAISE EXCEPTION 'You are not authorized to read Absence assessments for the requested Hub.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- 3. Query and projection
+  RETURN QUERY
+  WITH candidates AS (
+    SELECT
+      rider.id AS candidate_rider_id,
+      rider.name AS candidate_rider_name,
+      series::date AS candidate_date
+    FROM public.riders rider
+    CROSS JOIN LATERAL generate_series(
+      p_start_date::timestamp,
+      p_end_date::timestamp,
+      interval '1 day'
+    ) series
+    WHERE (p_rider_id IS NULL OR rider.id = p_rider_id)
+      AND public.is_rider_employed_on(rider.id, series::date)
+  ), resolved AS (
+    SELECT
+      candidate.candidate_rider_id,
+      candidate.candidate_rider_name,
+      context.hub_id,
+      assessment.*
+    FROM candidates candidate
+    CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+      candidate.candidate_rider_id,
+      candidate.candidate_date,
+      pg_catalog.clock_timestamp()
+    ) context
+    CROSS JOIN LATERAL private.resolve_rider_absence_assessment(
+      candidate.candidate_rider_id,
+      candidate.candidate_date,
+      pg_catalog.clock_timestamp()
+    ) assessment
+  )
+  SELECT
+    resolved.rider_id,
+    resolved.business_date,
+    resolved.effective_status,
+    resolved.context_code,
+    resolved.expected_to_work,
+    resolved.is_finalized,
+    resolved.assessment_status,
+    resolved.assessment_reason,
+    resolved.policy_version_id,
+    resolved.policy_version_number,
+    resolved.policy_type,
+    resolved.attendance_log_id
+  FROM resolved
+  WHERE (
+    actor_role = 'admin'::public.user_role
+    OR (
+      actor_role = 'hr'::public.user_role
+      AND resolved.hub_id IS NOT NULL
+      AND private.user_can_access_hub(resolved.hub_id)
+    )
+  )
+    AND (p_hub_id IS NULL OR resolved.hub_id = p_hub_id)
+    AND resolved.assessment_status IS NOT NULL
+    AND (p_assessment_status IS NULL OR resolved.assessment_status = p_assessment_status)
+  ORDER BY resolved.business_date, resolved.candidate_rider_name, resolved.candidate_rider_id
+  OFFSET p_offset
+  LIMIT p_limit;
+END;
+$$;
+
+COMMENT ON FUNCTION public.list_rider_absence_assessments(date, date, uuid, uuid, text, integer, integer) IS
+  'Bounded authorized Absence assessment read. Returns safe classification and policy metadata without Leave reasons or review details.';
+
+REVOKE ALL ON FUNCTION public.list_rider_absence_assessments(
+  date, date, uuid, uuid, text, integer, integer
+) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.list_rider_absence_assessments(
+  date, date, uuid, uuid, text, integer, integer
+) TO authenticated;
+
 -- Test assertions
 SELECT no_plan();
+
 
 
 SELECT has_table('public', 'absence_policy_versions', 'absence_policy_versions table exists');
@@ -431,6 +592,8 @@ SELECT
   (SELECT id FROM public.users WHERE role = 'admin'::public.user_role LIMIT 1) AS admin_id,
   'f9100000-0000-4000-8000-000000000099'::uuid AS rider_user_id,
   DATE '2026-09-10' AS base_date;
+
+GRANT SELECT ON test_fix TO authenticated, anon;
 
 INSERT INTO public.hubs (id, name, latitude, longitude, attendance_radius_m)
 SELECT hub_id, 'Absence Test Hub', 14.5995, 120.9842, 100
@@ -845,6 +1008,199 @@ SELECT is(
   2,
   'October date uses policy version 2'
 );
+
+-- ============================================================================
+-- Task 3: Bounded HR/Admin Assessment API Tests
+-- ============================================================================
+
+-- Function existence and permissions
+SELECT ok(to_regprocedure('public.list_rider_absence_assessments(date,date,uuid,uuid,text,integer,integer)') is not null, 'list_rider_absence_assessments exists');
+SELECT ok(has_function_privilege('authenticated', 'public.list_rider_absence_assessments(date,date,uuid,uuid,text,integer,integer)', 'EXECUTE'), 'authenticated can execute API');
+SELECT ok(NOT has_function_privilege('anon', 'public.list_rider_absence_assessments(date,date,uuid,uuid,text,integer,integer)', 'EXECUTE'), 'anon cannot execute API');
+
+-- Additional fixtures for API security testing
+CREATE TEMPORARY TABLE api_auth_fix AS
+SELECT
+  'd9100000-0000-4000-8000-000000000077'::uuid AS hr_user_id,
+  (SELECT id FROM public.users WHERE role = 'payroll'::public.user_role LIMIT 1) AS payroll_user_id,
+  'a9100000-0000-4000-8000-000000000088'::uuid AS other_hub_id;
+
+GRANT SELECT ON api_auth_fix TO authenticated, anon;
+
+INSERT INTO public.hubs (id, name, latitude, longitude, attendance_radius_m)
+SELECT other_hub_id, 'Unauthorized Hub', 14.6, 120.9, 100
+FROM api_auth_fix;
+
+INSERT INTO auth.users (id, email, email_confirmed_at)
+SELECT hr_user_id, 'api-test-hr@example.com', clock_timestamp()
+FROM api_auth_fix;
+
+INSERT INTO public.users (id, full_name, email, role, hub_access_scope, status, employment_status)
+SELECT hr_user_id, 'API Test HR', 'api-test-hr@example.com', 'hr', 'assigned', 'active', 'active'
+FROM api_auth_fix;
+
+-- Grant HR user access ONLY to test_fix.hub_id, NOT other_hub_id
+INSERT INTO public.user_hub_access (user_id, hub_id, assigned_by)
+SELECT f.hr_user_id, t.hub_id, t.admin_id
+FROM api_auth_fix f, test_fix t;
+
+-- 1. Bound validation tests (throw 22023 under authenticated admin)
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT admin_id FROM test_fix), 'role', 'authenticated')::text, true);
+
+-- Range > 32 days
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-01', DATE '2026-10-15', NULL, NULL, NULL, 100, 0) $$,
+  '22023',
+  NULL,
+  'Range over 32 days throws 22023'
+);
+
+-- End before start
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-15', DATE '2026-09-10', NULL, NULL, NULL, 100, 0) $$,
+  '22023',
+  NULL,
+  'End before start throws 22023'
+);
+
+-- Limit < 1
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-10', DATE '2026-09-15', NULL, NULL, NULL, 0, 0) $$,
+  '22023',
+  NULL,
+  'Limit < 1 throws 22023'
+);
+
+-- Limit > 500
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-10', DATE '2026-09-15', NULL, NULL, NULL, 501, 0) $$,
+  '22023',
+  NULL,
+  'Limit > 500 throws 22023'
+);
+
+-- Offset < 0
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-10', DATE '2026-09-15', NULL, NULL, NULL, 100, -1) $$,
+  '22023',
+  NULL,
+  'Offset < 0 throws 22023'
+);
+
+-- Invalid assessment status
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-10', DATE '2026-09-15', NULL, NULL, 'invalid_status', 100, 0) $$,
+  '22023',
+  NULL,
+  'Unsupported assessment status throws 22023'
+);
+
+-- 2. Authorization tests (role-based)
+-- Anonymous user denied
+SET LOCAL ROLE anon;
+SELECT set_config('request.jwt.claims', '{}', true);
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-10', DATE '2026-09-15', NULL, NULL, NULL, 100, 0) $$,
+  '42501',
+  NULL,
+  'Anonymous user cannot read assessments'
+);
+
+-- Rider denied
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT rider_user_id FROM test_fix), 'role', 'authenticated')::text, true);
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-10', DATE '2026-09-15', NULL, NULL, NULL, 100, 0) $$,
+  '42501',
+  NULL,
+  'Rider cannot use HR assessment API'
+);
+
+-- Payroll denied
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT payroll_user_id FROM api_auth_fix), 'role', 'authenticated')::text, true);
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-10', DATE '2026-09-15', NULL, NULL, NULL, 100, 0) $$,
+  '42501',
+  NULL,
+  'Payroll cannot use HR assessment API'
+);
+
+-- HR reading unauthorized Hub denied
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT hr_user_id FROM api_auth_fix), 'role', 'authenticated')::text, true);
+SELECT throws_ok(
+  $$ SELECT * FROM public.list_rider_absence_assessments(DATE '2026-09-10', DATE '2026-09-15', (SELECT other_hub_id FROM api_auth_fix), NULL, NULL, 100, 0) $$,
+  '42501',
+  NULL,
+  'HR cannot request unauthorized Hub'
+);
+
+-- HR reading authorized Hub succeeds
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM public.list_rider_absence_assessments(
+      (SELECT base_date FROM test_fix),
+      (SELECT base_date FROM test_fix) + 5,
+      (SELECT hub_id FROM test_fix),
+      NULL, NULL, 100, 0
+    )
+    WHERE rider_id = (SELECT rider_id FROM test_fix)
+  ),
+  'HR sees authorized Hub assessments'
+);
+
+-- Admin global access succeeds
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object('sub', (SELECT admin_id FROM test_fix), 'role', 'authenticated')::text, true);
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM public.list_rider_absence_assessments(
+      (SELECT base_date FROM test_fix),
+      (SELECT base_date FROM test_fix) + 5,
+      NULL, NULL, NULL, 100, 0
+    )
+    WHERE rider_id = (SELECT rider_id FROM test_fix)
+  ),
+  'Admin reads global assessments'
+);
+
+-- Status filter test
+SELECT is(
+  (SELECT count(*)::integer
+   FROM public.list_rider_absence_assessments(
+     (SELECT base_date FROM test_fix),
+     (SELECT base_date FROM test_fix) + 15,
+     NULL, (SELECT rider_id FROM test_fix), 'excused', 100, 0
+   )
+   WHERE assessment_status <> 'excused'),
+  0,
+  'Filter p_assessment_status = excused returns only excused assessments'
+);
+
+-- Privacy projection test: no private reason or audit columns leaked
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM public.list_rider_absence_assessments(
+      (SELECT base_date FROM test_fix),
+      (SELECT base_date FROM test_fix) + 15,
+      NULL, (SELECT rider_id FROM test_fix), NULL, 100, 0
+    ) x
+    WHERE to_jsonb(x)::text ILIKE '%notes%'
+       OR to_jsonb(x)::text ILIKE '%review_reason%'
+       OR to_jsonb(x)::text ILIKE '%audit%'
+       OR to_jsonb(x)::text ILIKE '%medical%'
+  ),
+  'API projection never leaks notes, review_reason, audit, or medical fields'
+);
+
+-- Reset claims and role
+SELECT set_config('request.jwt.claims', '{}', true);
+RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;
