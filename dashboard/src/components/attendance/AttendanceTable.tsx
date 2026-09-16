@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { getAttendanceContextLabel, type AttendanceContextLog } from '../../services/attendance/attendanceContextService';
 import type { AttendanceLog } from '../../services/types';
-import { getLocalDateString } from '../../services/attendance/attendanceService';
+import { getLocalDateString, getAttendancePresenceDisplay } from '../../services/attendance/attendanceService';
 import { StatusPill, PunctualityPill } from './StatusPill';
 
 interface AttendanceTableProps {
@@ -159,8 +159,12 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
   const sorted = useMemo(() => {
     const arr = [...logs];
     arr.sort((a, b) => {
-      const av = a[sortKey] ?? '';
-      const bv = b[sortKey] ?? '';
+      let av = a[sortKey] ?? '';
+      let bv = b[sortKey] ?? '';
+      if (sortKey === 'status') {
+        av = getAttendancePresenceDisplay(a);
+        bv = getAttendancePresenceDisplay(b);
+      }
       if (av < bv) return sortAsc ? -1 : 1;
       if (av > bv) return sortAsc ? 1 : -1;
       return 0;
@@ -197,7 +201,7 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                 ['Date', 'date'],
                 ['Shift', 'hours'],
                 ['Zone', 'zoneName'],
-                ['Status', 'presence'],
+                ['Status', 'status'],
                 ['Punctuality', 'punctuality'],
                 ['Source', null]
               ].map(([label, key]) => (
@@ -232,7 +236,7 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
               })();
 
               const hasExitBreach = l.events.some((e) => e.type === 'exit');
-              const presenceVal = 'contextCode' in l ? l.status : l.presence;
+              const presenceVal = getAttendancePresenceDisplay(l);
               const punctualityVal = l.punctuality;
 
               return (

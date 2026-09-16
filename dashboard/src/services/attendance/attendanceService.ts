@@ -5,16 +5,20 @@ import { createSyncOperationId, getStorageAdapter, type QueueEnqueueInput } from
 import { dispatchNotificationSafe } from '../notifications/notificationService';
 import { downloadCsv } from '../../lib/exports/exportUtils';
 import {
+  getAttendancePresenceDisplay,
   isPresentAttendance,
   matchesAttendanceStatusFilter,
   resolveAttendancePunctuality,
   resolveAttendanceSummaryFacts,
+  type AttendancePresenceDisplay,
   type PresentAttendanceCandidate,
 } from '../../lib/attendance/attendanceSummaryPolicy';
 
 export {
+  getAttendancePresenceDisplay,
   isPresentAttendance,
   matchesAttendanceStatusFilter,
+  type AttendancePresenceDisplay,
   type PresentAttendanceCandidate,
 };
 import {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getAttendancePresenceDisplay,
   isPresentAttendance,
   matchesAttendanceStatusFilter,
   resolveAttendancePunctuality,
@@ -225,5 +226,81 @@ describe('matchesAttendanceStatusFilter semantics', () => {
   it('excludes late records from "on_leave" filter', () => {
     expect(matchesAttendanceStatusFilter(lateLog, 'on_leave')).toBe(false);
     expect(matchesAttendanceStatusFilter(leaveLog, 'on_leave')).toBe(true);
+  });
+});
+
+describe('getAttendancePresenceDisplay presentation semantics', () => {
+  it('returns "present" for actual attendance with late punctuality (presence=Present, punctuality=Late)', () => {
+    expect(getAttendancePresenceDisplay({
+      timeIn: '10:17',
+      timeOut: '10:20',
+      status: 'late',
+      punctuality: 'late',
+    })).toBe('present');
+  });
+
+  it('returns "present" for actual attendance with on-time punctuality', () => {
+    expect(getAttendancePresenceDisplay({
+      timeIn: '08:00',
+      timeOut: '17:00',
+      status: 'present',
+      punctuality: 'on_time',
+    })).toBe('present');
+  });
+
+  it('returns "present" for actual clocks during approved leave (Worked During Approved Leave)', () => {
+    expect(getAttendancePresenceDisplay({
+      timeIn: '08:30',
+      timeOut: '17:00',
+      status: 'present',
+      effectiveStatus: 'present',
+      punctuality: 'late',
+    })).toBe('present');
+  });
+
+  it('returns "present" for actual clocks despite accepted notice (Worked Despite Accepted Notice)', () => {
+    expect(getAttendancePresenceDisplay({
+      timeIn: '08:00',
+      timeOut: '17:00',
+      status: 'present',
+      effectiveStatus: 'present',
+      punctuality: 'on_time',
+    })).toBe('present');
+  });
+
+  it('returns "on_leave" for approved leave without clocks', () => {
+    expect(getAttendancePresenceDisplay({
+      timeIn: null,
+      timeOut: null,
+      status: 'on_leave',
+      presence: 'on_leave',
+      punctuality: 'none',
+    })).toBe('on_leave');
+  });
+
+  it('returns "absent" for accepted/rejected/no notice absence without clocks', () => {
+    expect(getAttendancePresenceDisplay({
+      timeIn: null,
+      timeOut: null,
+      status: 'absent',
+      presence: 'absent',
+      punctuality: 'none',
+    })).toBe('absent');
+  });
+
+  it('returns "day_off" for published day off without clocks', () => {
+    expect(getAttendancePresenceDisplay({
+      timeIn: null,
+      timeOut: null,
+      status: 'day_off',
+      presence: 'day_off',
+      punctuality: 'none',
+    })).toBe('day_off');
+  });
+
+  it('returns "absent" for null, undefined, or empty candidates', () => {
+    expect(getAttendancePresenceDisplay(null)).toBe('absent');
+    expect(getAttendancePresenceDisplay(undefined)).toBe('absent');
+    expect(getAttendancePresenceDisplay({})).toBe('absent');
   });
 });

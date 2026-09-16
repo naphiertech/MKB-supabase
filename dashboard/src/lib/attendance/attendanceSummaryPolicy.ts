@@ -168,3 +168,44 @@ export function matchesAttendanceStatusFilter(
   }
   return log.status === statusFilter;
 }
+
+export type AttendancePresenceDisplay = 'present' | 'absent' | 'on_leave' | 'day_off' | 'not_finalized';
+
+/**
+ * Derives the canonical Presence display value for an attendance record.
+ * Presence answers: "Did the rider report/work?"
+ * Punctuality answers: "Was the rider on time?"
+ *
+ * Therefore:
+ * - Actual attendance / valid Time In / Late punctuality -> "present"
+ * - No clocks + approved leave -> "on_leave"
+ * - Published Day Off + no clocks -> "day_off"
+ * - Not finalized / pending -> "not_finalized"
+ * - No clocks + absence (with or without notice) -> "absent"
+ */
+export function getAttendancePresenceDisplay(
+  log: PresentAttendanceCandidate | null | undefined,
+): AttendancePresenceDisplay {
+  if (!log) return 'absent';
+
+  if (isPresentAttendance(log)) {
+    return 'present';
+  }
+
+  const effectiveStatus = log.effectiveStatus || log.status;
+  const presence = log.presence;
+
+  if (effectiveStatus === 'day_off' || presence === 'day_off') {
+    return 'day_off';
+  }
+
+  if (effectiveStatus === 'on_leave' || presence === 'on_leave') {
+    return 'on_leave';
+  }
+
+  if (effectiveStatus === 'not_finalized' || presence === 'not_finalized') {
+    return 'not_finalized';
+  }
+
+  return 'absent';
+}
