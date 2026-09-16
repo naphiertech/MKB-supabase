@@ -19,10 +19,12 @@ describe('Payroll Adjustments navigation', () => {
   });
 
   it('places Payroll Adjustments after the primary payroll action for every staff role', () => {
-    for (const items of [ADMIN_ITEMS, HR_ITEMS]) {
-      const labels = sectionLabels(items, 'Finance & Reports');
-      expect(labels.slice(0, 3)).toEqual(['Payroll Checklist', 'Payroll Adjustments', 'Payroll History']);
-    }
+    expect(sectionLabels(ADMIN_ITEMS, 'Payroll & Approvals').slice(0, 3))
+      .toEqual(['Payroll Approvals', 'Payroll Adjustments', 'Payroll History']);
+
+    expect(sectionLabels(HR_ITEMS, 'Payroll Verification').slice(0, 3))
+      .toEqual(['Payroll Approvals', 'Payroll Adjustments (View)', 'Payroll History']);
+
     expect(sectionLabels(PAYROLL_ITEMS, 'Compensation').slice(0, 3))
       .toEqual(['Salary Computation', 'Payroll Adjustments', 'Payroll Reports']);
   });

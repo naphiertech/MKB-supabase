@@ -84,26 +84,24 @@ export const ADMIN_ITEMS: SidebarItem[] = [
   },
   {
     type: 'section',
-    title: 'Tracking & Zones',
+    title: 'Fleet & Operations',
     icon: MapPin,
     items: [
       { key: 'monitoring', label: 'Live Monitoring', icon: Activity },
-      { key: 'geofence', label: 'Geofence / Zones', icon: Target },
+      { key: 'geofence', label: 'Geofence & Zones', icon: Target },
       { key: 'hubs', label: 'Hub Management', icon: Building2 }
     ]
   },
   {
     type: 'section',
-    title: 'HR & Employees',
+    title: 'Workforce & Users',
     icon: ClipboardCheck,
     items: [
-      { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
-      { key: 'users', label: 'Users Registry', icon: UsersIcon },
+      { key: 'attendance', label: 'Attendance Logs', icon: ClipboardCheck },
+      { key: 'users', label: 'User & Staff Directory', icon: UsersIcon },
       { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
-     // { key: 'rider_scheduling', label: 'Rider Scheduling', icon: CalendarDays },
       { key: 'leave_absence', label: 'Leave & Absence', icon: FileWarning },
-      { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
-      { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
+      { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 }
     ]
   },
   {
@@ -114,25 +112,38 @@ export const ADMIN_ITEMS: SidebarItem[] = [
       // { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
       { key: 'parcel_history', label: 'Parcel History', icon: History },
-      { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
+      { key: 'parcel_rates', label: 'Parcel Rate Settings', icon: Coins }
     ]
   },
   {
     type: 'section',
-    title: 'Finance & Reports',
+    title: 'Payroll & Approvals',
     icon: Wallet,
     items: [
-      { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
+      { key: 'payroll', label: 'Payroll Approvals', icon: Wallet },
       { key: 'payroll_adjustments', label: 'Payroll Adjustments', icon: BadgeDollarSign },
-      { key: 'payroll_history', label: 'Payroll History', icon: History },
-      { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
+      { key: 'payroll_history', label: 'Payroll History', icon: History }
+    ]
+  },
+  {
+    type: 'section',
+    title: 'Analytics & Reports',
+    icon: BarChart3,
+    items: [
+      { key: 'reports', label: 'Workforce Analytics', icon: BarChart3 }
     ]
   },
   {
     type: 'link',
     key: 'reviews',
-    label: 'Reviews',
+    label: 'Review Moderation',
     icon: Star
+  },
+  {
+    type: 'link',
+    key: 'audit_logs',
+    label: 'System Audit Logs',
+    icon: BookOpen
   }
 ];
 
@@ -145,7 +156,7 @@ export const HR_ITEMS: SidebarItem[] = [
   },
   {
     type: 'section',
-    title: 'Tracking & Zones',
+    title: 'Live Fleet Tracking',
     icon: MapPin,
     items: [
       { key: 'monitoring', label: 'Live Monitoring', icon: Activity }
@@ -153,16 +164,14 @@ export const HR_ITEMS: SidebarItem[] = [
   },
   {
     type: 'section',
-    title: 'HR & Employees',
+    title: 'Workforce & Attendance',
     icon: ClipboardCheck,
     items: [
-      { key: 'attendance', label: 'Attendance logs', icon: ClipboardCheck },
-      { key: 'users', label: 'Users Registry', icon: UsersIcon },
+      { key: 'attendance', label: 'Attendance Logs', icon: ClipboardCheck },
+      { key: 'users', label: 'Rider Registry', icon: UsersIcon },
       { key: 'rider_assignments', label: 'Rider Assignments', icon: Route },
-    //  { key: 'rider_scheduling', label: 'Rider Scheduling', icon: CalendarDays },
       { key: 'leave_absence', label: 'Leave & Absence', icon: FileWarning },
-      { key: 'attendance_policy', label: 'Attendance Policy', icon: Clock3 },
-      { key: 'audit_logs', label: 'Audit Logs', icon: BookOpen }
+      { key: 'attendance_policy', label: 'Attendance Policy (Reference)', icon: Clock3 }
     ]
   },
   {
@@ -173,25 +182,36 @@ export const HR_ITEMS: SidebarItem[] = [
       // { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
       { key: 'parcel_history', label: 'Parcel History', icon: History },
-      { key: 'parcel_rates', label: 'Parcel Rates', icon: Coins }
+      { key: 'parcel_rates', label: 'Parcel Rates (Reference)', icon: Coins }
     ]
   },
   {
     type: 'section',
-    title: 'Finance & Reports',
+    title: 'Payroll Verification',
     icon: Wallet,
     items: [
-      { key: 'payroll', label: 'Payroll Checklist', icon: Wallet },
-      { key: 'payroll_adjustments', label: 'Payroll Adjustments', icon: BadgeDollarSign },
-      { key: 'payroll_history', label: 'Payroll History', icon: History },
-      { key: 'reports', label: 'Insights & Reports', icon: BarChart3 }
+      { key: 'payroll', label: 'Payroll Approvals', icon: Wallet },
+      { key: 'payroll_adjustments', label: 'Payroll Adjustments (View)', icon: BadgeDollarSign },
+      { key: 'payroll_history', label: 'Payroll History', icon: History }
     ]
   },
   {
     type: 'link',
+    key: 'reports',
+    label: 'Workforce Analytics',
+    icon: BarChart3
+  },
+  {
+    type: 'link',
     key: 'reviews',
-    label: 'Reviews',
+    label: 'Customer Feedback',
     icon: Star
+  },
+  {
+    type: 'link',
+    key: 'audit_logs',
+    label: 'System Audit Logs',
+    icon: BookOpen
   }
 ];
 

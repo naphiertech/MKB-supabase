@@ -18,8 +18,8 @@ describe('Earnings & Deductions standalone UI rollback', () => {
   });
 
   it('does not expose navigation access for Admin, HR, or Payroll', () => {
-    expect(sectionLabels(ADMIN_ITEMS, 'Finance & Reports')).not.toContain('Earnings & Deductions');
-    expect(sectionLabels(HR_ITEMS, 'Finance & Reports')).not.toContain('Earnings & Deductions');
+    expect(sectionLabels(ADMIN_ITEMS, 'Payroll & Approvals')).not.toContain('Earnings & Deductions');
+    expect(sectionLabels(HR_ITEMS, 'Payroll Verification')).not.toContain('Earnings & Deductions');
     expect(sectionLabels(PAYROLL_ITEMS, 'Reference')).not.toContain('Earnings & Deductions');
   });
 });

@@ -62,10 +62,15 @@ export function Sidebar({
   // Accordion open/close states for expanded sidebar
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     'Parcel Operations': true,
-    'Tracking & Zones': true,
-    'HR & Employees': true,
-    'Finance & Reports': true,
+    'Fleet & Operations': true,
+    'Workforce & Users': true,
+    'Payroll & Approvals': true,
+    'Analytics & Reports': true,
+    'Live Fleet Tracking': true,
+    'Workforce & Attendance': true,
+    'Payroll Verification': true,
     'Compensation': true,
+    'Reference': true,
   });
 
   const toggleSection = (title: string) => {
