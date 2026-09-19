@@ -209,6 +209,7 @@ describe('fmsImportService', () => {
   });
 
   it('throws FILE_ALREADY_STAGED when identical SHA-256 is uploaded with a different date', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       stageFmsImportBatch({
         businessDate: '2026-08-31',
@@ -219,9 +220,15 @@ describe('fmsImportService', () => {
         observations: [],
       })
     ).rejects.toThrow(/FILE_ALREADY_STAGED/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error staging FMS import batch:',
+      expect.objectContaining({ code: '23505' })
+    );
+    errorSpy.mockRestore();
   });
 
   it('throws FILE_ALREADY_STAGED when identical SHA-256 is uploaded with a different hub', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       stageFmsImportBatch({
         businessDate: '2026-08-30',
@@ -232,6 +239,11 @@ describe('fmsImportService', () => {
         observations: [],
       })
     ).rejects.toThrow(/FILE_ALREADY_STAGED/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error staging FMS import batch:',
+      expect.objectContaining({ code: '23505' })
+    );
+    errorSpy.mockRestore();
   });
 
   it('confirms observation and derives standard delivered', async () => {
@@ -250,6 +262,7 @@ describe('fmsImportService', () => {
   });
 
   it('throws error when confirmation encounters a locked payroll period', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       confirmFmsDailyRiderObservation({
         observationId: 'locked_obs_id',
@@ -257,9 +270,15 @@ describe('fmsImportService', () => {
         isExistingRecord: false,
       })
     ).rejects.toThrow(/PAYROLL_PERIOD_LOCKED/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error confirming FMS observation:',
+      expect.objectContaining({ code: '55P03' })
+    );
+    errorSpy.mockRestore();
   });
 
   it('throws error when confirmation encounters an OCC version mismatch', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       confirmFmsDailyRiderObservation({
         observationId: 'obs_1',
@@ -268,6 +287,11 @@ describe('fmsImportService', () => {
         isExistingRecord: true,
       })
     ).rejects.toThrow(/PARCEL_LOG_CONFLICT/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error confirming FMS observation:',
+      expect.objectContaining({ code: '40001' })
+    );
+    errorSpy.mockRestore();
   });
 
   it('lists import batches', async () => {
@@ -291,9 +315,15 @@ describe('fmsImportService', () => {
     });
 
     it('throws when trying to cancel a batch with confirmed records', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
       await expect(cancelFmsImportBatch('confirmed_batch_id')).rejects.toThrow(
         /BATCH_CANNOT_BE_CANCELLED/
       );
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error cancelling FMS import batch:',
+        expect.objectContaining({ code: '22000' })
+      );
+      errorSpy.mockRestore();
     });
   });
 

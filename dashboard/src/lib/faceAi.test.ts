@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function createDetectionChain() {
   const descriptorTask = Promise.resolve(undefined);
@@ -46,14 +46,21 @@ function installFaceApi() {
 }
 
 describe('biometric model lifecycle', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     vi.resetModules();
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       fillStyle: '',
       fillRect: vi.fn(),
       drawImage: vi.fn(),
       createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
     } as unknown as CanvasRenderingContext2D);
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
   });
 
   it('warms SSD, landmarks, recognition, and MediaPipe without retaining a descriptor', async () => {
@@ -133,6 +140,9 @@ describe('biometric model lifecycle', () => {
     expect(faceApi.loadSsd).toHaveBeenCalledTimes(1);
     expect(faceApi.loadLandmarks).toHaveBeenCalledTimes(1);
     expect(faceApi.loadRecognition).toHaveBeenCalledTimes(1);
+    expect(logSpy).toHaveBeenCalledWith(
+      '[Face AI] loadFaceModels(): REUSING ALREADY LOADED face-api.js promise.'
+    );
   });
 
   it('keeps the production descriptor invariants explicit', async () => {

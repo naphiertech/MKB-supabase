@@ -60,7 +60,7 @@ describe('FMSDailyImport (Parcel Data Import)', () => {
   let root: Root | null = null;
 
   beforeEach(() => {
-    (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -77,6 +77,7 @@ describe('FMSDailyImport (Parcel Data Import)', () => {
 
     mocks.supabaseFrom.mockImplementation(() => ({
       select: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
         data: [

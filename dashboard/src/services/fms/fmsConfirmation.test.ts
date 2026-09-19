@@ -1,10 +1,19 @@
 import { describe, it, expect, vi } from 'vitest';
 import { confirmFmsDailyRiderObservation } from './fmsImportService';
 
+interface ConfirmObservationRpcArgs {
+  p_heavy_delivered: number;
+  p_observation_id: string;
+  p_is_existing_record?: boolean;
+  p_expected_log_updated_at?: string | null;
+  p_returned?: number | null;
+  p_failed?: number | null;
+}
+
 vi.mock('../../lib/supabaseClient', () => {
   return {
     supabase: {
-      rpc: vi.fn(async (funcName: string, args: any) => {
+      rpc: vi.fn(async (funcName: string, args: ConfirmObservationRpcArgs) => {
         if (funcName === 'confirm_fms_daily_rider_observation') {
           // Validate classification invariant
           if (args.p_heavy_delivered < 0 || args.p_heavy_delivered > 86) {
@@ -98,6 +107,7 @@ describe('FMS Confirmation Invariants & OCC Protection', () => {
   });
 
   it('rejects confirmation when heavy exceeds total delivered', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       confirmFmsDailyRiderObservation({
         observationId: 'invalid_heavy_obs',
@@ -105,6 +115,11 @@ describe('FMS Confirmation Invariants & OCC Protection', () => {
         isExistingRecord: false,
       })
     ).rejects.toThrow(/INVALID_CLASSIFICATION/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error confirming FMS observation:',
+      expect.objectContaining({ code: '22003' })
+    );
+    errorSpy.mockRestore();
   });
 
   it('preserves existing returned parcels count when null is supplied', async () => {
@@ -122,6 +137,7 @@ describe('FMS Confirmation Invariants & OCC Protection', () => {
   });
 
   it('rejects direct confirmation when shift date is inside a locked payroll cutoff', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       confirmFmsDailyRiderObservation({
         observationId: 'locked_cutoff_obs',
@@ -129,9 +145,15 @@ describe('FMS Confirmation Invariants & OCC Protection', () => {
         isExistingRecord: false,
       })
     ).rejects.toThrow(/PAYROLL_PERIOD_LOCKED/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error confirming FMS observation:',
+      expect.objectContaining({ code: '55P03' })
+    );
+    errorSpy.mockRestore();
   });
 
   it('rejects confirmation when existing parcel log updated_at does not match expected version (OCC conflict)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       confirmFmsDailyRiderObservation({
         observationId: 'valid_obs',
@@ -140,9 +162,15 @@ describe('FMS Confirmation Invariants & OCC Protection', () => {
         isExistingRecord: true,
       })
     ).rejects.toThrow(/PARCEL_LOG_CONFLICT/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error confirming FMS observation:',
+      expect.objectContaining({ code: '40001' })
+    );
+    errorSpy.mockRestore();
   });
 
   it('rejects confirmation when client assumed no existing row but another user created one (concurrent insert race)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       confirmFmsDailyRiderObservation({
         observationId: 'concurrent_created_obs',
@@ -150,9 +178,15 @@ describe('FMS Confirmation Invariants & OCC Protection', () => {
         isExistingRecord: false,
       })
     ).rejects.toThrow(/PARCEL_LOG_CONFLICT/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error confirming FMS observation:',
+      expect.objectContaining({ code: '40001' })
+    );
+    errorSpy.mockRestore();
   });
 
   it('rejects confirmation when mapped rider has no official attendance (PARCEL_ATTENDANCE_REQUIRED)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(
       confirmFmsDailyRiderObservation({
         observationId: 'missing_attendance_obs',
@@ -160,5 +194,10 @@ describe('FMS Confirmation Invariants & OCC Protection', () => {
         isExistingRecord: false,
       })
     ).rejects.toThrow(/PARCEL_ATTENDANCE_REQUIRED/);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error confirming FMS observation:',
+      expect.objectContaining({ code: '22000' })
+    );
+    errorSpy.mockRestore();
   });
 });

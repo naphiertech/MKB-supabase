@@ -67,6 +67,7 @@ describe('riderAttendanceCheck', () => {
   });
 
   it('falls back to offline cache when supabase query throws and cached shift is active', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const mockMaybeSingle = vi.fn().mockRejectedValue(new Error('Network offline'));
     const mockEqDate = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
     const mockEqRider = vi.fn().mockReturnValue({ eq: mockEqDate });
@@ -94,9 +95,15 @@ describe('riderAttendanceCheck', () => {
 
     const result = await checkHasActiveAttendance('rider-123', 'user-123');
     expect(result).toBe(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[AttendanceCheck] Online query failed, checking offline cache:',
+      expect.any(Error)
+    );
+    warnSpy.mockRestore();
   });
 
   it('ignores a cached open shift from a previous Manila business date', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const mockMaybeSingle = vi.fn().mockRejectedValue(new Error('Network offline'));
     const mockEqDate = vi.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
     const mockEqRider = vi.fn().mockReturnValue({ eq: mockEqDate });
@@ -118,5 +125,10 @@ describe('riderAttendanceCheck', () => {
     });
 
     await expect(checkHasActiveAttendance('rider-123', 'user-123')).resolves.toBe(false);
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[AttendanceCheck] Online query failed, checking offline cache:',
+      expect.any(Error)
+    );
+    warnSpy.mockRestore();
   });
 });

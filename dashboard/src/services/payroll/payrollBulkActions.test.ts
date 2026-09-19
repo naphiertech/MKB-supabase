@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 
@@ -44,11 +44,47 @@ describe('payroll bulk selection eligibility', () => {
     });
   });
 
-  it('disables payment for weekly payroll before earliest payable date', () => {
-    // Current date is 2026-08-30. Period is Aug 31 - Sep 6, payable Sep 14.
-    const result = getPayrollBulkSelectionState([approved], { cutoffStart: '2026-08-31', cutoffEnd: '2026-09-06' });
-    expect(result.canMarkPaid).toBe(false);
-    expect(result.feedback).toContain('2026-09-14');
+  describe('weekly payroll payable date enforcement', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('disables payment for weekly payroll before earliest payable date', () => {
+      // Period is Aug 31 - Sep 6, payable Sep 14. Simulated current date is 2026-08-30.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-30T12:00:00+08:00'));
+
+      const result = getPayrollBulkSelectionState([approved], { cutoffStart: '2026-08-31', cutoffEnd: '2026-09-06' });
+      expect(result.canMarkPaid).toBe(false);
+      expect(result.feedback).toContain('2026-09-14');
+    });
+
+    it('disables payment on the day before earliest payable date (2026-09-13)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-13T23:59:59+08:00'));
+
+      const result = getPayrollBulkSelectionState([approved], { cutoffStart: '2026-08-31', cutoffEnd: '2026-09-06' });
+      expect(result.canMarkPaid).toBe(false);
+      expect(result.feedback).toContain('2026-09-14');
+    });
+
+    it('enables payment on the earliest payable date (2026-09-14)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-14T00:00:00+08:00'));
+
+      const result = getPayrollBulkSelectionState([approved], { cutoffStart: '2026-08-31', cutoffEnd: '2026-09-06' });
+      expect(result.canMarkPaid).toBe(true);
+      expect(result.feedback).toBeNull();
+    });
+
+    it('enables payment after the earliest payable date (2026-09-15)', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-09-15T12:00:00+08:00'));
+
+      const result = getPayrollBulkSelectionState([approved], { cutoffStart: '2026-08-31', cutoffEnd: '2026-09-06' });
+      expect(result.canMarkPaid).toBe(true);
+      expect(result.feedback).toBeNull();
+    });
   });
 
   it('keeps mixed statuses safe and explains why neither transition is available', () => {
