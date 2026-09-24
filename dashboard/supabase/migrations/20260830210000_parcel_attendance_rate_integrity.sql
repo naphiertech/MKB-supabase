@@ -1,4 +1,4 @@
-﻿-- Migration: 20260830210000_parcel_attendance_rate_integrity.sql
+-- Migration: 20260830210000_parcel_attendance_rate_integrity.sql
 -- Description: Enforce official attendance Time In requirement on public.parcel_logs,
 -- eliminating the NULL attendance late-rate fallback and raising PARCEL_ATTENDANCE_REQUIRED.
 
@@ -7,7 +7,7 @@ returns trigger
 language plpgsql
 security invoker
 set search_path = ''
-as 
+as $$
 declare
   rate_config public.parcel_rate_configurations%rowtype;
   local_time_in time;
@@ -87,4 +87,4 @@ begin
 
   return new;
 end;
-;
+$$;
