@@ -7,21 +7,44 @@ on:
 jobs:
   database:
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Guard against production connection
+        working-directory: dashboard
+        run: |
+          # Ensure ephemeral local testing by eliminating any tracked or generated link metadata
+          rm -f supabase/.temp/linked-project.json
+          rm -f ../supabase/.temp/linked-project.json
+
       - uses: supabase/setup-cli@v1
-        if: env.SUPABASE_DB_URL != ''
         with:
           version: 2.111.0
-      - name: Run Supabase integration tests
-        if: env.SUPABASE_DB_URL != ''
+
+      - name: Initialize local Supabase config if absent
         working-directory: dashboard
-        run: supabase test db --db-url "$SUPABASE_DB_URL" supabase/tests/database
-      - name: Report missing database test configuration
-        if: env.SUPABASE_DB_URL == ''
-        run: echo "Supabase integration tests are skipped until the SUPABASE_DB_URL repository secret is configured."
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            echo "Generating default local Supabase config..."
+            supabase init
+          fi
+
+      - name: Start ephemeral local Supabase
+        working-directory: dashboard
+        run: supabase start
+
+      - name: Verify applied migrations
+        working-directory: dashboard
+        run: supabase migration list
+
+      - name: Run pgTAP database tests
+        working-directory: dashboard
+        run: supabase test db
+
+      - name: Stop ephemeral local Supabase
+        if: always()
+        working-directory: dashboard
+        run: supabase stop --no-backup
 
   dashboard:
     runs-on: ubuntu-latest
