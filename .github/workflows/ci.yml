@@ -35,7 +35,7 @@ jobs:
 
       - name: Verify applied migrations
         working-directory: dashboard
-        run: supabase migration list
+        run: supabase migration list --local
 
       - name: Run pgTAP database tests
         working-directory: dashboard
