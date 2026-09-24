@@ -282,7 +282,7 @@ create table if not exists public.parcel_logs (
   failed_parcels integer default 0,
   returned_parcels integer default 0,
   rate numeric(10, 2) not null default 50.00,
-  daily_gross numeric(12, 2),
+  daily_gross numeric(10, 2) generated always as (parcels * rate) stored,
   notes text,
   created_by uuid references public.users(id),
   created_at timestamptz not null default now(),
