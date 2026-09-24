@@ -15,7 +15,14 @@ npm run build
 
 ## Database source of truth
 
-The tracked files under `dashboard/supabase/migrations/` are historical migrations. The ignored root `attenrider_schema.sql` and the generated TypeScript database types do not currently agree with every query used by the application.
+The production database was originally bootstrapped manually from an uncommitted initialization script (`attenrider_schema.sql`) and historical unversioned scripts prior to August 2026.
+
+To enable reproducible fresh database replay in ephemeral GitHub Actions CI and local development:
+- `dashboard/supabase/migrations/20260804000000_initial_schema_baseline.sql` reconstructs the complete historical baseline schema immediately preceding version `20260804162434`.
+- The first previously tracked timestamped migration remains `20260804162434_offline_sync_server_integrity.sql`.
+- Five historical unversioned scripts (`backend_geofencing.sql`, `cache_rider_face_descriptor.sql`, `create_reviews_table.sql`, `payroll_workflow_security.sql`, and `update_my_last_login.sql`) have been relocated to `dashboard/supabase/archive/legacy_pre_migration_scripts/` for historical reference only and must not be executed independently against production.
+- Fresh CI and local databases now rebuild entirely and deterministically from `dashboard/supabase/migrations/`.
+- Production migration-history reconciliation remains a separate future task before any future `supabase db push` against the live project.
 
 Before making a database-dependent change:
 
@@ -25,7 +32,7 @@ Before making a database-dependent change:
 4. Create a new forward-only migration for the intended change; do not rewrite an already-applied migration.
 5. Test the migration against a recent non-production data copy.
 
-Do not execute the ignored root schema file against an existing environment.
+Do not execute the ignored root schema file or archived legacy scripts against an existing environment.
 
 ## Safe deployment and rollback
 

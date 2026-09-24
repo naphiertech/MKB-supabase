@@ -35,4 +35,5 @@ attenrider_schema.sql
 !landing/README.md
 !docs/maintenance-baseline.md
 !docs/capstone/chapter-3/*.md
+!dashboard/supabase/archive/**/README.md
 .gstack/
