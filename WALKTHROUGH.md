@@ -1,6 +1,6 @@
 # MKBRiderTrack Engineering Walkthrough & Codex Handoff
 
-This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent refactoring boundaries, and deferred features as of **August 25, 2026**.
+This document is the authoritative engineering reference and handoff document for **MKBRiderTrack**. It records the current implementation state, verified architecture, database schema, security rules, recent refactoring boundaries, confirmed business policy inputs (September 2026), and deferred features as of **September 24, 2026**.
 
 This walkthrough is derived directly from the active repository source code, Supabase database migrations, test suites, and production build verification across both the Dashboard (`dashboard/`) and Landing (`landing/`) applications.
 
@@ -27,10 +27,10 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 
 | Role | Primary Responsibilities | Major Module Access | RLS Boundary |
 | :--- | :--- | :--- | :--- |
-| **Admin** | Fleet administration, dynamic attendance policy management, parcel rates, Rider payroll adjustments, hub lifecycle, user management, employment archiving/restoration, audit review, and overrides | All pages (Dashboard, Tracking & Zones, HR & Employees, Parcel Operations, Finance & Reports, Settings) | Broad administrative access, constrained by deployed RLS policies, PostgreSQL triggers, append-only audit protections, employment-transition rules, and immutable payroll rules |
-| **HR** | Attendance verification, Rider onboarding, assignment and employment lifecycle management, document verification, review moderation | Dashboard, Live Monitoring, Attendance, Employee Registry, Rider Assignments, Reviews, Audit Logs, Daily Parcel Entry, Parcel History, Payroll Checklist, Payroll Adjustments (read-only) | May manage authorized Rider assignments and Archive/Restore Rider employment; cannot manage Admin/HR/Payroll employment; Read-only on Rates, Attendance Policies, and payroll adjustments |
-| **Payroll** | Salary computation, cutoff initialization, Rider earning/deduction management, payslip generation, payroll exports, approval tracking | Dashboard, Salary Computation, Payroll Adjustments, Payroll Reports, Payroll History, Parcel History (Reference) | Read/Write on editable Payroll Records and guarded adjustment RPCs; Read-only on operational source tables and submitted snapshots |
-| **Rider** | Selfie Time-In/Out, live location broadcast, offline queue, personal attendance & payslips | Rider Mobile App (Dashboard, Attendance Scanner, Monitoring/Geofence Status, Profile/Payslips) | Read/Write on own Attendance, Locations, Diagnostics; Read-only on own Payslips/Logs |
+| **Admin** | Fleet administration, dynamic attendance policy management, parcel rates, Rider payroll adjustments, hub lifecycle, user management, Leave & Absence review/oversight, employment archiving/restoration, audit review, and overrides | All pages (Dashboard, Tracking & Zones, HR & Employees, Parcel Operations, Finance & Reports, Settings) | Broad administrative access, constrained by deployed RLS policies, PostgreSQL triggers, append-only audit protections, employment-transition rules, and immutable payroll rules |
+| **HR** | Attendance verification, Leave & Absence request approval/triage, absence assessment inspection, Rider onboarding, assignment and employment lifecycle management, document verification, review moderation | Dashboard, Live Monitoring, Attendance, Employee Registry, Rider Assignments, Leave & Absence, Reviews, Audit Logs, Daily Parcel Entry, Parcel History, Payroll Approvals, Payroll Adjustments (read-only) | May manage authorized Rider assignments, review/triage Leave & Absence, and Archive/Restore Rider employment; cannot manage Admin/HR/Payroll employment; Read-only on Rates, Attendance Policies, and payroll adjustments |
+| **Payroll** | Salary computation, cutoff initialization, Rider earning/deduction management (manual/batch), payslip generation, payroll exports, approval tracking | Dashboard, Salary Computation, Payroll Adjustments, Payroll Reports, Payroll History, Parcel History (Reference), Attendance Policy (Reference), Parcel Rates (Reference) | Read/Write on editable Payroll Records and guarded adjustment RPCs; Read-only on operational source tables (including attendance, absence assessments, and leave/notice records); strictly no automatic deductions from attendance |
+| **Rider** | Selfie Time-In/Out, live location broadcast, offline queue, personal attendance, Planned Leave & Absence Notice submissions, personal payslips | Rider Mobile App (Dashboard, Attendance Scanner, Monitoring/Geofence Status, Leave & Absence Drawer, Profile/Payslips) | Read/Write on own Attendance, Locations, Absence Requests, Diagnostics; Read-only on own Payslips/Logs |
 
 > [!IMPORTANT]
 > **Multi-Hub Workspace Isolation**: Admin is always global; HR and Payroll staff may have global access or explicitly assigned hub access (`user_hub_access`); Riders derive their operational hub from `riders.hub_id`. Database RLS policies backed by `private.user_can_access_hub(hub_id)` enforce visibility.
@@ -43,25 +43,37 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 
 #### 1. Admin Role (`ADMIN_ITEMS`)
 - **Dashboard** (`key: 'dashboard'`)
-- **Tracking & Zones** *(Collapsible)*: Live Monitoring (`monitoring`), Geofence / Zones (`geofence`), Hub Management (`hubs`)
-- **HR & Employees** *(Collapsible)*: Attendance logs (`attendance`), Users Registry (`users`), Rider Assignments (`rider_assignments`), Courier Reviews (`reviews`), Audit Logs (`audit_logs`)
-- **Parcel Operations** *(Collapsible)*: Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`)
-- **Finance & Reports** *(Collapsible)*: Payroll Checklist (`payroll`), Payroll Adjustments (`payroll_adjustments`), Payroll History (`payroll_history`), Insights & Reports (`reports`)
+- **Fleet & Operations** *(Collapsible)*: Live Monitoring (`monitoring`), Geofence & Zones (`geofence`), Hub Management (`hubs`)
+- **Workforce & Users** *(Collapsible)*: Attendance Logs (`attendance`), User & Staff Directory (`users`), Rider Assignments (`rider_assignments`), Leave & Absence (`leave_absence`), Attendance Policy (`attendance_policy`)
+- **Parcel Operations** *(Collapsible)*: Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`), Parcel Rate Settings (`parcel_rates`) *(Note: Parcel Data Import `fms_import` is intentionally preserved as commented code)*
+- **Payroll & Approvals** *(Collapsible)*: Payroll Approvals (`payroll`), Payroll Adjustments (`payroll_adjustments`), Payroll History (`payroll_history`)
+- **Analytics & Reports** *(Collapsible)*: Workforce Analytics (`reports`)
+- **Review Moderation** (`key: 'reviews'`)
+- **System Audit Logs** (`key: 'audit_logs'`)
 
 #### 2. HR Role (`HR_ITEMS`)
 - **Dashboard** (`key: 'dashboard'`)
-- **Tracking & Zones** *(Collapsible)*: Live Monitoring (`monitoring`)
-- **HR & Employees** *(Collapsible)*: Attendance logs (`attendance`), Employee Management (`users`), Rider Assignments (`rider_assignments`), Courier Reviews (`reviews`), Audit Logs (`audit_logs`)
-- **Parcel Operations** *(Collapsible)*: Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`)
-- **Finance & Reports** *(Collapsible)*: Payroll Checklist (`payroll`), Payroll Adjustments (`payroll_adjustments`, read-only), Payroll History (`payroll_history`), Insights & Reports (`reports`)
+- **Live Fleet Tracking** *(Collapsible)*: Live Monitoring (`monitoring`)
+- **Workforce & Attendance** *(Collapsible)*: Attendance Logs (`attendance`), Rider Registry (`users`), Rider Assignments (`rider_assignments`), Leave & Absence (`leave_absence`), Attendance Policy (Reference) (`attendance_policy`)
+- **Parcel Operations** *(Collapsible)*: Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`), Parcel Rates (Reference) (`parcel_rates`) *(Note: Parcel Data Import `fms_import` is intentionally preserved as commented code)*
+- **Payroll Verification** *(Collapsible)*: Payroll Approvals (`payroll`), Payroll Adjustments (View) (`payroll_adjustments`, read-only), Payroll History (`payroll_history`)
+- **Workforce Analytics** (`key: 'reports'`)
+- **Customer Feedback** (`key: 'reviews'`)
+- **System Audit Logs** (`key: 'audit_logs'`)
 
 #### 3. Payroll Role (`PAYROLL_ITEMS`)
 - **Dashboard** (`key: 'dashboard'`)
 - **Compensation** *(Collapsible)*: Salary Computation (`computation`), Payroll Adjustments (`payroll_adjustments`), Payroll Reports (`reports`), Payroll History (`payroll_history`)
-- **Reference** *(Collapsible)*: Parcel History (`parcel_history`), Attendance Policy (`attendance_policy`), Parcel Rates (`parcel_rates`) — *Read-only reference access*
+- **Reference** *(Collapsible)*: Parcel History (`parcel_history`), Attendance Policy (Reference) (`attendance_policy`), Parcel Rates (Reference) (`parcel_rates`) — *Read-only reference access*
 
 #### 4. Rider Role Navigation (`dashboard/src/components/rider/RiderTopNav.tsx`)
 - Mobile Navigation Bar: Dashboard (`dashboard`), Attendance (`attendance`), Live Map (`monitoring`), Profile & Payslips (`profile`)
+- Self-service Leave & Absence requests are accessed via the Rider dashboard action panel and mobile navigation drawer.
+
+> [!NOTE]
+> **Navigation Visibility Invariants**:
+> 1. **Rider Scheduling**: Intentionally hidden from sidebar navigation across all roles. The page component and routing exist, but direct navigation is intentionally withheld.
+> 2. **FMS Parcel Data Import**: Preserved in `sidebarNavigation.ts` as commented-out code for Admin and HR. It does not render in the visible sidebar UI.
 
 ### Global Hub Workspace Selector
 - `HubProvider` loads the hubs visible to the authenticated user and owns the selected workspace.
@@ -92,6 +104,7 @@ dashboard/src/pages/
 ├── Geofence.tsx             # Geofence boundary setup, map canvas, & rider zone assignments
 ├── HRDashboard.tsx          # HR metrics, rider status grid, & violation summary
 ├── HubManagement.tsx       # Admin hub lifecycle, counts, and zone-to-hub assignments
+├── LeaveAbsence.tsx        # Staff review of Planned Leave, Absence Notice triage, & assessment audit
 ├── LiveMonitoring.tsx       # Real-time rider location tracking map & live activity ticker
 ├── Login.tsx                # Secure authentication portal with demo login shortcuts
 ├── NotFound.tsx             # 404 Error page
@@ -105,6 +118,7 @@ dashboard/src/pages/
 ├── RiderAssignments.tsx     # Admin/HR permanent transfers, temporary deployments, and history
 ├── RiderAttendance.tsx     # Rider mobile Time-In/Out selfie & MediaPipe liveness scanner
 ├── RiderDashboard.tsx      # Rider mobile home, duty action panel, & payslip portal
+├── RiderLeaveAbsence.tsx   # Rider mobile Planned Leave and Absence Notice submission portal
 ├── RiderMonitoring.tsx     # Rider mobile active zone map & location status ticker
 ├── RiderProfile.tsx        # Rider personal details, emergency contacts, & face enrollment
 ├── Settings.tsx             # System parameters, dynamic attendance policy & parcel rates
@@ -117,12 +131,19 @@ dashboard/src/pages/
    - `pages/rider-dashboard/riderDashboardModel.ts`: Pure calculations, date formatting, and state mapping.
    - `pages/rider-dashboard/useRiderDashboardData.ts`: SWR-backed cache-first loading and reload ownership.
    - `pages/rider-dashboard/useRiderShiftController.ts`: GPS/geofence state, scanner orchestration, Time In/Out persistence, offline attendance queue integration, and active-shift location synchronization.
-2. **Daily Parcel Entry Boundaries**:
+2. **Leave & Absence Boundaries**:
+   - `LeaveAbsence.tsx`: Coordinator for pending leave review, absence notice triage, approved/rejected request windows, and absence assessment inspection.
+   - `components/leave-absence/AbsenceAssessmentsTab.tsx`: Dynamic absence assessment viewer backed by RPC `list_rider_absence_assessments` and live invalidation subscription.
+   - `RiderLeaveAbsence.tsx`: Rider mobile self-service portal for submitting planned leave and reporting unscheduled absence notices with offline caching and optimistic updates.
+   - `services/workforce/riderAbsenceRequestService.ts`: Lifecycle management for planned leave and absence notices (`submitPlannedLeave`, `submitAbsenceNotice`, `reviewRiderAbsenceRequest`, `cancelApprovedRiderAbsenceRequest`).
+   - `services/attendance/attendanceContextService.ts`: Real-time attendance context resolution combining raw attendance, leave/notices, and schedules.
+   - `services/attendance/absenceAssessmentService.ts`: Client RPC consumer, status/reason formatters, and pagination for absence assessments.
+3. **Daily Parcel Entry Boundaries**:
    - `DailyParcelEntry.tsx`: Coordinator for query loading, filters, rate context, cutoff-lock checks, and persistence routing.
    - `pages/daily-parcels/useDailyParcelDraft.ts`: State management for editable rows and single-rider drafts.
    - `pages/daily-parcels/DailyParcelEntryTable.tsx`: Table and mobile card presentation.
    - `pages/daily-parcels/DailyParcelEntryDrawer.tsx`: Selected-Rider drawer presentation.
-3. **Data Integrity & Realism**:
+4. **Data Integrity & Realism**:
    - Removed all fake dashboard trend strings, mock sparklines, and simulated route elevation (since no elevation hardware telemetry exists).
    - Removed hardcoded `"Talon-Talon Rider"` fallback text in favor of truthful neutral or unassigned states.
    - **Taxonomy of Data**:
@@ -185,13 +206,200 @@ The attendance lateness threshold is dynamically configurable by Admins via an e
   - Stale async responses from older requests are discarded.
   - Active-shift location synchronization cleanly cancels follow-up handlers upon unmount.
 
+### Attendance Presentation Semantics (Presence vs Punctuality)
+MKBRiderTrack enforces a strict conceptual and presentation separation between **Presence** and **Punctuality**:
+- **Presence answers**: *"Did the rider report/work?"*
+  - Display values: `Present`, `Absent`, `On Leave`, `Day Off`.
+- **Punctuality answers**: *"Was the rider on time?"*
+  - Display values: `On Time`, `Late`.
+- **Presentation Rule**: A rider who clocked in past the dynamic lateness threshold retains internal status `late` in the database, but the Attendance UI presents:
+  - **Status**: `Present`
+  - **Punctuality**: `Late`
+- **Dashboard KPI Integrity**:
+  - `Present Today` includes all attendees who clocked in, including Late attendees.
+  - `Late Today` represents the Late subset of Present attendees.
+  - Filtering by `Status = Present` displays both On-Time and Late attendees.
+  - Filtering by `Status = Absent` never includes Late attendees.
+  - `On Leave` and `Day Off` without actual clocks are not counted as Present.
+- **Actual Attendance Clocks Authority**: Actual valid attendance clocks always override absence and leave context. If a rider reports for duty and clocks in during an approved leave date or scheduled day off, the actual clock takes precedence and the rider is evaluated as Present.
+- **Schedule Authority Constraint**: Published Day Off remains strictly distinct from absence. Schedule start/end times do not serve as Attendance or Payroll authority.
+
 ### Biometric Verification Architecture (`dashboard/src/lib/faceAi.ts`)
 - **Pipeline**: SSD MobileNet V1 &rarr; Face Landmark 68 &rarr; Face Recognition Model (128-D descriptor) &rarr; MediaPipe Liveness &rarr; Euclidean comparison (fixed threshold `0.45`).
 - **Stabilization Completed**: Model weights remain resident during the session; synthetic warmup passes initialize landmarks and descriptors without rider data; transient releases close MediaPipe without purging face-api tensors; camera streams are owned per scanner mount; interaction-aware preload yields to mobile scrolling and touch events.
 
 ---
 
-## 6. Parcel Operations & Effective-Dated Rates
+## 6. Leave & Absence, Attendance Context & Absence Assessment V1
+
+### Architectural Pipeline
+```text
+Raw Attendance Clocks (attendance_logs)
+          +
+Rider Absence Requests (rider_absence_requests: planned_leave, absence_notice)
+          +
+Published Schedules (rider_schedules: is_day_off)
+          ↓
+Attendance Context Resolver (v_attendance_context / private.resolve_attendance_context)
+          ↓
+Provisional Absence Policy (absence_policy_configurations: MKB Provisional Policy v1)
+          ↓
+Absence Assessment V1 Resolver (private.resolve_rider_absence_assessment)
+          ↓
+Staff Assessments UI (LeaveAbsence.tsx → AbsenceAssessmentsTab.tsx)
+```
+
+### Attendance Context Layer (`v_attendance_context` / `private.resolve_attendance_context`)
+The Attendance Context layer sits between raw operational inputs and downstream classification. It resolves:
+- **Actual Attendance Clocks**: If a rider has an actual valid attendance clock, actual attendance always overrides absence/leave context (e.g. if a rider clocks in during an approved leave date, their effective status is `present` and context code is `worked_during_approved_leave`).
+- **Rider Absence Requests**: Planned Leave (`planned_leave`) and Absence Notices (`absence_notice`).
+  - Planned Leave statuses: `pending`, `approved`, `rejected`, `withdrawn`, `cancelled`.
+  - Absence Notice statuses: `pending`, `approved` (presented as "Accepted" in UI), `rejected`, `withdrawn`, `cancelled`.
+- **Published Day Off**: Extracted from `rider_schedules.is_day_off`. Published Day Off remains strictly distinct from absence (`published_day_off`). Schedule start/end times are neither attendance nor payroll authority.
+- **Privacy & Safe Metadata**: Sensitive rider notes and reviewer decision reasons are strictly isolated within `rider_absence_requests` and `rider_absence_request_audit`; the context view exposes only safe canonical context codes (`approved_leave`, `accepted_notice`, `leave_pending`, `notice_pending`, `leave_rejected`, `notice_rejected`, `leave_withdrawn`, `notice_withdrawn`, `leave_cancelled`, `notice_cancelled`, `published_day_off`, `worked_during_approved_leave`, etc.) without exposing private request bodies.
+
+### Current Implemented Behavior: Absence Assessment V1 (Classification Only)
+Absence Assessment V1 is an HR classification engine introduced on September 9, 2026:
+- **Server Authority**: Dynamic lateral RPC `list_rider_absence_assessments(...)` which invokes `private.resolve_rider_absence_assessment(...)` per rider/day.
+- **Classification Statuses**:
+  - `excused`: Valid absence justified by company policy (safe reasons: `approved_leave`, `accepted_notice`).
+  - `unexcused`: Absence without accepted authorization or notice (safe reasons: `leave_rejected`, `notice_rejected`, `no_notice`, `leave_withdrawn`, `notice_withdrawn`, `leave_cancelled`, `notice_cancelled`).
+  - `pending_review`: Absence currently awaiting supervisor/HR determination (safe reasons: `leave_pending_review`, `notice_pending_review`).
+  - `not_absent`: Rider actually reported and clocked in (safe reason: `actual_attendance`).
+  - `not_applicable`: Rider was not expected to work (safe reason: `published_day_off`).
+- **Policy Versioning**: Governed by `absence_policy_configurations` and `absence_policy_rules`. The active policy is `MKB Provisional Absence Policy` (Version 1, provisional, effective-dated).
+- **Dynamic Derivation**: Assessments are dynamically resolved from `v_attendance_context` and the applicable policy rules rather than permanently snapshotting an assessment row per rider per day. This prevents synchronization drift when offline attendance replays or retrospective leave approvals occur.
+
+### CRITICAL HISTORICAL & OPERATIONAL BOUNDARY
+> [!IMPORTANT]
+> **Absence Assessment V1 is Strictly Classification-Only**
+> - There is **NO automatic Leave/Absence → Payroll financial integration**.
+> - There is **NO automatic ₱500 absence deduction**.
+> - There is **NO financial consequence/snapshot layer**.
+> - Payroll must **NOT** infer deductions directly from attendance or absence classifications.
+> - Approved Leave currently has attendance/context semantics only (`on_leave` presence, excused classification); the new HR-confirmed financial policy has NOT yet been implemented.
+
+---
+
+## 7. HR-Confirmed Absence & Leave Business Policy & Target Architecture (Confirmed September 2026)
+
+In September 2026, MKB company management and HR established official business-policy inputs governing absences, leave, and future payroll integration. These policies define the future operational rules that will guide the upcoming Leave/Absence → Payroll architecture audit.
+
+### 1. Confirmed HR Business Policies
+
+#### 1. Absence Without Prior Notice (₱500 Penalty)
+- A rider who is absent without prior notice or proper authorization is subject to a **₱500 penalty for Absence Without Prior Notice**.
+- The ₱500 penalty is **separate from the rider's normal daily earnings**.
+- Rider earnings are primarily commission/performance-based, depending on successfully delivered parcels.
+
+#### 2. Prior Notice Requirement (At Least 3 Days in Advance)
+- As a general company rule, a rider must provide notice of an intended absence at least **3 days in advance**.
+- Notice must be communicated to:
+  - The rider's immediate supervisor; or
+  - The designated person responsible for attendance monitoring.
+- Emergency situations or circumstances outside the rider's reasonable control may be reviewed separately.
+- Supporting proof may be considered when determining whether the absence should be treated as Absence Without Prior Notice.
+
+#### 3. Approved Leave is Unpaid (Unpaid Leave ≠ Absence Penalty)
+- Approved leave is **UNPAID**.
+- Because riders are primarily commission/performance-based:
+  - No delivery-based earnings are generated for a day when the rider performs no deliveries.
+  - Approved leave itself must **NOT** be treated as an additional ₱500 penalty.
+  - **"Unpaid leave" and "absence penalty" are completely separate concepts**.
+  - System architecture must **NOT** model unpaid approved leave as a separate monetary deduction merely to represent the lack of delivery earnings.
+
+#### 4. Rejected / Denied Absence Request
+- Submitting an absence request does **not** itself constitute approval.
+- The rider must receive explicit acknowledgment or approval from the immediate supervisor or authorized company representative.
+- If the request was properly denied, and the rider nevertheless fails to report for scheduled duty without an acceptable justification, the absence may be classified as **Unauthorized / Unexcused Absence** and may be subject to the applicable ₱500 penalty.
+
+#### 5. Notice Not Acknowledged / Accepted
+- An absence may be considered "Absent Without Prior Notice" where the rider:
+  - Failed to provide the required notice; or
+  - Failed to obtain the required acknowledgment/acceptance from the immediate supervisor.
+- This failure may make the absence subject to the ₱500 penalty.
+
+#### 6. Human / Authorized Confirmation Before Payroll Effect
+- The ₱500 penalty must **NOT** be automatically applied simply because the system detects an absence.
+- The immediate supervisor is responsible for confirming/reporting the rider's attendance violation.
+- The confirmed attendance violation is then communicated to the appropriate HR/Payroll personnel.
+- Only after authorized confirmation should the applicable ₱500 penalty be included during payroll processing and reflected on the rider's payslip.
+- **Core Architectural Invariant**:
+  $$\text{ATTENDANCE CLASSIFICATION} \ne \text{AUTOMATIC FINANCIAL DEDUCTION}$$
+  Human/authorized confirmation is strictly required before any financial consequence enters Payroll.
+
+#### 7. Correction & Reversal
+- HR may review and correct an attendance record and corresponding Payroll adjustment when valid evidence shows that:
+  - Prior notice was actually provided within the required period;
+  - Notice was properly communicated to the authorized person;
+  - A valid/documented emergency reasonably prevented prior notice; or
+  - The attendance or payroll record was incorrect.
+- If a ₱500 penalty was incorrectly applied, HR may authorize:
+  - Reversal;
+  - Correction; or
+  - An appropriate Payroll adjustment.
+- Historical payroll and auditability must be preserved rather than silently rewriting finalized payroll history.
+
+---
+
+### 2. Deferred Policy: Monthly Leave Limit
+- **Policy Statement**: HR stated that riders may generally request one (1) leave per month.
+- **Current Ambiguity**: The exact meaning is currently ambiguous. It is NOT yet confirmed whether "one leave" means:
+  1. One leave day;
+  2. One leave request/occurrence; or
+  3. One approved leave period that may span multiple consecutive days.
+- **Current Implementation Status**:
+  > [!WARNING]
+  > **Pending policy clarification — not enforced.**
+  > The system does not enforce a monthly leave limit. Agents and developers must not invent or hardcode an arbitrary interpretation.
+
+---
+
+### 3. Target Future Architecture (NOT IMPLEMENTED)
+The following pipeline represents the target end-to-end architecture to be designed and validated during the upcoming architecture audit. It is **NOT** current behavior:
+
+```text
+Attendance Evidence
+        ↓
+Attendance Context
+        ↓
+Absence Assessment
+        ↓
+Supervisor / Authorized Confirmation  [Human Gate]
+        ↓
+Financial Consequence  [Snapshot Layer]
+        ↓
+Payroll Adjustment  [Traceable Ledger]
+        ↓
+Payslip  [Immutable Voucher]
+```
+
+#### Expected Conceptual Outcomes:
+- **Approved Leave**: Unpaid &rarr; No delivery earnings &rarr; No ₱500 absence-without-notice penalty.
+- **Accepted / Excused Absence Notice**: Excused absence &rarr; No ₱500 penalty.
+- **Confirmed Absence Without Prior Notice**: Confirmed violation &rarr; ₱500 penalty created in Payroll.
+- **Emergency / Valid Proof**: Review required &rarr; Penalty avoided or prospectively reversed.
+- **Incorrect Penalty**: HR-authorized correction/reversal via traceable adjustment.
+
+---
+
+### 4. Unresolved Questions for the Upcoming Architecture Audit
+The following 10 architectural questions remain open and are specifically deferred to the upcoming Leave/Absence → Payroll Architecture Audit. Do **NOT** assume or invent solutions before the audit:
+
+1. **Role Representation**: How "immediate supervisor confirmation" should be represented using the existing Admin / HR / Payroll / Rider role model.
+2. **Entity Design**: Whether a dedicated confirmation record/entity is required in Supabase PostgreSQL.
+3. **Layer Placement**: Where the financial consequence layer should reside (e.g. attendance service, payroll bridge service, or dedicated consequence module).
+4. **Adjustment Integration**: How a confirmed ₱500 penalty should become a traceable Payroll Adjustment in `payroll_deduction_obligations` or a dedicated category.
+5. **Idempotency & Duplicate Prevention**: How duplicate penalty creation will be prevented across multiple review cycles or re-runs.
+6. **Policy Snapshotting**: How policy version and effective date should be snapshotted for financial consequences.
+7. **Reversals & Corrections**: How reversals and corrections should work before vs after payroll finalization/payment.
+8. **Payslip Itemization**: How payslip presentation and export vouchers should identify the penalty source and provenance.
+9. **Security & Constraints**: Required RLS policies, permissions, audit records, RPCs, database constraints, service boundaries, and test suites.
+10. **Policy Transition**: How the existing provisional Absence Assessment V1 transitions into a future official policy version without rewriting historical assessments.
+
+---
+
+## 8. Parcel Operations & Effective-Dated Rates
 
 ### Parcel Operations (`DailyParcelEntry.tsx`, `ParcelHistory.tsx`)
 - **Categories**: Standard Delivered, Heavy Delivered, Failed, Returned, Notes.
@@ -217,7 +425,7 @@ Daily Gross Pay = (Standard Delivered × Effective Standard Rate) + (Heavy Deliv
 
 ---
 
-## 7. Payroll Architecture & Data Invariants
+## 9. Payroll Architecture & Data Invariants
 
 ### Critical Payroll Data Invariants
 ```text
@@ -244,10 +452,17 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
 10. **Aggregate Compatibility and Source Versions**: The traceable ledger synchronizes into the five existing `payroll_records` fields consumed by calculations and exports. `adjustment_source_version = 1` identifies untouched legacy aggregate payroll; version `2` requires guarded source synchronization and rejects direct unexplained aggregate writes. The existing editable Draft was imported with exact `legacy_migration` provenance; submitted historical payroll was not reconstructed.
 11. **Immutable Adjustment Snapshots**: New traceable submissions use snapshot version 3, retaining the existing five aggregate items plus earning/allocation source detail. Pending/Approved/Paid UI and PDF/CSV/XLSX regeneration continue reading immutable labels, amounts, Total Earnings, Total Deductions, and Net Pay. A Pending record returned to Draft/Rejected clears and rebuilds its snapshot on resubmission; Approved/Paid snapshots cannot be cleared or rebuilt.
 12. **Archive Status Aggregation**: Multi-rider historical cutoffs aggregate as `Paid`, `Approved`, `Submitted`, `Draft`, `Rejected`, or `Mixed` (UI-derived badge).
+13. **Strict Decoupling from Attendance & Absence Classification**:
+    - There is currently **NO automatic Leave/Absence → Payroll financial integration**.
+    - There is currently **NO automatic ₱500 absence deduction**.
+    - There is currently **NO financial consequence/snapshot layer**.
+    - Payroll must **NOT** infer deductions directly from attendance logs or absence classifications.
+    - Deductions in `payroll_adjustments` and `payroll_records` require authorized manual entry or traceable batch creation.
+    - Unpaid approved leave generates zero delivery lines in `payroll_delivery_lines` because commission earnings depend on delivered parcels, but approved leave itself generates **zero deductions** and is never penalized.
 
 ---
 
-## 8. Offline-First Rider Architecture
+## 10. Offline-First Rider Architecture
 
 - **Storage**: IndexedDB managed via Dexie.js (`MKBOfflineDB`).
 - **Outbox Queue**: Queues Time-In, Time-Out, and location broadcasts when offline.
@@ -258,7 +473,7 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
 
 ---
 
-## 9. Authoritative Violations & Geofence Lifecycle
+## 11. Authoritative Violations & Geofence Lifecycle
 
 - **PostgreSQL Authority**: `process_rider_location_geofence()` runs on `rider_locations` inserts. Browser geofence checks are provisional UI feedback only.
 - **Manila Business Time**: Converts event timestamps through `Asia/Manila`.
@@ -274,7 +489,7 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
 
 ---
 
-## 10. Notification Architecture & Preferences
+## 12. Notification Architecture & Preferences
 
 - **Context Provider**: `dashboard/src/context/NotificationContext.tsx` subscribes to Supabase Realtime changes on `notifications`.
 - **Fault Isolation**: `dispatchNotificationSafe()` prevents notification errors from blocking primary transactions.
@@ -282,7 +497,7 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
 
 ---
 
-## 11. Account Security, Support Tickets & Lifecycle
+## 13. Account Security, Support Tickets & Lifecycle
 
 - **Online Support Tickets**: RLS-isolated tickets with Open, In Progress, and Resolved states with immutable message history.
 - **Password Recovery**: Verified recovery routing via `PasswordRecovery.tsx` and Supabase Auth.
@@ -293,7 +508,7 @@ Finalized Payroll (payroll_delivery_lines) ──► IMMUTABLE SNAPSHOT DATA (Ne
 
 ---
 
-## 12. Employee Archive and Restore Employment
+## 14. Employee Archive and Restore Employment
 
 Employee Archive is an authoritative employment lifecycle separation:
 
@@ -309,7 +524,7 @@ Rider live state:      riders.status            = active | idle | violation | of
 
 ---
 
-## 13. Settings Architecture
+## 15. Settings Architecture
 
 The Settings workspace (`dashboard/src/pages/Settings.tsx`) contains 5 dedicated tabs:
 
@@ -321,7 +536,7 @@ The Settings workspace (`dashboard/src/pages/Settings.tsx`) contains 5 dedicated
 
 ---
 
-## 14. Multi-Hub Logistics Architecture
+## 16. Multi-Hub Logistics Architecture
 
 MKBRiderTrack organizes operational territory using a strict 3-tier hierarchy:
 
@@ -341,7 +556,7 @@ Hub ──► Geofence Zones ──► Riders
 
 ---
 
-## 15. Public Landing Website (`landing/`)
+## 17. Public Landing Website (`landing/`)
 
 The public website (`landing/`) is a dedicated multi-page Next.js application designed to showcase the platform, demonstrate real-time operations, and provide customer touchpoints.
 
@@ -373,7 +588,7 @@ The landing application reads live operational territory directly from Supabase 
 
 ---
 
-## 16. Database Schema & RLS Summary
+## 18. Database Schema & RLS Summary
 
 Key database tables and views in active use:
 
@@ -410,30 +625,35 @@ Key database tables and views in active use:
 31. `user_notification_preferences`: Per-user notification presentation settings.
 32. `v_attendance_summary`: Date-effective lateral resolution view for attendance and lateness.
 33. `public_hubs` & `public_zones`: Sanitized views for the public landing website.
+34. `rider_absence_requests`: Planned leave (`planned_leave`) and unscheduled absence notices (`absence_notice`) with start/end date, status, reason, and reviewer ID.
+35. `rider_absence_request_audit`: Append-only audit history of leave/notice creation, review decisions, cancellations, and revisions.
+36. `v_attendance_context`: Real-time lateral resolution view combining raw attendance clocks, approved/pending leave, absence notices, and published schedules.
+37. `absence_policy_configurations`: Versioned, effective-dated absence policy definitions (currently `MKB Provisional Absence Policy` v1).
+38. `absence_policy_rules`: Policy rule engine mapping context codes to assessment statuses and safe reasons.
+39. `private.resolve_rider_absence_assessment(...)`: Internal server function deriving HR absence assessment status and safe reason from attendance context.
+40. `public.list_rider_absence_assessments(...)`: Authorized RPC for staff inspection of dynamic absence assessments.
 
 ---
 
-## 17. Current Test & Build Verification
+## 19. Current Test & Build Verification
 
-Latest verification evidence against the active repository state as of **August 25, 2026**:
+Latest verification evidence against the active repository state as of **September 2026**:
 
-- **Dashboard Full Unit Test Baseline (`npm --prefix dashboard test`, August 24)**: **PASS (480 / 480 tests passed across 95 test files)**
-- **Payroll Adjustments Focused Dashboard Tests**: **PASS (73 / 73 tests across 10 test files)**
-- **Payroll Adjustment Records Database Suite (`payroll_adjustment_records_integrity.test.sql`)**: **PASS (40 / 40 pgTAP assertions)**
-- **Payroll Adjustment Batch/Edit Database Suite (`payroll_adjustment_batch_edit.test.sql`)**: **PASS (23 / 23 pgTAP assertions)**
-- **Earnings & Deductions Database Regression Suite (`earnings_deductions_integrity.test.sql`)**: **PASS (38 / 38 pgTAP assertions)**
-- **Affected Payroll Database Regressions**: `payroll_bulk_actions.test.sql` **PASS (57 / 57)**; `payroll_actor_identity_snapshots.test.sql` **PASS (35 / 35)**.
-- **Attendance Policy Database Regression Suite (`attendance_policy_integrity.test.sql`)**: **PASS (35 / 35 pgTAP assertions)**
-- **Broader Database pgTAP Sweep**: Not rerun after Payroll Adjustments; the new suite and affected payroll transition/snapshot files pass their focused runs.
+- **Dashboard Full Unit Test Suite Baseline (`npm --prefix dashboard test`)**: **PASS (883 / 883 tests passed across 142 test files, 0 failures)**
+- **Attendance Presentation Semantics Suites**: `AttendancePresentationSemantics.test.tsx` **PASS (9/9)**; `AttendancePresenceSemantics.test.tsx` **PASS (7/7)**; `attendanceSummaryPolicy.test.ts` **PASS (33/33)**.
+- **Attendance Context & Absence Assessment Suites**: `attendanceContextService.test.ts` **PASS**; `absenceAssessmentService.test.ts` **PASS**; `AbsenceAssessmentsTab.test.tsx` **PASS**; `AttendanceContext.test.tsx` **PASS (7/7)**.
+- **Leave & Absence Request Suites**: `riderAbsenceRequestService.test.ts` **PASS**; `LeaveAbsence.test.tsx` **PASS**; `RiderLeaveAbsence.test.tsx` **PASS**.
+- **Payroll Adjustments & Bulk Actions Suites**: `payrollBulkActions.test.ts` **PASS**; `payrollAdjustmentsService.test.ts` **PASS**; `payrollAdjustments.test.ts` **PASS**; `PayrollAdjustments.test.tsx` **PASS**.
+- **FMS Parcel Operations Suites**: `operationsService.test.ts` **PASS**; `FMSDailyImport.test.tsx` **PASS**; `DailyParcelEntry.test.tsx` **PASS**.
 - **Dashboard and Landing TypeScript Typecheck (`npm run typecheck`)**: **PASS (0 errors)**
 - **Dashboard ESLint (`npm --prefix dashboard run lint`)**: **PASS (0 errors, 17 existing warnings)**
-- **Dashboard Production Build (`npm --prefix dashboard run build`)**: **PASS (Vite production bundle built in ~36s)**
+- **Dashboard Production Build (`npm --prefix dashboard run build`)**: **PASS (Vite production bundle built cleanly)**
 - **Landing Production Build (`npm --prefix landing run build`)**: **PASS (Next.js 16.1.6 Turbopack, 13/13 static & ISR routes compiled)**
 - **Diff Validation (`git diff --check`)**: **PASS (Clean, zero whitespace or syntax errors)**
 
 ---
 
-## 18. Manual Smoke Test Checklist
+## 20. Manual Smoke Test Checklist
 
 Use this focused checklist to verify critical operational workflows:
 
@@ -451,10 +671,12 @@ Use this focused checklist to verify critical operational workflows:
 12. **Historical Attendance Policy Integrity**: View attendance records from prior months; confirm that historical rows continue evaluating against the threshold effective on their attendance date.
 13. **Unstarted Policy Cancellation**: Cancel an unstarted future policy; verify the predecessor's `effective_until` reverts to open-ended (`NULL`).
 14. **Public Landing Operations Map**: Navigate to `/locations` and `/locations/talon-talon`; verify that real Supabase-backed hub and zone boundaries render on the Leaflet map without exposing private rider data.
+15. **Leave & Absence Workflow**: Submit a planned leave request as a rider; review/approve it as HR; confirm Attendance Context reflects `on_leave` presence when no clocks exist; confirm absence assessment classifies as `excused` (`approved_leave`).
+16. **Absence Assessment Inspection**: Open Leave & Absence &rarr; Assessments tab; verify dynamic lateral RPC returns safe classification statuses (`excused`, `unexcused`, `pending_review`, `not_absent`, `not_applicable`) without monetary deductions.
 
 ---
 
-## 19. Deferred / Future Features (Explicitly Marked PLANNED / DEFERRED)
+## 21. Deferred / Future Features (Explicitly Marked PLANNED / DEFERRED)
 
 > [!CAUTION]
 > The following features have been discussed or planned, but **are NOT yet implemented**. Future agents must not assume these exist:
@@ -467,10 +689,14 @@ Use this focused checklist to verify critical operational workflows:
 6. **Hub-Specific Shift Schedules & Dynamic 5:00 PM Auto-Absence Cutoffs** *(PLANNED / DEFERRED)*: Global attendance lateness policy is implemented; hub-specific custom shift hours and dynamic auto-absence cutoffs remain deferred.
 7. **Future-Dated Employee Archiving** *(PLANNED / DEFERRED)*: Archive effective dates are limited to today or earlier in v1.
 8. **Alternative Biometric Neural Networks** *(PLANNED / DEFERRED)*: Tiny Face Detector and native TFLite are deferred; SSD MobileNet V1 remains authoritative.
+9. **Automatic Leave/Absence → Payroll Financial Integration** *(TARGET FUTURE ARCHITECTURE / NOT YET IMPLEMENTED)*: The HR-confirmed ₱500 absence penalty, supervisor confirmation workflows, financial consequence snapshotting, and payroll adjustment synchronization have not been implemented. Attendance and absence classification remain strictly non-financial.
+10. **Monthly Leave Request Limit** *(DEFERRED / PENDING POLICY CLARIFICATION — NOT ENFORCED)*: Awaiting official HR clarification on whether "one leave per month" refers to a single day, an individual request occurrence, or an approved date range spanning multiple days. No limit is currently enforced.
+11. **Rider Scheduling in Sidebar Navigation** *(INTENTIONALLY HIDDEN)*: The page component and routing exist, but direct sidebar navigation remains intentionally hidden across all staff roles.
+12. **FMS Parcel Data Import Sidebar Entry** *(INTENTIONALLY HIDDEN / COMMENTED)*: Parcel data import is preserved as commented code in `sidebarNavigation.ts` pending administrative alignment.
 
 ---
 
-## 20. Essential Engineering Invariants for Codex & Antigravity Agents
+## 22. Essential Engineering Invariants for Codex & Antigravity Agents
 
 1. **Attendance Punctuality vs Parcel Rates**: Never conflate attendance lateness (8:15 AM threshold via `attendance_policy_configurations` and `v_attendance_summary.hr_status`) with the parcel compensation rate matrix (≤8:00 AM, 8:01–9:00 AM, >9:00 AM via `parcel_rate_configurations`).
 2. **Zero Retroactive Reclassification**: Always evaluate historical attendance against the policy effective on the record's date (`a.date`), never against the policy active today. Effective policy rows must remain active and retain every already-governed Manila business date; schedule/cancel changes must use the atomic Attendance Policy RPCs.
@@ -482,3 +708,9 @@ Use this focused checklist to verify critical operational workflows:
 8. **Disambiguate PostgREST Embeds**: Explicitly name foreign keys in embedded selects (`user_hub_access!user_hub_access_user_id_fkey`, `zones!riders_zone_id_fkey`, `zones!riders_home_zone_id_fkey`).
 9. **Separate Account, Employment, and Rider State**: Employee Archive changes `employment_status`, suspends `users.status`, and sets Rider `offline`. Restore keeps account suspended until explicit Reactivation.
 10. **Public Landing Privacy**: The landing application must read only sanitized views (`public.public_hubs`, `public.public_zones`) and never expose private workforce or rider data.
+11. **Attendance Classification ≠ Automatic Financial Deduction**: Immediate supervisor and authorized human confirmation is strictly required before any attendance violation or absence penalty enters Payroll. Never automatically apply financial deductions based solely on attendance or absence classification.
+12. **Unpaid Leave ≠ Absence Penalty**: Approved leave is unpaid because commission-based riders earn from deliveries, but approved leave must NEVER incur a ₱500 absence deduction. Do not model unpaid approved leave as a separate monetary deduction merely to represent the lack of delivery earnings.
+13. **Actual Valid Clocks Override Context**: Actual valid attendance clocks always override absence and leave context. If a rider reports for duty and clocks in during an approved leave date or scheduled day off, the actual clock takes precedence and the rider is evaluated as Present.
+14. **Published Day Off Distinct from Absence**: Published Day Off is not an absence. Schedule start/end times are neither attendance nor payroll authority.
+15. **Preserve Historical V1 Boundary**: Absence Assessment V1 remains strictly classification-only with no monetary or payroll consequences. Never rewrite historical V1 design documents or finalized payroll snapshots to pretend financial integration already existed.
+16. **No Unconfirmed Financial Consequences**: Never invent or apply penalties, notice deadlines, leave credits, or automatic disciplinary actions not explicitly confirmed by HR management.
