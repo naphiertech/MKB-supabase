@@ -4,19 +4,35 @@ set local search_path=public,extensions;
 select pg_advisory_xact_lock(hashtext('rider_attendance_context_integrity_test'));
 select no_plan();
 
+-- Migration-only CI databases have no application user seed. Create the
+-- context actors and Rider used by this test before constructing ctx.
+insert into public.hubs(id,name,latitude,longitude,attendance_radius_m)
+values ('a7400000-0000-4000-8000-000000000002','Context Base Hub',3,3,100);
+insert into public.riders(id,hub_id,home_hub_id,name,mkb_id,email,status)
+values ('c7400000-0000-4000-8000-000000000002','a7400000-0000-4000-8000-000000000002',
+  'a7400000-0000-4000-8000-000000000002','Context Base Rider','CTX-BASE','ctx-base-rider@example.test','active');
+insert into auth.users(id,email,email_confirmed_at) values
+  ('d7400000-0000-4000-8000-000000000002','ctx-admin@example.test',clock_timestamp()),
+  ('d7400000-0000-4000-8000-000000000003','ctx-hr-base@example.test',clock_timestamp()),
+  ('d7400000-0000-4000-8000-000000000004','ctx-payroll@example.test',clock_timestamp()),
+  ('d7400000-0000-4000-8000-000000000005','ctx-base-rider@example.test',clock_timestamp());
+insert into public.users(id,full_name,email,role,rider_id,hub_access_scope,status,employment_status) values
+  ('d7400000-0000-4000-8000-000000000002','Context Admin','ctx-admin@example.test','admin',null,'global','active','active'),
+  ('d7400000-0000-4000-8000-000000000003','Context Base HR','ctx-hr-base@example.test','hr',null,'assigned','active','active'),
+  ('d7400000-0000-4000-8000-000000000004','Context Payroll','ctx-payroll@example.test','payroll',null,'global','active','active'),
+  ('d7400000-0000-4000-8000-000000000005','Context Base Rider','ctx-base-rider@example.test','rider',
+   'c7400000-0000-4000-8000-000000000002','assigned','active','active');
+
 create temporary table ctx as
-select r.id rider_id,r.hub_id,ru.id rider_user,hr.id hr_user,
-       (select id from public.users where role='admin'::public.user_role limit 1) admin_user,
-       (select id from public.users where role='payroll'::public.user_role limit 1) payroll_user,
-       coalesce((select r2.id from public.riders r2 where r2.hub_id is distinct from r.hub_id and r2.id<>r.id limit 1),'ffffffff-ffff-4fff-8fff-ffffffffffff'::uuid) other_rider,
+select 'c7400000-0000-4000-8000-000000000002'::uuid rider_id,
+       'a7400000-0000-4000-8000-000000000002'::uuid hub_id,
+       'd7400000-0000-4000-8000-000000000005'::uuid rider_user,
+       'd7400000-0000-4000-8000-000000000003'::uuid hr_user,
+       'd7400000-0000-4000-8000-000000000002'::uuid admin_user,
+       'd7400000-0000-4000-8000-000000000004'::uuid payroll_user,
+       'c7400000-0000-4000-8000-000000000001'::uuid other_rider,
        (clock_timestamp() at time zone 'Asia/Manila')::date-1000 base_date
-from public.riders r
-join public.users ru on ru.rider_id=r.id and ru.role='rider'::public.user_role and ru.employment_status='active'::public.employment_status
-cross join public.users hr
-where r.hub_id is not null
-  and hr.role='hr'::public.user_role
-  and hr.employment_status='active'::public.employment_status
-limit 1;
+;
 grant select on ctx to authenticated, anon;
 
 -- Dedicated assigned-Hub HR and out-of-Hub Rider: do not use global HR

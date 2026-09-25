@@ -585,11 +585,19 @@ SELECT ok(NOT has_function_privilege('authenticated', 'private.resolve_rider_abs
 SELECT ok(NOT has_function_privilege('anon', 'private.resolve_rider_absence_assessment(uuid,date,timestamp with time zone)', 'EXECUTE'), 'resolver is private from anon');
 
 -- Set up test fixtures for assessment resolver matrix
+-- A fresh CI migration replay has no seeded application Admin. Provision the
+-- actor required by the schedule fixture instead of querying ambient data.
+INSERT INTO auth.users (id, email, email_confirmed_at)
+VALUES ('d9100000-0000-4000-8000-000000000099'::uuid, 'absence-admin-99@example.test', clock_timestamp());
+INSERT INTO public.users (id, full_name, email, role, hub_access_scope, employment_status, status)
+VALUES ('d9100000-0000-4000-8000-000000000099'::uuid, 'Absence Test Admin', 'absence-admin-99@example.test',
+        'admin'::public.user_role, 'global', 'active', 'active');
+
 CREATE TEMPORARY TABLE test_fix AS
 SELECT
   'c9100000-0000-4000-8000-000000000099'::uuid AS rider_id,
   'a9100000-0000-4000-8000-000000000099'::uuid AS hub_id,
-  (SELECT id FROM public.users WHERE role = 'admin'::public.user_role LIMIT 1) AS admin_id,
+  'd9100000-0000-4000-8000-000000000099'::uuid AS admin_id,
   'f9100000-0000-4000-8000-000000000099'::uuid AS rider_user_id,
   DATE '2026-09-10' AS base_date;
 

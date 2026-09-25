@@ -175,8 +175,12 @@ select throws_ok($$select public.reverse_rider_absence_financial_consequence(p_c
 select lives_ok($$select public.reverse_rider_absence_financial_consequence('e7500000-0000-4000-8000-000000000003','Draft deduction error')$$,'draft allocation can be reversed');
 select ok((select voided_at is not null from public.payroll_deduction_allocations where id='f7500000-0000-4000-8000-000000000003'),'draft allocation is voided, not deleted');
 select is((select payroll_record_id from public.payroll_deduction_allocations where id='f7500000-0000-4000-8000-000000000003'),'a7500000-0000-4000-8000-000000000003'::uuid,'allocation retains historical payroll parent');
+-- This ledger comparison reads restricted payroll_records through the
+-- security-invoker balance view, so perform only these assertions as owner.
+reset role;
 select is((select deductions from public.payroll_records where id='a7500000-0000-4000-8000-000000000003'),75::numeric,'canonical synchronizer retains only unrelated draft deduction');
 select is((select other_earnings from public.payroll_records where id='a7500000-0000-4000-8000-000000000003'),50::numeric,'unrelated earning total preserved');
+set local role authenticated;
 select ok((select voided_at is not null from public.payroll_deduction_obligations where id='b7500000-0000-4000-8000-000000000003'),'B voids remaining obligation');
 select is((select reversal_earning_id from public.rider_absence_financial_consequences where id='e7500000-0000-4000-8000-000000000003'),null::uuid,'B creates no compensation');
 select lives_ok($$select public.reverse_rider_absence_financial_consequence('e7500000-0000-4000-8000-000000000018','Rejected draft correction')$$,'uncommitted Rejected payroll is editable');
