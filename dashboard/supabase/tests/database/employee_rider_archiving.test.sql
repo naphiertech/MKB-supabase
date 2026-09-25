@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 select pg_advisory_xact_lock(hashtext('employee_rider_archiving_test'));
-select plan(40);
+select plan(41);
 create temporary table employee_archive_tap_results (result text not null);
 grant insert on employee_archive_tap_results to authenticated;
 
@@ -145,6 +145,28 @@ insert into public.payroll_records (
   date_trunc('week', current_date::timestamp)::date - 1,
   'draft', 0, 0, 0, 0, 0, 0, 0, 2
 );
+
+insert into public.attendance_logs (
+  id, rider_id, date, time_in, time_out, status, source
+) values
+  (
+    'e4000000-0000-4000-8000-000000000006',
+    'e2000000-0000-4000-8000-000000000006',
+    current_date - 1,
+    ((current_date - 1)::text || ' 08:00:00+08')::timestamptz,
+    ((current_date - 1)::text || ' 17:00:00+08')::timestamptz,
+    'present',
+    'system'
+  ),
+  (
+    'e4000000-0000-4000-8000-000000000007',
+    'e2000000-0000-4000-8000-000000000006',
+    current_date,
+    (current_date::text || ' 08:00:00+08')::timestamptz,
+    (current_date::text || ' 17:00:00+08')::timestamptz,
+    'present',
+    'system'
+  );
 
 insert into employee_archive_tap_results select lives_ok(
   $$select public.transition_employee_lifecycle('e1000000-0000-4000-8000-000000000001','e1000000-0000-4000-8000-000000000006','archive',current_date,'Contract Ended',null,'e3000000-0000-4000-8000-000000000007')$$,

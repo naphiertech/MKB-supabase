@@ -115,8 +115,8 @@ insert into public.user_hub_access (user_id, hub_id, assigned_by) values
 insert into public.payroll_records (
   id, rider_id, hub_id, cutoff_start, cutoff_end, total_parcels, rate_per_parcel, gross_pay, status
 ) values
-  ('ce100000-0000-4000-8000-000000000001', 'cc100000-0000-4000-8000-000000000001', 'ca100000-0000-4000-8000-000000000001', date '2026-09-01', date '2026-09-07', 0, 10.00, 0.00, 'draft'),
-  ('ce100000-0000-4000-8000-000000000002', 'cc100000-0000-4000-8000-000000000002', 'ca100000-0000-4000-8000-000000000002', date '2026-09-01', date '2026-09-07', 0, 10.00, 0.00, 'draft'),
+  ('ce100000-0000-4000-8000-000000000001', 'cc100000-0000-4000-8000-000000000001', 'ca100000-0000-4000-8000-000000000001', date '2026-08-31', date '2026-09-06', 0, 10.00, 0.00, 'draft'),
+  ('ce100000-0000-4000-8000-000000000002', 'cc100000-0000-4000-8000-000000000002', 'ca100000-0000-4000-8000-000000000002', date '2026-08-31', date '2026-09-06', 0, 10.00, 0.00, 'draft'),
   ('ce100000-0000-4000-8000-000000000003', 'cc100000-0000-4000-8000-000000000001', 'ca100000-0000-4000-8000-000000000001', date '2026-08-01', date '2026-08-07', 50, 10.00, 500.00, 'paid');
 
 -- ============================================================================
@@ -212,7 +212,7 @@ insert into core_access_tap_results select is(
 -- Cannot insert payroll records
 insert into core_access_tap_results select throws_ok(
   $$insert into public.payroll_records (rider_id, hub_id, cutoff_start, cutoff_end, total_parcels, rate_per_parcel, gross_pay, status)
-    values ('cc100000-0000-4000-8000-000000000001', 'ca100000-0000-4000-8000-000000000001', date '2026-09-15', date '2026-09-21', 0, 10, 0, 'draft')$$,
+    values ('cc100000-0000-4000-8000-000000000001', 'ca100000-0000-4000-8000-000000000001', date '2026-09-14', date '2026-09-20', 0, 10, 0, 'draft')$$,
   '42501', null,
   'rider cannot insert payroll records'
 );
@@ -263,7 +263,7 @@ insert into core_access_tap_results select lives_ok(
       id, rider_id, hub_id, cutoff_start, cutoff_end, total_parcels, rate_per_parcel, gross_pay, status
     ) values (
       'ce100000-0000-4000-8000-000000000004', 'cc100000-0000-4000-8000-000000000001', 'ca100000-0000-4000-8000-000000000001',
-      date '2026-09-08', date '2026-09-14', 0, 10.00, 0.00, 'draft'
+      date '2026-09-07', date '2026-09-13', 0, 10.00, 0.00, 'draft'
     )$$,
   'payroll user can insert draft payroll record in authorized hub'
 );
@@ -302,7 +302,7 @@ insert into core_access_tap_results select throws_ok(
       id, rider_id, hub_id, cutoff_start, cutoff_end, total_parcels, rate_per_parcel, gross_pay, status
     ) values (
       'ce100000-0000-4000-8000-000000000005', 'cc100000-0000-4000-8000-000000000002', 'ca100000-0000-4000-8000-000000000002',
-      date '2026-09-08', date '2026-09-14', 0, 10.00, 0.00, 'draft'
+      date '2026-09-07', date '2026-09-13', 0, 10.00, 0.00, 'draft'
     )$$,
   '42501', null,
   'payroll user cannot insert payroll records in unauthorized hub'
