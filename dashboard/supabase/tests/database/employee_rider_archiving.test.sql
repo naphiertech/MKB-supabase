@@ -141,7 +141,9 @@ insert into public.payroll_records (
   rate_per_parcel, gross_pay, calculation_version
 ) values (
   'e7000000-0000-4000-8000-000000000001', 'e2000000-0000-4000-8000-000000000006',
-  current_date - 15, current_date - 1, 'draft', 0, 0, 0, 0, 0, 0, 0, 2
+  date_trunc('week', current_date::timestamp)::date - 7,
+  date_trunc('week', current_date::timestamp)::date - 1,
+  'draft', 0, 0, 0, 0, 0, 0, 0, 2
 );
 
 insert into employee_archive_tap_results select lives_ok(
