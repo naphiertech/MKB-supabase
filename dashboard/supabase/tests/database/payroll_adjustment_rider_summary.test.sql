@@ -9,9 +9,9 @@ select ok(to_regprocedure('public.list_payroll_adjustment_rider_events(uuid,text
 select ok(has_function_privilege('authenticated','public.list_payroll_adjustment_rider_summaries(text,uuid,text,text,integer,integer)','EXECUTE'), 'authenticated staff may reach the guarded summary RPC');
 select ok(not has_function_privilege('anon','public.list_payroll_adjustment_rider_summaries(text,uuid,text,text,integer,integer)','EXECUTE'), 'anonymous callers cannot read adjustment summaries');
 
-insert into public.hubs(id,name) values
-  ('ec100000-0000-4000-8000-000000000001','Summary Hub'),
-  ('ec100000-0000-4000-8000-000000000002','Other Hub');
+insert into public.hubs(id,name,latitude,longitude,attendance_radius_m) values
+  ('ec100000-0000-4000-8000-000000000001','Summary Hub',6.9214,122.0790,500),
+  ('ec100000-0000-4000-8000-000000000002','Other Hub',6.9214,122.0790,500);
 insert into public.zones(id,hub_id,name,lat,lng,radius,color,status) values
   ('ec200000-0000-4000-8000-000000000001','ec100000-0000-4000-8000-000000000001','Summary Zone',1,1,100,'#111111','active'),
   ('ec200000-0000-4000-8000-000000000002','ec100000-0000-4000-8000-000000000002','Other Zone',2,2,100,'#222222','active');

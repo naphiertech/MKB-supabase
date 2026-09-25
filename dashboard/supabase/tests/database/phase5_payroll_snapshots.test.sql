@@ -66,6 +66,7 @@ set status = 'pending',
     submitted_at = now()
 where id = '82000000-0000-4000-8000-000000000001';
 
+reset role;
 do $$
 declare
   header record;
@@ -92,7 +93,6 @@ begin
 end $$;
 
 -- A later operational correction must not rewrite the submitted snapshot.
-reset role;
 update public.parcel_logs
 set parcels = 21, heavy_parcels = 6
 where id = '52000000-0000-4000-8000-000000000001';

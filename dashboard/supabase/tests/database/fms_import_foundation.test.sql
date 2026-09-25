@@ -350,8 +350,10 @@ select throws_ok(
 
 -- 12. Locked Payroll Period Protection Test
 -- Create a pending payroll record for cutoff 2026-08-31 to 2026-09-06
+reset role;
 insert into public.payroll_records (rider_id, cutoff_start, cutoff_end, status)
 values ('e1300000-0000-4000-8000-000000000001', '2026-08-31', '2026-09-06', 'pending');
+set local role authenticated;
 
 -- Stage another observation for 2026-09-02 (same week)
 select public.stage_fms_import_batch(

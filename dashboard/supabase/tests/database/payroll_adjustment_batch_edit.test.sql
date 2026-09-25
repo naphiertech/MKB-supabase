@@ -9,7 +9,8 @@ select ok(to_regprocedure('public.update_payroll_earning_adjustment(uuid,numeric
 select ok(has_function_privilege('authenticated','public.create_payroll_adjustments_batch(uuid,jsonb,text)','EXECUTE'), 'authenticated staff may reach guarded batch RPC');
 select ok(not has_function_privilege('anon','public.create_payroll_adjustments_batch(uuid,jsonb,text)','EXECUTE'), 'anonymous callers cannot invoke batch RPC');
 
-insert into public.hubs(id,name) values ('eb100000-0000-4000-8000-000000000001','Batch Adjustment Hub');
+insert into public.hubs(id,name,latitude,longitude,attendance_radius_m) values
+  ('eb100000-0000-4000-8000-000000000001','Batch Adjustment Hub',6.9214,122.0790,500);
 insert into public.zones(id,hub_id,name,lat,lng,radius,color,status) values
   ('eb200000-0000-4000-8000-000000000001','eb100000-0000-4000-8000-000000000001','Batch Adjustment Zone',1,1,100,'#111111','active');
 insert into public.riders(id,hub_id,zone_id,name,mkb_id,email,status) values

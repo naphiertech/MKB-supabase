@@ -18,8 +18,8 @@ select is(
 );
 select is(has_table_privilege('anon', 'public.violations', 'select'), false, 'anon has no violations table access');
 
-insert into public.hubs (id, name) values
-  ('90000000-0000-4000-8000-000000000001', 'Geofence Test Hub');
+insert into public.hubs (id, name, latitude, longitude, attendance_radius_m) values
+  ('90000000-0000-4000-8000-000000000001', 'Geofence Test Hub', 6.9214, 122.0790, 500);
 
 insert into public.zones (
   id, hub_id, name, zone_type, lat, lng, radius, polygon_coordinates, status

@@ -79,6 +79,7 @@ insert into rider_assignment_tap_results select lives_ok(
   $$select public.transfer_rider_permanently('c3100000-0000-4000-8000-000000000001','a3100000-0000-4000-8000-000000000002','b3100000-0000-4000-8000-000000000002',(clock_timestamp() at time zone 'Asia/Manila')::date,'Permanent operational transfer')$$,
   'global Admin can transfer a Rider permanently'
 );
+reset role;
 insert into rider_assignment_tap_results select is(
   (select home_hub_id from public.riders where id = 'c3100000-0000-4000-8000-000000000001'),
   'a3100000-0000-4000-8000-000000000002'::uuid,
@@ -94,6 +95,7 @@ insert into rider_assignment_tap_results select is(
   'a3100000-0000-4000-8000-000000000001'::uuid,
   'historical parcel Hub snapshot is unchanged after transfer'
 );
+set local role authenticated;
 insert into rider_assignment_tap_results select throws_ok(
   $$update public.riders set hub_id='a3100000-0000-4000-8000-000000000001', zone_id='b3100000-0000-4000-8000-000000000001' where id='c3100000-0000-4000-8000-000000000001'$$,
   '42501', null, 'authenticated clients cannot bypass assignment RPCs with direct Rider updates'
@@ -120,6 +122,7 @@ insert into rider_assignment_tap_results select lives_ok(
   $$select public.deploy_rider_temporarily('c3100000-0000-4000-8000-000000000001','a3100000-0000-4000-8000-000000000001','b3100000-0000-4000-8000-000000000001',(clock_timestamp() at time zone 'Asia/Manila')::date,(clock_timestamp() at time zone 'Asia/Manila')::date + 2,'Temporary operational coverage')$$,
   'global HR can deploy a Rider to an authorized Hub and Zone'
 );
+reset role;
 insert into rider_assignment_tap_results select is(
   (select home_hub_id from public.riders where id = 'c3100000-0000-4000-8000-000000000001'),
   'a3100000-0000-4000-8000-000000000002'::uuid,
@@ -130,7 +133,6 @@ insert into rider_assignment_tap_results select is(
   'a3100000-0000-4000-8000-000000000001'::uuid,
   'temporary deployment changes the operational Hub'
 );
-reset role;
 select set_config('request.jwt.claims', '', true);
 
 insert into public.parcel_logs (id, rider_id, date, parcels, heavy_parcels, failed_parcels, returned_parcels, created_by) values
@@ -151,12 +153,12 @@ insert into rider_assignment_tap_results select lives_ok(
   $$select public.end_rider_deployment_early((select id from public.rider_assignments where rider_id='c3100000-0000-4000-8000-000000000001' and status='active'),'Operational coverage completed')$$,
   'authorized HR can end an active deployment early'
 );
+reset role;
 insert into rider_assignment_tap_results select is(
   (select hub_id from public.riders where id = 'c3100000-0000-4000-8000-000000000001'),
   'a3100000-0000-4000-8000-000000000002'::uuid,
   'ending a deployment returns the Rider to the Home Hub'
 );
-reset role;
 select set_config('request.jwt.claims', '', true);
 
 set local role authenticated;

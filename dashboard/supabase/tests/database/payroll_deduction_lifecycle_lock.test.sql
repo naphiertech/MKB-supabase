@@ -4,7 +4,8 @@ set local search_path=public,extensions;
 select pg_advisory_xact_lock(hashtext('payroll_deduction_lifecycle_lock_test'));
 select no_plan();
 
-insert into public.hubs(id,name) values ('fd100000-0000-4000-8000-000000000001','Lifecycle Lock Hub');
+insert into public.hubs(id,name,latitude,longitude,attendance_radius_m) values
+  ('fd100000-0000-4000-8000-000000000001','Lifecycle Lock Hub',6.9214,122.0790,500);
 insert into public.zones(id,hub_id,name,lat,lng,radius,color,status) values
   ('fd200000-0000-4000-8000-000000000001','fd100000-0000-4000-8000-000000000001','Lifecycle Lock Zone',1,1,100,'#111111','active');
 insert into public.riders(id,hub_id,zone_id,name,mkb_id,email,status) values

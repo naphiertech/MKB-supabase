@@ -27,8 +27,8 @@ select ok(
 );
 
 -- Setup test entities
-insert into public.hubs (id, name, description, active) values
-  ('d1100000-0000-4000-8000-000000000001', 'Draft Calc Hub 1', 'Test', true);
+insert into public.hubs (id, name, description, active, latitude, longitude, attendance_radius_m) values
+  ('d1100000-0000-4000-8000-000000000001', 'Draft Calc Hub 1', 'Test', true, 6.9214, 122.0790, 500);
 
 insert into auth.users (id, email, email_confirmed_at) values
   ('d1200000-0000-4000-8000-000000000001', 'payroll-officer-calc@example.test', clock_timestamp()),

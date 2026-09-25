@@ -21,9 +21,9 @@ select ok(not has_table_privilege('authenticated', 'public.payroll_deduction_all
 select ok(has_function_privilege('authenticated', 'public.save_payroll_adjustment_plan(uuid,jsonb,jsonb,text)', 'EXECUTE'), 'authenticated staff may reach guarded plan RPC');
 select ok(not has_function_privilege('anon', 'public.save_payroll_adjustment_plan(uuid,jsonb,jsonb,text)', 'EXECUTE'), 'anonymous callers cannot reach plan RPC');
 
-insert into public.hubs (id, name) values
-  ('ea100000-0000-4000-8000-000000000001', 'Adjustment Test Hub A'),
-  ('ea100000-0000-4000-8000-000000000002', 'Adjustment Test Hub B');
+insert into public.hubs (id, name, latitude, longitude, attendance_radius_m) values
+  ('ea100000-0000-4000-8000-000000000001', 'Adjustment Test Hub A', 6.9214, 122.0790, 500),
+  ('ea100000-0000-4000-8000-000000000002', 'Adjustment Test Hub B', 6.9214, 122.0790, 500);
 insert into public.zones (id, hub_id, name, lat, lng, radius, color, status) values
   ('ea200000-0000-4000-8000-000000000001', 'ea100000-0000-4000-8000-000000000001', 'Adjustment Zone A', 1, 1, 100, '#111111', 'active'),
   ('ea200000-0000-4000-8000-000000000002', 'ea100000-0000-4000-8000-000000000002', 'Adjustment Zone B', 2, 2, 100, '#222222', 'active');

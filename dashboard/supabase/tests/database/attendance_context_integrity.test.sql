@@ -233,6 +233,16 @@ select set_config('request.jwt.claims',json_build_object('sub',(select admin_use
 select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000004',1,'approved','approve pending leave');
 select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000012',1,'approved','accept pending notice');
 select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000019',1,'rejected','reject pending leave');
+select is(
+  (select jsonb_agg(status::text order by id) from public.rider_absence_requests
+   where id in (
+     'a7200000-0000-4000-8000-000000000004',
+     'a7200000-0000-4000-8000-000000000012',
+     'a7200000-0000-4000-8000-000000000019'
+   )),
+  '["approved", "approved", "rejected"]'::jsonb,
+  'review RPCs persist the pending request transitions before context resolution'
+);
 WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
   VALUES ('pending then approved',8,'on_leave','approved_leave',true,'excused'),
          ('pending then accepted',20,'absent','accepted_notice',true,'excused'),
