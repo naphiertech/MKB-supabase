@@ -70,6 +70,6 @@ select is_empty(
 reset role;
 select is((select count(*) from notifications where id='95000000-0000-4000-8000-000000000001'), 1::bigint, 'preference changes leave persisted notification history intact');
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 rollback;

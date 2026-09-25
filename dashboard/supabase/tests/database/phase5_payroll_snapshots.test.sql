@@ -60,13 +60,13 @@ begin
   end;
 end $$;
 
+reset role;
 update public.payroll_records
 set status = 'pending',
     submitted_by = '12000000-0000-4000-8000-000000000001',
     submitted_at = now()
 where id = '82000000-0000-4000-8000-000000000001';
 
-reset role;
 do $$
 declare
   header record;

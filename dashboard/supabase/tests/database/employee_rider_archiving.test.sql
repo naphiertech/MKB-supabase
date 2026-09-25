@@ -98,7 +98,11 @@ insert into employee_archive_tap_results select throws_ok(
 );
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"e1000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
-update public.riders set status='active' where id='e2000000-0000-4000-8000-000000000004';
+insert into employee_archive_tap_results select throws_ok(
+  $$update public.riders set status='active' where id='e2000000-0000-4000-8000-000000000004'$$,
+  '42501', null,
+  'Archived Rider self-update cannot mutate operational state'
+);
 reset role;
 select set_config('request.jwt.claims', '', true);
 insert into employee_archive_tap_results select is(

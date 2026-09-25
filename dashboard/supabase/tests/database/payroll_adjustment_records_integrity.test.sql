@@ -104,6 +104,7 @@ select lives_ok(
   'Payroll can save traceable earning and allocation atomically'
 );
 
+reset role;
 select is((select other_earnings from public.payroll_records where id='ea700000-0000-4000-8000-000000000001'), 300::numeric, 'earning records synchronize aggregate field');
 select is((select late_remittance from public.payroll_records where id='ea700000-0000-4000-8000-000000000001'), 200::numeric, 'allocation synchronizes deduction aggregate field');
 select throws_ok(
@@ -121,6 +122,7 @@ select throws_ok(
   'P0001', null, 'traceable aggregate cannot be changed outside synchronization path'
 );
 
+set local role authenticated;
 select throws_ok(
   $$select public.save_payroll_adjustment_plan(
     'ea700000-0000-4000-8000-000000000001', '[]'::jsonb,
@@ -137,6 +139,7 @@ select throws_ok(
   'P0001', null, 'combined allocation cannot make projected net pay negative'
 );
 
+reset role;
 update public.payroll_records set status='pending' where id='ea700000-0000-4000-8000-000000000001';
 select is((select adjustment_source_version from public.payroll_records where id='ea700000-0000-4000-8000-000000000001'), 2::smallint, 'new traceable payroll uses source version 2');
 select is((select adjustment_snapshot_version from public.payroll_records where id='ea700000-0000-4000-8000-000000000001'), 3, 'submission builds source-detail snapshot version 3');
@@ -147,6 +150,7 @@ select results_eq(
   'Pending allocation is committed and not freely available'
 );
 
+set local role authenticated;
 select throws_ok(
   $$select public.void_payroll_deduction_obligation((select id from adjustment_test_ids where name='late_remittance'),'Invalid')$$,
   'P0001', null, 'obligation with committed history cannot be voided'
@@ -187,5 +191,5 @@ select is((select count(*) from public.payroll_deduction_obligations), 0::bigint
 
 reset role;
 select set_config('request.jwt.claims', '', true);
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite from finish() as result;
+select string_agg(result, E'\n') as test_suite from finish() as result;
 rollback;

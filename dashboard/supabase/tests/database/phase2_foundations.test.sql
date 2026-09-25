@@ -121,6 +121,13 @@ insert into public.attendance_logs (
   timestamptz '2026-08-05 07:50:00+08',
   'present',
   'face-scan'
+), (
+  '31000000-0000-4000-8000-000000000002',
+  '21000000-0000-4000-8000-000000000001',
+  date '2026-08-06',
+  timestamptz '2026-08-06 07:50:00+08',
+  'present',
+  'face-scan'
 );
 
 set local role authenticated;
@@ -335,7 +342,7 @@ select set_config(
   ),
   true
 );
-set local role authenticated;
+reset role;
 select throws_ok(
   $$update public.payroll_records
     set gross_pay = 999
@@ -344,6 +351,7 @@ select throws_ok(
   'Finalized payroll calculation snapshots are immutable.',
   'Admin cannot rewrite a submitted payroll snapshot'
 );
+set local role authenticated;
 select lives_ok(
   $$select public.bulk_approve_payroll_records(
     current_setting('test.phase2_payroll_transition_payload')::jsonb,
@@ -372,7 +380,6 @@ select lives_ok(
   'Admin can mark the approved payroll Paid through the authoritative RPC'
 );
 reset role;
-set local role authenticated;
 select throws_ok(
   $$update public.payroll_records
     set notes = 'tampered after payment'
@@ -403,6 +410,6 @@ select ok(
   'all payroll headers have additive snapshot fields'
 );
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 rollback;

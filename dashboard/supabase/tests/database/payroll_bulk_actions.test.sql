@@ -167,8 +167,9 @@ select throws_ok(
 reset role;
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000008','c1000000-0000-4000-8000-000000000009') and status='pending'), 2::bigint, 'invalid snapshot rolls back the complete approval batch');
 
-set local role authenticated;
+reset role;
 update public.payroll_records set notes='Changed after selection' where id='c1000000-0000-4000-8000-000000000023';
+set local role authenticated;
 select throws_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='stale_approve'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000007')$$,
   'P0001', null, 'stale selected record version is rejected'
@@ -266,7 +267,7 @@ select throws_ok(
 reset role;
 select is((select status::text from public.payroll_records where id='c1000000-0000-4000-8000-000000000024'), 'pending', 'cutoff conflict leaves payroll unchanged');
 
-set local role authenticated;
+reset role;
 select set_config('app.payroll_transition_request_id', '', true);
 select throws_ok(
   $$update public.payroll_records set status='approved' where id='c1000000-0000-4000-8000-000000000005'$$,
@@ -281,6 +282,6 @@ select throws_ok(
 reset role;
 select is((select gross_pay from public.payroll_records where id='c1000000-0000-4000-8000-000000000019'), 0::numeric, 'bulk payment preserves immutable snapshot values');
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 rollback;

@@ -118,6 +118,6 @@ select set_config('request.jwt.claims', '{"sub":"91000000-0000-4000-8000-0000000
 select is((select count(*) from notifications where metadata->>'support_event_key'='message-created:93000000-0000-4000-8000-000000000002' and recipient_id='91000000-0000-4000-8000-000000000004'), 1::bigint, 'staff reply produces one creator notification');
 select is((select count(*) from notifications where metadata->>'support_event_key' in ('status-changed:92000000-0000-4000-8000-000000000001:in_progress','status-changed:92000000-0000-4000-8000-000000000001:resolved')), 2::bigint, 'meaningful status changes notify the creator once each');
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 rollback;

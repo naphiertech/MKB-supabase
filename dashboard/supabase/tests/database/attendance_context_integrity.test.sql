@@ -153,6 +153,23 @@ select is((select attendance_log_id from private.resolve_rider_attendance_contex
 select is((select absence_notice_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+24)),'approved'::public.rider_absence_request_status,'mixed state retained');
 select is((select context_request_id from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+30)),null::uuid,'legacy leave has no request provenance');
 
+-- Review the three pending fixture requests before the post-review transition
+-- matrix. Earlier context_cases already assert the pending state.
+select set_config('request.jwt.claims',json_build_object('sub',(select admin_user from ctx),'role','authenticated')::text,true);
+select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000004',1,'approved','approve pending leave');
+select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000012',1,'approved','accept pending notice');
+select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000019',1,'rejected','reject pending leave');
+select is(
+  (select jsonb_agg(status::text order by id) from public.rider_absence_requests
+   where id in (
+     'a7200000-0000-4000-8000-000000000004',
+     'a7200000-0000-4000-8000-000000000012',
+     'a7200000-0000-4000-8000-000000000019'
+   )),
+  '["approved", "approved", "rejected"]'::jsonb,
+  'review RPCs persist the pending request transitions before context resolution'
+);
+
 -- Date-edge and true review transitions; reads never mutate raw evidence.
 -- Preserve and emit all dynamic request-transition/cutoff scenarios as top-level TAP.
 WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal,moment_offset,moment_time) AS (
@@ -229,20 +246,6 @@ CROSS JOIN LATERAL private.resolve_rider_attendance_context(
 ORDER BY test.day_offset,test.label;
 select is((select completion_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+28)),'complete','clocks preserve completion');
 select is((select completion_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+29)),'missing_time_out','open historical clock preserves missing timeout');
-select set_config('request.jwt.claims',json_build_object('sub',(select admin_user from ctx),'role','authenticated')::text,true);
-select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000004',1,'approved','approve pending leave');
-select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000012',1,'approved','accept pending notice');
-select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000019',1,'rejected','reject pending leave');
-select is(
-  (select jsonb_agg(status::text order by id) from public.rider_absence_requests
-   where id in (
-     'a7200000-0000-4000-8000-000000000004',
-     'a7200000-0000-4000-8000-000000000012',
-     'a7200000-0000-4000-8000-000000000019'
-   )),
-  '["approved", "approved", "rejected"]'::jsonb,
-  'review RPCs persist the pending request transitions before context resolution'
-);
 WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
   VALUES ('pending then approved',8,'on_leave','approved_leave',true,'excused'),
          ('pending then accepted',20,'absent','accepted_notice',true,'excused'),

@@ -111,7 +111,11 @@ insert into multi_hub_tap_results select is((select count(*) from public.hubs wh
 
 select set_config('request.jwt.claims', '{"sub":"d1000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 insert into multi_hub_tap_results select is((select count(*) from public.hubs where id::text like 'a1000000-%'), 1::bigint, 'local Payroll sees only an assigned hub');
-insert into multi_hub_tap_results select is((select count(*) from public.zones where id='b1000000-0000-4000-8000-000000000002'), 0::bigint, 'local Payroll cannot query another hub by UUID');
+insert into multi_hub_tap_results select throws_ok(
+  $$select count(*) from public.zones where id='b1000000-0000-4000-8000-000000000002'$$,
+  '42501', null,
+  'local Payroll cannot query another hub by UUID'
+);
 insert into multi_hub_tap_results select is((select count(*) from public.attendance_logs where id::text like 'e1000000-%'), 1::bigint, 'local Payroll receives only assigned-hub data');
 update public.hubs set name='Forbidden' where id='a1000000-0000-4000-8000-000000000001';
 insert into multi_hub_tap_results select is((select name from public.hubs where id='a1000000-0000-4000-8000-000000000001'), 'Test Hub Alpha', 'Payroll cannot edit hubs');

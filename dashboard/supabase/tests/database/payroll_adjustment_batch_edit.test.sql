@@ -66,8 +66,10 @@ select lives_ok($$select public.create_payroll_adjustments_batch(
     jsonb_build_object('adjustment_code','late_remittance','amount',75,'adjustment_date','2026-08-20','reason','Separate obligation')
   ),'Record mixed earnings and deduction')$$,'earnings and deductions save atomically in their separate lifecycles');
 select is((select count(*) from public.payroll_earning_adjustments where payroll_record_id='eb700000-0000-4000-8000-000000000001' and voided_at is null),2::bigint,'mixed batch creates two earning records');
+reset role;
 select is((select other_earnings from public.payroll_records where id='eb700000-0000-4000-8000-000000000001'),300::numeric,'Other Earnings aggregate synchronizes');
 select is((select fm_pickup_amount from public.payroll_records where id='eb700000-0000-4000-8000-000000000001'),100::numeric,'FM Pick Up aggregate synchronizes');
+set local role authenticated;
 
 create temp table edit_ids(name text primary key,id uuid not null);
 grant select,insert on edit_ids to authenticated;
@@ -87,9 +89,11 @@ create temp table earning_id(id uuid not null);
 grant select,insert on earning_id to authenticated;
 insert into earning_id select id from public.payroll_earning_adjustments where payroll_record_id='eb700000-0000-4000-8000-000000000001' and adjustment_code='other_earnings' and voided_at is null limit 1;
 select lives_ok($$select public.update_payroll_earning_adjustment((select id from earning_id),350,date '2026-08-21','Corrected editable earning','EARN-350')$$,'earning linked to Draft payroll is editable');
+reset role;
 select is((select other_earnings from public.payroll_records where id='eb700000-0000-4000-8000-000000000001'),350::numeric,'earning correction resynchronizes payroll aggregate');
 
 update public.payroll_records set status='pending' where id='eb700000-0000-4000-8000-000000000001';
+set local role authenticated;
 select throws_ok($$select public.update_payroll_earning_adjustment((select id from earning_id),400,date '2026-08-21','Historical rewrite',null)$$,'P0001',null,'earning linked to submitted payroll is locked');
 select throws_ok($$select public.update_payroll_deduction_obligation((select id from edit_ids where name='used'),200,date '2026-08-21','Historical amount rewrite',null)$$,'P0001',null,'historically used deduction amount/date are locked');
 
@@ -104,5 +108,5 @@ select throws_ok($$select public.create_payroll_adjustments_batch('eb300000-0000
 
 reset role;
 select set_config('request.jwt.claims','',true);
-select coalesce(string_agg(result,E'\n'),'ok') as test_suite from finish() result;
+select string_agg(result,E'\n') as test_suite from finish() result;
 rollback;

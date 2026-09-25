@@ -142,7 +142,7 @@ select is((select status::text from public.riders where id = '92000000-0000-4000
 select is((select count(*)::integer from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'riders'), 1, 'authoritative rider status changes are published to Realtime');
 select is((select count(*)::integer from public.notifications where violation_id = (select id from public.violations where rider_id = '92000000-0000-4000-8000-000000000001' and type = 'boundary_exit')), 1, 'one automatic notification is linked to the boundary incident');
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 
 rollback;
