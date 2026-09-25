@@ -842,73 +842,56 @@ BEGIN
   );
 END $$;
 
--- Assessment matrix assertions
--- Helper function to assert resolver result
-CREATE OR REPLACE FUNCTION pg_temp.assert_assessment(
-  p_label text,
-  p_offset integer,
-  p_expected_status text,
-  p_expected_reason text,
-  p_as_of_time time DEFAULT TIME '18:00'
-) RETURNS void LANGUAGE plpgsql AS $$
-DECLARE
-  v_f test_fix%ROWTYPE;
-  v_res record;
-  v_moment timestamptz;
-BEGIN
-  SELECT * INTO v_f FROM test_fix;
-  v_moment := ((v_f.base_date + p_offset)::timestamp + p_as_of_time) AT TIME ZONE 'Asia/Manila';
-
-  SELECT * INTO v_res
-  FROM private.resolve_rider_absence_assessment(v_f.rider_id, v_f.base_date + p_offset, v_moment);
-
-  PERFORM is(v_res.assessment_status, p_expected_status, p_label || ' status');
-  PERFORM is(v_res.assessment_reason, p_expected_reason, p_label || ' reason');
-END;
-$$;
-
--- 1. Published Day Off (even with approved leave) -> not_applicable
-SELECT pg_temp.assert_assessment('Published Day Off + Approved Leave', 1, 'not_applicable', 'published_day_off');
-
--- 2. Finalized Workday + No Notice -> unexcused
-SELECT pg_temp.assert_assessment('Finalized No Notice', 2, 'unexcused', 'no_notice');
-
--- 3. Approved Leave -> excused
-SELECT pg_temp.assert_assessment('Approved Leave', 3, 'excused', 'approved_leave');
-
--- 4. Accepted Notice -> excused
-SELECT pg_temp.assert_assessment('Accepted Notice', 4, 'excused', 'accepted_notice');
-
--- 5. Pending Leave -> pending_review
-SELECT pg_temp.assert_assessment('Pending Leave', 5, 'pending_review', 'leave_pending_review');
-
--- 6. Pending Notice -> pending_review
-SELECT pg_temp.assert_assessment('Pending Notice', 6, 'pending_review', 'notice_pending_review');
-
--- 7. Rejected Leave -> unexcused
-SELECT pg_temp.assert_assessment('Rejected Leave', 7, 'unexcused', 'leave_rejected');
-
--- 8. Rejected Notice -> unexcused
-SELECT pg_temp.assert_assessment('Rejected Notice', 8, 'unexcused', 'notice_rejected');
-
--- 9. Withdrawn Leave -> unexcused
-SELECT pg_temp.assert_assessment('Withdrawn Leave', 9, 'unexcused', 'leave_withdrawn');
-
--- 10. Withdrawn Notice -> unexcused
-SELECT pg_temp.assert_assessment('Withdrawn Notice', 10, 'unexcused', 'notice_withdrawn');
-
--- 11. Cancelled Leave -> unexcused
-SELECT pg_temp.assert_assessment('Cancelled Leave', 11, 'unexcused', 'leave_cancelled');
-
--- 12. Cancelled Notice -> unexcused
-SELECT pg_temp.assert_assessment('Cancelled Notice', 12, 'unexcused', 'notice_cancelled');
-
--- 13. Actual Attendance -> not_absent
-SELECT pg_temp.assert_assessment('Actual Attendance', 13, 'not_absent', 'actual_attendance');
-
--- Precedence checks: Actual clocks override Approved Leave & Accepted Notice
-SELECT pg_temp.assert_assessment('Clocks override Approved Leave', 14, 'not_absent', 'actual_attendance');
-SELECT pg_temp.assert_assessment('Clocks override Accepted Notice', 15, 'not_absent', 'actual_attendance');
+-- Assessment matrix assertions. Each pgTAP call is a top-level SELECT so
+-- its TAP line is visible to the runner.
+WITH assessment_cases(label,day_offset,expected_status,expected_reason) AS (
+VALUES
+  ('Published Day Off + Approved Leave',1,'not_applicable','published_day_off'),
+  ('Finalized No Notice',2,'unexcused','no_notice'),
+  ('Approved Leave',3,'excused','approved_leave'),
+  ('Accepted Notice',4,'excused','accepted_notice'),
+  ('Pending Leave',5,'pending_review','leave_pending_review'),
+  ('Pending Notice',6,'pending_review','notice_pending_review'),
+  ('Rejected Leave',7,'unexcused','leave_rejected'),
+  ('Rejected Notice',8,'unexcused','notice_rejected'),
+  ('Withdrawn Leave',9,'unexcused','leave_withdrawn'),
+  ('Withdrawn Notice',10,'unexcused','notice_withdrawn'),
+  ('Cancelled Leave',11,'unexcused','leave_cancelled'),
+  ('Cancelled Notice',12,'unexcused','notice_cancelled'),
+  ('Actual Attendance',13,'not_absent','actual_attendance')
+)
+SELECT is(assessment.assessment_status,test.expected_status,test.label || ' status')
+FROM assessment_cases test
+CROSS JOIN test_fix fixture
+CROSS JOIN LATERAL private.resolve_rider_absence_assessment(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  ((fixture.base_date+test.day_offset)::timestamp + TIME '18:00') AT TIME ZONE 'Asia/Manila'
+) assessment
+ORDER BY test.day_offset,test.label;
+WITH assessment_cases(label,day_offset,expected_status,expected_reason) AS (
+VALUES
+  ('Published Day Off + Approved Leave',1,'not_applicable','published_day_off'),
+  ('Finalized No Notice',2,'unexcused','no_notice'),
+  ('Approved Leave',3,'excused','approved_leave'),
+  ('Accepted Notice',4,'excused','accepted_notice'),
+  ('Pending Leave',5,'pending_review','leave_pending_review'),
+  ('Pending Notice',6,'pending_review','notice_pending_review'),
+  ('Rejected Leave',7,'unexcused','leave_rejected'),
+  ('Rejected Notice',8,'unexcused','notice_rejected'),
+  ('Withdrawn Leave',9,'unexcused','leave_withdrawn'),
+  ('Withdrawn Notice',10,'unexcused','notice_withdrawn'),
+  ('Cancelled Leave',11,'unexcused','leave_cancelled'),
+  ('Cancelled Notice',12,'unexcused','notice_cancelled'),
+  ('Actual Attendance',13,'not_absent','actual_attendance')
+)
+SELECT is(assessment.assessment_reason,test.expected_reason,test.label || ' reason')
+FROM assessment_cases test
+CROSS JOIN test_fix fixture
+CROSS JOIN LATERAL private.resolve_rider_absence_assessment(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  ((fixture.base_date+test.day_offset)::timestamp + TIME '18:00') AT TIME ZONE 'Asia/Manila'
+) assessment
+ORDER BY test.day_offset,test.label;
 
 -- Pre-finalization check: At 16:59 Manila time on the business date itself, workday without clocks is not unexcused
 SELECT is(
