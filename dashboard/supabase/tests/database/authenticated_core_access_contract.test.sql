@@ -322,11 +322,11 @@ insert into core_access_tap_results select throws_ok(
   'payroll user cannot delete payroll records directly'
 );
 
--- Cannot move payroll record to unauthorized hub (RLS hub_scope_guard with check)
+-- Cannot move payroll record to unauthorized hub (historical hub assignment is immutable)
 insert into core_access_tap_results select throws_ok(
   $$update public.payroll_records set hub_id = 'ca100000-0000-4000-8000-000000000002' where id = 'ce100000-0000-4000-8000-000000000001'$$,
-  '42501', null,
-  'payroll user cannot move payroll record to unauthorized hub'
+  '23514', null,
+  'payroll user cannot change historical payroll hub assignment'
 );
 
 -- Cannot update payroll record in unauthorized Hub Beta (updates 0 rows under RLS)
