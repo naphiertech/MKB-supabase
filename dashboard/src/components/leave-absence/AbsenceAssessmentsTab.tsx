@@ -5,6 +5,7 @@ import { useHub } from '../../context/HubContext';
 import { useAttendanceContextVersion } from '../../hooks/useAttendanceContextVersion';
 import { ATTENDANCE_CONTEXT_INVALIDATED } from '../../services/attendance/attendanceContextInvalidation';
 import { supabase } from '../../lib/supabaseClient';
+import { FinancialAbsencePanel } from './FinancialAbsencePanel';
 import {
   listAbsenceAssessments,
   getAssessmentReasonLabel,
@@ -119,6 +120,7 @@ export function AbsenceAssessmentsTab({
   const endDate = propEndDate || defaultDate;
 
   const [activeFilter, setActiveFilter] = useState<AssessmentFilter>('all');
+  const [showFinancial, setShowFinancial] = useState(false);
   const [rows, setRows] = useState<AbsenceAssessmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -206,6 +208,14 @@ export function AbsenceAssessmentsTab({
     };
   }, [loadAssessments]);
 
+  if (showFinancial) return (
+    <div className="space-y-4">
+      <button type="button" className="ui-button-secondary" onClick={() => setShowFinancial(false)}>Back to attendance assessments</button>
+      <FinancialAbsencePanel startDate={startDate} endDate={endDate} hubId={effectiveHubId} riderId={propRiderId}
+        riderNames={Object.fromEntries(Object.entries(riderInfoMap).map(([id, info]) => [id, info.name]))} />
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       {/* Header and Controls */}
@@ -233,6 +243,8 @@ export function AbsenceAssessmentsTab({
           Refresh
         </button>
       </div>
+
+      <button type="button" className="ui-button-secondary" onClick={() => setShowFinancial(true)}>Financial review</button>
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border pb-2.5" role="tablist" aria-label="Assessment status filters">
