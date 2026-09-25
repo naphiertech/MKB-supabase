@@ -81,7 +81,7 @@ do $$declare b date:=(select base_date from ctx);x record;begin
   insert into public.attendance_logs(id,rider_id,date,time_in,time_out,status,source,notes) values(('a7300000-0000-4000-8000-'||lpad(x.o::text,12,'0'))::uuid,(select rider_id from ctx),b+(case x.o when 1 then 1 when 2 then 6 when 3 then 7 when 4 then 18 when 5 then 27 when 6 then 28 when 7 then 29 when 8 then 30 when 9 then 31 else 32 end),case when x.ti is null then null else ((b+(case x.o when 1 then 1 when 2 then 6 when 3 then 7 when 4 then 18 when 5 then 27 when 6 then 28 when 7 then 29 when 8 then 30 when 9 then 31 else 32 end))::timestamp+x.ti) at time zone 'Asia/Manila' end,case when x.to_ is null then null else ((b+(case x.o when 1 then 1 when 2 then 6 when 3 then 7 when 4 then 18 when 5 then 27 when 6 then 28 when 7 then 29 when 8 then 30 when 9 then 31 else 32 end))::timestamp+x.to_) at time zone 'Asia/Manila' end,x.st::public.attendance_status,x.src::public.attendance_source,'raw fixture');
  end loop;end$$;
 
-+-- Keep setup data in a fixture table and run each pgTAP assertion as a
+-- Keep setup data in a fixture table and run each pgTAP assertion as a
 -- top-level SELECT so every assertion produces a TAP line.
 create temporary table context_cases(label text,day_offset integer,expected_status text,
   expected_context text,expected_to_work boolean,expected_excusal text,moment_offset integer,moment_time time);
@@ -154,7 +154,7 @@ select is((select absence_notice_state from private.resolve_rider_attendance_con
 select is((select context_request_id from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+30)),null::uuid,'legacy leave has no request provenance');
 
 -- Date-edge and true review transitions; reads never mutate raw evidence.
-+-- Preserve and emit all dynamic request-transition/cutoff scenarios as top-level TAP.
+-- Preserve and emit all dynamic request-transition/cutoff scenarios as top-level TAP.
 WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal,moment_offset,moment_time) AS (
 VALUES
   ('after cutoff',31,'absent','no_notice',true,'not_excused',31,TIME '17:00:01'),

@@ -272,8 +272,9 @@ select ok((select voided_at is null from public.payroll_deduction_obligations wh
 select is((select count(*) from public.payroll_earning_adjustments where reference='ABS-REV:e7500000-0000-4000-8000-000000000012'),0::bigint,'failure 12 leaves compensation absent');
 select is((select count(*) from public.rider_absence_financial_consequence_audit_events where consequence_id='e7500000-0000-4000-8000-000000000012' and action='reversed'),0::bigint,'failure 12 leaves no reversal audit');
 select ok((select voided_at is null from public.payroll_deduction_allocations where id='f7500000-0000-4000-8000-000000000010'),'B failure rolls back deallocation');
-select is((select deductions from public.payroll_records where id='a7500000-0000-4000-8000-000000000010'),650::numeric,'B failure rolls back synchronized totals');
+-- This owner-level payroll_records check follows authenticated RPC failure tests.
 reset role;
+select is((select deductions from public.payroll_records where id='a7500000-0000-4000-8000-000000000010'),650::numeric,'B failure rolls back synchronized totals');
 select is((select to_jsonb(p) from public.payroll_records p where id='a7500000-0000-4000-8000-000000000101'),
   (select value from reversal_baseline where name='future_payroll_after_D'),'failed paid reversals roll back future Payroll aggregates');
 select is((select jsonb_agg(to_jsonb(p) order by p.id) from public.payroll_records p where p.status='paid'),(select value from reversal_baseline where name='paid_payroll'),'paid_payroll unchanged');
