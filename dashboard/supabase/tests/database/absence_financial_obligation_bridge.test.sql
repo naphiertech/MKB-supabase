@@ -123,8 +123,12 @@ select is((select count(*) from public.rider_absence_financial_consequence_audit
 select is((select new_values ->> 'deduction_obligation_id' from public.rider_absence_financial_consequence_audit_events where consequence_id = 'e7400000-0000-4000-8000-000000000001' and action = 'payroll_obligation_linked'),
   (select id::text from bridge_results where name = 'created'), 'bridge audit records new link');
 select ok((select not (new_values::text like '%PRIVATE DECISION%') from public.payroll_adjustment_audit_events where entity_type = 'obligation' and entity_id = (select id from bridge_results where name = 'created') and action = 'create'), 'Payroll audit does not expose private human decision notes');
+-- Owner-level ledger assertions: this security-invoker view reads restricted
+-- payroll_records. The bridge call and authorization checks stay authenticated.
+reset role;
 select is((select planned from public.v_payroll_deduction_balances where obligation_id = (select id from bridge_results where name = 'created')), 0::numeric, 'new obligation is unallocated');
 select is((select available_to_allocate from public.v_payroll_deduction_balances where obligation_id = (select id from bridge_results where name = 'created')), 725.50::numeric, 'existing balance view sees full available amount');
+set local role authenticated;
 select throws_ok($$select public.materialize_absence_financial_deduction_obligation('e7400000-0000-4000-8000-000000000002')$$, '23514', null, 'emergency waiver cannot materialize an obligation');
 select throws_ok($$select public.materialize_absence_financial_deduction_obligation('e7400000-0000-4000-8000-000000000003')$$, '23514', null, 'excused waiver cannot materialize an obligation');
 select throws_ok($$select public.materialize_absence_financial_deduction_obligation('e7400000-0000-4000-8000-000000000004')$$, '23514', null, 'reversed decision cannot materialize an obligation');

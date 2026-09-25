@@ -11,7 +11,7 @@ select has_function('public','list_my_absence_financial_consequences',
 insert into public.hubs(id,name,latitude,longitude,attendance_radius_m) values
   ('a7600000-0000-4000-8000-000000000001','Read Alpha',1,1,100),('a7600000-0000-4000-8000-000000000002','Read Beta',2,2,100);
 insert into public.riders(id,hub_id,name,mkb_id,email,status) values
-  ('c7600000-0000-4000-8000-000000000001','a7600000-0000-4000-8000-000000000002','Read Rider Alpha','TEST-READ-A','read-rider-a@example.test','active'),
+  ('c7600000-0000-4000-8000-000000000001','a7600000-0000-4000-8000-000000000001','Read Rider Alpha','TEST-READ-A','read-rider-a@example.test','active'),
   ('c7600000-0000-4000-8000-000000000002','a7600000-0000-4000-8000-000000000002','Read Rider Beta','TEST-READ-B','read-rider-b@example.test','active');
 insert into auth.users(id,email,email_confirmed_at)
 select ('d7600000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'read-user-'||n||'@example.test',clock_timestamp()
@@ -64,6 +64,13 @@ values('b7600000-0000-4000-8000-000000000004','a7600000-0000-4000-8000-000000000
 
 -- Compensation can belong to a later Hub: its identity must not leak across
 -- Payroll hub authorization even when the historical consequence is readable.
+-- Build the Alpha Payroll history while the Rider belongs to Alpha, then move
+-- the fixture Rider as owner before inserting the later Beta Payroll. Existing
+-- historical snapshots stay unchanged and all Hub integrity triggers remain on.
+update public.riders
+set hub_id='a7600000-0000-4000-8000-000000000002',
+    home_hub_id='a7600000-0000-4000-8000-000000000002'
+where id='c7600000-0000-4000-8000-000000000001';
 insert into public.payroll_records(id,rider_id,hub_id,cutoff_start,cutoff_end,status,gross_pay)
 values('a7600000-0000-4000-8000-000000000010','c7600000-0000-4000-8000-000000000001','a7600000-0000-4000-8000-000000000002','2026-09-21','2026-09-27','draft',0);
 insert into public.payroll_earning_adjustments(id,rider_id,hub_id,payroll_record_id,cutoff_start,cutoff_end,adjustment_code,amount,adjustment_date,reason,reference,source,created_by)

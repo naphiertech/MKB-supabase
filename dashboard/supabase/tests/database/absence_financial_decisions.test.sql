@@ -35,7 +35,7 @@ insert into public.users (
   archive_effective_date, archive_reason, archived_at, archived_by
 ) values (
   'd7300000-0000-4000-8000-000000000006', 'Archived HR', 'afd-archived@example.test',
-  'hr', 'global', 'suspended', 'archived', '2026-09-09', 'Test archive', clock_timestamp(), 'd7300000-0000-4000-8000-000000000001'
+  'hr', 'global', 'suspended', 'archived', '2026-09-09', 'Resigned', clock_timestamp(), 'd7300000-0000-4000-8000-000000000001'
 );
 insert into public.user_hub_access (user_id, hub_id, assigned_by)
 values ('d7300000-0000-4000-8000-000000000002', 'a7300000-0000-4000-8000-000000000001', 'd7300000-0000-4000-8000-000000000001');
