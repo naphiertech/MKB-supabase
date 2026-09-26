@@ -17,16 +17,28 @@ insert into core_access_tap_results select ok(not has_table_privilege('anon', 'p
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.users', 'UPDATE'), 'anon cannot update public.users');
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.users', 'INSERT'), 'anon cannot insert into public.users');
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.users', 'DELETE'), 'anon cannot delete from public.users');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.users', 'TRUNCATE'), 'anon cannot truncate public.users');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.users', 'REFERENCES'), 'anon cannot reference public.users');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.users', 'TRIGGER'), 'anon cannot create trigger on public.users');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.users', 'MAINTAIN'), 'anon cannot maintain public.users');
 
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.riders', 'SELECT'), 'anon cannot select from public.riders');
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.riders', 'UPDATE'), 'anon cannot update public.riders');
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.riders', 'INSERT'), 'anon cannot insert into public.riders');
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.riders', 'DELETE'), 'anon cannot delete from public.riders');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.riders', 'TRUNCATE'), 'anon cannot truncate public.riders');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.riders', 'REFERENCES'), 'anon cannot reference public.riders');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.riders', 'TRIGGER'), 'anon cannot create trigger on public.riders');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.riders', 'MAINTAIN'), 'anon cannot maintain public.riders');
 
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.payroll_records', 'SELECT'), 'anon cannot select from public.payroll_records');
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.payroll_records', 'UPDATE'), 'anon cannot update public.payroll_records');
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.payroll_records', 'INSERT'), 'anon cannot insert into public.payroll_records');
 insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.payroll_records', 'DELETE'), 'anon cannot delete from public.payroll_records');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.payroll_records', 'TRUNCATE'), 'anon cannot truncate public.payroll_records');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.payroll_records', 'REFERENCES'), 'anon cannot reference public.payroll_records');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.payroll_records', 'TRIGGER'), 'anon cannot create trigger on public.payroll_records');
+insert into core_access_tap_results select ok(not has_table_privilege('anon', 'public.payroll_records', 'MAINTAIN'), 'anon cannot maintain public.payroll_records');
 
 -- public pseudo-role denied
 insert into core_access_tap_results select ok(not has_table_privilege('public', 'public.users', 'SELECT'), 'public cannot select from public.users');
@@ -34,20 +46,35 @@ insert into core_access_tap_results select ok(not has_table_privilege('public', 
 insert into core_access_tap_results select ok(not has_table_privilege('public', 'public.payroll_records', 'SELECT'), 'public cannot select from public.payroll_records');
 
 -- authenticated table privileges strictly bounded
+-- public.users: ONLY SELECT, UPDATE
 insert into core_access_tap_results select ok(has_table_privilege('authenticated', 'public.users', 'SELECT'), 'authenticated can select from public.users');
 insert into core_access_tap_results select ok(has_table_privilege('authenticated', 'public.users', 'UPDATE'), 'authenticated can update public.users');
 insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.users', 'INSERT'), 'authenticated cannot insert into public.users');
 insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.users', 'DELETE'), 'authenticated cannot delete from public.users');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.users', 'TRUNCATE'), 'authenticated cannot truncate public.users');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.users', 'REFERENCES'), 'authenticated cannot reference public.users');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.users', 'TRIGGER'), 'authenticated cannot create trigger on public.users');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.users', 'MAINTAIN'), 'authenticated cannot maintain public.users');
 
+-- public.riders: ONLY SELECT
 insert into core_access_tap_results select ok(has_table_privilege('authenticated', 'public.riders', 'SELECT'), 'authenticated can select from public.riders');
-insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.riders', 'UPDATE'), 'authenticated cannot update public.riders directly');
 insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.riders', 'INSERT'), 'authenticated cannot insert into public.riders directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.riders', 'UPDATE'), 'authenticated cannot update public.riders directly');
 insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.riders', 'DELETE'), 'authenticated cannot delete from public.riders directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.riders', 'TRUNCATE'), 'authenticated cannot truncate public.riders directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.riders', 'REFERENCES'), 'authenticated cannot reference public.riders directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.riders', 'TRIGGER'), 'authenticated cannot create trigger on public.riders directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.riders', 'MAINTAIN'), 'authenticated cannot maintain public.riders directly');
 
+-- public.payroll_records: ONLY SELECT, INSERT, UPDATE
 insert into core_access_tap_results select ok(has_table_privilege('authenticated', 'public.payroll_records', 'SELECT'), 'authenticated can select from public.payroll_records');
 insert into core_access_tap_results select ok(has_table_privilege('authenticated', 'public.payroll_records', 'INSERT'), 'authenticated can insert into public.payroll_records');
 insert into core_access_tap_results select ok(has_table_privilege('authenticated', 'public.payroll_records', 'UPDATE'), 'authenticated can update public.payroll_records');
 insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.payroll_records', 'DELETE'), 'authenticated cannot delete from public.payroll_records directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.payroll_records', 'TRUNCATE'), 'authenticated cannot truncate public.payroll_records directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.payroll_records', 'REFERENCES'), 'authenticated cannot reference public.payroll_records directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.payroll_records', 'TRIGGER'), 'authenticated cannot create trigger on public.payroll_records directly');
+insert into core_access_tap_results select ok(not has_table_privilege('authenticated', 'public.payroll_records', 'MAINTAIN'), 'authenticated cannot maintain public.payroll_records directly');
 
 -- ============================================================================
 -- 2. Negative: anon denied runtime queries
