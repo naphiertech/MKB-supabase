@@ -4,19 +4,35 @@ set local search_path=public,extensions;
 select pg_advisory_xact_lock(hashtext('rider_attendance_context_integrity_test'));
 select no_plan();
 
+-- Migration-only CI databases have no application user seed. Create the
+-- context actors and Rider used by this test before constructing ctx.
+insert into public.hubs(id,name,latitude,longitude,attendance_radius_m)
+values ('a7400000-0000-4000-8000-000000000002','Context Base Hub',3,3,100);
+insert into public.riders(id,hub_id,home_hub_id,name,mkb_id,email,status)
+values ('c7400000-0000-4000-8000-000000000002','a7400000-0000-4000-8000-000000000002',
+  'a7400000-0000-4000-8000-000000000002','Context Base Rider','CTX-BASE','ctx-base-rider@example.test','active');
+insert into auth.users(id,email,email_confirmed_at) values
+  ('d7400000-0000-4000-8000-000000000002','ctx-admin@example.test',clock_timestamp()),
+  ('d7400000-0000-4000-8000-000000000003','ctx-hr-base@example.test',clock_timestamp()),
+  ('d7400000-0000-4000-8000-000000000004','ctx-payroll@example.test',clock_timestamp()),
+  ('d7400000-0000-4000-8000-000000000005','ctx-base-rider@example.test',clock_timestamp());
+insert into public.users(id,full_name,email,role,rider_id,hub_access_scope,status,employment_status) values
+  ('d7400000-0000-4000-8000-000000000002','Context Admin','ctx-admin@example.test','admin',null,'global','active','active'),
+  ('d7400000-0000-4000-8000-000000000003','Context Base HR','ctx-hr-base@example.test','hr',null,'assigned','active','active'),
+  ('d7400000-0000-4000-8000-000000000004','Context Payroll','ctx-payroll@example.test','payroll',null,'global','active','active'),
+  ('d7400000-0000-4000-8000-000000000005','Context Base Rider','ctx-base-rider@example.test','rider',
+   'c7400000-0000-4000-8000-000000000002','assigned','active','active');
+
 create temporary table ctx as
-select r.id rider_id,r.hub_id,ru.id rider_user,hr.id hr_user,
-       (select id from public.users where role='admin'::public.user_role limit 1) admin_user,
-       (select id from public.users where role='payroll'::public.user_role limit 1) payroll_user,
-       coalesce((select r2.id from public.riders r2 where r2.hub_id is distinct from r.hub_id and r2.id<>r.id limit 1),'ffffffff-ffff-4fff-8fff-ffffffffffff'::uuid) other_rider,
+select 'c7400000-0000-4000-8000-000000000002'::uuid rider_id,
+       'a7400000-0000-4000-8000-000000000002'::uuid hub_id,
+       'd7400000-0000-4000-8000-000000000005'::uuid rider_user,
+       'd7400000-0000-4000-8000-000000000003'::uuid hr_user,
+       'd7400000-0000-4000-8000-000000000002'::uuid admin_user,
+       'd7400000-0000-4000-8000-000000000004'::uuid payroll_user,
+       'c7400000-0000-4000-8000-000000000001'::uuid other_rider,
        (clock_timestamp() at time zone 'Asia/Manila')::date-1000 base_date
-from public.riders r
-join public.users ru on ru.rider_id=r.id and ru.role='rider'::public.user_role and ru.employment_status='active'::public.employment_status
-cross join public.users hr
-where r.hub_id is not null
-  and hr.role='hr'::public.user_role
-  and hr.employment_status='active'::public.employment_status
-limit 1;
+;
 grant select on ctx to authenticated, anon;
 
 -- Dedicated assigned-Hub HR and out-of-Hub Rider: do not use global HR
@@ -65,30 +81,215 @@ do $$declare b date:=(select base_date from ctx);x record;begin
   insert into public.attendance_logs(id,rider_id,date,time_in,time_out,status,source,notes) values(('a7300000-0000-4000-8000-'||lpad(x.o::text,12,'0'))::uuid,(select rider_id from ctx),b+(case x.o when 1 then 1 when 2 then 6 when 3 then 7 when 4 then 18 when 5 then 27 when 6 then 28 when 7 then 29 when 8 then 30 when 9 then 31 else 32 end),case when x.ti is null then null else ((b+(case x.o when 1 then 1 when 2 then 6 when 3 then 7 when 4 then 18 when 5 then 27 when 6 then 28 when 7 then 29 when 8 then 30 when 9 then 31 else 32 end))::timestamp+x.ti) at time zone 'Asia/Manila' end,case when x.to_ is null then null else ((b+(case x.o when 1 then 1 when 2 then 6 when 3 then 7 when 4 then 18 when 5 then 27 when 6 then 28 when 7 then 29 when 8 then 30 when 9 then 31 else 32 end))::timestamp+x.to_) at time zone 'Asia/Manila' end,x.st::public.attendance_status,x.src::public.attendance_source,'raw fixture');
  end loop;end$$;
 
-create or replace function pg_temp.expect(p text,o int,s text,c text,w boolean,e text,mo int default null,mt time default null) returns void language plpgsql as $$declare b date:=(select base_date from ctx);r record;m timestamptz;begin m:=case when mo is null then clock_timestamp() else (((b+mo)::timestamp+coalesce(mt,time '18:00')) at time zone 'Asia/Manila') end;select * into r from private.resolve_rider_attendance_context((select rider_id from ctx),b+o,m);perform is(r.effective_status,s,p||' status');perform is(r.context_code,c,p||' context');perform is(r.expected_to_work,w,p||' expected');perform is(r.excusal_state,e,p||' excusal');end$$;
-do $$declare x record;begin for x in select * from (values
- ('approved',5,'on_leave','approved_leave',true,'excused',null::int,null::time),('approved after raw',6,'on_leave','approved_leave',true,'excused',null::int,null::time),('rejected with clock',7,'present','leave_rejected',true,'not_applicable',null::int,null::time),('pending leave',8,'absent','leave_pending',true,'not_excused',null::int,null::time),('withdrawn leave',9,'absent','leave_withdrawn',true,'not_excused',null::int,null::time),('cancel first',10,'on_leave','approved_leave',true,'excused',null::int,null::time),('cancel date',12,'on_leave','approved_leave',true,'excused',null::int,null::time),('cancel next',13,'absent','leave_cancelled',true,'not_excused',null::int,null::time),('cancel before start',16,'absent','leave_cancelled',true,'not_excused',null::int,null::time),
- ('accepted',18,'absent','accepted_notice',true,'excused',null::int,null::time),('rejected notice',19,'absent','notice_rejected',true,'not_excused',null::int,null::time),('pending notice',20,'absent','notice_pending',true,'not_excused',null::int,null::time),('withdrawn notice',21,'absent','notice_withdrawn',true,'not_excused',null::int,null::time),('notice before',22,'absent','notice_cancelled',true,'not_excused',null::int,null::time),('notice on',23,'absent','accepted_notice',true,'excused',null::int,null::time),('notice after',32,'absent','accepted_notice',true,'excused',null::int,null::time),
- ('mixed',24,'on_leave','approved_leave',true,'excused',null::int,null::time),('new pending',25,'absent','leave_pending',true,'not_excused',null::int,null::time),('new approved',26,'on_leave','approved_leave',true,'excused',null::int,null::time),('worked leave',28,'present','worked_during_approved_leave',true,'not_applicable',null::int,null::time),('worked notice',29,'late','worked_despite_accepted_notice',true,'not_applicable',null::int,null::time),('legacy',30,'on_leave','manual_legacy_on_leave',true,'not_applicable',null::int,null::time),('day off',1,'day_off','approved_leave',false,'not_applicable',null::int,null::time),('published work',2,'absent','no_notice',true,'not_excused',null::int,null::time),('draft day off',3,'absent','leave_rejected',true,'not_excused',null::int,null::time),('cancelled day off',4,'absent','no_notice',true,'not_excused',null::int,null::time),('before cutoff',31,'not_finalized',null,true,'not_applicable',31,time '16:59:59'),('at cutoff',31,'absent','no_notice',true,'not_excused',31,time '17:00')
- )v(p,o,s,c,w,e,mo,mt) loop perform pg_temp.expect(x.p,x.o,x.s,x.c::text,x.w,x.e,x.mo,x.mt);end loop;end$$;
+-- Keep setup data in a fixture table and run each pgTAP assertion as a
+-- top-level SELECT so every assertion produces a TAP line.
+create temporary table context_cases(label text,day_offset integer,expected_status text,
+  expected_context text,expected_to_work boolean,expected_excusal text,moment_offset integer,moment_time time);
+insert into context_cases values
+  ('approved',5,'on_leave','approved_leave',true,'excused',null,null),
+  ('approved after raw',6,'on_leave','approved_leave',true,'excused',null,null),
+  ('rejected with clock',7,'present','leave_rejected',true,'not_applicable',null,null),
+  ('pending leave',8,'absent','leave_pending',true,'not_excused',null,null),
+  ('withdrawn leave',9,'absent','leave_withdrawn',true,'not_excused',null,null),
+  ('cancel first',10,'on_leave','approved_leave',true,'excused',null,null),
+  ('cancel date',12,'on_leave','approved_leave',true,'excused',null,null),
+  ('cancel next',13,'absent','leave_cancelled',true,'not_excused',null,null),
+  ('cancel before start',16,'absent','leave_cancelled',true,'not_excused',null,null),
+  ('accepted',18,'absent','accepted_notice',true,'excused',null,null),
+  ('rejected notice',19,'absent','notice_rejected',true,'not_excused',null,null),
+  ('pending notice',20,'absent','notice_pending',true,'not_excused',null,null),
+  ('withdrawn notice',21,'absent','notice_withdrawn',true,'not_excused',null,null),
+  ('notice before',22,'absent','notice_cancelled',true,'not_excused',null,null),
+  ('notice on',23,'absent','accepted_notice',true,'excused',null,null),
+  ('notice after',32,'absent','accepted_notice',true,'excused',null,null),
+  ('mixed',24,'on_leave','approved_leave',true,'excused',null,null),
+  ('new pending',25,'absent','leave_pending',true,'not_excused',null,null),
+  ('new approved',26,'on_leave','approved_leave',true,'excused',null,null),
+  ('worked leave',28,'present','worked_during_approved_leave',true,'not_applicable',null,null),
+  ('worked notice',29,'late','worked_despite_accepted_notice',true,'not_applicable',null,null),
+  ('legacy',30,'on_leave','manual_legacy_on_leave',true,'not_applicable',null,null),
+  ('day off',1,'day_off','approved_leave',false,'not_applicable',null,null),
+  ('published work',2,'absent','no_notice',true,'not_excused',null,null),
+  ('draft day off',3,'absent','leave_rejected',true,'not_excused',null,null),
+  ('cancelled day off',4,'absent','no_notice',true,'not_excused',null,null),
+  ('before cutoff',31,'not_finalized',null,true,'not_applicable',31,TIME '16:59:59'),
+  ('at cutoff',31,'absent','no_notice',true,'not_excused',31,TIME '17:00'),
+  ('after cutoff',31,'absent','no_notice',true,'not_excused',31,TIME '17:00:01'),
+  ('cancel middle day',11,'on_leave','approved_leave',true,'excused',null,null);
+select is(actual.effective_status,test.expected_status,test.label || ' status')
+from context_cases test cross join ctx fixture
+cross join lateral private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  case when test.moment_offset is null then clock_timestamp()
+       else ((fixture.base_date+test.moment_offset)::timestamp + coalesce(test.moment_time,time '18:00')) at time zone 'Asia/Manila' end
+) actual
+order by test.day_offset,test.label;
+select is(actual.context_code,test.expected_context,test.label || ' context')
+from context_cases test cross join ctx fixture
+cross join lateral private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  case when test.moment_offset is null then clock_timestamp()
+       else ((fixture.base_date+test.moment_offset)::timestamp + coalesce(test.moment_time,time '18:00')) at time zone 'Asia/Manila' end
+) actual
+order by test.day_offset,test.label;
+select is(actual.expected_to_work,test.expected_to_work,test.label || ' expected-to-work')
+from context_cases test cross join ctx fixture
+cross join lateral private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  case when test.moment_offset is null then clock_timestamp()
+       else ((fixture.base_date+test.moment_offset)::timestamp + coalesce(test.moment_time,time '18:00')) at time zone 'Asia/Manila' end
+) actual
+order by test.day_offset,test.label;
+select is(actual.excusal_state,test.expected_excusal,test.label || ' excusal')
+from context_cases test cross join ctx fixture
+cross join lateral private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  case when test.moment_offset is null then clock_timestamp()
+       else ((fixture.base_date+test.moment_offset)::timestamp + coalesce(test.moment_time,time '18:00')) at time zone 'Asia/Manila' end
+) actual
+order by test.day_offset,test.label;
 select is((select raw_status from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+6)),'absent'::public.attendance_status,'raw status unchanged');
 select is((select attendance_log_id from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+6)),'a7300000-0000-4000-8000-000000000002'::uuid,'raw ID unchanged');
 select is((select absence_notice_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+24)),'approved'::public.rider_absence_request_status,'mixed state retained');
 select is((select context_request_id from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+30)),null::uuid,'legacy leave has no request provenance');
 
--- Date-edge and true review transitions; reads never mutate raw evidence.
-select pg_temp.expect('after cutoff',31,'absent','no_notice',true,'not_excused',31,time '17:00:01');
-select pg_temp.expect('cancel middle day',11,'on_leave','approved_leave',true,'excused');
-select pg_temp.expect('cancel last day',14,'absent','leave_cancelled',true,'not_excused');
-select is((select completion_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+28)),'complete','clocks preserve completion');
-select is((select completion_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+29)),'missing_time_out','open historical clock preserves missing timeout');
+-- Review the three pending fixture requests before the post-review transition
+-- matrix. Earlier context_cases already assert the pending state.
 select set_config('request.jwt.claims',json_build_object('sub',(select admin_user from ctx),'role','authenticated')::text,true);
 select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000004',1,'approved','approve pending leave');
-select pg_temp.expect('pending then approved',8,'on_leave','approved_leave',true,'excused');
 select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000012',1,'approved','accept pending notice');
-select pg_temp.expect('pending then accepted',20,'absent','accepted_notice',true,'excused');
 select public.review_rider_absence_request('a7200000-0000-4000-8000-000000000019',1,'rejected','reject pending leave');
-select pg_temp.expect('pending then rejected',25,'absent','leave_rejected',true,'not_excused');
+select is(
+  (select jsonb_agg(status::text order by id) from public.rider_absence_requests
+   where id in (
+     'a7200000-0000-4000-8000-000000000004',
+     'a7200000-0000-4000-8000-000000000012',
+     'a7200000-0000-4000-8000-000000000019'
+   )),
+  '["approved", "approved", "rejected"]'::jsonb,
+  'review RPCs persist the pending request transitions before context resolution'
+);
+
+-- Date-edge and true review transitions; reads never mutate raw evidence.
+-- Preserve and emit all dynamic request-transition/cutoff scenarios as top-level TAP.
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal,moment_offset,moment_time) AS (
+VALUES
+  ('after cutoff',31,'absent','no_notice',true,'not_excused',31,TIME '17:00:01'),
+  ('cancel middle day',11,'on_leave','approved_leave',true,'excused',null,null),
+  ('cancel last day',14,'absent','leave_cancelled',true,'not_excused',null,null),
+  ('pending then approved',8,'on_leave','approved_leave',true,'excused',null,null),
+  ('pending then accepted',20,'absent','accepted_notice',true,'excused',null,null),
+  ('pending then rejected',25,'absent','leave_rejected',true,'not_excused',null,null),
+  ('raw present without clocks',31,'absent','no_notice',true,'not_excused',null,null)
+)
+SELECT is(actual.effective_status,test.expected_status,test.label || ' status')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  CASE WHEN test.moment_offset IS NULL THEN clock_timestamp()
+       ELSE ((fixture.base_date+test.moment_offset)::timestamp + coalesce(test.moment_time,TIME '18:00')) AT TIME ZONE 'Asia/Manila' END
+) actual
+ORDER BY test.day_offset,test.label;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal,moment_offset,moment_time) AS (
+VALUES
+  ('after cutoff',31,'absent','no_notice',true,'not_excused',31,TIME '17:00:01'),
+  ('cancel middle day',11,'on_leave','approved_leave',true,'excused',null,null),
+  ('cancel last day',14,'absent','leave_cancelled',true,'not_excused',null,null),
+  ('pending then approved',8,'on_leave','approved_leave',true,'excused',null,null),
+  ('pending then accepted',20,'absent','accepted_notice',true,'excused',null,null),
+  ('pending then rejected',25,'absent','leave_rejected',true,'not_excused',null,null),
+  ('raw present without clocks',31,'absent','no_notice',true,'not_excused',null,null)
+)
+SELECT is(actual.context_code,test.expected_context,test.label || ' context')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  CASE WHEN test.moment_offset IS NULL THEN clock_timestamp()
+       ELSE ((fixture.base_date+test.moment_offset)::timestamp + coalesce(test.moment_time,TIME '18:00')) AT TIME ZONE 'Asia/Manila' END
+) actual
+ORDER BY test.day_offset,test.label;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal,moment_offset,moment_time) AS (
+VALUES
+  ('after cutoff',31,'absent','no_notice',true,'not_excused',31,TIME '17:00:01'),
+  ('cancel middle day',11,'on_leave','approved_leave',true,'excused',null,null),
+  ('cancel last day',14,'absent','leave_cancelled',true,'not_excused',null,null),
+  ('pending then approved',8,'on_leave','approved_leave',true,'excused',null,null),
+  ('pending then accepted',20,'absent','accepted_notice',true,'excused',null,null),
+  ('pending then rejected',25,'absent','leave_rejected',true,'not_excused',null,null),
+  ('raw present without clocks',31,'absent','no_notice',true,'not_excused',null,null)
+)
+SELECT is(actual.expected_to_work,test.expected_to_work,test.label || ' expected-to-work')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  CASE WHEN test.moment_offset IS NULL THEN clock_timestamp()
+       ELSE ((fixture.base_date+test.moment_offset)::timestamp + coalesce(test.moment_time,TIME '18:00')) AT TIME ZONE 'Asia/Manila' END
+) actual
+ORDER BY test.day_offset,test.label;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal,moment_offset,moment_time) AS (
+VALUES
+  ('after cutoff',31,'absent','no_notice',true,'not_excused',31,TIME '17:00:01'),
+  ('cancel middle day',11,'on_leave','approved_leave',true,'excused',null,null),
+  ('cancel last day',14,'absent','leave_cancelled',true,'not_excused',null,null),
+  ('pending then approved',8,'on_leave','approved_leave',true,'excused',null,null),
+  ('pending then accepted',20,'absent','accepted_notice',true,'excused',null,null),
+  ('pending then rejected',25,'absent','leave_rejected',true,'not_excused',null,null),
+  ('raw present without clocks',31,'absent','no_notice',true,'not_excused',null,null)
+)
+SELECT is(actual.excusal_state,test.expected_excusal,test.label || ' excusal')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,
+  CASE WHEN test.moment_offset IS NULL THEN clock_timestamp()
+       ELSE ((fixture.base_date+test.moment_offset)::timestamp + coalesce(test.moment_time,TIME '18:00')) AT TIME ZONE 'Asia/Manila' END
+) actual
+ORDER BY test.day_offset,test.label;
+select is((select completion_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+28)),'complete','clocks preserve completion');
+select is((select completion_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+29)),'missing_time_out','open historical clock preserves missing timeout');
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
+  VALUES ('pending then approved',8,'on_leave','approved_leave',true,'excused'),
+         ('pending then accepted',20,'absent','accepted_notice',true,'excused'),
+         ('pending then rejected',25,'absent','leave_rejected',true,'not_excused')
+)
+SELECT is(actual.effective_status,test.expected_status,test.label || ' status')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,clock_timestamp()
+) actual
+ORDER BY test.day_offset,test.label;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
+  VALUES ('pending then approved',8,'on_leave','approved_leave',true,'excused'),
+         ('pending then accepted',20,'absent','accepted_notice',true,'excused'),
+         ('pending then rejected',25,'absent','leave_rejected',true,'not_excused')
+)
+SELECT is(actual.context_code,test.expected_context,test.label || ' context')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,clock_timestamp()
+) actual
+ORDER BY test.day_offset,test.label;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
+  VALUES ('pending then approved',8,'on_leave','approved_leave',true,'excused'),
+         ('pending then accepted',20,'absent','accepted_notice',true,'excused'),
+         ('pending then rejected',25,'absent','leave_rejected',true,'not_excused')
+)
+SELECT is(actual.expected_to_work,test.expected_to_work,test.label || ' expected-to-work')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,clock_timestamp()
+) actual
+ORDER BY test.day_offset,test.label;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
+  VALUES ('pending then approved',8,'on_leave','approved_leave',true,'excused'),
+         ('pending then accepted',20,'absent','accepted_notice',true,'excused'),
+         ('pending then rejected',25,'absent','leave_rejected',true,'not_excused')
+)
+SELECT is(actual.excusal_state,test.expected_excusal,test.label || ' excusal')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(
+  fixture.rider_id,fixture.base_date+test.day_offset,clock_timestamp()
+) actual
+ORDER BY test.day_offset,test.label;
 select set_config('request.jwt.claims','{}',true);
 
 set local role authenticated;
@@ -112,7 +313,30 @@ select throws_ok($$select count(*) from public.list_rider_attendance_context((se
 reset role;
 -- A raw label without a clock is not evidence that the Rider worked.
 update public.attendance_logs set status='present' where id='a7300000-0000-4000-8000-000000000009';
-select pg_temp.expect('raw present without clocks',31,'absent','no_notice',true,'not_excused');
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
+  VALUES ('raw present without clocks',31,'absent','no_notice',true,'not_excused')
+)
+SELECT is(actual.effective_status,test.expected_status,test.label || ' status')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(fixture.rider_id,fixture.base_date+test.day_offset,clock_timestamp()) actual;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
+  VALUES ('raw present without clocks',31,'absent','no_notice',true,'not_excused')
+)
+SELECT is(actual.context_code,test.expected_context,test.label || ' context')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(fixture.rider_id,fixture.base_date+test.day_offset,clock_timestamp()) actual;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
+  VALUES ('raw present without clocks',31,'absent','no_notice',true,'not_excused')
+)
+SELECT is(actual.expected_to_work,test.expected_to_work,test.label || ' expected-to-work')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(fixture.rider_id,fixture.base_date+test.day_offset,clock_timestamp()) actual;
+WITH transition_cases(label,day_offset,expected_status,expected_context,expected_to_work,expected_excusal) AS (
+  VALUES ('raw present without clocks',31,'absent','no_notice',true,'not_excused')
+)
+SELECT is(actual.excusal_state,test.expected_excusal,test.label || ' excusal')
+FROM transition_cases test CROSS JOIN ctx fixture
+CROSS JOIN LATERAL private.resolve_rider_attendance_context(fixture.rider_id,fixture.base_date+test.day_offset,clock_timestamp()) actual;
 select is((select punctuality_state from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+31)),'none','no clock has no punctuality');
 select is((select schedule_id from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+3)),null::uuid,'draft schedule provenance is not Attendance evidence');
 select is((select schedule_id from private.resolve_rider_attendance_context((select rider_id from ctx),(select base_date from ctx)+4)),null::uuid,'cancelled schedule provenance is not Attendance evidence');

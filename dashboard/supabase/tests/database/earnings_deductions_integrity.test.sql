@@ -112,7 +112,6 @@ select throws_ok(
   'inactive definition rejects a new Draft value without erasing the existing amount'
 );
 
-set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"ed000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 select lives_ok(
   $$update public.payroll_records
@@ -163,20 +162,18 @@ select throws_ok(
   'submitted total snapshots are immutable'
 );
 
-set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"ed000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 update public.payroll_records set status='rejected', rejection_reason='Return for correction' where id='ed200000-0000-4000-8000-000000000001';
 reset role;
 select is((select adjustment_snapshot from public.payroll_records where id='ed200000-0000-4000-8000-000000000001'), null::jsonb, 'return to editable state clears adjustment snapshot');
 
 update public.payroll_records set fm_pickup_amount=20 where id='ed200000-0000-4000-8000-000000000001';
-set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"ed000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 update public.payroll_records set status='pending', submitted_by='ed000000-0000-4000-8000-000000000002', submitted_at=clock_timestamp() where id='ed200000-0000-4000-8000-000000000001';
 reset role;
 select is((select net_pay_snapshot from public.payroll_records where id='ed200000-0000-4000-8000-000000000001'), 21::numeric, 'resubmission rebuilds totals from updated manual amounts');
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 
 rollback;

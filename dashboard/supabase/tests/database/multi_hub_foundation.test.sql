@@ -24,9 +24,9 @@ insert into multi_hub_tap_results select ok(to_regprocedure('public.admin_set_us
 insert into multi_hub_tap_results select ok(to_regprocedure('public.admin_set_zone_hub(uuid,uuid)') is not null, 'Admin zone assignment RPC exists');
 insert into multi_hub_tap_results select ok(not has_function_privilege('authenticated', 'public.transition_employee_lifecycle_authorized_internal(uuid,uuid,text,date,text,text,uuid)', 'EXECUTE'), 'unscoped lifecycle implementation is not client callable');
 
-insert into public.hubs (id, name) values
-  ('a1000000-0000-4000-8000-000000000001', 'Test Hub Alpha'),
-  ('a1000000-0000-4000-8000-000000000002', 'Test Hub Beta');
+insert into public.hubs (id, name, latitude, longitude, attendance_radius_m) values
+  ('a1000000-0000-4000-8000-000000000001', 'Test Hub Alpha', 6.9214, 122.0790, 500),
+  ('a1000000-0000-4000-8000-000000000002', 'Test Hub Beta', 6.9214, 122.0790, 500);
 
 insert into public.zones (id, hub_id, name, lat, lng, radius, color, status) values
   ('b1000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001', 'Test Zone Alpha', 1, 1, 100, '#111111', 'active'),
@@ -104,14 +104,18 @@ insert into multi_hub_tap_results select lives_ok($$update public.hubs set activ
 
 select set_config('request.jwt.claims', '{"sub":"d1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 insert into multi_hub_tap_results select is((select count(*) from public.hubs where id::text like 'a1000000-%'), 2::bigint, 'global HR can view every authorized hub');
-insert into multi_hub_tap_results select throws_ok($$insert into public.hubs(name) values ('Forbidden HR Hub')$$, '42501', null, 'HR cannot create hubs');
+insert into multi_hub_tap_results select throws_ok($$insert into public.hubs(name, latitude, longitude, attendance_radius_m) values ('Forbidden HR Hub', 6.9214, 122.0790, 500)$$, '42501', null, 'HR cannot create hubs');
 
 select set_config('request.jwt.claims', '{"sub":"d1000000-0000-4000-8000-000000000007","role":"authenticated"}', true);
 insert into multi_hub_tap_results select is((select count(*) from public.hubs where id::text like 'a1000000-%'), 2::bigint, 'global Payroll can view every authorized hub');
 
 select set_config('request.jwt.claims', '{"sub":"d1000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 insert into multi_hub_tap_results select is((select count(*) from public.hubs where id::text like 'a1000000-%'), 1::bigint, 'local Payroll sees only an assigned hub');
-insert into multi_hub_tap_results select is((select count(*) from public.zones where id='b1000000-0000-4000-8000-000000000002'), 0::bigint, 'local Payroll cannot query another hub by UUID');
+insert into multi_hub_tap_results select throws_ok(
+  $$select count(*) from public.zones where id='b1000000-0000-4000-8000-000000000002'$$,
+  '42501', null,
+  'local Payroll cannot query another hub by UUID'
+);
 insert into multi_hub_tap_results select is((select count(*) from public.attendance_logs where id::text like 'e1000000-%'), 1::bigint, 'local Payroll receives only assigned-hub data');
 update public.hubs set name='Forbidden' where id='a1000000-0000-4000-8000-000000000001';
 insert into multi_hub_tap_results select is((select name from public.hubs where id='a1000000-0000-4000-8000-000000000001'), 'Test Hub Alpha', 'Payroll cannot edit hubs');
@@ -119,7 +123,7 @@ insert into multi_hub_tap_results select is((select name from public.hubs where 
 select set_config('request.jwt.claims', '{"sub":"d1000000-0000-4000-8000-000000000005","role":"authenticated"}', true);
 insert into multi_hub_tap_results select is((select count(*) from public.riders where id='c1000000-0000-4000-8000-000000000001'), 1::bigint, 'Rider can see the own assigned Rider record');
 insert into multi_hub_tap_results select is((select count(*) from public.riders where id='c1000000-0000-4000-8000-000000000002'), 0::bigint, 'Rider cannot query another hub Rider by UUID');
-insert into multi_hub_tap_results select throws_ok($$insert into public.hubs(name) values ('Forbidden Rider Hub')$$, '42501', null, 'Rider cannot create hubs');
+insert into multi_hub_tap_results select throws_ok($$insert into public.hubs(name, latitude, longitude, attendance_radius_m) values ('Forbidden Rider Hub', 6.9214, 122.0790, 500)$$, '42501', null, 'Rider cannot create hubs');
 reset role;
 select set_config('request.jwt.claims', '', true);
 

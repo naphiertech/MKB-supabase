@@ -18,8 +18,8 @@ select is(
 );
 select is(has_table_privilege('anon', 'public.violations', 'select'), false, 'anon has no violations table access');
 
-insert into public.hubs (id, name) values
-  ('90000000-0000-4000-8000-000000000001', 'Geofence Test Hub');
+insert into public.hubs (id, name, latitude, longitude, attendance_radius_m) values
+  ('90000000-0000-4000-8000-000000000001', 'Geofence Test Hub', 6.9214, 122.0790, 500);
 
 insert into public.zones (
   id, hub_id, name, zone_type, lat, lng, radius, polygon_coordinates, status
@@ -142,7 +142,7 @@ select is((select status::text from public.riders where id = '92000000-0000-4000
 select is((select count(*)::integer from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'riders'), 1, 'authoritative rider status changes are published to Realtime');
 select is((select count(*)::integer from public.notifications where violation_id = (select id from public.violations where rider_id = '92000000-0000-4000-8000-000000000001' and type = 'boundary_exit')), 1, 'one automatic notification is linked to the boundary incident');
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 
 rollback;

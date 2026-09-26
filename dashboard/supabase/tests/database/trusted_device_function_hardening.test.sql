@@ -51,9 +51,18 @@ select is(
   jsonb_build_object('allowed',true,'reason','trusted_device_match'),
   'existing trusted device matching preserves its response'
 );
+reset role;
 select is((select count(*) from public.user_devices where user_id='fe200000-0000-4000-8000-000000000001'),1::bigint,'existing-device validation does not create a duplicate row');
+set local role authenticated;
+-- Capture the protected RPC response as the Rider; compare its ledger-backed fields as owner.
+select set_config(
+  'test.trusted_device_rpc_result',
+  public.validate_and_register_device('device-2','fingerprint-2','Other Phone','android','other-agent','127.0.0.3')::text,
+  true
+);
+reset role;
 select is(
-  public.validate_and_register_device('device-2','fingerprint-2','Other Phone','android','other-agent','127.0.0.3'),
+  current_setting('test.trusted_device_rpc_result')::jsonb,
   (select jsonb_build_object(
     'allowed',false,
     'reason','device_mismatch',
@@ -63,6 +72,7 @@ select is(
   'different-device rejection preserves its exact response structure'
 );
 
+set local role authenticated;
 do $$
 declare path_result jsonb;
 begin

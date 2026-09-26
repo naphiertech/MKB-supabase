@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
 select pg_advisory_xact_lock(hashtext('phase2_foundations_test'));
-select plan(33);
+select plan(34);
 
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.parcel_correction_requests'::regclass),
@@ -119,6 +119,13 @@ insert into public.attendance_logs (
   '21000000-0000-4000-8000-000000000001',
   date '2026-08-05',
   timestamptz '2026-08-05 07:50:00+08',
+  'present',
+  'face-scan'
+), (
+  '31000000-0000-4000-8000-000000000002',
+  '21000000-0000-4000-8000-000000000001',
+  date '2026-08-06',
+  timestamptz '2026-08-06 07:50:00+08',
   'present',
   'face-scan'
 );
@@ -306,6 +313,7 @@ select is(
   ),
   'the daily payroll snapshot contains the exact operational and applied-rate values'
 );
+reset role;
 select is(
   (
     select jsonb_build_array(
@@ -325,6 +333,16 @@ select set_config(
   '{"sub":"11000000-0000-4000-8000-000000000001","role":"authenticated"}',
   true
 );
+select set_config(
+  'test.phase2_payroll_transition_payload',
+  (
+    select jsonb_build_array(jsonb_build_object('id', id, 'updated_at', updated_at))::text
+    from public.payroll_records
+    where id = '81000000-0000-4000-8000-000000000001'
+  ),
+  true
+);
+reset role;
 select throws_ok(
   $$update public.payroll_records
     set gross_pay = 999
@@ -333,38 +351,35 @@ select throws_ok(
   'Finalized payroll calculation snapshots are immutable.',
   'Admin cannot rewrite a submitted payroll snapshot'
 );
+set local role authenticated;
 select lives_ok(
-  $$do $transition$
-    declare
-      transition_payload jsonb;
-    begin
-      select jsonb_build_array(jsonb_build_object('id', id, 'updated_at', updated_at))
-      into transition_payload
-      from public.payroll_records
-      where id = '81000000-0000-4000-8000-000000000001';
-
-      perform public.bulk_approve_payroll_records(
-        transition_payload,
-        date '2026-08-01',
-        date '2026-08-15',
-        '81000000-0000-4000-8000-000000000101'
-      );
-
-      select jsonb_build_array(jsonb_build_object('id', id, 'updated_at', updated_at))
-      into transition_payload
-      from public.payroll_records
-      where id = '81000000-0000-4000-8000-000000000001';
-
-      perform public.bulk_mark_payroll_records_paid(
-        transition_payload,
-        date '2026-08-01',
-        date '2026-08-15',
-        '81000000-0000-4000-8000-000000000102'
-      );
-    end
-  $transition$;$$,
-  'Admin can complete the existing approval and payment workflow'
+  $$select public.bulk_approve_payroll_records(
+    current_setting('test.phase2_payroll_transition_payload')::jsonb,
+    date '2026-08-01', date '2026-08-15',
+    '81000000-0000-4000-8000-000000000101'
+  )$$,
+  'Admin can approve a payroll record through the authoritative RPC'
 );
+reset role;
+select set_config(
+  'test.phase2_payroll_transition_payload',
+  (
+    select jsonb_build_array(jsonb_build_object('id', id, 'updated_at', updated_at))::text
+    from public.payroll_records
+    where id = '81000000-0000-4000-8000-000000000001'
+  ),
+  true
+);
+set local role authenticated;
+select lives_ok(
+  $$select public.bulk_mark_payroll_records_paid(
+    current_setting('test.phase2_payroll_transition_payload')::jsonb,
+    date '2026-08-01', date '2026-08-15',
+    '81000000-0000-4000-8000-000000000102'
+  )$$,
+  'Admin can mark the approved payroll Paid through the authoritative RPC'
+);
+reset role;
 select throws_ok(
   $$update public.payroll_records
     set notes = 'tampered after payment'
@@ -373,6 +388,7 @@ select throws_ok(
   'Paid payroll records are immutable.',
   'paid payroll is fully immutable'
 );
+reset role;
 select ok(
   not exists (
     select 1 from public.parcel_logs
@@ -394,6 +410,6 @@ select ok(
   'all payroll headers have additive snapshot fields'
 );
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 rollback;

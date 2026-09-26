@@ -116,25 +116,31 @@ select lives_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='admin_approve'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000001')$$,
   'Admin can atomically approve multiple Pending Review records'
 );
+reset role;
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000002') and status='approved'), 2::bigint, 'Admin approval changes every selected record');
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000002') and approved_by='a1000000-0000-4000-8000-000000000001' and approved_at is not null), 2::bigint, 'Admin approval metadata is populated');
 select is((select count(*) from public.activity_logs where metadata->>'request_id'='d1000000-0000-4000-8000-000000000001' and event_type='payroll_approve'), 2::bigint, 'Admin approval writes one audit entry per payroll');
 select is((select count(*) from public.notifications where metadata->>'request_id'='d1000000-0000-4000-8000-000000000001' and category='payroll'), 2::bigint, 'Admin approval writes one notification per payroll');
 
+set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 select lives_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='hr_approve'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000002')$$,
   'HR can atomically approve multiple Pending Review records'
 );
+reset role;
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000003','c1000000-0000-4000-8000-000000000004') and status='approved' and approved_by='a1000000-0000-4000-8000-000000000002'), 2::bigint, 'HR approval records the canonical actor');
 
+set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 select throws_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='payroll_denied'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000003')$$,
   'P0001', null, 'Payroll Officer cannot approve payroll'
 );
+reset role;
 select is((select status::text from public.payroll_records where id='c1000000-0000-4000-8000-000000000005'), 'pending', 'unauthorized approval leaves the record unchanged');
 
+set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
 select throws_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='rider_denied'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000004')$$,
@@ -149,22 +155,29 @@ select throws_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='mixed_approve'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000005')$$,
   'P0001', null, 'mixed approval statuses fail the whole operation'
 );
+reset role;
 select is((select status::text from public.payroll_records where id='c1000000-0000-4000-8000-000000000009'), 'pending', 'mixed status failure rolls back the eligible row');
 select is((select count(*) from public.activity_logs where metadata->>'request_id'='d1000000-0000-4000-8000-000000000005'), 0::bigint, 'failed mixed approval writes no audit rows');
 
+set local role authenticated;
 select throws_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='invalid_approve'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000006')$$,
   'P0001', null, 'an invalid immutable snapshot fails approval'
 );
+reset role;
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000008','c1000000-0000-4000-8000-000000000009') and status='pending'), 2::bigint, 'invalid snapshot rolls back the complete approval batch');
 
+reset role;
 update public.payroll_records set notes='Changed after selection' where id='c1000000-0000-4000-8000-000000000023';
+set local role authenticated;
 select throws_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='stale_approve'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000007')$$,
   'P0001', null, 'stale selected record version is rejected'
 );
+reset role;
 select is((select status::text from public.payroll_records where id='c1000000-0000-4000-8000-000000000023'), 'pending', 'stale conflict does not transition payroll');
 
+set local role authenticated;
 select lives_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='duplicate_approve'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000008')$$,
   'first approval request succeeds'
@@ -173,9 +186,9 @@ select lives_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='duplicate_approve'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000008')$$,
   'duplicate approval request safely replays'
 );
+reset role;
 select is((select count(*) from public.activity_logs where metadata->>'request_id'='d1000000-0000-4000-8000-000000000008'), 1::bigint, 'duplicate approval writes one audit event');
 select is((select count(*) from public.notifications where metadata->>'request_id'='d1000000-0000-4000-8000-000000000008'), 1::bigint, 'duplicate approval writes one notification');
-reset role;
 select is((select count(*) from public.payroll_bulk_operations where request_id='d1000000-0000-4000-8000-000000000008'), 1::bigint, 'duplicate approval keeps one operation record');
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
@@ -184,36 +197,46 @@ select lives_ok(
   $$select public.bulk_mark_payroll_records_paid((select payload from bulk_test_payloads where name='admin_pay'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000009')$$,
   'Admin can atomically mark multiple Approved payroll records Paid'
 );
+reset role;
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000011','c1000000-0000-4000-8000-000000000012') and status='paid'), 2::bigint, 'Admin payment changes every selected record');
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000011','c1000000-0000-4000-8000-000000000012') and paid_by='a1000000-0000-4000-8000-000000000001' and paid_at is not null and processed_at is not null), 2::bigint, 'payment metadata is populated consistently');
 select is((select count(*) from public.activity_logs where metadata->>'request_id'='d1000000-0000-4000-8000-000000000009' and event_type='payroll_pay'), 2::bigint, 'payment writes one audit entry per payroll');
 select is((select count(*) from public.notifications where metadata->>'request_id'='d1000000-0000-4000-8000-000000000009' and category='payroll'), 2::bigint, 'payment writes one notification per payroll');
 
+set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 select lives_ok(
   $$select public.bulk_mark_payroll_records_paid((select payload from bulk_test_payloads where name='hr_pay'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000010')$$,
   'HR can atomically mark multiple Approved payroll records Paid'
 );
+reset role;
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000013','c1000000-0000-4000-8000-000000000014') and status='paid' and paid_by='a1000000-0000-4000-8000-000000000002'), 2::bigint, 'HR payment records the canonical actor');
 
+set local role authenticated;
 select throws_ok(
   $$select public.bulk_mark_payroll_records_paid((select payload from bulk_test_payloads where name='wrong_pay'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000011')$$,
   'P0001', null, 'Draft and Pending Review payroll cannot become Paid'
 );
+reset role;
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000015','c1000000-0000-4000-8000-000000000022') and status in ('approved','draft')), 2::bigint, 'invalid payment rolls back every selected record');
 
+set local role authenticated;
 select throws_ok(
   $$select public.bulk_mark_payroll_records_paid((select payload from bulk_test_payloads where name='already_paid'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000012')$$,
   'P0001', null, 'already Paid payroll cannot be processed again'
 );
+reset role;
 select is((select status::text from public.payroll_records where id='c1000000-0000-4000-8000-000000000018'), 'paid', 'retry with a new request cannot rewrite Paid payroll');
 
+set local role authenticated;
 select throws_ok(
   $$select public.bulk_mark_payroll_records_paid((select payload from bulk_test_payloads where name='invalid_pay'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000013')$$,
   'P0001', null, 'invalid immutable snapshot fails payment'
 );
+reset role;
 select is((select count(*) from public.payroll_records where id in ('c1000000-0000-4000-8000-000000000016','c1000000-0000-4000-8000-000000000017') and status='approved'), 2::bigint, 'invalid snapshot rolls back the complete payment batch');
 
+set local role authenticated;
 select lives_ok(
   $$select public.bulk_mark_payroll_records_paid((select payload from bulk_test_payloads where name='duplicate_pay'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000014')$$,
   'first payment request succeeds'
@@ -241,8 +264,10 @@ select throws_ok(
   $$select public.bulk_approve_payroll_records((select payload from bulk_test_payloads where name='wrong_cutoff'), '2026-08-01', '2026-08-15', 'd1000000-0000-4000-8000-000000000017')$$,
   'P0001', null, 'selected payroll must belong to the intended cutoff'
 );
+reset role;
 select is((select status::text from public.payroll_records where id='c1000000-0000-4000-8000-000000000024'), 'pending', 'cutoff conflict leaves payroll unchanged');
 
+reset role;
 select set_config('app.payroll_transition_request_id', '', true);
 select throws_ok(
   $$update public.payroll_records set status='approved' where id='c1000000-0000-4000-8000-000000000005'$$,
@@ -257,6 +282,6 @@ select throws_ok(
 reset role;
 select is((select gross_pay from public.payroll_records where id='c1000000-0000-4000-8000-000000000019'), 0::numeric, 'bulk payment preserves immutable snapshot values');
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 rollback;

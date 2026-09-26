@@ -101,5 +101,7 @@ insert into hub_geofence_tap_results select is(
   'activity log records hub_geofence_updated event'
 );
 
-select * from finish();
+insert into hub_geofence_tap_results select result from finish() as result;
+select string_agg(result, E'\n' order by ctid) as test_suite
+from hub_geofence_tap_results;
 rollback;

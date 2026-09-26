@@ -36,11 +36,14 @@ insert into auth.users (id, email, email_confirmed_at, encrypted_password, raw_u
   ('f1000000-0000-4000-8000-000000000003', 'legacy.payroll@mkb.ph', clock_timestamp(), 'legacy-payroll-hash', '{}'::jsonb),
   ('f1000000-0000-4000-8000-000000000004', 'legacy.rider@example.test', clock_timestamp(), 'legacy-rider-hash', '{}'::jsonb);
 
-insert into public.users (id, full_name, email, role, status, contact, employment_type, date_of_hire) values
-  ('f1000000-0000-4000-8000-000000000001', 'Legacy Admin', 'legacy.admin@mkb.ph', 'admin', 'active', null, null, null),
-  ('f1000000-0000-4000-8000-000000000002', 'Legacy HR', 'legacy.hr@mkb.ph', 'hr', 'active', null, null, null),
-  ('f1000000-0000-4000-8000-000000000003', 'Legacy Payroll', 'legacy.payroll@mkb.ph', 'payroll', 'suspended', null, null, null),
-  ('f1000000-0000-4000-8000-000000000004', 'Legacy Rider', 'legacy.rider@example.test', 'rider', 'active', null, null, null);
+insert into public.riders (id, name, mkb_id, email, employment_type, date_of_hire) values
+  ('f4000000-0000-4000-8000-000000000001', 'Legacy Rider', 'LEGACY-RIDER-001', 'legacy.rider@example.test', null, null);
+
+insert into public.users (id, full_name, email, role, status, contact, rider_id) values
+  ('f1000000-0000-4000-8000-000000000001', 'Legacy Admin', 'legacy.admin@mkb.ph', 'admin', 'active', null, null),
+  ('f1000000-0000-4000-8000-000000000002', 'Legacy HR', 'legacy.hr@mkb.ph', 'hr', 'active', null, null),
+  ('f1000000-0000-4000-8000-000000000003', 'Legacy Payroll', 'legacy.payroll@mkb.ph', 'payroll', 'suspended', null, null),
+  ('f1000000-0000-4000-8000-000000000004', 'Legacy Rider', 'legacy.rider@example.test', 'rider', 'active', null, 'f4000000-0000-4000-8000-000000000001');
 
 insert into public.activity_logs (id, user_id, event_type, description, metadata) values (
   'f3000000-0000-4000-8000-000000000001',
@@ -123,9 +126,13 @@ reset role;
 select set_config('request.jwt.claims', '', true);
 
 insert into legacy_staff_tap_results select is(
-  (select jsonb_build_array(contact, employment_type, date_of_hire) from public.users where id = 'f1000000-0000-4000-8000-000000000002'),
+  (select jsonb_build_array(
+    (select contact from public.users where id = 'f1000000-0000-4000-8000-000000000002'),
+    (select employment_type from public.riders where id = 'f4000000-0000-4000-8000-000000000001'),
+    (select date_of_hire from public.riders where id = 'f4000000-0000-4000-8000-000000000001')
+  )),
   '[null, null, null]'::jsonb,
-  'unrelated profile updates do not fabricate missing legacy values'
+  'unrelated profile updates do not fabricate missing user or Rider legacy values'
 );
 insert into legacy_staff_tap_results select is(
   (select status::text from public.users where id = 'f1000000-0000-4000-8000-000000000003'),

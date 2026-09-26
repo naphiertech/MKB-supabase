@@ -15,6 +15,7 @@ import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import { pushToast } from '../hooks/useToast';
 import { PasswordSecurityFeedback } from '../components/auth/PasswordSecurityFeedback';
 import { STREET_BASEMAP } from '../components/maps/mapProviders';
+import { FinancialAbsenceHistory } from '../components/leave-absence/FinancialAbsenceHistory';
 
 interface RiderProfileProps {
   userId: string;
@@ -29,6 +30,7 @@ export function RiderProfile({ userId, riderId, restricted, onBack, onSignOut }:
   const [user, setUser] = useState<AppUser | null>(null);
   const [zone, setZone] = useState<Zone | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showFinancialHistory, setShowFinancialHistory] = useState(false);
 
   // Edit Phone States
   const [isEditingPhone, setIsEditingPhone] = useState(false);
@@ -481,6 +483,14 @@ export function RiderProfile({ userId, riderId, restricted, onBack, onSignOut }:
           </div>
         </div>
       </div>
+
+      {!restricted && <section className="ui-card overflow-hidden">
+        <button type="button" className="flex min-h-11 w-full items-center justify-between gap-3 p-4 text-left text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring"
+          aria-expanded={showFinancialHistory} aria-controls="rider-financial-history" onClick={() => setShowFinancialHistory(value => !value)}>
+          Financial absence history <span aria-hidden="true">{showFinancialHistory ? '−' : '+'}</span>
+        </button>
+        {showFinancialHistory && <div id="rider-financial-history"><FinancialAbsenceHistory audience="rider" /></div>}
+      </section>}
 
       {/* Face enrollment info */}
       <div className="rounded-2xl border border-border bg-white p-5 shadow-sm">

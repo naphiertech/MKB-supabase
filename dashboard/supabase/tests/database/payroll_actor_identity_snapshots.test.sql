@@ -106,12 +106,12 @@ select lives_ok(
   )$$,
   'Admin approval succeeds with a confirmed identity'
 );
+reset role;
 select is((select approved_by from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'f2000000-0000-4000-8000-000000000001'::uuid, 'approval stores the authoritative actor UUID');
 select is((select approved_by_name_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'Renata Cruz', 'approval stores the actor name snapshot');
 select is((select approved_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000001'), 'snapshot-admin@example.test', 'approval stores the confirmed email snapshot');
 select is((select metadata->>'actor_email_snapshot' from public.activity_logs where metadata->>'request_id' = 'f5000000-0000-4000-8000-000000000001'), 'snapshot-admin@example.test', 'approval audit metadata stores the same email snapshot');
 
-reset role;
 update auth.users
 set email = 'snapshot-confirmed@example.test', email_confirmed_at = clock_timestamp()
 where id = 'f2000000-0000-4000-8000-000000000001';
@@ -128,9 +128,9 @@ select lives_ok(
   )$$,
   'a new Admin can approve a new payroll'
 );
+reset role;
 select is((select approved_by from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000002'), 'f2000000-0000-4000-8000-000000000002'::uuid, 'new approval is attributed to the new Admin UUID');
 
-reset role;
 update auth.users set email_change = 'pending-admin@example.test' where id = 'f2000000-0000-4000-8000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"f2000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
@@ -144,8 +144,10 @@ select lives_ok(
   )$$,
   'bulk approval captures one trusted actor snapshot for the atomic batch'
 );
+reset role;
 select is((select count(*) from public.payroll_records where id in ('f4000000-0000-4000-8000-000000000003', 'f4000000-0000-4000-8000-000000000004') and approved_by = 'f2000000-0000-4000-8000-000000000001' and approved_by_name_snapshot = 'Renata Cruz Updated' and approved_by_email_snapshot = 'snapshot-confirmed@example.test'), 2::bigint, 'every bulk-approved row receives the same current confirmed identity and ignores pending email_change');
 
+set local role authenticated;
 select lives_ok(
   $$select public.bulk_mark_payroll_records_paid(
     jsonb_build_array(jsonb_build_object('id', 'f4000000-0000-4000-8000-000000000005', 'updated_at', timestamptz '2026-08-11 08:00:00+08')),
@@ -153,20 +155,22 @@ select lives_ok(
   )$$,
   'payment captures the confirmed actor identity'
 );
+reset role;
 select is((select paid_by from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000005'), 'f2000000-0000-4000-8000-000000000001'::uuid, 'payment stores the authoritative actor UUID');
 select is((select paid_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000005'), 'snapshot-confirmed@example.test', 'payment stores the current confirmed email, not pending email_change');
 
-reset role;
 update auth.users set email = 'renata-later@example.test', email_confirmed_at = clock_timestamp() where id = 'f2000000-0000-4000-8000-000000000001';
 select is((select paid_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000005'), 'snapshot-confirmed@example.test', 'later Auth changes do not rewrite the payment snapshot');
 
-set local role authenticated;
+-- This suite isolates transition-trigger actor snapshots from table ACLs.
+-- Keep the Auth claims while using the privileged test role for direct ledger
+-- mutations; guarded RPC authorization remains tested under authenticated.
 select set_config('request.jwt.claims', '{"sub":"f2000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 select lives_ok(
   $$update public.payroll_records
     set status = 'pending', submitted_by = 'f2000000-0000-4000-8000-000000000002'
     where id = 'f4000000-0000-4000-8000-000000000006'$$,
-  'Payroll can submit and client-supplied actor attribution is overwritten'
+  'Payroll submission trigger stores the authenticated actor and ignores client attribution'
 );
 select is((select submitted_by from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000006'), 'f2000000-0000-4000-8000-000000000003'::uuid, 'submission stores auth.uid instead of the client-supplied UUID');
 select is((select submitted_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000006'), 'payroll@example.test', 'submission stores the Payroll actor confirmed email');
@@ -188,11 +192,12 @@ select lives_ok(
 select ok((select submitted_by is null and submitted_at is null and submitted_by_name_snapshot is null and submitted_by_email_snapshot is null from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000013'), 'insert sanitizer removes forged actor UUID, timestamp, name, and email');
 
 select set_config('request.jwt.claims', '{"sub":"f2000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
-select lives_ok($$update public.payroll_records set status = 'rejected', rejection_reason = 'Needs correction' where id = 'f4000000-0000-4000-8000-000000000007'$$, 'HR can reject with a trusted snapshot');
+select lives_ok($$update public.payroll_records set status = 'rejected', rejection_reason = 'Needs correction' where id = 'f4000000-0000-4000-8000-000000000007'$$, 'HR rejection trigger stores a trusted snapshot');
 select is((select rejected_by_email_snapshot from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000007'), 'hr@example.test', 'rejection stores the HR confirmed email snapshot');
-select lives_ok($$update public.payroll_records set status = 'draft' where id = 'f4000000-0000-4000-8000-000000000008'$$, 'HR can return payroll for revision with a trusted snapshot');
+select lives_ok($$update public.payroll_records set status = 'draft' where id = 'f4000000-0000-4000-8000-000000000008'$$, 'HR return trigger stores a trusted snapshot');
 select is((select jsonb_build_array(returned_by, returned_by_name_snapshot, returned_by_email_snapshot, returned_at is not null) from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000008'), jsonb_build_array('f2000000-0000-4000-8000-000000000004'::uuid, 'HR Reviewer', 'hr@example.test', true), 'return stores UUID, name, email, and timestamp');
 
+set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"f2000000-0000-4000-8000-000000000005","role":"authenticated"}', true);
 select throws_ok(
   $$select public.bulk_approve_payroll_records(
@@ -201,17 +206,16 @@ select throws_ok(
   )$$,
   'P0001', null, 'an unconfirmed actor email cannot be snapshotted'
 );
+reset role;
 select is((select status::text from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000009'), 'pending', 'failed unconfirmed-email approval leaves payroll unchanged');
 
-reset role;
 select is((select approved_by from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000012'), 'f2000000-0000-4000-8000-000000000001'::uuid, 'legacy payroll keeps its existing actor UUID');
 select ok((select approved_by_name_snapshot is null and approved_by_email_snapshot is null and paid_by_name_snapshot is null and paid_by_email_snapshot is null from public.payroll_records where id = 'f4000000-0000-4000-8000-000000000012'), 'legacy payroll receives no fabricated snapshot backfill');
 
-set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"f2000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
-select throws_ok($$update public.payroll_records set approved_by_email_snapshot = 'forged@example.test' where id = 'f4000000-0000-4000-8000-000000000013'$$, 'P0001', 'Payroll actor attribution can only be changed by a workflow transition.', 'clients cannot forge stored actor snapshots');
+select throws_ok($$update public.payroll_records set approved_by_email_snapshot = 'forged@example.test' where id = 'f4000000-0000-4000-8000-000000000013'$$, 'P0001', 'Payroll actor attribution can only be changed by a workflow transition.', 'actor snapshot fields only change through workflow transitions');
 select throws_ok($$update public.payroll_records set paid_by_email_snapshot = 'forged@example.test' where id = 'f4000000-0000-4000-8000-000000000005'$$, 'P0001', 'Paid payroll records are immutable.', 'Paid payroll identity snapshots remain immutable');
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 rollback;

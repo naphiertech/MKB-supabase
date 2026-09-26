@@ -4,7 +4,8 @@ set local search_path=public,extensions;
 select pg_advisory_xact_lock(hashtext('payroll_deduction_lifecycle_lock_test'));
 select no_plan();
 
-insert into public.hubs(id,name) values ('fd100000-0000-4000-8000-000000000001','Lifecycle Lock Hub');
+insert into public.hubs(id,name,latitude,longitude,attendance_radius_m) values
+  ('fd100000-0000-4000-8000-000000000001','Lifecycle Lock Hub',6.9214,122.0790,500);
 insert into public.zones(id,hub_id,name,lat,lng,radius,color,status) values
   ('fd200000-0000-4000-8000-000000000001','fd100000-0000-4000-8000-000000000001','Lifecycle Lock Zone',1,1,100,'#111111','active');
 insert into public.riders(id,hub_id,zone_id,name,mkb_id,email,status) values
@@ -46,6 +47,7 @@ insert into public.payroll_deduction_allocations(
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"fd400000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 
+reset role;
 update public.payroll_records set status='pending' where id in (
   'fd600000-0000-4000-8000-000000000003',
   'fd600000-0000-4000-8000-000000000004',
@@ -53,19 +55,33 @@ update public.payroll_records set status='pending' where id in (
   'fd600000-0000-4000-8000-000000000006',
   'fd600000-0000-4000-8000-000000000007'
 );
+create temporary table deduction_lifecycle_transition_payloads (
+  name text primary key,
+  payload jsonb not null
+);
+insert into deduction_lifecycle_transition_payloads(name,payload)
+select 'approve', jsonb_build_array(jsonb_build_object('id',id,'updated_at',updated_at))
+from public.payroll_records where id='fd600000-0000-4000-8000-000000000005'
+union all
+select 'pay', jsonb_build_array(jsonb_build_object('id',id,'updated_at',updated_at))
+from public.payroll_records where id='fd600000-0000-4000-8000-000000000006';
+grant select on deduction_lifecycle_transition_payloads to authenticated;
+set local role authenticated;
 select public.bulk_approve_payroll_records(
-  (select jsonb_build_array(jsonb_build_object('id',id,'updated_at',updated_at)) from public.payroll_records where id='fd600000-0000-4000-8000-000000000005'),
+  (select payload from deduction_lifecycle_transition_payloads where name='approve'),
   date '2026-08-04',date '2026-08-15','fd800000-0000-4000-8000-000000000005'
 );
 select public.bulk_approve_payroll_records(
-  (select jsonb_build_array(jsonb_build_object('id',id,'updated_at',updated_at)) from public.payroll_records where id='fd600000-0000-4000-8000-000000000006'),
+  (select payload from deduction_lifecycle_transition_payloads where name='pay'),
   date '2026-08-05',date '2026-08-15','fd800000-0000-4000-8000-000000000006'
 );
 select public.bulk_mark_payroll_records_paid(
-  (select jsonb_build_array(jsonb_build_object('id',id,'updated_at',updated_at)) from public.payroll_records where id='fd600000-0000-4000-8000-000000000006'),
+  (select payload from deduction_lifecycle_transition_payloads where name='pay'),
   date '2026-08-05',date '2026-08-15','fd900000-0000-4000-8000-000000000006'
 );
+reset role;
 update public.payroll_records set status='draft' where id='fd600000-0000-4000-8000-000000000007';
+set local role authenticated;
 select public.delete_draft_payroll_record('fd600000-0000-4000-8000-000000000007','Detach after return for lifecycle test');
 
 select lives_ok(
@@ -103,5 +119,5 @@ select lives_ok(
 
 reset role;
 select set_config('request.jwt.claims','',true);
-select coalesce(string_agg(result,E'\n'),'ok') as test_suite from finish() result;
+select string_agg(result,E'\n') as test_suite from finish() result;
 rollback;

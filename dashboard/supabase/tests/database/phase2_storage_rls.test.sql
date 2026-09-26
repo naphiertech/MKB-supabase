@@ -151,6 +151,6 @@ select is(
   'direct SQL verification does not remove Storage objects'
 );
 
-select coalesce(string_agg(result, E'\n'), 'ok') as test_suite
+select string_agg(result, E'\n') as test_suite
 from finish() as result;
 rollback;
