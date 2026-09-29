@@ -62,9 +62,31 @@
 
 /* Sileo Toast Presentation & Viewport */
 [data-sileo-viewport] {
-  top: 16px !important;
-  right: 16px !important;
-  z-index: 9999 !important;
+  top: calc(4rem + env(safe-area-inset-top, 0px) + 8px) !important;
+  right: 12px !important;
+  left: 12px !important;
+  width: calc(100vw - 24px) !important;
+  max-width: 420px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  z-index: 1050 !important;
+  pointer-events: none;
+}
+
+[data-sileo-viewport] > * {
+  pointer-events: auto;
+}
+
+@media (min-width: 640px) {
+  [data-sileo-viewport] {
+    top: 16px !important;
+    right: 16px !important;
+    left: auto !important;
+    width: auto !important;
+    max-width: 420px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
 }
 
 /* White Toast Visual Card Style */

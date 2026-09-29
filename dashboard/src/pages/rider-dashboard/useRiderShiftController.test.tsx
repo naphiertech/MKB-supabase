@@ -72,6 +72,19 @@ interface HookInput {
 interface HookResult {
   action: 'closed' | 'completed' | 'time-out' | 'time-in'; canTimeIn: boolean; canTimeOut: boolean;
   isOnline: boolean; onlineStatus: 'online' | 'offline'; duration: string | null;
+  cooldown: {
+    isActive: boolean;
+    secondsRemaining: number;
+    outsideAttempts: number;
+    resetCooldown: () => void;
+  };
+  hubAttendance: {
+    geofence: any;
+    distance: number | null;
+    inGeofence: boolean | null;
+    isInside?: boolean | null;
+    isLoading: boolean;
+  };
   location: {
     position: { lat: number; lng: number; accuracy: number; ts: number };
     positionToUse: { lat: number; lng: number; accuracy: number; ts: number };
@@ -441,5 +454,130 @@ describe('useRiderShiftController characterization', () => {
       title: 'Hub geofence unconfigured',
       tone: 'error',
     }));
+  });
+
+  it('enforces outside attempt limiter and 30s cooldown on 3rd attempt', async () => {
+    mocks.getMyHubAttendanceGeofence.mockResolvedValue({
+      rider_id: 'rider-1',
+      hub_id: 'hub-1',
+      hub_name: 'North Hub',
+      latitude: 10.0,
+      longitude: 130.0,
+      attendance_radius_m: 100,
+      is_configured: true,
+      reason: null,
+      message: null,
+    });
+    await renderController();
+
+    // Attempt 1: Outside
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    expect(mocks.faceState.start).not.toHaveBeenCalled();
+    expect(latest!.cooldown.isActive).toBe(false);
+    expect(latest!.cooldown.outsideAttempts).toBe(1);
+    expect(mocks.pushToast).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'outside-hub-attendance-warning',
+      title: 'Outside Hub attendance area',
+      tone: 'error',
+    }));
+
+    // Attempt 2: Outside
+    mocks.pushToast.mockClear();
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    expect(latest!.cooldown.isActive).toBe(false);
+    expect(latest!.cooldown.outsideAttempts).toBe(2);
+    expect(mocks.pushToast).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'outside-hub-attendance-warning',
+    }));
+
+    // Attempt 3: Activates 30s cooldown
+    mocks.pushToast.mockClear();
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    expect(latest!.cooldown.isActive).toBe(true);
+    expect(latest!.cooldown.secondsRemaining).toBe(30);
+    expect(latest!.cooldown.outsideAttempts).toBe(3);
+    expect(mocks.pushToast).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'outside-hub-attendance-warning',
+      description: expect.stringContaining('Attendance paused for 30s'),
+    }));
+
+    // Attempt 4: During cooldown -> does nothing, does not toast
+    mocks.pushToast.mockClear();
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    expect(mocks.pushToast).not.toHaveBeenCalled();
+    expect(mocks.faceState.start).not.toHaveBeenCalled();
+    expect(latest!.scanner.open).toBe(false);
+
+    // Cooldown ticks down and expires after 30 seconds
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(latest!.cooldown.isActive).toBe(false);
+    expect(latest!.cooldown.secondsRemaining).toBe(0);
+    expect(latest!.cooldown.outsideAttempts).toBe(0);
+  });
+
+  it('immediately overrides cooldown and resets attempts when Rider enters the Hub', async () => {
+    mocks.getMyHubAttendanceGeofence.mockResolvedValue({
+      rider_id: 'rider-1',
+      hub_id: 'hub-1',
+      hub_name: 'North Hub',
+      latitude: 10.0,
+      longitude: 130.0,
+      attendance_radius_m: 100,
+      is_configured: true,
+      reason: null,
+      message: null,
+    });
+    await renderController();
+
+    // Trigger 3 outside attempts to enter cooldown
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    expect(latest!.cooldown.isActive).toBe(true);
+
+    // Rider moves inside the Hub geofence (within 100m of 10.0, 130.0)
+    mocks.geoState = {
+      ...mocks.geoState,
+      position: { lat: 10.0001, lng: 130.0001, accuracy: 5, ts: Date.now() },
+    };
+    await rerenderController();
+
+    // Instant override: cooldown is immediately cancelled and attempts cleared
+    expect(latest!.hubAttendance.inGeofence).toBe(true);
+    expect(latest!.cooldown.isActive).toBe(false);
+    expect(latest!.cooldown.secondsRemaining).toBe(0);
+    expect(latest!.cooldown.outsideAttempts).toBe(0);
+  });
+
+  it('resets outside attempt count when attendance succeeds', async () => {
+    mocks.getMyHubAttendanceGeofence.mockResolvedValue({
+      rider_id: 'rider-1',
+      hub_id: 'hub-1',
+      hub_name: 'North Hub',
+      latitude: 6.9214,
+      longitude: 122.079,
+      attendance_radius_m: 100,
+      is_configured: true,
+      reason: null,
+      message: null,
+    });
+    mocks.recordTimeIn.mockResolvedValueOnce({
+      id: 'attendance-1',
+      date: '2026-09-29',
+      rawTimeIn: '08:00',
+    });
+    await renderController();
+
+    // Trigger matched face scan
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    mocks.faceState = {
+      ...mocks.faceState,
+      phase: 'matched',
+      result: { matched: true, confidence: 0.95, capturedAt: Date.now() },
+    };
+    await rerenderController();
+
+    expect(latest!.cooldown.outsideAttempts).toBe(0);
+    expect(latest!.cooldown.isActive).toBe(false);
   });
 });

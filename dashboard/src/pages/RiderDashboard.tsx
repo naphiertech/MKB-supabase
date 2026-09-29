@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Clock } from 'lucide-react';
 import {
   getRiderPayrollHistory,
   cacheRiderFaceDescriptor,
@@ -209,6 +210,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
     onlineStatus,
     duration,
     hubAttendance,
+    cooldown,
     location: {
       position,
       positionToUse,
@@ -298,22 +300,43 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
             Attendance · Face Verified
           </div>
           <h2 className="text-foreground font-semibold text-lg sm:text-xl tracking-tight mt-1">
-            {action === 'closed' ?
-              "Today's attendance has already been finalized." :
-              action === 'time-in' ?
-                'Ready to clock in?' :
-                action === 'time-out' ?
-                  "Wrapping up? Let's clock you out." :
-                  'You are all done for today.'}
+            {cooldown?.isActive ?
+              'Attendance temporarily paused' :
+              action === 'closed' ?
+                "Today's attendance has already been finalized." :
+                action === 'time-in' ?
+                  'Ready to clock in?' :
+                  action === 'time-out' ?
+                    "Wrapping up? Let's clock you out." :
+                    'You are all done for today.'}
           </h2>
         </div>
 
         <AttendanceButton
           action={action}
-          disabled={restricted || ((action === 'time-in' && !canTimeIn) || (action === 'time-out' && !canTimeOut))}
+          disabled={restricted || Boolean(cooldown?.isActive) || ((action === 'time-in' && !canTimeIn) || (action === 'time-out' && !canTimeOut))}
+          disabledLabel={cooldown?.isActive ? 'ATTENDANCE PAUSED' : undefined}
+          disabledSub={cooldown?.isActive ? `Try again in 00:${String(cooldown.secondsRemaining).padStart(2, '0')}` : undefined}
           onClick={() =>
             openScan(action === 'time-out' ? 'time-out' : 'time-in')
           } />
+
+        {cooldown?.isActive && (
+          <div className="mx-auto mt-4 max-w-md rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 text-center shadow-xs">
+            <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-900">
+              <Clock className="w-3.5 h-3.5 text-amber-700" />
+              <span>Attendance temporarily paused</span>
+            </div>
+            <p className="mt-1 text-xs text-amber-800">
+              {hubAttendance?.geofence?.hub_name
+                ? `Move inside ${hubAttendance.geofence.hub_name} attendance area or wait 00:${String(cooldown.secondsRemaining).padStart(2, '0')}.`
+                : `Move inside Hub attendance area or wait 00:${String(cooldown.secondsRemaining).padStart(2, '0')}.`}
+            </p>
+            <div className="mt-1.5 font-mono text-[11px] font-medium text-amber-700">
+              Try again in 00:{String(cooldown.secondsRemaining).padStart(2, '0')}
+            </div>
+          </div>
+        )}
 
         {(action === 'time-in' || action === 'time-out') && locationLoading && !hasVerifiedPosition && (
           <p className="text-center text-xs text-primary animate-pulse mt-3 font-mono">
@@ -421,6 +444,10 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
               position={positionToUse}
               zone={zone!}
               inZone={inZoneToUse!}
+              hub={hubAttendance?.geofence ? {
+                ...hubAttendance.geofence,
+                distance: hubAttendance.distance,
+              } : null}
               height="320px" />
 
             {(!timeIn || timeOut) && !activeViolation ? null : (
