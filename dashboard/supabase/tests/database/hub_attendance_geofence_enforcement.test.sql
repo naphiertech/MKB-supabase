@@ -248,11 +248,12 @@ select throws_ok(
   'Rider direct attendance_logs INSERT is blocked by RLS'
 );
 
--- Direct table UPDATE on attendance_logs by Rider is rejected by RLS
-select throws_ok(
-  $$update public.attendance_logs set status = 'late' where rider_id = 'c5000000-0000-4000-8000-000000000001'$$,
-  '42501',
-  null,
+-- Direct table UPDATE on attendance_logs by Rider cannot alter attendance_logs (RLS filters out row)
+update public.attendance_logs set status = 'late' where rider_id = 'c5000000-0000-4000-8000-000000000001';
+
+select is(
+  (select status::text from public.attendance_logs where rider_id = 'c5000000-0000-4000-8000-000000000001'),
+  'present',
   'Rider direct attendance_logs UPDATE is blocked by RLS'
 );
 
@@ -260,7 +261,11 @@ select throws_ok(
 -- TEST 8: EVIDENCE IMMUTABILITY
 -- ============================================================================
 
--- Attempt to update evidence table is blocked
+-- Switch to privileged role to verify immutable trigger (authenticated is denied by permissions)
+reset role;
+select set_config('request.jwt.claims', '', true);
+
+-- Attempt to update evidence table is blocked by immutable trigger
 select throws_ok(
   $$update public.attendance_geofence_events set distance_meters = 0 where rider_id = 'c5000000-0000-4000-8000-000000000001'$$,
   '23514',
@@ -268,7 +273,7 @@ select throws_ok(
   'attendance_geofence_events rows cannot be updated'
 );
 
--- Attempt to delete evidence table is blocked
+-- Attempt to delete evidence table is blocked by immutable trigger
 select throws_ok(
   $$delete from public.attendance_geofence_events where rider_id = 'c5000000-0000-4000-8000-000000000001'$$,
   '23514',
@@ -279,9 +284,6 @@ select throws_ok(
 -- ============================================================================
 -- TEST 9: EVIDENCE SNAPSHOT PRESERVATION ON HUB MODIFICATION
 -- ============================================================================
-
-reset role;
-select set_config('request.jwt.claims', '', true);
 
 -- Admin modifies Hub radius from 300m to 1000m
 update public.hubs
