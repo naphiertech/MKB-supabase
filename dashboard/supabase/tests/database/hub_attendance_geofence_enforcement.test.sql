@@ -9,17 +9,17 @@ select plan(30);
 
 -- Setup test hubs
 -- Hub 1: Configured (Ayala Hub, Manila center: 14.5547, 121.0244, radius 300m)
--- Hub 2: Unconfigured (legacy hub without geofence triad)
--- Hub 3: Other Hub
+-- Hub 2: Intended to simulate legacy unconfigured hub (seeded valid, then updated to NULLs)
+-- Hub 3: Other Hub (Quezon City Hub: 14.6500, 121.0300, radius 500m)
 insert into public.hubs (id, name, active, latitude, longitude, attendance_radius_m) values
   ('a5000000-0000-4000-8000-000000000001', 'Ayala Central Hub', true, 14.5547000, 121.0244000, 300),
+  ('a5000000-0000-4000-8000-000000000002', 'Unconfigured Hub', true, 6.9214000, 122.0790000, 300),
   ('a5000000-0000-4000-8000-000000000003', 'Quezon City Hub', true, 14.6500000, 121.0300000, 500);
 
--- Legacy unconfigured hub (all 3 NULL triad)
-insert into public.hubs (id, name, active, latitude, longitude, attendance_radius_m)
-overriding system value
-values
-  ('a5000000-0000-4000-8000-000000000002', 'Unconfigured Hub', true, null, null, null);
+-- Safely simulate legacy unconfigured hub (triad updated to all NULL, respecting hubs_geofence_triad_check)
+update public.hubs
+set latitude = null, longitude = null, attendance_radius_m = null
+where id = 'a5000000-0000-4000-8000-000000000002';
 
 -- Setup auth users & riders
 -- Rider 1: Assigned to Ayala Central Hub
