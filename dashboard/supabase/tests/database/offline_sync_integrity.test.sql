@@ -32,7 +32,7 @@ select set_config(
   true
 );
 
-select lives_ok(
+select throws_ok(
   $$insert into public.attendance_logs (id, rider_id, date, time_in, status, source)
     values (
       '30000000-0000-4000-8000-000000000011',
@@ -42,7 +42,22 @@ select lives_ok(
       'present',
       'face-scan'
     )$$,
-  'a rider can create their own attendance row'
+  '42501',
+  null,
+  'direct rider attendance insert is blocked by authoritative geofence policy'
+);
+
+reset role;
+select set_config('request.jwt.claims', '', true);
+
+insert into public.attendance_logs (id, rider_id, date, time_in, status, source)
+values (
+  '30000000-0000-4000-8000-000000000011',
+  '20000000-0000-4000-8000-000000000011',
+  date '2026-08-05',
+  timestamptz '2026-08-05 08:00:00+08',
+  'present',
+  'face-scan'
 );
 
 select throws_ok(
@@ -60,6 +75,13 @@ select throws_ok(
   'duplicate rider/day attendance is rejected'
 );
 
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000011","role":"authenticated"}',
+  true
+);
+
 select throws_ok(
   $$insert into public.attendance_logs (id, rider_id, date, time_in, status, source)
     values (
@@ -74,6 +96,9 @@ select throws_ok(
   null,
   'a rider cannot create attendance for another rider'
 );
+
+reset role;
+select set_config('request.jwt.claims', '', true);
 
 select throws_ok(
   $$insert into public.attendance_logs (id, rider_id, date, time_in, status, source)
@@ -97,6 +122,13 @@ select throws_ok(
   '23514',
   null,
   'Time Out cannot occur before Time In'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000011","role":"authenticated"}',
+  true
 );
 
 select lives_ok(

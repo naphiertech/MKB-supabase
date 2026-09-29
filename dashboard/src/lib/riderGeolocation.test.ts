@@ -56,7 +56,7 @@ describe('rider geolocation integrity', () => {
     });
   });
 
-  it('accepts a recent real position for Time In and never requires GPS for Time Out', () => {
+  it('accepts a recent real position for both Time In and Time Out', () => {
     const now = 1_754_300_000_000;
     const recent: GeoPosition = {
       lat: 6.9214,
@@ -69,6 +69,8 @@ describe('rider geolocation integrity', () => {
     expect(canStartRiderAttendance('time-in', recent, now)).toBe(true);
     expect(canStartRiderAttendance('time-in', stale, now)).toBe(false);
     expect(canStartRiderAttendance('time-in', null, now)).toBe(false);
-    expect(canStartRiderAttendance('time-out', null, now)).toBe(true);
+    expect(canStartRiderAttendance('time-out', recent, now)).toBe(true);
+    expect(canStartRiderAttendance('time-out', stale, now)).toBe(false);
+    expect(canStartRiderAttendance('time-out', null, now)).toBe(false);
   });
 });
