@@ -27,28 +27,28 @@ where id = 'a5000000-0000-4000-8000-000000000002';
 -- Rider 3: No Hub Assigned
 -- Staff: HR user
 insert into auth.users (id, email) values
-  ('u5000000-0000-4000-8000-000000000001', 'rider.ayala@example.test'),
-  ('u5000000-0000-4000-8000-000000000002', 'rider.unconfigured@example.test'),
-  ('u5000000-0000-4000-8000-000000000003', 'rider.nohub@example.test'),
-  ('u5000000-0000-4000-8000-000000000004', 'hr.staff@example.test');
+  ('b5000000-0000-4000-8000-000000000001', 'rider.ayala@example.test'),
+  ('b5000000-0000-4000-8000-000000000002', 'rider.unconfigured@example.test'),
+  ('b5000000-0000-4000-8000-000000000003', 'rider.nohub@example.test'),
+  ('b5000000-0000-4000-8000-000000000004', 'hr.staff@example.test');
 
 insert into public.riders (id, name, mkb_id, email, hub_id, status) values
-  ('r5000000-0000-4000-8000-000000000001', 'Ayala Rider', 'TEST-AYALA-01', 'rider.ayala@example.test', 'a5000000-0000-4000-8000-000000000001', 'active'),
-  ('r5000000-0000-4000-8000-000000000002', 'Unconfigured Rider', 'TEST-UNCFG-02', 'rider.unconfigured@example.test', 'a5000000-0000-4000-8000-000000000002', 'active'),
-  ('r5000000-0000-4000-8000-000000000003', 'NoHub Rider', 'TEST-NOHUB-03', 'rider.nohub@example.test', null, 'active');
+  ('c5000000-0000-4000-8000-000000000001', 'Ayala Rider', 'TEST-AYALA-01', 'rider.ayala@example.test', 'a5000000-0000-4000-8000-000000000001', 'active'),
+  ('c5000000-0000-4000-8000-000000000002', 'Unconfigured Rider', 'TEST-UNCFG-02', 'rider.unconfigured@example.test', 'a5000000-0000-4000-8000-000000000002', 'active'),
+  ('c5000000-0000-4000-8000-000000000003', 'NoHub Rider', 'TEST-NOHUB-03', 'rider.nohub@example.test', null, 'active');
 
 insert into public.users (id, full_name, email, role, status, employment_status, rider_id) values
-  ('u5000000-0000-4000-8000-000000000001', 'Ayala Rider', 'rider.ayala@example.test', 'rider', 'active', 'active', 'r5000000-0000-4000-8000-000000000001'),
-  ('u5000000-0000-4000-8000-000000000002', 'Unconfigured Rider', 'rider.unconfigured@example.test', 'rider', 'active', 'active', 'r5000000-0000-4000-8000-000000000002'),
-  ('u5000000-0000-4000-8000-000000000003', 'NoHub Rider', 'rider.nohub@example.test', 'rider', 'active', 'active', 'r5000000-0000-4000-8000-000000000003'),
-  ('u5000000-0000-4000-8000-000000000004', 'HR Staff', 'hr.staff@example.test', 'hr', 'active', 'active', null);
+  ('b5000000-0000-4000-8000-000000000001', 'Ayala Rider', 'rider.ayala@example.test', 'rider', 'active', 'active', 'c5000000-0000-4000-8000-000000000001'),
+  ('b5000000-0000-4000-8000-000000000002', 'Unconfigured Rider', 'rider.unconfigured@example.test', 'rider', 'active', 'active', 'c5000000-0000-4000-8000-000000000002'),
+  ('b5000000-0000-4000-8000-000000000003', 'NoHub Rider', 'rider.nohub@example.test', 'rider', 'active', 'active', 'c5000000-0000-4000-8000-000000000003'),
+  ('b5000000-0000-4000-8000-000000000004', 'HR Staff', 'hr.staff@example.test', 'hr', 'active', 'active', null);
 
 -- ============================================================================
 -- TEST 1: FRONTEND PRE-CHECK RPC (get_my_hub_attendance_geofence)
 -- ============================================================================
 
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"u5000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 select is(
   (select (public.get_my_hub_attendance_geofence() ->> 'is_configured')::boolean),
@@ -63,7 +63,7 @@ select is(
 );
 
 -- Rider 2 (Unconfigured Hub)
-select set_config('request.jwt.claims', '{"sub":"u5000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 
 select is(
   (select public.get_my_hub_attendance_geofence() ->> 'reason'),
@@ -72,7 +72,7 @@ select is(
 );
 
 -- Rider 3 (No Hub Assigned)
-select set_config('request.jwt.claims', '{"sub":"u5000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 
 select is(
   (select public.get_my_hub_attendance_geofence() ->> 'reason'),
@@ -85,7 +85,7 @@ select is(
 -- ============================================================================
 
 -- Back to Rider 1 (Ayala)
-select set_config('request.jwt.claims', '{"sub":"u5000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 -- Invalid latitude (> 90)
 select throws_ok(
@@ -136,7 +136,7 @@ select throws_ok(
 -- ============================================================================
 
 -- Rider 3 (No assigned Hub) attempts Time In inside Manila
-select set_config('request.jwt.claims', '{"sub":"u5000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 
 select throws_ok(
   $$select public.record_my_time_in(14.5547, 121.0244, 5.0, clock_timestamp())$$,
@@ -146,7 +146,7 @@ select throws_ok(
 );
 
 -- Rider 2 (Unconfigured Hub) attempts Time In
-select set_config('request.jwt.claims', '{"sub":"u5000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 
 select throws_ok(
   $$select public.record_my_time_in(14.5547, 121.0244, 5.0, clock_timestamp())$$,
@@ -160,7 +160,7 @@ select throws_ok(
 -- ============================================================================
 
 -- Rider 1 inside Ayala Hub (at exact coordinates, distance = 0m <= 300m)
-select set_config('request.jwt.claims', '{"sub":"u5000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 select lives_ok(
   $$select public.record_my_time_in(14.5547, 121.0244, 5.0, clock_timestamp())$$,
@@ -169,20 +169,20 @@ select lives_ok(
 
 -- Verify attendance_logs row was created with face-scan source and correct hub_id
 select is(
-  (select count(*)::bigint from public.attendance_logs where rider_id = 'r5000000-0000-4000-8000-000000000001' and status = 'present' and source = 'face-scan'),
+  (select count(*)::bigint from public.attendance_logs where rider_id = 'c5000000-0000-4000-8000-000000000001' and status = 'present' and source = 'face-scan'),
   1::bigint,
   'attendance_logs row was created with status=present and source=face-scan'
 );
 
 -- Verify immutable attendance_geofence_events evidence row
 select is(
-  (select count(*)::bigint from public.attendance_geofence_events where rider_id = 'r5000000-0000-4000-8000-000000000001' and event_type = 'time_in'),
+  (select count(*)::bigint from public.attendance_geofence_events where rider_id = 'c5000000-0000-4000-8000-000000000001' and event_type = 'time_in'),
   1::bigint,
   'attendance_geofence_events records time_in evidence'
 );
 
 select is(
-  (select attendance_radius_m from public.attendance_geofence_events where rider_id = 'r5000000-0000-4000-8000-000000000001' and event_type = 'time_in'),
+  (select attendance_radius_m from public.attendance_geofence_events where rider_id = 'c5000000-0000-4000-8000-000000000001' and event_type = 'time_in'),
   300,
   'evidence captures exact attendance radius (300m)'
 );
@@ -223,14 +223,14 @@ select lives_ok(
 
 -- Verify attendance_logs time_out is now set
 select is(
-  (select (time_out is not null) from public.attendance_logs where rider_id = 'r5000000-0000-4000-8000-000000000001'),
+  (select (time_out is not null) from public.attendance_logs where rider_id = 'c5000000-0000-4000-8000-000000000001'),
   true,
   'attendance_logs time_out is populated'
 );
 
 -- Verify time_out evidence in attendance_geofence_events
 select is(
-  (select count(*)::bigint from public.attendance_geofence_events where rider_id = 'r5000000-0000-4000-8000-000000000001' and event_type = 'time_out'),
+  (select count(*)::bigint from public.attendance_geofence_events where rider_id = 'c5000000-0000-4000-8000-000000000001' and event_type = 'time_out'),
   1::bigint,
   'attendance_geofence_events records time_out evidence'
 );
@@ -242,7 +242,7 @@ select is(
 -- Direct table INSERT on attendance_logs by Rider is rejected by RLS
 select throws_ok(
   $$insert into public.attendance_logs (rider_id, hub_id, date, time_in, status, source)
-    values ('r5000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001', (clock_timestamp() at time zone 'Asia/Manila')::date + 1, clock_timestamp(), 'present', 'face-scan')$$,
+    values ('c5000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001', (clock_timestamp() at time zone 'Asia/Manila')::date + 1, clock_timestamp(), 'present', 'face-scan')$$,
   '42501',
   null,
   'Rider direct attendance_logs INSERT is blocked by RLS'
@@ -250,7 +250,7 @@ select throws_ok(
 
 -- Direct table UPDATE on attendance_logs by Rider is rejected by RLS
 select throws_ok(
-  $$update public.attendance_logs set status = 'late' where rider_id = 'r5000000-0000-4000-8000-000000000001'$$,
+  $$update public.attendance_logs set status = 'late' where rider_id = 'c5000000-0000-4000-8000-000000000001'$$,
   '42501',
   null,
   'Rider direct attendance_logs UPDATE is blocked by RLS'
@@ -262,7 +262,7 @@ select throws_ok(
 
 -- Attempt to update evidence table is blocked
 select throws_ok(
-  $$update public.attendance_geofence_events set distance_meters = 0 where rider_id = 'r5000000-0000-4000-8000-000000000001'$$,
+  $$update public.attendance_geofence_events set distance_meters = 0 where rider_id = 'c5000000-0000-4000-8000-000000000001'$$,
   '23514',
   null,
   'attendance_geofence_events rows cannot be updated'
@@ -270,7 +270,7 @@ select throws_ok(
 
 -- Attempt to delete evidence table is blocked
 select throws_ok(
-  $$delete from public.attendance_geofence_events where rider_id = 'r5000000-0000-4000-8000-000000000001'$$,
+  $$delete from public.attendance_geofence_events where rider_id = 'c5000000-0000-4000-8000-000000000001'$$,
   '23514',
   null,
   'attendance_geofence_events rows cannot be deleted'
@@ -290,7 +290,7 @@ where id = 'a5000000-0000-4000-8000-000000000001';
 
 -- Historical evidence snapshot STILL retains original radius 300m
 select is(
-  (select attendance_radius_m from public.attendance_geofence_events where rider_id = 'r5000000-0000-4000-8000-000000000001' and event_type = 'time_in'),
+  (select attendance_radius_m from public.attendance_geofence_events where rider_id = 'c5000000-0000-4000-8000-000000000001' and event_type = 'time_in'),
   300,
   'Hub radius alteration does NOT rewrite historical attendance geofence evidence'
 );
@@ -301,13 +301,13 @@ select is(
 
 -- HR user can directly insert attendance (e.g. manual DTR correction)
 set local role authenticated;
-select set_config('request.jwt.claims', '{"sub":"u5000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
 
 select lives_ok(
   $$insert into public.attendance_logs (id, rider_id, hub_id, date, time_in, time_out, status, source)
     values (
       '35000000-0000-4000-8000-000000000002',
-      'r5000000-0000-4000-8000-000000000002',
+      'c5000000-0000-4000-8000-000000000002',
       'a5000000-0000-4000-8000-000000000002',
       (clock_timestamp() at time zone 'Asia/Manila')::date - 1,
       clock_timestamp() - interval '1 day',
