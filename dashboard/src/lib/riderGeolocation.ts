@@ -62,9 +62,9 @@ export function isRecentRiderPosition(
 }
 
 export function canStartRiderAttendance(
-  action: 'time-in' | 'time-out',
+  _action: 'time-in' | 'time-out',
   position: GeoPosition | null,
   now = Date.now()
 ): boolean {
-  return action === 'time-out' || isRecentRiderPosition(position, now);
+  return isRecentRiderPosition(position, now);
 }

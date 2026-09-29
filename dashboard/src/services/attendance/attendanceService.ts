@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabaseClient';
 import { type AttendanceLog, type AttendanceStatus, type AttendancePresence, type PunctualityStatus } from '../types';
 import { getCachedAvatar } from '../../lib/avatarCache';
-import { createSyncOperationId, getStorageAdapter, type QueueEnqueueInput } from '../../lib/storage';
+import { type QueueEnqueueInput } from '../../lib/storage';
 import { dispatchNotificationSafe } from '../notifications/notificationService';
 import { downloadCsv } from '../../lib/exports/exportUtils';
 import {
@@ -344,132 +344,118 @@ export async function getRiderAttendanceInDateRange(riderId: string, dateFrom: s
   );
 }
 
-export async function recordTimeIn(riderId: string, zoneId?: string, cutoffHour = 17): Promise<AttendanceLog | null> {
+export interface HubAttendanceGeofence {
+  hub_id: string | null;
+  hub_name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  attendance_radius_m: number | null;
+  is_configured: boolean;
+  reason: string | null;
+  message: string | null;
+}
+
+export function formatAttendanceErrorMessage(rawError?: string | null): string {
+  if (!rawError) return 'An unexpected error occurred while recording attendance.';
+  const msg = rawError.trim();
+
+  if (msg.includes('OUTSIDE_HUB_GEOFENCE')) {
+    const parts = msg.split('OUTSIDE_HUB_GEOFENCE:');
+    if (parts.length > 1) {
+      return `You're outside your Hub attendance area. ${parts[1].trim()}`;
+    }
+    return "You're outside your Hub attendance area. Move within the allowed radius to continue.";
+  }
+  if (msg.includes('NO_ASSIGNED_HUB')) {
+    return 'No assigned Hub was found for your account. Please contact your administrator.';
+  }
+  if (msg.includes('HUB_GEOFENCE_NOT_CONFIGURED')) {
+    return 'Attendance location has not been configured for your Hub. Please contact your administrator.';
+  }
+  if (msg.includes('STALE_GPS_POSITION')) {
+    return 'Your location is outdated. Please wait for a fresh GPS signal.';
+  }
+  if (msg.includes('FUTURE_GPS_TIMESTAMP')) {
+    return 'Your device clock appears incorrect. Please check your system date and time.';
+  }
+  if (msg.includes('INVALID_COORDINATES') || msg.includes('MISSING_GPS_TIMESTAMP')) {
+    return 'Current location is required to record attendance.';
+  }
+  if (msg.includes('ATTENDANCE_CLOSED')) {
+    return "Today's attendance has already been finalized.";
+  }
+  if (msg.includes('DUPLICATE_TIME_IN')) {
+    return 'Time In has already been recorded for today.';
+  }
+  if (msg.includes('NO_ACTIVE_SHIFT')) {
+    return 'No active shift found to clock out from.';
+  }
+  if (msg.includes('ALREADY_TIMED_OUT')) {
+    return 'Time Out has already been recorded for today.';
+  }
+  if (msg.includes('RIDER_NOT_OPERATIONAL')) {
+    return 'Your account is currently inactive or not operational.';
+  }
+  if (msg.includes('42501') || msg.includes('violates row-level security')) {
+    return 'Attendance must be recorded through verified location scanning.';
+  }
+  return msg;
+}
+
+export async function getMyHubAttendanceGeofence(): Promise<HubAttendanceGeofence> {
+  const { data, error } = await supabase.rpc('get_my_hub_attendance_geofence');
+  if (error) {
+    console.error('Error fetching hub attendance geofence:', error);
+    throw new Error(formatAttendanceErrorMessage(error.message));
+  }
+  return data as unknown as HubAttendanceGeofence;
+}
+
+export interface TimeInOptions {
+  lat?: number;
+  lng?: number;
+  accuracy?: number;
+  positionTimestamp?: string | number;
+  zoneId?: string;
+}
+
+export async function recordTimeIn(
+  riderId: string,
+  optionsOrZoneId?: TimeInOptions | string,
+  cutoffHour = 17
+): Promise<AttendanceLog | null> {
   const today = getLocalDateString();
 
-  // Strictly enforce cutoff finalization rule: Reject time-in if attendance is finalized
   if (isAttendanceFinalized(today, cutoffHour)) {
     throw new Error("Attendance Closed: Today's attendance has already been finalized.");
   }
 
-  const now = new Date().toISOString();
-  const logId = createSyncOperationId();
-
   if (!navigator.onLine) {
-    console.log('[OfflineSync] Offline detected. Queuing TIME_IN event...', logId);
-    try {
-      const storage = getStorageAdapter();
-      await storage.enqueue({
-        action: 'TIME_IN',
-        riderId,
-        idempotencyKey: logId,
-        eventTimestamp: now,
-        payload: {
-          id: logId,
-          attendance_log_id: logId,
-          rider_id: riderId,
-          date: today,
-          time_in: now,
-          status: 'present',
-          source: 'face-scan'
-        },
-        priority: 1
-      });
-    } catch (err) {
-      console.error('[OfflineSync] Failed to enqueue TIME_IN event:', err);
-      throw new Error('Unable to save Time In for later synchronization.');
-    }
-
-    return {
-      id: logId,
-      riderId,
-      riderName: '',
-      riderAvatar: '',
-      date: today,
-      timeIn: toHHMM(now),
-      timeOut: null,
-      rawTimeIn: now,
-      rawTimeOut: null,
-      hours: 0,
-      zoneId: zoneId || '',
-      zoneName: '',
-      status: 'present',
-      presence: 'present',
-      punctuality: 'on_time',
-      source: 'face-scan',
-      events: []
-    };
+    throw new Error('An active internet connection is required to record attendance and verify your Hub location.');
   }
 
-  // Check if an existing system-generated absent record exists for today
-  const { data: existingSystemLog } = await supabase
-    .from('attendance_logs')
-    .select('id')
-    .eq('rider_id', riderId)
-    .eq('date', today)
-    .eq('source', 'system')
-    .maybeSingle();
+  const options: TimeInOptions = typeof optionsOrZoneId === 'string'
+    ? { zoneId: optionsOrZoneId }
+    : optionsOrZoneId || {};
 
-  const targetLogId = existingSystemLog?.id || logId;
+  if (options.lat == null || options.lng == null) {
+    throw new Error('Current location is required to record attendance.');
+  }
 
-  const { data, error } = await supabase
-    .from('attendance_logs')
-    .upsert({
-      id: targetLogId,
-      rider_id: riderId,
-      date: today,
-      time_in: now,
-      status: 'present',
-      source: 'face-scan',
-      notes: null
-    })
-    .select('*')
-    .single();
+  const posTs = options.positionTimestamp
+    ? new Date(options.positionTimestamp).toISOString()
+    : new Date().toISOString();
 
-  if (error) {
-    console.error('Error recording time-in on Supabase, falling back to local queue:', error);
-    try {
-      const storage = getStorageAdapter();
-      await storage.enqueue({
-        action: 'TIME_IN',
-        riderId,
-        idempotencyKey: logId,
-        eventTimestamp: now,
-        payload: {
-          id: targetLogId,
-          attendance_log_id: targetLogId,
-          rider_id: riderId,
-          date: today,
-          time_in: now,
-          status: 'present',
-          source: 'face-scan'
-        },
-        priority: 1
-      });
-    } catch (err) {
-      console.error('[OfflineSync] Failed to enqueue TIME_IN fallback event:', err);
-      throw new Error('Unable to save Time In for later synchronization.');
-    }
+  const { data, error } = await supabase.rpc('record_my_time_in', {
+    p_latitude: options.lat,
+    p_longitude: options.lng,
+    p_accuracy: options.accuracy ?? null,
+    p_position_timestamp: posTs,
+  });
 
-    return {
-      id: targetLogId,
-      riderId,
-      riderName: '',
-      riderAvatar: '',
-      date: today,
-      timeIn: toHHMM(now),
-      timeOut: null,
-      rawTimeIn: now,
-      rawTimeOut: null,
-      hours: 0,
-      zoneId: zoneId || '',
-      zoneName: '',
-      status: 'present',
-      presence: 'present',
-      punctuality: 'on_time',
-      source: 'face-scan',
-      events: []
-    };
+  if (error || !data) {
+    console.error('Error recording Time In via RPC:', error);
+    throw new Error(formatAttendanceErrorMessage(error?.message));
   }
 
   // Non-blocking notification dispatch for Time-In
@@ -484,18 +470,20 @@ export async function recordTimeIn(riderId: string, zoneId?: string, cutoffHour 
     targetRoles: ['hr', 'admin']
   });
 
+  const timeInIso = data.time_in as string;
+
   return {
-    id: data.id,
+    id: data.attendance_log_id,
     riderId: data.rider_id,
     riderName: '',
     riderAvatar: '',
     date: data.date,
-    timeIn: toHHMM(data.time_in),
+    timeIn: toHHMM(timeInIso),
     timeOut: null,
-    rawTimeIn: data.time_in,
+    rawTimeIn: timeInIso,
     rawTimeOut: null,
     hours: 0,
-    zoneId: zoneId || '',
+    zoneId: options.zoneId || '',
     zoneName: '',
     status: 'present',
     presence: 'present',
@@ -510,6 +498,8 @@ export interface TimeOutContext {
   date: string;
   lat?: number;
   lng?: number;
+  accuracy?: number;
+  positionTimestamp?: string | number;
 }
 
 export function buildTimeOutQueueOperation(
@@ -538,44 +528,29 @@ export function buildTimeOutQueueOperation(
   };
 }
 
-export async function recordTimeOut(logId: string, context: TimeOutContext): Promise<boolean> {
-  const now = new Date().toISOString();
-  const idempotencyKey = createSyncOperationId();
-  const queuedOperation = buildTimeOutQueueOperation(logId, context, now, idempotencyKey);
-
+export async function recordTimeOut(_logId: string, context: TimeOutContext): Promise<boolean> {
   if (!navigator.onLine) {
-    console.log('[OfflineSync] Offline detected. Queuing TIME_OUT event...', logId);
-    try {
-      const storage = getStorageAdapter();
-      await storage.enqueue(queuedOperation);
-    } catch (err) {
-      console.error('[OfflineSync] Failed to enqueue TIME_OUT event:', err);
-      throw new Error('Unable to save Time Out for later synchronization.');
-    }
-    return true;
+    throw new Error('An active internet connection is required to record attendance and verify your Hub location.');
   }
 
-  const { data, error } = await supabase
-    .from('attendance_logs')
-    .update({
-      time_out: now
-    })
-    .eq('id', logId)
-    .eq('rider_id', context.riderId)
-    .eq('date', context.date)
-    .select('id')
-    .maybeSingle();
+  if (context.lat == null || context.lng == null) {
+    throw new Error('Current location is required to record attendance.');
+  }
+
+  const posTs = context.positionTimestamp
+    ? new Date(context.positionTimestamp).toISOString()
+    : new Date().toISOString();
+
+  const { data, error } = await supabase.rpc('record_my_time_out', {
+    p_latitude: context.lat,
+    p_longitude: context.lng,
+    p_accuracy: context.accuracy ?? null,
+    p_position_timestamp: posTs,
+  });
 
   if (error || !data) {
-    console.error('Error recording time-out on Supabase, falling back to local queue:', error || 'Attendance row not found');
-    try {
-      const storage = getStorageAdapter();
-      await storage.enqueue(queuedOperation);
-    } catch (err) {
-      console.error('[OfflineSync] Failed to enqueue TIME_OUT fallback event:', err);
-      throw new Error('Unable to save Time Out for later synchronization.');
-    }
-    return true;
+    console.error('Error recording Time Out via RPC:', error);
+    throw new Error(formatAttendanceErrorMessage(error?.message));
   }
 
   // Non-blocking notification dispatch for Time-Out after DB update succeeds

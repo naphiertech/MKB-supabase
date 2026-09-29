@@ -205,8 +205,10 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
   const {
     action,
     canTimeIn,
+    canTimeOut,
     onlineStatus,
     duration,
+    hubAttendance,
     location: {
       position,
       positionToUse,
@@ -308,21 +310,21 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
 
         <AttendanceButton
           action={action}
-          disabled={restricted || (action === 'time-in' && !canTimeIn)}
+          disabled={restricted || ((action === 'time-in' && !canTimeIn) || (action === 'time-out' && !canTimeOut))}
           onClick={() =>
             openScan(action === 'time-out' ? 'time-out' : 'time-in')
           } />
 
-        {action === 'time-in' && locationLoading && !hasVerifiedPosition && (
+        {(action === 'time-in' || action === 'time-out') && locationLoading && !hasVerifiedPosition && (
           <p className="text-center text-xs text-primary animate-pulse mt-3 font-mono">
             Waiting for GPS coordinates lock...
           </p>
         )}
 
-        {action === 'time-in' && locationError && !canTimeIn && (
+        {(action === 'time-in' || action === 'time-out') && locationError && !(action === 'time-in' ? canTimeIn : canTimeOut) && (
           <div className="mx-auto mt-3 max-w-md rounded-lg border border-red-200 bg-red-50 p-3 text-center">
             <p className="text-xs font-medium text-red-700">
-              Real GPS is unavailable. Enable precise location access before recording Time In.
+              Real GPS is unavailable. Enable precise location access before recording {action === 'time-in' ? 'Time In' : 'Time Out'}.
             </p>
             <button
               type="button"
@@ -331,6 +333,35 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
             >
               Retry GPS
             </button>
+          </div>
+        )}
+
+        {hubAttendance?.geofence && (
+          <div className="mt-3 flex items-center justify-center">
+            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+              hubAttendance.inGeofence === true
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : hubAttendance.inGeofence === false
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : 'bg-muted/50 text-muted-foreground border border-border'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${
+                hubAttendance.inGeofence === true
+                  ? 'bg-emerald-500'
+                  : hubAttendance.inGeofence === false
+                    ? 'bg-amber-500'
+                    : 'bg-muted-foreground'
+              }`} />
+              <span>
+                {hubAttendance.geofence.is_configured
+                  ? hubAttendance.inGeofence === true
+                    ? `Inside Hub Geofence (${Math.round(hubAttendance.distance ?? 0)}m · ${hubAttendance.geofence.hub_name || 'Hub'})`
+                    : hubAttendance.inGeofence === false
+                      ? `Outside Hub Geofence (${Math.round(hubAttendance.distance ?? 0)}m of ${Math.round(hubAttendance.geofence.attendance_radius_m || 0)}m · ${hubAttendance.geofence.hub_name || 'Hub'})`
+                      : `Hub: ${hubAttendance.geofence.hub_name || 'Assigned'} (radius: ${Math.round(hubAttendance.geofence.attendance_radius_m || 0)}m)`
+                  : 'Hub geofence not configured'}
+              </span>
+            </div>
           </div>
         )}
 

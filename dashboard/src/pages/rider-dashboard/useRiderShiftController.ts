@@ -8,7 +8,13 @@ import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricT
 import { isPointInPolygon } from '../../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../../lib/riderGeolocation';
 import { updateCachedAttendanceState } from '../../services/riders/riderCacheService';
-import { isAttendanceFinalized, recordTimeIn, recordTimeOut } from '../../services/attendance/attendanceService';
+import {
+  getMyHubAttendanceGeofence,
+  isAttendanceFinalized,
+  recordTimeIn,
+  recordTimeOut,
+  type HubAttendanceGeofence,
+} from '../../services/attendance/attendanceService';
 import { logRiderLocation, updateRiderStatus } from '../../services/monitoring/monitoringService';
 import { haversine, type Zone } from '../../services/types';
 import {
@@ -111,7 +117,63 @@ export function useRiderShiftController({
 
   const verifiedPosition = hasVerifiedPosition ? position : null;
   const canTimeIn = !restricted && canStartRiderAttendance('time-in', verifiedPosition);
+  const canTimeOut = !restricted && canStartRiderAttendance('time-out', verifiedPosition);
   const isOnline = !!timeIn && !timeOut;
+
+  const [hubGeofence, setHubGeofence] = useState<HubAttendanceGeofence | null>(null);
+  const [hubGeofenceLoading, setHubGeofenceLoading] = useState(false);
+  const hubGeofenceRef = useRef<HubAttendanceGeofence | null>(null);
+
+  useEffect(() => {
+    hubGeofenceRef.current = hubGeofence;
+  }, [hubGeofence]);
+
+  useEffect(() => {
+    if (!actualRiderId || restricted) {
+      setHubGeofence(null);
+      hubGeofenceRef.current = null;
+      return;
+    }
+    let active = true;
+    setHubGeofenceLoading(true);
+    getMyHubAttendanceGeofence()
+      .then((fence) => {
+        if (!active) return;
+        setHubGeofence(fence);
+        hubGeofenceRef.current = fence;
+      })
+      .catch((err) => {
+        console.warn('[RiderDashboard] Failed to fetch hub attendance geofence:', err);
+      })
+      .finally(() => {
+        if (active) setHubGeofenceLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [actualRiderId, restricted]);
+
+  const hubDistance = useMemo(() => {
+    if (
+      !hubGeofence?.is_configured
+      || hubGeofence.latitude == null
+      || hubGeofence.longitude == null
+      || !hasVerifiedPosition
+    ) {
+      return null;
+    }
+    return haversine(
+      hubGeofence.latitude,
+      hubGeofence.longitude,
+      position.lat,
+      position.lng,
+    );
+  }, [hubGeofence, hasVerifiedPosition, position]);
+
+  const inHubGeofence = useMemo(() => {
+    if (hubDistance === null || hubGeofence?.attendance_radius_m == null) return null;
+    return hubDistance <= hubGeofence.attendance_radius_m;
+  }, [hubDistance, hubGeofence]);
 
   const positionToUse = useMemo(() => {
     if (activeViolation && !isOnline) {
@@ -263,7 +325,7 @@ export function useRiderShiftController({
     };
   }, [timeIn, timeOut, loading, locationLoading, hasVerifiedPosition, actualRiderId, restricted]);
 
-  function openScan(next: 'time-in' | 'time-out') {
+  async function openScan(next: 'time-in' | 'time-out') {
     if (attendanceWriteInFlightRef.current) return;
     if (restricted) {
       pushToast({
@@ -274,15 +336,64 @@ export function useRiderShiftController({
       return;
     }
     const currentPosition = hasVerifiedPositionRef.current ? positionRef.current : null;
-    if (!canStartRiderAttendance(next, currentPosition)) {
+    if (!canStartRiderAttendance(next, currentPosition) || !currentPosition) {
       pushToast({
         title: 'Real GPS required',
-        description: 'Enable precise location and wait for a current GPS reading before recording Time In.',
+        description: `Enable precise location and wait for a current GPS reading before recording ${next === 'time-in' ? 'Time In' : 'Time Out'}.`,
         tone: 'error',
       });
       retryLocation();
       return;
     }
+
+    let fence = hubGeofenceRef.current;
+    if (!fence) {
+      try {
+        fence = await getMyHubAttendanceGeofence();
+        setHubGeofence(fence);
+        hubGeofenceRef.current = fence;
+      } catch (err: any) {
+        console.warn('[RiderDashboard] Hub geofence pre-check lookup failed:', err);
+      }
+    }
+
+    if (fence) {
+      if (!fence.hub_id) {
+        pushToast({
+          title: 'Hub assignment required',
+          description: 'You are not assigned to an operational Hub. Contact your Dispatcher or HR.',
+          tone: 'error',
+        });
+        return;
+      }
+      if (!fence.is_configured || fence.latitude == null || fence.longitude == null || fence.attendance_radius_m == null) {
+        pushToast({
+          title: 'Hub geofence unconfigured',
+          description: `The attendance geofence for ${fence.hub_name || 'your assigned Hub'} has not been configured by an Administrator. Contact your Hub supervisor.`,
+          tone: 'error',
+        });
+        return;
+      }
+
+      const dist = haversine(
+        fence.latitude,
+        fence.longitude,
+        currentPosition.lat,
+        currentPosition.lng,
+      );
+
+      if (dist > fence.attendance_radius_m) {
+        const distM = Math.round(dist);
+        const radiusM = Math.round(fence.attendance_radius_m);
+        pushToast({
+          title: 'Outside Hub attendance area',
+          description: `You're outside the ${fence.hub_name || 'Hub'} attendance area. You are ${distM} m away. Move within ${radiusM} m of the Hub to continue.`,
+          tone: 'error',
+        });
+        return;
+      }
+    }
+
     scanSessionRef.current += 1;
     setPendingAction(next);
     reset();
@@ -358,7 +469,12 @@ export function useRiderShiftController({
         BIOMETRIC_TIMING_NAMES.attendancePersistence('time_in'),
       );
       attendanceWriteInFlightRef.current = true;
-      recordTimeIn(currentRiderId).then(async (newLog) => {
+      recordTimeIn(currentRiderId, {
+        lat: currentVerifiedPosition.lat,
+        lng: currentVerifiedPosition.lng,
+        accuracy: currentVerifiedPosition.accuracy,
+        positionTimestamp: currentVerifiedPosition.ts,
+      }).then(async (newLog) => {
         finishAttendancePersistence();
         if (!newLog) {
           pushToast({
@@ -428,7 +544,7 @@ export function useRiderShiftController({
         console.error('Error ticking in:', err);
         pushToast({
           title: 'Time-In failed',
-          description: 'Database clock-in failed. Please try again.',
+          description: err?.message || 'Database clock-in failed. Please try again.',
           tone: 'error',
         });
       }).finally(() => {
@@ -446,6 +562,17 @@ export function useRiderShiftController({
         return;
       }
 
+      if (!currentVerifiedPosition) {
+        pushToast({
+          title: 'Time-Out paused',
+          description: 'The GPS reading expired during verification. Acquire a new location and try again.',
+          tone: 'error',
+        });
+        setScanOpen(false);
+        retryLocation();
+        return;
+      }
+
       const finishAttendancePersistence = biometricTelemetry.start(
         BIOMETRIC_TIMING_NAMES.attendancePersistence('time_out'),
       );
@@ -453,9 +580,10 @@ export function useRiderShiftController({
       recordTimeOut(activeLogId, {
         riderId: currentRiderId,
         date: getLocalDateString(),
-        ...(currentVerifiedPosition
-          ? { lat: currentVerifiedPosition.lat, lng: currentVerifiedPosition.lng }
-          : {}),
+        lat: currentVerifiedPosition.lat,
+        lng: currentVerifiedPosition.lng,
+        accuracy: currentVerifiedPosition.accuracy,
+        positionTimestamp: currentVerifiedPosition.ts,
       }).then(async (success) => {
         finishAttendancePersistence();
         if (!success) {
@@ -474,8 +602,8 @@ export function useRiderShiftController({
           await updateRiderStatus(
             currentRiderId,
             'offline',
-            currentVerifiedPosition?.lat,
-            currentVerifiedPosition?.lng,
+            currentVerifiedPosition.lat,
+            currentVerifiedPosition.lng,
           );
         } catch (err) {
           console.error('[RiderDashboard] Failed to update offline status:', err);
@@ -526,7 +654,7 @@ export function useRiderShiftController({
         console.error('Error ticking out:', err);
         pushToast({
           title: 'Time-Out failed',
-          description: 'Database clock-out failed. Please try again.',
+          description: err?.message || 'Database clock-out failed. Please try again.',
           tone: 'error',
         });
       }).finally(() => {
@@ -549,9 +677,16 @@ export function useRiderShiftController({
   return {
     action,
     canTimeIn,
+    canTimeOut,
     isOnline,
     onlineStatus: onlineStatus as 'online' | 'offline',
     duration,
+    hubAttendance: {
+      geofence: hubGeofence,
+      distance: hubDistance,
+      inGeofence: inHubGeofence,
+      isLoading: hubGeofenceLoading,
+    },
     location: {
       position,
       positionToUse,

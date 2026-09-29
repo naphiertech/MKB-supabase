@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   },
   useGeolocation: vi.fn(), useFaceRecognition: vi.fn(),
   recordTimeIn: vi.fn(), recordTimeOut: vi.fn(), isAttendanceFinalized: vi.fn(),
+  getMyHubAttendanceGeofence: vi.fn(),
   updateRiderStatus: vi.fn(), logRiderLocation: vi.fn(), updateCachedAttendanceState: vi.fn(),
   pushToast: vi.fn(), telemetryStart: vi.fn(),
 }));
@@ -31,6 +32,7 @@ vi.mock('../../hooks/useFaceRecognition', () => ({ useFaceRecognition: mocks.use
 vi.mock('../../services/attendance/attendanceService', () => ({
   recordTimeIn: mocks.recordTimeIn, recordTimeOut: mocks.recordTimeOut,
   isAttendanceFinalized: mocks.isAttendanceFinalized,
+  getMyHubAttendanceGeofence: mocks.getMyHubAttendanceGeofence,
 }));
 vi.mock('../../services/monitoring/monitoringService', () => ({
   updateRiderStatus: mocks.updateRiderStatus, logRiderLocation: mocks.logRiderLocation,
@@ -68,7 +70,7 @@ interface HookInput {
 }
 
 interface HookResult {
-  action: 'closed' | 'completed' | 'time-out' | 'time-in'; canTimeIn: boolean;
+  action: 'closed' | 'completed' | 'time-out' | 'time-in'; canTimeIn: boolean; canTimeOut: boolean;
   isOnline: boolean; onlineStatus: 'online' | 'offline'; duration: string | null;
   location: {
     position: { lat: number; lng: number; accuracy: number; ts: number };
@@ -128,6 +130,17 @@ describe('useRiderShiftController characterization', () => {
     mocks.useGeolocation.mockImplementation(() => mocks.geoState);
     mocks.useFaceRecognition.mockImplementation(() => mocks.faceState);
     mocks.isAttendanceFinalized.mockReturnValue(false);
+    mocks.getMyHubAttendanceGeofence.mockResolvedValue({
+      rider_id: 'rider-1',
+      hub_id: 'hub-1',
+      hub_name: 'North Hub',
+      latitude: 6.9214,
+      longitude: 122.079,
+      attendance_radius_m: 500,
+      is_configured: true,
+      reason: null,
+      message: null,
+    });
     mocks.recordTimeIn.mockResolvedValue({ id: 'attendance-1', date: '1970-01-01', rawTimeIn: '1970-01-01T00:16:40.000Z' });
     mocks.recordTimeOut.mockResolvedValue(true); mocks.updateRiderStatus.mockResolvedValue(undefined);
     mocks.logRiderLocation.mockResolvedValue(undefined); mocks.updateCachedAttendanceState.mockResolvedValue(undefined);
@@ -153,7 +166,7 @@ describe('useRiderShiftController characterization', () => {
     await act(async () => { root.render(<Probe />); await flushAsyncWork(); });
   }
   async function openAndMatch(action: 'time-in' | 'time-out') {
-    act(() => latest!.scanner.openScan(action));
+    await act(async () => { await latest!.scanner.openScan(action); });
     mocks.faceState = { ...mocks.faceState, phase: 'matched', result: { matched: true, confidence: 0.98, capturedAt: 1_000_000 } };
     await rerenderController();
     await act(async () => { await flushAsyncWork(); });
@@ -163,24 +176,47 @@ describe('useRiderShiftController characterization', () => {
     currentInput.activeViolation = { lat: 99, lng: 88, zoneName: 'Display fallback' };
     await renderController(); expect(latest!.location.positionToUse).toMatchObject({ lat: 99, lng: 88 });
     await openAndMatch('time-in');
-    expect(mocks.recordTimeIn).toHaveBeenCalledWith('rider-1');
+    expect(mocks.recordTimeIn).toHaveBeenCalledWith('rider-1', {
+      lat: 6.9214,
+      lng: 122.079,
+      accuracy: 8,
+      positionTimestamp: 1_000_000,
+    });
     expect(mocks.updateRiderStatus).toHaveBeenCalledWith('rider-1', 'active', 6.9214, 122.079);
     expect(mocks.logRiderLocation).toHaveBeenCalledWith('rider-1', 6.9214, 122.079, 'active');
   });
 
   it('blocks Time In when GPS expires during face verification', async () => {
-    await renderController(); act(() => latest!.scanner.openScan('time-in'));
+    await renderController(); await act(async () => { await latest!.scanner.openScan('time-in'); });
     mocks.geoState = { ...mocks.geoState, position: { ...mocks.geoState.position, ts: 879_999 } };
     mocks.faceState = { ...mocks.faceState, phase: 'matched', result: { matched: true, confidence: 0.98, capturedAt: 1_000_000 } };
     await rerenderController();
     expect(mocks.recordTimeIn).not.toHaveBeenCalled(); expect(mocks.geoState.retry).toHaveBeenCalled();
   });
 
-  it('allows Time Out without GPS and uses the current attendance ID', async () => {
+  it('blocks Time Out when GPS is missing or stale', async () => {
     currentInput.attendance = { id: 'attendance-current', timeIn: '08:00', timeOut: null };
     mocks.geoState = { ...mocks.geoState, hasVerifiedPosition: false, position: { ...mocks.geoState.position, ts: 0 } };
+    await renderController();
+    await act(async () => { await latest!.scanner.openScan('time-out'); });
+    expect(mocks.faceState.start).not.toHaveBeenCalled();
+    expect(mocks.pushToast).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Real GPS required',
+      tone: 'error',
+    }));
+  });
+
+  it('records Time Out with fresh GPS and uses the current attendance ID', async () => {
+    currentInput.attendance = { id: 'attendance-current', timeIn: '08:00', timeOut: null };
     await renderController(); await openAndMatch('time-out');
-    expect(mocks.recordTimeOut).toHaveBeenCalledWith('attendance-current', { riderId: 'rider-1', date: '1970-01-01' });
+    expect(mocks.recordTimeOut).toHaveBeenCalledWith('attendance-current', {
+      riderId: 'rider-1',
+      date: '1970-01-01',
+      lat: 6.9214,
+      lng: 122.079,
+      accuracy: 8,
+      positionTimestamp: 1_000_000,
+    });
   });
 
   it('patches offline Time In cache before reload', async () => {
@@ -197,7 +233,6 @@ describe('useRiderShiftController characterization', () => {
   it('patches offline Time Out cache before reload', async () => {
     const events: string[] = []; Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     currentInput.attendance = { id: 'attendance-current', timeIn: '08:00', timeOut: null };
-    mocks.geoState = { ...mocks.geoState, hasVerifiedPosition: false };
     mocks.recordTimeOut.mockImplementation(async () => { events.push('attendance'); return true; });
     mocks.updateRiderStatus.mockImplementation(async () => { events.push('status'); });
     mocks.updateCachedAttendanceState.mockImplementation(async () => { events.push('cache'); });
@@ -212,14 +247,14 @@ describe('useRiderShiftController characterization', () => {
   });
 
   it('keeps the existing 220ms scanner timing', async () => {
-    await renderController(); act(() => latest!.scanner.openScan('time-in'));
+    await renderController(); await act(async () => { await latest!.scanner.openScan('time-in'); });
     await vi.advanceTimersByTimeAsync(219); expect(mocks.faceState.start).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1); expect(mocks.faceState.start).toHaveBeenCalledOnce();
   });
 
   it('cancels an obsolete scanner start when the scanner closes before 220ms', async () => {
     await renderController();
-    act(() => latest!.scanner.openScan('time-in'));
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
     act(() => latest!.scanner.setOpen(false));
 
     await vi.advanceTimersByTimeAsync(220);
@@ -364,5 +399,47 @@ describe('useRiderShiftController characterization', () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(latestEvents[0]).toMatchObject({ kind: 'geofence_alert', label: 'Boundary alert triggered' });
+  });
+
+  it('blocks face scanner when outside assigned hub attendance radius', async () => {
+    mocks.getMyHubAttendanceGeofence.mockResolvedValueOnce({
+      rider_id: 'rider-1',
+      hub_id: 'hub-1',
+      hub_name: 'North Hub',
+      latitude: 10.0,
+      longitude: 130.0,
+      attendance_radius_m: 100,
+      is_configured: true,
+      reason: null,
+      message: null,
+    });
+    await renderController();
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    expect(mocks.faceState.start).not.toHaveBeenCalled();
+    expect(mocks.pushToast).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Outside Hub attendance area',
+      tone: 'error',
+    }));
+  });
+
+  it('blocks face scanner when hub geofence is unconfigured', async () => {
+    mocks.getMyHubAttendanceGeofence.mockResolvedValueOnce({
+      rider_id: 'rider-1',
+      hub_id: 'hub-1',
+      hub_name: 'North Hub',
+      latitude: null,
+      longitude: null,
+      attendance_radius_m: null,
+      is_configured: false,
+      reason: 'HUB_GEOFENCE_NOT_CONFIGURED',
+      message: null,
+    });
+    await renderController();
+    await act(async () => { await latest!.scanner.openScan('time-in'); });
+    expect(mocks.faceState.start).not.toHaveBeenCalled();
+    expect(mocks.pushToast).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Hub geofence unconfigured',
+      tone: 'error',
+    }));
   });
 });
