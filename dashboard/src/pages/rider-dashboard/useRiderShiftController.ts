@@ -175,6 +175,49 @@ export function useRiderShiftController({
     return hubDistance <= hubGeofence.attendance_radius_m;
   }, [hubDistance, hubGeofence]);
 
+  const [outsideAttempts, setOutsideAttempts] = useState(0);
+  const [cooldownSecondsRemaining, setCooldownSecondsRemaining] = useState(0);
+  const outsideAttemptsRef = useRef(0);
+  const cooldownActiveRef = useRef(false);
+
+  useEffect(() => {
+    if (cooldownSecondsRemaining <= 0) {
+      cooldownActiveRef.current = false;
+      return;
+    }
+    cooldownActiveRef.current = true;
+    const timer = window.setInterval(() => {
+      setCooldownSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          outsideAttemptsRef.current = 0;
+          setOutsideAttempts(0);
+          cooldownActiveRef.current = false;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownSecondsRemaining]);
+
+  // Instant override when Rider enters Hub
+  useEffect(() => {
+    if (inHubGeofence === true) {
+      outsideAttemptsRef.current = 0;
+      setOutsideAttempts(0);
+      cooldownActiveRef.current = false;
+      setCooldownSecondsRemaining(0);
+    }
+  }, [inHubGeofence]);
+
+  // Reset attempt count & cooldown on rider or hub assignment change
+  useEffect(() => {
+    outsideAttemptsRef.current = 0;
+    setOutsideAttempts(0);
+    cooldownActiveRef.current = false;
+    setCooldownSecondsRemaining(0);
+  }, [actualRiderId, hubGeofence?.hub_id]);
+
   const positionToUse = useMemo(() => {
     if (activeViolation && !isOnline) {
       return {
@@ -326,7 +369,7 @@ export function useRiderShiftController({
   }, [timeIn, timeOut, loading, locationLoading, hasVerifiedPosition, actualRiderId, restricted]);
 
   async function openScan(next: 'time-in' | 'time-out') {
-    if (attendanceWriteInFlightRef.current) return;
+    if (attendanceWriteInFlightRef.current || cooldownActiveRef.current || cooldownSecondsRemaining > 0) return;
     if (restricted) {
       pushToast({
         title: 'Account restricted',
@@ -383,13 +426,31 @@ export function useRiderShiftController({
       );
 
       if (dist > fence.attendance_radius_m) {
+        const nextAttempts = outsideAttemptsRef.current + 1;
+        outsideAttemptsRef.current = nextAttempts;
+        setOutsideAttempts(nextAttempts);
+
         const distM = Math.round(dist);
         const radiusM = Math.round(fence.attendance_radius_m);
-        pushToast({
-          title: 'Outside Hub attendance area',
-          description: `You're outside the ${fence.hub_name || 'Hub'} attendance area. You are ${distM} m away. Move within ${radiusM} m of the Hub to continue.`,
-          tone: 'error',
-        });
+        const hubName = fence.hub_name || 'Hub';
+
+        if (nextAttempts >= 3) {
+          cooldownActiveRef.current = true;
+          setCooldownSecondsRemaining(30);
+          pushToast({
+            id: 'outside-hub-attendance-warning',
+            title: 'Outside Hub attendance area',
+            description: `You're outside the ${hubName} attendance area. You are ${distM} m away. Move within ${radiusM} m of the Hub to continue. Attendance paused for 30s.`,
+            tone: 'error',
+          });
+        } else {
+          pushToast({
+            id: 'outside-hub-attendance-warning',
+            title: 'Outside Hub attendance area',
+            description: `You're outside the ${hubName} attendance area. You are ${distM} m away. Move within ${radiusM} m of the Hub to continue.`,
+            tone: 'error',
+          });
+        }
         return;
       }
     }
@@ -534,6 +595,10 @@ export function useRiderShiftController({
           },
           ...prev,
         ]);
+        outsideAttemptsRef.current = 0;
+        setOutsideAttempts(0);
+        cooldownActiveRef.current = false;
+        setCooldownSecondsRemaining(0);
         pushToast({
           title: 'Time-In recorded',
           description: `Welcome on duty, ${currentRider.name.split(' ')[0]}.`,
@@ -644,6 +709,10 @@ export function useRiderShiftController({
           },
           ...prev,
         ]);
+        outsideAttemptsRef.current = 0;
+        setOutsideAttempts(0);
+        cooldownActiveRef.current = false;
+        setCooldownSecondsRemaining(0);
         pushToast({
           title: 'Time-Out recorded',
           description: 'Great work today. Drive safe.',
@@ -681,10 +750,22 @@ export function useRiderShiftController({
     isOnline,
     onlineStatus: onlineStatus as 'online' | 'offline',
     duration,
+    cooldown: {
+      isActive: cooldownSecondsRemaining > 0,
+      secondsRemaining: cooldownSecondsRemaining,
+      outsideAttempts,
+      resetCooldown: () => {
+        outsideAttemptsRef.current = 0;
+        setOutsideAttempts(0);
+        cooldownActiveRef.current = false;
+        setCooldownSecondsRemaining(0);
+      },
+    },
     hubAttendance: {
       geofence: hubGeofence,
       distance: hubDistance,
       inGeofence: inHubGeofence,
+      isInside: inHubGeofence,
       isLoading: hubGeofenceLoading,
     },
     location: {

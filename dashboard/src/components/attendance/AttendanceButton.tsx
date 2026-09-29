@@ -1,10 +1,12 @@
 import { LogIn, LogOut, CheckCircle2, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 export type AttendanceAction = 'time-in' | 'time-out' | 'completed' | 'closed';
-interface AttendanceButtonProps {
+export interface AttendanceButtonProps {
   action: AttendanceAction;
   onClick: () => void;
   disabled?: boolean;
+  disabledLabel?: string;
+  disabledSub?: string;
 }
 const COPY: Record<
   AttendanceAction,
@@ -58,12 +60,15 @@ const COPY: Record<
 export function AttendanceButton({
   action,
   onClick,
-  disabled
+  disabled,
+  disabledLabel,
+  disabledSub,
 }: AttendanceButtonProps) {
   const c = COPY[action];
   const Icon = c.icon;
   const inactive = action === 'completed' || action === 'closed' || disabled;
   const isPrimary = action === 'time-in';
+  const isCustomDisabled = disabled && Boolean(disabledLabel);
   return (
     <motion.button
       type="button"
@@ -71,37 +76,52 @@ export function AttendanceButton({
       whileTap={!inactive ? { scale: 0.98 } : {}}
       onClick={inactive ? undefined : onClick}
       disabled={inactive}
-      aria-label={c.label}
-      className={`group relative w-full max-w-md mx-auto flex flex-col items-center justify-center gap-3 px-8 py-10 rounded-2xl border-2 transition-all duration-200 ${c.ring} ${c.fill} ${c.glow} ${inactive ? 'cursor-default' : 'cursor-pointer'}`}>
+      aria-label={isCustomDisabled ? disabledLabel : c.label}
+      className={`group relative w-full max-w-md mx-auto flex flex-col items-center justify-center gap-3 px-8 py-10 rounded-2xl border-2 transition-all duration-200 ${
+        isCustomDisabled
+          ? 'border-border bg-muted/60 text-muted-foreground shadow-none cursor-not-allowed'
+          : `${c.ring} ${c.fill} ${c.glow} ${inactive ? 'cursor-default' : 'cursor-pointer'}`
+      }`}>
       
-      {/* Pulse ring (only when ready) */}
-      {action !== 'completed' &&
-      <motion.span
-        animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0, 0.5] }}
-        transition={{ duration: 2, repeat: Infinity }}
-        className={`absolute inset-0 rounded-2xl border-2 ${c.ring}`}
-        aria-hidden="true" />
-
-      }
+      {/* Pulse ring (only when ready and active) */}
+      {action !== 'completed' && !inactive && (
+        <motion.span
+          animate={{ scale: [1, 1.05, 1], opacity: [0.5, 0, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className={`absolute inset-0 rounded-2xl border-2 ${c.ring}`}
+          aria-hidden="true" />
+      )}
 
       <span
-        className={`flex items-center justify-center w-16 h-16 rounded-full border-2 ${isPrimary ? 'bg-white/15 border-white/30 text-white' : 'bg-accent border-primary/30 text-primary'} ${inactive ? 'bg-white border-border text-muted-foreground' : ''}`}>
+        className={`flex items-center justify-center w-16 h-16 rounded-full border-2 ${
+          inactive
+            ? 'bg-white border-border text-muted-foreground'
+            : isPrimary
+              ? 'bg-white/15 border-white/30 text-white'
+              : 'bg-accent border-primary/30 text-primary'
+        }`}>
         
         <Icon className="w-7 h-7" strokeWidth={2} />
       </span>
 
       <div className="text-center">
         <div
-          className={`text-lg sm:text-xl font-semibold tracking-[0.18em] ${c.text}`}>
-          
-          {c.label}
+          className={`text-lg sm:text-xl font-semibold tracking-[0.18em] ${
+            isCustomDisabled ? 'text-muted-foreground' : c.text
+          }`}>
+          {isCustomDisabled ? disabledLabel : c.label}
         </div>
         <div
-          className={`text-[11px] uppercase tracking-[0.16em] mt-1 font-mono ${isPrimary ? 'text-white/80' : 'text-muted-foreground'}`}>
-          
-          {c.sub}
+          className={`text-[11px] uppercase tracking-[0.16em] mt-1 font-mono ${
+            isCustomDisabled
+              ? 'text-muted-foreground/80'
+              : isPrimary
+                ? 'text-white/80'
+                : 'text-muted-foreground'
+          }`}>
+          {isCustomDisabled && disabledSub ? disabledSub : c.sub}
         </div>
       </div>
-    </motion.button>);
-
+    </motion.button>
+  );
 }
