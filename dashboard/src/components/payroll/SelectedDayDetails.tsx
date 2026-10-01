@@ -118,6 +118,14 @@ export function SelectedDayDetails({
               <span className="text-emerald-600 font-semibold">
                 Present
               </span>
+            ) : selectedDayAtt?.status === "absent" ? (
+              <span className="text-rose-600 font-semibold">
+                Absent
+              </span>
+            ) : selectedDayAtt?.status === "on_leave" ? (
+              <span className="text-blue-600 font-semibold">
+                On Leave
+              </span>
             ) : (
               <span className="text-subtle-text font-normal">—</span>
             )}

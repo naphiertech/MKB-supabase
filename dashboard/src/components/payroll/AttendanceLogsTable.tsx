@@ -78,6 +78,14 @@ export function AttendanceLogsTable({
                     <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-50 text-amber-700 border border-amber-500/10">
                       Late
                     </span>
+                  ) : dayAtt?.status === "absent" ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-50 text-rose-700 border border-rose-500/10">
+                      Absent
+                    </span>
+                  ) : dayAtt?.status === "on_leave" ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-700 border border-blue-500/10">
+                      On Leave
+                    </span>
                   ) : (
                     <span className="px-1.5 py-0.5 rounded text-[10px] bg-gray-50 text-gray-500 border border-gray-200">
                       No Attendance

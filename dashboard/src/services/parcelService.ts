@@ -827,6 +827,7 @@ export const getMyParcelLogs = async (
 export interface PayrollMetrics {
   presentDays: number;
   lateDays: number;
+  absentDays: number;
   violationsCount: number;
   attendanceLogs: {
     date: string;
@@ -839,6 +840,81 @@ export interface PayrollMetrics {
     type: string;
     zone_name: string | null;
   }[];
+}
+
+export interface RawAttendanceSummaryRow {
+  date: string;
+  time_in: string | null;
+  time_out: string | null;
+  raw_time_in: string | null;
+  raw_time_out: string | null;
+  log_status: string | null;
+  hr_status: string | null;
+}
+
+/**
+ * Pure helper to compute attendance metrics (presentDays, lateDays, absentDays, attendanceLogs)
+ * from attendance summary rows within the cutoff range.
+ *
+ * Invariants:
+ * - Absent Days counts only records whose final attendance status is classified as absent.
+ * - Records with actual clock-in / presence are counted as present (or late), never absent.
+ * - Approved leave / on_leave is excluded from absent count.
+ * - Records with day_off or unfinalized status are excluded from absent count.
+ * - Dates strictly outside the cutoff bounds are ignored.
+ */
+export function computePayrollAttendanceSummary(
+  rows: RawAttendanceSummaryRow[],
+  cutoffFrom: string,
+  cutoffTo: string
+): {
+  presentDays: number;
+  lateDays: number;
+  absentDays: number;
+  attendanceLogs: {
+    date: string;
+    time_in: string | null;
+    time_out: string | null;
+    status: string;
+  }[];
+} {
+  const mappedAttendance = rows.map(row => {
+    const summaryFacts = resolveAttendanceSummaryFacts({
+      timeIn: row.time_in,
+      rawTimeIn: row.raw_time_in,
+      logStatus: row.log_status,
+      hrStatus: row.hr_status,
+    });
+    const isPresent = summaryFacts.hasAnyTimeIn || summaryFacts.isLogPresent || summaryFacts.isLate;
+    const isLeave = summaryFacts.isLogLeave || summaryFacts.isHrLeave;
+    const status = summaryFacts.isLate
+      ? 'late'
+      : isPresent
+      ? 'present'
+      : isLeave
+      ? 'on_leave'
+      : (row.log_status === 'absent' || summaryFacts.normalizedLogStatus === 'absent'
+        ? 'absent'
+        : (row.log_status ?? 'unfinalized'));
+    return {
+      date: row.date,
+      time_in: row.raw_time_in || row.time_in || null,
+      time_out: row.raw_time_out || row.time_out || null,
+      status
+    };
+  });
+
+  const inCutoff = (date: string) => date >= cutoffFrom && date <= cutoffTo;
+  const presentDays = mappedAttendance.filter(a => inCutoff(a.date) && (a.status === 'present' || a.status === 'late')).length;
+  const lateDays = mappedAttendance.filter(a => inCutoff(a.date) && a.status === 'late').length;
+  const absentDays = mappedAttendance.filter(a => inCutoff(a.date) && a.status === 'absent').length;
+
+  return {
+    presentDays,
+    lateDays,
+    absentDays,
+    attendanceLogs: mappedAttendance,
+  };
 }
 
 // Get attendance and violation counts/logs for a rider within a cutoff period
@@ -868,46 +944,16 @@ export const getRiderPayrollMetrics = async (
 
   if (violError) throw violError;
 
-  const rows = (attendance ?? []) as unknown as Array<{
-    date: string;
-    time_in: string | null;
-    time_out: string | null;
-    raw_time_in: string | null;
-    raw_time_out: string | null;
-    log_status: string | null;
-    hr_status: string | null;
-  }>;
-
-  const mappedAttendance = rows.map(row => {
-    const summaryFacts = resolveAttendanceSummaryFacts({
-      timeIn: row.time_in,
-      rawTimeIn: row.raw_time_in,
-      logStatus: row.log_status,
-      hrStatus: row.hr_status,
-    });
-    const isPresent = summaryFacts.hasAnyTimeIn || summaryFacts.isLogPresent || summaryFacts.isLate;
-    const status = summaryFacts.isLate
-      ? 'late'
-      : isPresent
-      ? 'present'
-      : (summaryFacts.isLogLeave ? 'on_leave' : 'absent');
-    return {
-      date: row.date,
-      time_in: row.raw_time_in || row.time_in || null,
-      time_out: row.raw_time_out || row.time_out || null,
-      status
-    };
-  });
-
-  const presentDays = mappedAttendance.filter(a => a.status === 'present' || a.status === 'late').length;
-  const lateDays = mappedAttendance.filter(a => a.status === 'late').length;
+  const rows = (attendance ?? []) as unknown as RawAttendanceSummaryRow[];
+  const summary = computePayrollAttendanceSummary(rows, cutoffFrom, cutoffTo);
   const violationsCount = (violations ?? []).filter(v => v.type === 'boundary_exit' || v.type === 'idle_timeout').length;
 
   return {
-    presentDays,
-    lateDays,
+    presentDays: summary.presentDays,
+    lateDays: summary.lateDays,
+    absentDays: summary.absentDays,
     violationsCount,
-    attendanceLogs: mappedAttendance,
+    attendanceLogs: summary.attendanceLogs,
     violations: violations ?? []
   };
 };

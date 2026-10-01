@@ -263,7 +263,7 @@ export function PayrollDetailsModal({
             record.rider_id,
             record.cutoff_start,
             record.cutoff_end,
-          ) : Promise.resolve<PayrollMetrics>({ presentDays: 0, lateDays: 0, violationsCount: 0, attendanceLogs: [], violations: [] }),
+          ) : Promise.resolve<PayrollMetrics>({ presentDays: 0, lateDays: 0, absentDays: 0, violationsCount: 0, attendanceLogs: [], violations: [] }),
           getPayrollDeliveryData(record),
           listPayrollAdjustmentDefinitions(),
           usesTraceablePlan ? listPayrollDeductionBalances() : Promise.resolve([]),
@@ -404,6 +404,7 @@ export function PayrollDetailsModal({
   // Metrics
   const presentCount = metrics?.presentDays ?? 0;
   const lateCount = metrics?.lateDays ?? 0;
+  const absentCount = metrics?.absentDays ?? 0;
   const violationCount = metrics?.violationsCount ?? 0;
   const avgDailyParcels =
     presentCount > 0 ? record.total_parcels / presentCount : 0;
@@ -765,6 +766,7 @@ export function PayrollDetailsModal({
                 <PayrollMetricsGrid
                   presentCount={presentCount}
                   lateCount={lateCount}
+                  absentCount={absentCount}
                   violationCount={violationCount}
                   avgDailyParcels={avgDailyParcels}
                 />

@@ -88,6 +88,70 @@ describe('SelectedDayDetails Component', () => {
     expect(presentSpan?.className).toContain('text-emerald-600');
   });
 
+  it('renders "Absent" with rose styling when selectedDayAtt status is "absent"', () => {
+    act(() => {
+      root.render(
+        <SelectedDayDetails
+          selectedDate="2026-08-17"
+          selectedDayAtt={{
+            time_in: null,
+            time_out: null,
+            status: 'absent',
+            hours: 0,
+          }}
+          selectedDayLog={{
+            parcels: 0,
+            heavyParcels: 0,
+            failedParcels: 0,
+            returnedParcels: 0,
+          }}
+          selectedDayViolations={[]}
+        />
+      );
+    });
+
+    expect(container.textContent).toContain('Attendance Status');
+    expect(container.textContent).toContain('Absent');
+
+    const absentSpan = Array.from(container.querySelectorAll('span')).find(
+      (el) => el.textContent?.trim() === 'Absent'
+    );
+    expect(absentSpan).toBeDefined();
+    expect(absentSpan?.className).toContain('text-rose-600');
+  });
+
+  it('renders "On Leave" with blue styling when selectedDayAtt status is "on_leave"', () => {
+    act(() => {
+      root.render(
+        <SelectedDayDetails
+          selectedDate="2026-08-18"
+          selectedDayAtt={{
+            time_in: null,
+            time_out: null,
+            status: 'on_leave',
+            hours: 0,
+          }}
+          selectedDayLog={{
+            parcels: 0,
+            heavyParcels: 0,
+            failedParcels: 0,
+            returnedParcels: 0,
+          }}
+          selectedDayViolations={[]}
+        />
+      );
+    });
+
+    expect(container.textContent).toContain('Attendance Status');
+    expect(container.textContent).toContain('On Leave');
+
+    const leaveSpan = Array.from(container.querySelectorAll('span')).find(
+      (el) => el.textContent?.trim() === 'On Leave'
+    );
+    expect(leaveSpan).toBeDefined();
+    expect(leaveSpan?.className).toContain('text-blue-600');
+  });
+
   it('renders "—" when selectedDayAtt status is null or missing', () => {
     act(() => {
       root.render(
