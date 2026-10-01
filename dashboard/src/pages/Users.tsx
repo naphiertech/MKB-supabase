@@ -350,8 +350,8 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
           u.name || '',
           u.email || '',
           u.role || '',
-          u.employmentStatus,
-          u.status || '',
+          (u.employmentStatus === 'archived' ? 'Archived' : 'Employed'),
+          (u.status === 'suspended' ? (u.role === 'rider' ? 'Restricted' : 'Suspended') : 'Enabled'),
           u.contact || '',
           zoneName
         ];
@@ -681,7 +681,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                 {currentUserRole === 'hr' ? counts.rider : activeWorkforce.length}
               </div>
               <div className="text-sm text-muted-foreground">
-                {currentUserRole === 'hr' ? 'active riders' : 'active employees'}
+                {currentUserRole === 'hr' ? 'employed riders' : 'employees'}
               </div>
               <div className="hidden md:flex items-center gap-1.5 ml-3">
                 {currentUserRole !== 'hr' ? (
@@ -866,7 +866,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                               aria-label="Filter by employment lifecycle"
                               className="w-full h-8 px-2.5 rounded-md bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary cursor-pointer"
                             >
-                              <option value="active">Employment: Active</option>
+                              <option value="active">Employment: Employed</option>
                               <option value="archived">Archived ({counts.archived})</option>
                               <option value="all">All Employment</option>
                             </select>
@@ -884,7 +884,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                               className="w-full h-8 px-2.5 rounded-md bg-panel-bg border border-border text-xs font-medium text-foreground outline-none focus:border-primary cursor-pointer"
                             >
                               <option value="all">All Accounts</option>
-                              <option value="active">Account: Active</option>
+                              <option value="active">Account: Enabled</option>
                               <option value="suspended">Account: Restricted / Suspended</option>
                             </select>
                           </div>

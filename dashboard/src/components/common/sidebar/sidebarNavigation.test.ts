@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ADMIN_ITEMS, HR_ITEMS, PAYROLL_ITEMS, type SidebarItem, type PageKey } from './sidebarNavigation';
+import { ADMIN_ITEMS, HR_ITEMS, PAYROLL_ITEMS, FMS_IMPORT_NAV_ICON, type SidebarItem, type PageKey } from './sidebarNavigation';
 
 function allPageKeys(items: SidebarItem[]): PageKey[] {
   return items.flatMap((item) => (item.type === 'link' ? [item.key] : item.items.map((child) => child.key)));
@@ -32,6 +32,7 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
         'Live Monitoring',
         'Geofence & Zones',
         'Hub Management',
+        'FMS Import',
       ]);
 
       // 3. Workforce & Users section
@@ -102,6 +103,7 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
 
       // 4. Parcel Operations section
       expect(sectionChildrenLabels(HR_ITEMS, 'Parcel Operations')).toEqual([
+        'FMS Import',
         'Daily Parcel Entry',
         'Parcel History',
         'Parcel Rates (Reference)',
@@ -173,6 +175,7 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
       expect(keys).toContain('reports');
       expect(keys).toContain('reviews');
       expect(keys).toContain('audit_logs');
+      expect(keys).toContain('fms_import');
     });
 
     it('preserves PageKeys for HR while keeping geofence and hubs excluded', () => {
@@ -193,6 +196,7 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
       expect(keys).toContain('reports');
       expect(keys).toContain('reviews');
       expect(keys).toContain('audit_logs');
+      expect(keys).toContain('fms_import');
 
       // Crucial RBAC preservation: HR cannot see or access geofence, hubs, or computation
       expect(keys).not.toContain('geofence');
@@ -221,30 +225,41 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
       expect(keys).not.toContain('leave_absence');
       expect(keys).not.toContain('reviews');
       expect(keys).not.toContain('audit_logs');
+      expect(keys).not.toContain('fms_import');
     });
   });
 
-  describe('FMS Import Commented Navigation Entry', () => {
-    it('does NOT expose fms_import or "Parcel Data Import" in visible navigation items', () => {
-      expect(allPageKeys(ADMIN_ITEMS)).not.toContain('fms_import');
-      expect(allPageKeys(HR_ITEMS)).not.toContain('fms_import');
+  describe('FMS Import Navigation Entry', () => {
+    it('exposes fms_import with "FMS Import" label in Admin and HR visible navigation items', () => {
+      expect(allPageKeys(ADMIN_ITEMS)).toContain('fms_import');
+      expect(allPageKeys(HR_ITEMS)).toContain('fms_import');
       expect(allPageKeys(PAYROLL_ITEMS)).not.toContain('fms_import');
 
-      expect(allLabels(ADMIN_ITEMS)).not.toContain('Parcel Data Import');
-      expect(allLabels(HR_ITEMS)).not.toContain('Parcel Data Import');
-      expect(allLabels(PAYROLL_ITEMS)).not.toContain('Parcel Data Import');
+      expect(allLabels(ADMIN_ITEMS)).toContain('FMS Import');
+      expect(allLabels(HR_ITEMS)).toContain('FMS Import');
+      expect(allLabels(PAYROLL_ITEMS)).not.toContain('FMS Import');
     });
 
-    it('has the exact previous commented entry preserved in sidebarNavigation.ts for easy re-enabling', async () => {
-      const fs = await import('node:fs');
-      const path = await import('node:path');
-      const sourcePath = path.resolve(__dirname, 'sidebarNavigation.ts');
-      const content = fs.readFileSync(sourcePath, 'utf8');
+    it('places FMS Import under Fleet & Operations in Admin with FMS_IMPORT_NAV_ICON', () => {
+      const fleetSection = ADMIN_ITEMS.find((item) => item.type === 'section' && item.title === 'Fleet & Operations');
+      expect(fleetSection?.type).toBe('section');
+      if (fleetSection?.type === 'section') {
+        const fmsItem = fleetSection.items.find((item) => item.key === 'fms_import');
+        expect(fmsItem).toBeDefined();
+        expect(fmsItem?.label).toBe('FMS Import');
+        expect(fmsItem?.icon).toBe(FMS_IMPORT_NAV_ICON);
+      }
+    });
 
-      // Verify exact commented entry exists in source
-      const commentedEntry = "// { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },";
-      const matches = content.split('\n').filter((line) => line.includes(commentedEntry));
-      expect(matches.length).toBe(2); // One in ADMIN_ITEMS, one in HR_ITEMS
+    it('places FMS Import under Parcel Operations in HR with FMS_IMPORT_NAV_ICON', () => {
+      const parcelSection = HR_ITEMS.find((item) => item.type === 'section' && item.title === 'Parcel Operations');
+      expect(parcelSection?.type).toBe('section');
+      if (parcelSection?.type === 'section') {
+        const fmsItem = parcelSection.items.find((item) => item.key === 'fms_import');
+        expect(fmsItem).toBeDefined();
+        expect(fmsItem?.label).toBe('FMS Import');
+        expect(fmsItem?.icon).toBe(FMS_IMPORT_NAV_ICON);
+      }
     });
   });
 });

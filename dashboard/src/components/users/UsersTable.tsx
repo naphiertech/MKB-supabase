@@ -288,7 +288,7 @@ export function UsersTable({
                     </td>
                     <td className="py-2.5 px-4">
                       <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${archived ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
-                        {archived ? 'Archived' : 'Active'}
+                        {archived ? 'Archived' : 'Employed'}
                       </span>
                     </td>
                     <td className="py-2.5 px-4">
@@ -300,7 +300,7 @@ export function UsersTable({
                       ) : (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          Active
+                          Enabled
                         </span>
                       )}
                     </td>
@@ -308,7 +308,7 @@ export function UsersTable({
                       {u.role === 'rider' ? (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
                           <span className={`w-1.5 h-1.5 rounded-full ${onlineUserIds.includes(u.id) && !archived ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                          {archived ? 'Offline' : u.operationalStatus ? u.operationalStatus.charAt(0).toUpperCase() + u.operationalStatus.slice(1) : onlineUserIds.includes(u.id) ? 'Online' : 'Offline'}
+                          {onlineUserIds.includes(u.id) && !archived ? 'Online' : 'Offline'}
                         </span>
                       ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>

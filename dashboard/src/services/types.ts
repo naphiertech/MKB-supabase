@@ -27,7 +27,9 @@ export interface Rider {
   name: string;
   avatar: string;
   zoneId: string | null;
+  userId?: string | null;
   status: RiderStatus;
+  operationalStatus?: RiderStatus;
   lat: number;
   lng: number;
   speed: number; // km/h

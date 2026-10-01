@@ -24,7 +24,11 @@ import {
   RouteStats
 } from '../services/monitoring/routeService';
 
-export function LiveMonitoring() {
+interface LiveMonitoringProps {
+  onlineUserIds?: string[];
+}
+
+export function LiveMonitoring({ onlineUserIds = [] }: LiveMonitoringProps) {
   const { riders, violations } = useRealtimeLocation();
   const [collapsed, setCollapsed] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
@@ -45,12 +49,18 @@ export function LiveMonitoring() {
 
   const now = useNow();
   const filtered = useMemo(() => {
-    return riders.filter(
-      (r) =>
-      (zoneFilter === 'all' || r.zoneId === zoneFilter) && (
-      statusFilter === 'all' || r.status === statusFilter)
-    );
-  }, [riders, zoneFilter, statusFilter]);
+    return riders.filter((r) => {
+      if (zoneFilter !== 'all' && r.zoneId !== zoneFilter) return false;
+      if (statusFilter === 'all') return true;
+      const hasCoords = r.lat !== 0 || r.lng !== 0;
+      const isFresh = hasCoords && Boolean(r.lastPing && now - r.lastPing <= 120_000);
+      if (statusFilter === 'stale') return !isFresh;
+      if (statusFilter === 'active') return isFresh && r.status === 'active';
+      if (statusFilter === 'idle') return isFresh && r.status === 'idle';
+      if (statusFilter === 'violation') return isFresh && r.status === 'violation';
+      return r.status === statusFilter;
+    });
+  }, [riders, zoneFilter, statusFilter, now]);
   const focused = riders.find((r) => r.id === focusRiderId);
   const focusedZone = focused ?
   zonesList.find((z) => z.id === focused.zoneId) :
@@ -144,7 +154,7 @@ export function LiveMonitoring() {
                 },
                 {
                   v: 'active',
-                  l: 'Active'
+                  l: 'Active (Live)'
                 },
                 {
                   v: 'idle',
@@ -153,6 +163,10 @@ export function LiveMonitoring() {
                 {
                   v: 'violation',
                   l: 'Violation'
+                },
+                {
+                  v: 'stale',
+                  l: 'Stale / Offline'
                 }]
                 } />
               
@@ -164,14 +178,18 @@ export function LiveMonitoring() {
               <div className="ar-scroll overflow-y-auto flex-1 px-2 pb-2 space-y-1">
                 {filtered.map((r) => {
                 const z = zonesList.find((z) => z.id === r.zoneId);
+                const hasCoords = r.lat !== 0 || r.lng !== 0;
+                const isFresh = hasCoords && Boolean(r.lastPing && now - r.lastPing <= 120_000);
                 const ring =
-                r.status === 'active' ?
-                'ring-emerald-500/70' :
-                r.status === 'idle' ?
-                'ring-amber-500/70' :
-                r.status === 'violation' ?
-                'ring-red-500/70' :
-                'ring-muted-foreground/40';
+                  !isFresh ?
+                  'ring-slate-300' :
+                  r.status === 'active' ?
+                  'ring-emerald-500/70' :
+                  r.status === 'idle' ?
+                  'ring-amber-500/70' :
+                  r.status === 'violation' ?
+                  'ring-red-500/70' :
+                  'ring-muted-foreground/40';
                 return (
                   <button
                     key={r.id}
@@ -188,7 +206,7 @@ export function LiveMonitoring() {
                           {r.name}
                         </div>
                         <div className="text-[10px] text-muted-foreground font-mono">
-                          {z?.name} · {relativeTime(r.lastPing, now)}
+                          {z?.name ?? '—'} · {relativeTime(r.lastPing, now)} · {isFresh ? 'Live' : 'Stale'}
                         </div>
                       </div>
                     </button>);
@@ -217,6 +235,7 @@ export function LiveMonitoring() {
                   zones={zonesList}
                   focusRiderId={focusRiderId}
                   onMarkerClick={handleRiderClick}
+                  onlineUserIds={onlineUserIds}
                 />
 
                 {focused && (
@@ -242,33 +261,68 @@ export function LiveMonitoring() {
                         ✕
                       </button>
                     </div>
-                    <div className="space-y-1.5 text-xs">
-                      <Row label="Zone" value={focusedZone?.name ?? '—'} />
-                      <Row
-                        label="Status"
-                        value={
-                          <span className={`capitalize font-semibold ${focused.status === 'active' ? 'text-emerald-600' : focused.status === 'idle' ? 'text-amber-600' : focused.status === 'violation' ? 'text-red-600' : 'text-muted-foreground'}`}>
-                            {focused.status === 'offline' && (focused.lat !== 0 || focused.lng !== 0) ? 'Offline (Last Known)' : focused.status}
-                          </span>
-                        }
-                      />
-                      <Row
-                        label={focused.status === 'offline' ? "Last Coords" : "Coords"}
-                        mono
-                        value={
-                          focused.lat !== 0 || focused.lng !== 0
-                            ? `${focused.lat.toFixed(5)}, ${focused.lng.toFixed(5)}`
-                            : 'No location history'
-                        }
-                      />
-                      <Row label="Speed" mono value={`${Math.round(focused.speed)} km/h`} />
-                      <Row label="Last ping" mono value={focused.lastPing ? relativeTime(focused.lastPing, now) : 'Never'} />
-                    </div>
-                    {focused.lat === 0 && focused.lng === 0 && (
-                      <div className="mt-2.5 p-2 bg-amber-50 border border-amber-200/60 rounded-lg text-[11px] text-amber-800 font-medium text-center">
-                        No location history available.
-                      </div>
-                    )}
+                    {(() => {
+                      const isOnline = Boolean((focused.userId && onlineUserIds.includes(focused.userId)) || onlineUserIds.includes(focused.id));
+                      const hasCoords = focused.lat !== 0 || focused.lng !== 0;
+                      const isFresh = hasCoords && Boolean(focused.lastPing && now - focused.lastPing <= 120_000);
+                      const opStatus = focused.operationalStatus || focused.status;
+                      const operationalLabel =
+                        opStatus === 'active'
+                          ? 'In Zone'
+                          : opStatus === 'violation'
+                          ? 'Violation'
+                          : opStatus === 'idle'
+                          ? 'Idle'
+                          : opStatus;
+
+                      return (
+                        <>
+                          <div className="space-y-1.5 text-xs">
+                            <Row label="Zone" value={focusedZone?.name ?? '—'} />
+                            <Row
+                              label="Presence"
+                              value={
+                                <span className={`font-semibold ${isOnline ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                  {isOnline ? 'Online' : 'Offline'}
+                                </span>
+                              }
+                            />
+                            <Row
+                              label="Tracking"
+                              value={
+                                <span className={`font-semibold ${isFresh ? 'text-emerald-600' : hasCoords ? 'text-amber-600' : 'text-slate-500'}`}>
+                                  {isFresh ? 'Live' : hasCoords ? 'Stale' : 'Not Tracking'}
+                                </span>
+                              }
+                            />
+                            <Row
+                              label="Geofence"
+                              value={
+                                <span className={`capitalize font-semibold ${opStatus === 'active' ? 'text-emerald-600' : opStatus === 'idle' ? 'text-amber-600' : opStatus === 'violation' ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                  {operationalLabel}
+                                </span>
+                              }
+                            />
+                            <Row
+                              label={isFresh ? "Coords" : "Last Coords"}
+                              mono
+                              value={
+                                hasCoords
+                                  ? `${focused.lat.toFixed(5)}, ${focused.lng.toFixed(5)}`
+                                  : 'No location history'
+                              }
+                            />
+                            <Row label="Speed" mono value={isFresh ? `${Math.round(focused.speed)} km/h` : '—'} />
+                            <Row label="Last ping" mono value={focused.lastPing ? relativeTime(focused.lastPing, now) : 'Never'} />
+                          </div>
+                          {!hasCoords && (
+                            <div className="mt-2.5 p-2 bg-amber-50 border border-amber-200/60 rounded-lg text-[11px] text-amber-800 font-medium text-center">
+                              No location history available.
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                     <div className="mt-3 pt-3 border-t border-border grid grid-cols-3 gap-1.5">
                       <ActionBtn icon={MessageSquare} label="Message" disabled unavailable />
                       <ActionBtn icon={Phone} label="Call" href={phoneHref(focused.phone) ?? undefined} disabled={!phoneHref(focused.phone)} title={!focused.phone ? 'No phone number is stored for this rider' : 'Open this device’s phone dialer'} />

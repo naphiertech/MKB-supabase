@@ -299,7 +299,9 @@ export function App() {
       .on('presence', { event: 'sync' }, () => {
         const presenceState = channel.presenceState();
         const activeIds = Object.values(presenceState)
-          .flatMap((presencePresences: Record<string, unknown>[]) => presencePresences.map((p: Record<string, unknown>) => p.user_id as string))
+          .flatMap((presencePresences: Record<string, unknown>[]) =>
+            presencePresences.flatMap((p: Record<string, unknown>) => [p.user_id as string, p.rider_id as string])
+          )
           .filter(Boolean) as string[];
         
         setOnlineUserIds(Array.from(new Set(activeIds)));
@@ -308,6 +310,7 @@ export function App() {
         if (status === 'SUBSCRIBED') {
           await channel.track({
             user_id: session.id,
+            rider_id: session.riderId,
             online_at: new Date().toISOString()
           });
         }
@@ -585,7 +588,7 @@ export function App() {
                       <AdminDashboard
                         onNavigate={(p) => handleNavigate(p as PageKey)} />
                     }
-                    {safePage === 'monitoring' && <LiveMonitoring />}
+                    {safePage === 'monitoring' && <LiveMonitoring onlineUserIds={onlineUserIds} />}
                     {safePage === 'geofence' && <Geofence />}
                     {safePage === 'hubs' && <HubManagement />}
                     {safePage === 'attendance' && <Attendance />}
@@ -608,7 +611,7 @@ export function App() {
                     {safePage === 'dashboard' &&
                       <HRDashboard onNavigate={handleHrNavigate} />
                     }
-                    {safePage === 'monitoring' && <LiveMonitoring />}
+                    {safePage === 'monitoring' && <LiveMonitoring onlineUserIds={onlineUserIds} />}
                     {safePage === 'attendance' && <Attendance />}
                     {safePage === 'reports' && <ErrorBoundary><Reports /></ErrorBoundary>}
                     {safePage === 'reviews' && <ReviewsModeration />}

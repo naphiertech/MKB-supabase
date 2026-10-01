@@ -143,11 +143,17 @@ export function useRealtimeLocation(): {
 
         if (active) setZoneState(mappedZones);
 
-        // 2. Fetch current workforce riders. Historical riders remain in their
+        // 2. Fetch current workforce riders and user account mapping. Historical riders remain in their
         // source tables but do not appear in live operational monitoring.
-        const activeRiderIds = new Set(
-          (await getRiderWorkforceDirectory({ scope: 'active' })).map((rider) => rider.id),
-        );
+        const [workforceRiders, usersResult] = await Promise.all([
+          getRiderWorkforceDirectory({ scope: 'active' }),
+          supabase.from('users').select('id, rider_id').not('rider_id', 'is', null)
+        ]);
+        const activeRiderIds = new Set(workforceRiders.map((rider) => rider.id));
+        const userByRiderId = new Map<string, string>();
+        ((usersResult.data || []) as { id: string; rider_id: string | null }[]).forEach((u) => {
+          if (u.rider_id) userByRiderId.set(u.rider_id, u.id);
+        });
         const { data: rData } = await supabase
           .from('riders')
           .select(`
@@ -196,13 +202,19 @@ export function useRealtimeLocation(): {
             }
           }
 
+          const isStale = !lastPing || (Date.now() - lastPing > MAX_LIVE_LOCATION_AGE_MS);
+          const operationalStatus = row.status as Rider['status'];
+          const effectiveStatus: Rider['status'] = isStale ? 'offline' : operationalStatus;
+
           return {
             id: row.id,
+            userId: userByRiderId.get(row.id) || null,
             hubId: row.hub_id,
             name: row.name,
             avatar: cached || row.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(row.name)}`,
             zoneId: row.zone_id,
-            status: row.status as Rider['status'],
+            status: effectiveStatus,
+            operationalStatus,
             lat,
             lng,
             speed: row.speed ?? 0,
@@ -270,6 +282,7 @@ export function useRealtimeLocation(): {
           lat: newLocation.lat,
           lng: newLocation.lng,
           status: newStatus,
+          operationalStatus: newStatus,
           speed: newLocation.speed ?? 0,
           lastPing: recordedAt
         };
@@ -279,21 +292,24 @@ export function useRealtimeLocation(): {
 
     const handleRiderUpdate = (updatedRider: RiderUpdateRow) => {
       setRiderState((prevRiders) =>
-        prevRiders.map((rider) =>
-          rider.id === updatedRider.id
-            ? {
-                ...rider,
-                zoneId: updatedRider.zone_id,
-                status: updatedRider.status,
-                lat: updatedRider.lat ?? rider.lat,
-                lng: updatedRider.lng ?? rider.lng,
-                speed: updatedRider.speed ?? 0,
-                lastPing: updatedRider.last_ping
-                  ? new Date(updatedRider.last_ping).getTime()
-                  : rider.lastPing
-              }
-            : rider
-        )
+        prevRiders.map((rider) => {
+          if (rider.id !== updatedRider.id) return rider;
+          const ping = updatedRider.last_ping
+            ? new Date(updatedRider.last_ping).getTime()
+            : rider.lastPing;
+          const isStale = !ping || (Date.now() - ping > MAX_LIVE_LOCATION_AGE_MS);
+          const operationalStatus = updatedRider.status;
+          return {
+            ...rider,
+            zoneId: updatedRider.zone_id,
+            status: isStale ? 'offline' : operationalStatus,
+            operationalStatus,
+            lat: updatedRider.lat ?? rider.lat,
+            lng: updatedRider.lng ?? rider.lng,
+            speed: updatedRider.speed ?? 0,
+            lastPing: ping
+          };
+        })
       );
     };
 

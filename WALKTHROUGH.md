@@ -43,9 +43,9 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 
 #### 1. Admin Role (`ADMIN_ITEMS`)
 - **Dashboard** (`key: 'dashboard'`)
-- **Fleet & Operations** *(Collapsible)*: Live Monitoring (`monitoring`), Geofence & Zones (`geofence`), Hub Management (`hubs`)
+- **Fleet & Operations** *(Collapsible)*: Live Monitoring (`monitoring`), Geofence & Zones (`geofence`), Hub Management (`hubs`), FMS Import (`fms_import`)
 - **Workforce & Users** *(Collapsible)*: Attendance Logs (`attendance`), User & Staff Directory (`users`), Rider Assignments (`rider_assignments`), Leave & Absence (`leave_absence`), Attendance Policy (`attendance_policy`)
-- **Parcel Operations** *(Collapsible)*: Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`), Parcel Rate Settings (`parcel_rates`) *(Note: Parcel Data Import `fms_import` is intentionally preserved as commented code)*
+- **Parcel Operations** *(Collapsible)*: Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`), Parcel Rate Settings (`parcel_rates`)
 - **Payroll & Approvals** *(Collapsible)*: Payroll Approvals (`payroll`), Payroll Adjustments (`payroll_adjustments`), Payroll History (`payroll_history`)
 - **Analytics & Reports** *(Collapsible)*: Workforce Analytics (`reports`)
 - **Review Moderation** (`key: 'reviews'`)
@@ -55,7 +55,7 @@ MKBRiderTrack enforces strict role-based authorization across both the frontend 
 - **Dashboard** (`key: 'dashboard'`)
 - **Live Fleet Tracking** *(Collapsible)*: Live Monitoring (`monitoring`)
 - **Workforce & Attendance** *(Collapsible)*: Attendance Logs (`attendance`), Rider Registry (`users`), Rider Assignments (`rider_assignments`), Leave & Absence (`leave_absence`), Attendance Policy (Reference) (`attendance_policy`)
-- **Parcel Operations** *(Collapsible)*: Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`), Parcel Rates (Reference) (`parcel_rates`) *(Note: Parcel Data Import `fms_import` is intentionally preserved as commented code)*
+- **Parcel Operations** *(Collapsible)*: FMS Import (`fms_import`), Daily Parcel Entry (`daily_parcels`), Parcel History (`parcel_history`), Parcel Rates (Reference) (`parcel_rates`)
 - **Payroll Verification** *(Collapsible)*: Payroll Approvals (`payroll`), Payroll Adjustments (View) (`payroll_adjustments`, read-only), Payroll History (`payroll_history`)
 - **Workforce Analytics** (`key: 'reports'`)
 - **Customer Feedback** (`key: 'reviews'`)
@@ -101,6 +101,7 @@ dashboard/src/pages/
 ├── Attendance.tsx           # Fleet attendance verification, date/status filters, & audit table
 ├── AuditLogs.tsx            # Security events, configuration audits, & administrative logs
 ├── DailyParcelEntry.tsx     # Daily delivery logs entry, heavy parcel counts, & rate context
+├── FMSDailyImport.tsx       # FMS spreadsheet batch staging, rider mapping, & observation confirmation
 ├── Geofence.tsx             # Geofence boundary setup, map canvas, & rider zone assignments
 ├── HRDashboard.tsx          # HR metrics, rider status grid, & violation summary
 ├── HubManagement.tsx       # Admin hub lifecycle, counts, and zone-to-hub assignments
@@ -692,7 +693,6 @@ Use this focused checklist to verify critical operational workflows:
 9. **Automatic Leave/Absence → Payroll Financial Integration** *(TARGET FUTURE ARCHITECTURE / NOT YET IMPLEMENTED)*: The HR-confirmed ₱500 absence penalty, supervisor confirmation workflows, financial consequence snapshotting, and payroll adjustment synchronization have not been implemented. Attendance and absence classification remain strictly non-financial.
 10. **Monthly Leave Request Limit** *(DEFERRED / PENDING POLICY CLARIFICATION — NOT ENFORCED)*: Awaiting official HR clarification on whether "one leave per month" refers to a single day, an individual request occurrence, or an approved date range spanning multiple days. No limit is currently enforced.
 11. **Rider Scheduling in Sidebar Navigation** *(INTENTIONALLY HIDDEN)*: The page component and routing exist, but direct sidebar navigation remains intentionally hidden across all staff roles.
-12. **FMS Parcel Data Import Sidebar Entry** *(INTENTIONALLY HIDDEN / COMMENTED)*: Parcel data import is preserved as commented code in `sidebarNavigation.ts` pending administrative alignment.
 
 ---
 
