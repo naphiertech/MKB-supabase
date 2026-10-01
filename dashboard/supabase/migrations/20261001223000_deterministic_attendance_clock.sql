@@ -1,0 +1,466 @@
+-- Deterministic Clock Helper for Attendance Workflows
+-- Forward-only migration providing an internal authoritative clock abstraction
+-- that defaults to clock_timestamp() in production but respects a transaction-local
+-- setting (app.test_clock) in test suites.
+
+-- ============================================================================
+-- 1. INTERNAL CLOCK ABSTRACTION
+-- ============================================================================
+
+create or replace function private.get_attendance_clock()
+returns timestamptz
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  override_ts text;
+begin
+  override_ts := nullif(current_setting('app.test_clock', true), '');
+  if override_ts is not null then
+    return override_ts::timestamptz;
+  end if;
+  return clock_timestamp();
+end;
+$$;
+
+revoke all on function private.get_attendance_clock() from public, anon;
+grant execute on function private.get_attendance_clock() to authenticated, service_role;
+
+-- ============================================================================
+-- 2. AUTHORITATIVE HUB RESOLUTION HELPER
+-- ============================================================================
+
+create or replace function private.resolve_rider_attendance_hub(
+  p_rider_id uuid,
+  p_work_date date default (private.get_attendance_clock() at time zone 'Asia/Manila')::date
+)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    private.resolve_rider_schedule_hub(p_rider_id, p_work_date),
+    (select rider.hub_id from public.riders rider where rider.id = p_rider_id)
+  );
+$$;
+
+revoke all on function private.resolve_rider_attendance_hub(uuid, date) from public, anon, authenticated;
+grant execute on function private.resolve_rider_attendance_hub(uuid, date) to service_role;
+
+-- ============================================================================
+-- 3. SERVER-SIDE GEOFENCE VALIDATION HELPER
+-- ============================================================================
+
+create or replace function private.validate_rider_hub_geofence(
+  p_rider_id uuid,
+  p_latitude float,
+  p_longitude float,
+  p_position_timestamp timestamptz,
+  p_action text,
+  p_work_date date default (private.get_attendance_clock() at time zone 'Asia/Manila')::date
+)
+returns table (
+  hub_id uuid,
+  hub_name text,
+  distance_m float,
+  radius_m integer
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_hub_id uuid;
+  v_hub_name text;
+  v_hub_lat numeric(10, 7);
+  v_hub_lng numeric(10, 7);
+  v_hub_radius integer;
+  v_distance float;
+  v_now timestamptz := private.get_attendance_clock();
+begin
+  -- 1. Validate coordinates presence and numerical limits
+  if p_latitude is null or p_longitude is null
+     or p_latitude < -90 or p_latitude > 90
+     or p_longitude < -180 or p_longitude > 180 then
+    raise exception 'INVALID_COORDINATES: Latitude must be between -90 and 90, and longitude between -180 and 180.'
+      using errcode = '23514';
+  end if;
+
+  -- 2. Validate position timestamp freshness and future skew
+  if p_position_timestamp is null then
+    raise exception 'MISSING_GPS_TIMESTAMP: GPS position timestamp is required.'
+      using errcode = '23514';
+  end if;
+
+  if p_position_timestamp > (v_now + interval '5 seconds') then
+    raise exception 'FUTURE_GPS_TIMESTAMP: GPS position timestamp cannot be in the future.'
+      using errcode = '23514';
+  end if;
+
+  if (v_now - p_position_timestamp) > interval '120 seconds' then
+    raise exception 'STALE_GPS_POSITION: GPS position is older than 120 seconds. Please acquire a fresh location.'
+      using errcode = '23514';
+  end if;
+
+  -- 3. Resolve Rider's assigned Hub
+  v_hub_id := private.resolve_rider_attendance_hub(p_rider_id, p_work_date);
+  if v_hub_id is null then
+    raise exception 'NO_ASSIGNED_HUB: No assigned Hub was found for your account. Please contact your administrator.'
+      using errcode = '23514';
+  end if;
+
+  -- 4. Load Hub geofence configuration
+  select h.name, h.latitude, h.longitude, h.attendance_radius_m
+  into v_hub_name, v_hub_lat, v_hub_lng, v_hub_radius
+  from public.hubs h
+  where h.id = v_hub_id;
+
+  if not found then
+    raise exception 'NO_ASSIGNED_HUB: Assigned Hub was not found. Please contact your administrator.'
+      using errcode = '23503';
+  end if;
+
+  if v_hub_lat is null or v_hub_lng is null or v_hub_radius is null then
+    raise exception 'HUB_GEOFENCE_NOT_CONFIGURED: Attendance location has not been configured for your Hub. Please contact your administrator.'
+      using errcode = '23514';
+  end if;
+
+  -- 5. Calculate Haversine distance
+  v_distance := public.calculate_distance(p_latitude, p_longitude, v_hub_lat::float, v_hub_lng::float);
+
+  -- 6. Enforce inclusive boundary: distance <= radius is allowed; distance > radius is rejected
+  if v_distance > v_hub_radius then
+    raise exception 'OUTSIDE_HUB_GEOFENCE: You are %m from %, which exceeds the %m attendance radius.',
+      round(v_distance::numeric, 1), v_hub_name, v_hub_radius
+      using errcode = '23514';
+  end if;
+
+  return query select v_hub_id, v_hub_name, v_distance, v_hub_radius;
+end;
+$$;
+
+revoke all on function private.validate_rider_hub_geofence(uuid, float, float, timestamptz, text, date) from public, anon, authenticated;
+grant execute on function private.validate_rider_hub_geofence(uuid, float, float, timestamptz, text, date) to service_role;
+
+-- ============================================================================
+-- 4. FRONTEND PRE-CHECK QUERY RPC
+-- ============================================================================
+
+create or replace function public.get_my_hub_attendance_geofence()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  actor_rider_id uuid;
+  assigned_hub_id uuid;
+  hub_record record;
+  work_date date := (private.get_attendance_clock() at time zone 'Asia/Manila')::date;
+begin
+  if (select public.get_my_role()) <> 'rider'::public.user_role then
+    raise exception 'UNAUTHORIZED: Only Riders can query Hub attendance geofence.' using errcode = '42501';
+  end if;
+
+  actor_rider_id := public.get_my_rider_id();
+  if actor_rider_id is null then
+    raise exception 'RIDER_PROFILE_NOT_FOUND: No linked Rider profile found for session.' using errcode = '23503';
+  end if;
+
+  assigned_hub_id := private.resolve_rider_attendance_hub(actor_rider_id, work_date);
+  if assigned_hub_id is null then
+    return jsonb_build_object(
+      'is_configured', false,
+      'reason', 'NO_ASSIGNED_HUB',
+      'message', 'No assigned Hub was found for your account.'
+    );
+  end if;
+
+  select h.id, h.name, h.latitude, h.longitude, h.attendance_radius_m
+  into hub_record
+  from public.hubs h
+  where h.id = assigned_hub_id;
+
+  if not found or hub_record.latitude is null or hub_record.longitude is null or hub_record.attendance_radius_m is null then
+    return jsonb_build_object(
+      'is_configured', false,
+      'hub_id', assigned_hub_id,
+      'hub_name', coalesce(hub_record.name, 'Unknown Hub'),
+      'reason', 'HUB_GEOFENCE_NOT_CONFIGURED',
+      'message', 'Attendance location has not been configured for your Hub.'
+    );
+  end if;
+
+  return jsonb_build_object(
+    'is_configured', true,
+    'hub_id', hub_record.id,
+    'hub_name', hub_record.name,
+    'latitude', hub_record.latitude,
+    'longitude', hub_record.longitude,
+    'attendance_radius_m', hub_record.attendance_radius_m
+  );
+end;
+$$;
+
+revoke all on function public.get_my_hub_attendance_geofence() from public, anon;
+grant execute on function public.get_my_hub_attendance_geofence() to authenticated, service_role;
+
+-- ============================================================================
+-- 5. AUTHORITATIVE TIME IN RPC
+-- ============================================================================
+
+create or replace function public.record_my_time_in(
+  p_latitude float,
+  p_longitude float,
+  p_accuracy float default null,
+  p_position_timestamp timestamptz default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actor_rider_id uuid;
+  manila_now timestamptz := private.get_attendance_clock();
+  today_date date := (manila_now at time zone 'Asia/Manila')::date;
+  today_time time := (manila_now at time zone 'Asia/Manila')::time;
+  pos_ts timestamptz;
+  v_hub_id uuid;
+  v_hub_name text;
+  v_distance float;
+  v_radius integer;
+  log_id uuid;
+  existing_log record;
+begin
+  -- 1. Ensure authenticated caller is an active employed Rider
+  if (select public.get_my_role()) <> 'rider'::public.user_role then
+    raise exception 'UNAUTHORIZED: Only active Riders can record attendance.' using errcode = '42501';
+  end if;
+
+  actor_rider_id := public.get_my_rider_id();
+  if actor_rider_id is null then
+    raise exception 'RIDER_PROFILE_NOT_FOUND: No linked Rider profile found for session.' using errcode = '23503';
+  end if;
+
+  if not public.is_rider_operational_at(actor_rider_id, manila_now) then
+    raise exception 'RIDER_NOT_OPERATIONAL: Rider is not active or employed.' using errcode = '42501';
+  end if;
+
+  -- 2. Strictly enforce cutoff finalization rule (17:00 Manila cutoff)
+  if today_time >= time '17:00:00' then
+    raise exception 'ATTENDANCE_CLOSED: Today''s attendance has already been finalized.' using errcode = '23514';
+  end if;
+
+  -- 3. Position timestamp resolution
+  pos_ts := coalesce(p_position_timestamp, manila_now);
+
+  -- 4. Server-Side Geofence Validation
+  select v.hub_id, v.hub_name, v.distance_m, v.radius_m
+  into v_hub_id, v_hub_name, v_distance, v_radius
+  from private.validate_rider_hub_geofence(
+    actor_rider_id,
+    p_latitude,
+    p_longitude,
+    pos_ts,
+    'time_in',
+    today_date
+  ) v;
+
+  -- 5. Atomic Attendance Log Upsert
+  select id, time_in, time_out, source into existing_log
+  from public.attendance_logs
+  where rider_id = actor_rider_id and date = today_date;
+
+  if existing_log.id is not null then
+    if existing_log.time_in is not null and existing_log.source <> 'system' then
+      raise exception 'DUPLICATE_TIME_IN: Time In has already been recorded for today.' using errcode = '23505';
+    end if;
+    log_id := existing_log.id;
+    update public.attendance_logs
+    set time_in = manila_now,
+        status = 'present'::public.attendance_status,
+        source = 'face-scan'::public.attendance_source,
+        notes = null,
+        hub_id = v_hub_id,
+        updated_at = manila_now
+    where id = log_id;
+  else
+    log_id := gen_random_uuid();
+    insert into public.attendance_logs (
+      id, rider_id, hub_id, date, time_in, status, source, notes, created_at, updated_at
+    ) values (
+      log_id, actor_rider_id, v_hub_id, today_date, manila_now,
+      'present'::public.attendance_status, 'face-scan'::public.attendance_source, null,
+      manila_now, manila_now
+    );
+  end if;
+
+  -- 6. Insert Immutable Location Evidence
+  insert into public.attendance_geofence_events (
+    attendance_log_id,
+    rider_id,
+    hub_id,
+    event_type,
+    latitude,
+    longitude,
+    accuracy_meters,
+    distance_meters,
+    attendance_radius_m,
+    position_timestamp,
+    recorded_at
+  ) values (
+    log_id,
+    actor_rider_id,
+    v_hub_id,
+    'time_in',
+    p_latitude,
+    p_longitude,
+    p_accuracy,
+    v_distance,
+    v_radius,
+    pos_ts,
+    manila_now
+  )
+  on conflict (attendance_log_id, event_type) do nothing;
+
+  return jsonb_build_object(
+    'attendance_log_id', log_id,
+    'rider_id', actor_rider_id,
+    'hub_id', v_hub_id,
+    'hub_name', v_hub_name,
+    'date', today_date,
+    'time_in', manila_now,
+    'distance_meters', round(v_distance::numeric, 1),
+    'attendance_radius_m', v_radius,
+    'status', 'present'
+  );
+end;
+$$;
+
+revoke all on function public.record_my_time_in(float, float, float, timestamptz) from public, anon;
+grant execute on function public.record_my_time_in(float, float, float, timestamptz) to authenticated, service_role;
+
+-- ============================================================================
+-- 6. AUTHORITATIVE TIME OUT RPC
+-- ============================================================================
+
+create or replace function public.record_my_time_out(
+  p_latitude float,
+  p_longitude float,
+  p_accuracy float default null,
+  p_position_timestamp timestamptz default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actor_rider_id uuid;
+  manila_now timestamptz := private.get_attendance_clock();
+  today_date date := (manila_now at time zone 'Asia/Manila')::date;
+  pos_ts timestamptz;
+  v_hub_id uuid;
+  v_hub_name text;
+  v_distance float;
+  v_radius integer;
+  log_row record;
+begin
+  -- 1. Ensure authenticated caller is an active employed Rider
+  if (select public.get_my_role()) <> 'rider'::public.user_role then
+    raise exception 'UNAUTHORIZED: Only active Riders can record attendance.' using errcode = '42501';
+  end if;
+
+  actor_rider_id := public.get_my_rider_id();
+  if actor_rider_id is null then
+    raise exception 'RIDER_PROFILE_NOT_FOUND: No linked Rider profile found for session.' using errcode = '23503';
+  end if;
+
+  if not public.is_rider_operational_at(actor_rider_id, manila_now) then
+    raise exception 'RIDER_NOT_OPERATIONAL: Rider is not active or employed.' using errcode = '42501';
+  end if;
+
+  -- 2. Find open attendance log for today
+  select id, time_in, time_out, hub_id into log_row
+  from public.attendance_logs
+  where rider_id = actor_rider_id and date = today_date;
+
+  if log_row.id is null or log_row.time_in is null then
+    raise exception 'NO_ACTIVE_SHIFT: No active Time In record found for today.' using errcode = '23514';
+  end if;
+
+  if log_row.time_out is not null then
+    raise exception 'ALREADY_TIMED_OUT: Time Out has already been recorded for today.' using errcode = '23514';
+  end if;
+
+  -- 3. Position timestamp resolution
+  pos_ts := coalesce(p_position_timestamp, manila_now);
+
+  -- 4. Server-Side Geofence Validation for Time Out
+  select v.hub_id, v.hub_name, v.distance_m, v.radius_m
+  into v_hub_id, v_hub_name, v_distance, v_radius
+  from private.validate_rider_hub_geofence(
+    actor_rider_id,
+    p_latitude,
+    p_longitude,
+    pos_ts,
+    'time_out',
+    today_date
+  ) v;
+
+  -- 5. Update Attendance Log with time_out
+  update public.attendance_logs
+  set time_out = manila_now,
+      updated_at = manila_now
+  where id = log_row.id;
+
+  -- 6. Insert Immutable Location Evidence for Time Out
+  insert into public.attendance_geofence_events (
+    attendance_log_id,
+    rider_id,
+    hub_id,
+    event_type,
+    latitude,
+    longitude,
+    accuracy_meters,
+    distance_meters,
+    attendance_radius_m,
+    position_timestamp,
+    recorded_at
+  ) values (
+    log_row.id,
+    actor_rider_id,
+    v_hub_id,
+    'time_out',
+    p_latitude,
+    p_longitude,
+    p_accuracy,
+    v_distance,
+    v_radius,
+    pos_ts,
+    manila_now
+  )
+  on conflict (attendance_log_id, event_type) do nothing;
+
+  return jsonb_build_object(
+    'attendance_log_id', log_row.id,
+    'rider_id', actor_rider_id,
+    'hub_id', v_hub_id,
+    'hub_name', v_hub_name,
+    'date', today_date,
+    'time_out', manila_now,
+    'distance_meters', round(v_distance::numeric, 1),
+    'attendance_radius_m', v_radius
+  );
+end;
+$$;
+
+revoke all on function public.record_my_time_out(float, float, float, timestamptz) from public, anon;
+grant execute on function public.record_my_time_out(float, float, float, timestamptz) to authenticated, service_role;

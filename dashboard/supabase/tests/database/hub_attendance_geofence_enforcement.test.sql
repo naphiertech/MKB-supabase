@@ -7,6 +7,9 @@ select pg_advisory_xact_lock(hashtext('hub_attendance_geofence_enforcement_test'
 
 select plan(30);
 
+-- Pin deterministic test clock to 09:00 AM Manila on test day to avoid 17:00 cutoff
+select set_config('app.test_clock', '2026-09-29 09:00:00+08', true);
+
 -- Setup test hubs
 -- Hub 1: Configured (Ayala Hub, Manila center: 14.5547, 121.0244, radius 300m)
 -- Hub 2: Intended to simulate legacy unconfigured hub (seeded valid, then updated to NULLs)
@@ -89,7 +92,7 @@ select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-0000000
 
 -- Invalid latitude (> 90)
 select throws_ok(
-  $$select public.record_my_time_in(95.0, 121.0244, 10.0, clock_timestamp())$$,
+  $$select public.record_my_time_in(95.0, 121.0244, 10.0, private.get_attendance_clock())$$,
   '23514',
   null,
   'Latitude > 90 is rejected'
@@ -97,7 +100,7 @@ select throws_ok(
 
 -- Invalid longitude (< -180)
 select throws_ok(
-  $$select public.record_my_time_in(14.5547, -185.0, 10.0, clock_timestamp())$$,
+  $$select public.record_my_time_in(14.5547, -185.0, 10.0, private.get_attendance_clock())$$,
   '23514',
   null,
   'Longitude < -180 is rejected'
@@ -105,7 +108,7 @@ select throws_ok(
 
 -- Stale GPS (> 120 seconds old)
 select throws_ok(
-  $$select public.record_my_time_in(14.5547, 121.0244, 10.0, clock_timestamp() - interval '125 seconds')$$,
+  $$select public.record_my_time_in(14.5547, 121.0244, 10.0, private.get_attendance_clock() - interval '125 seconds')$$,
   '23514',
   null,
   'GPS timestamp older than 120 seconds is rejected'
@@ -113,7 +116,7 @@ select throws_ok(
 
 -- Future GPS (> 5 seconds in future)
 select throws_ok(
-  $$select public.record_my_time_in(14.5547, 121.0244, 10.0, clock_timestamp() + interval '30 seconds')$$,
+  $$select public.record_my_time_in(14.5547, 121.0244, 10.0, private.get_attendance_clock() + interval '30 seconds')$$,
   '23514',
   null,
   'Future GPS timestamp is rejected'
@@ -125,7 +128,7 @@ select throws_ok(
 
 -- Manila coordinate far outside Ayala Hub (e.g. Quezon City: ~11km away)
 select throws_ok(
-  $$select public.record_my_time_in(14.6500, 121.0300, 5.0, clock_timestamp())$$,
+  $$select public.record_my_time_in(14.6500, 121.0300, 5.0, private.get_attendance_clock())$$,
   '23514',
   null,
   'Time In outside Hub attendance radius is rejected'
@@ -139,7 +142,7 @@ select throws_ok(
 select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 
 select throws_ok(
-  $$select public.record_my_time_in(14.5547, 121.0244, 5.0, clock_timestamp())$$,
+  $$select public.record_my_time_in(14.5547, 121.0244, 5.0, private.get_attendance_clock())$$,
   '23514',
   null,
   'Rider with no assigned Hub is rejected (NO_ASSIGNED_HUB)'
@@ -149,7 +152,7 @@ select throws_ok(
 select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 
 select throws_ok(
-  $$select public.record_my_time_in(14.5547, 121.0244, 5.0, clock_timestamp())$$,
+  $$select public.record_my_time_in(14.5547, 121.0244, 5.0, private.get_attendance_clock())$$,
   '23514',
   null,
   'Rider with unconfigured Hub is rejected (HUB_GEOFENCE_NOT_CONFIGURED)'
@@ -163,7 +166,7 @@ select throws_ok(
 select set_config('request.jwt.claims', '{"sub":"b5000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 select lives_ok(
-  $$select public.record_my_time_in(14.5547, 121.0244, 5.0, clock_timestamp())$$,
+  $$select public.record_my_time_in(14.5547, 121.0244, 5.0, private.get_attendance_clock())$$,
   'Rider inside Hub attendance geofence successfully times in'
 );
 
@@ -189,7 +192,7 @@ select is(
 
 -- Duplicate Time In rejected
 select throws_ok(
-  $$select public.record_my_time_in(14.5547, 121.0244, 5.0, clock_timestamp())$$,
+  $$select public.record_my_time_in(14.5547, 121.0244, 5.0, private.get_attendance_clock())$$,
   '23505',
   null,
   'Duplicate Time In for today is rejected'
@@ -201,7 +204,7 @@ select throws_ok(
 
 -- Time Out with stale GPS rejected
 select throws_ok(
-  $$select public.record_my_time_out(14.5547, 121.0244, 5.0, clock_timestamp() - interval '130 seconds')$$,
+  $$select public.record_my_time_out(14.5547, 121.0244, 5.0, private.get_attendance_clock() - interval '130 seconds')$$,
   '23514',
   null,
   'Time Out with stale GPS is rejected'
@@ -209,7 +212,7 @@ select throws_ok(
 
 -- Time Out outside Hub rejected
 select throws_ok(
-  $$select public.record_my_time_out(14.6500, 121.0300, 5.0, clock_timestamp())$$,
+  $$select public.record_my_time_out(14.6500, 121.0300, 5.0, private.get_attendance_clock())$$,
   '23514',
   null,
   'Time Out outside Hub attendance radius is rejected'
@@ -217,7 +220,7 @@ select throws_ok(
 
 -- Time Out inside Hub succeeds
 select lives_ok(
-  $$select public.record_my_time_out(14.5547, 121.0244, 5.0, clock_timestamp())$$,
+  $$select public.record_my_time_out(14.5547, 121.0244, 5.0, private.get_attendance_clock())$$,
   'Time Out inside Hub attendance radius succeeds'
 );
 
@@ -242,7 +245,7 @@ select is(
 -- Direct table INSERT on attendance_logs by Rider is rejected by RLS
 select throws_ok(
   $$insert into public.attendance_logs (rider_id, hub_id, date, time_in, status, source)
-    values ('c5000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001', (clock_timestamp() at time zone 'Asia/Manila')::date + 1, clock_timestamp(), 'present', 'face-scan')$$,
+    values ('c5000000-0000-4000-8000-000000000001', 'a5000000-0000-4000-8000-000000000001', (private.get_attendance_clock() at time zone 'Asia/Manila')::date + 1, private.get_attendance_clock(), 'present', 'face-scan')$$,
   '42501',
   null,
   'Rider direct attendance_logs INSERT is blocked by RLS'
@@ -311,9 +314,9 @@ select lives_ok(
       '35000000-0000-4000-8000-000000000002',
       'c5000000-0000-4000-8000-000000000002',
       'a5000000-0000-4000-8000-000000000002',
-      (clock_timestamp() at time zone 'Asia/Manila')::date - 1,
-      clock_timestamp() - interval '1 day',
-      clock_timestamp() - interval '16 hours',
+      (private.get_attendance_clock() at time zone 'Asia/Manila')::date - 1,
+      private.get_attendance_clock() - interval '1 day',
+      private.get_attendance_clock() - interval '16 hours',
       'present',
       'manual'
     )$$,
