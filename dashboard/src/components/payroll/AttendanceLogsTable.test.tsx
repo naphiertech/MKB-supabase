@@ -2,7 +2,7 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AttendanceLogsTable } from './AttendanceLogsTable';
 import { type ParcelLog } from '../../services/parcelService';
 
@@ -81,12 +81,13 @@ describe('AttendanceLogsTable Component', () => {
   ];
 
   it('renders "Absent" badge for absent attendance dates in Daily Log Breakdown', () => {
+    const setSelectedDate = vi.fn();
     act(() => {
       root.render(
         <AttendanceLogsTable
           dayEntries={sampleDayEntries}
           selectedDate={null}
-          setSelectedDate={() => {}}
+          setSelectedDate={setSelectedDate}
           attendanceLogs={[
             { date: '2026-08-01', time_in: '08:00', time_out: '17:00', status: 'present' },
             { date: '2026-08-02', time_in: null, time_out: null, status: 'absent' },
@@ -110,12 +111,13 @@ describe('AttendanceLogsTable Component', () => {
   });
 
   it('renders "No Attendance" when no attendance log exists for that day', () => {
+    const setSelectedDate = vi.fn();
     act(() => {
       root.render(
         <AttendanceLogsTable
           dayEntries={[sampleDayEntries[0]]}
           selectedDate={null}
-          setSelectedDate={() => {}}
+          setSelectedDate={setSelectedDate}
           attendanceLogs={[]}
           violations={[]}
         />
