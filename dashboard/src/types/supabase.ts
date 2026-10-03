@@ -1618,6 +1618,7 @@ export type Database = {
       }
       payroll_records: {
         Row: {
+          absent_without_notice: number
           adjustment_snapshot: Json | null
           adjustment_snapshot_version: number | null
           adjustment_source_version: number
@@ -1678,6 +1679,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          absent_without_notice?: number
           adjustment_snapshot?: Json | null
           adjustment_snapshot_version?: number | null
           adjustment_source_version?: number
@@ -1738,6 +1740,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          absent_without_notice?: number
           adjustment_snapshot?: Json | null
           adjustment_snapshot_version?: number | null
           adjustment_source_version?: number

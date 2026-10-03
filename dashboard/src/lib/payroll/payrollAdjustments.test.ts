@@ -22,7 +22,7 @@ const cases: Array<{
     adjustments: { otherEarnings: 100, fmPickupAmount: 5, deductions: 50, lateOnhold: 10, lateRemittance: 5 },
     expected: {
       grossPay: 1_000,
-      adjustments: { otherEarnings: 100, fmPickupAmount: 5, deductions: 50, lateOnhold: 10, lateRemittance: 5 },
+      adjustments: { otherEarnings: 100, fmPickupAmount: 5, deductions: 50, lateOnhold: 10, lateRemittance: 5, absentWithoutNotice: 0 },
       otherEarnings: 100,
       fmPickupEarnings: 5,
       totalEarnings: 1_105,
@@ -36,7 +36,7 @@ const cases: Array<{
     adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
     expected: {
       grossPay: 131,
-      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0, absentWithoutNotice: 0 },
       otherEarnings: 0,
       fmPickupEarnings: 0,
       totalEarnings: 131,
@@ -50,7 +50,7 @@ const cases: Array<{
     adjustments: { otherEarnings: null, fmPickupAmount: null, deductions: null, lateOnhold: null, lateRemittance: null },
     expected: {
       grossPay: 0,
-      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0, absentWithoutNotice: 0 },
       otherEarnings: 0,
       fmPickupEarnings: 0,
       totalEarnings: 0,
@@ -64,7 +64,7 @@ const cases: Array<{
     adjustments: {},
     expected: {
       grossPay: 0,
-      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 0, lateOnhold: 0, lateRemittance: 0, absentWithoutNotice: 0 },
       otherEarnings: 0,
       fmPickupEarnings: 0,
       totalEarnings: 0,
@@ -78,7 +78,7 @@ const cases: Array<{
     adjustments: { otherEarnings: '25', fmPickupAmount: '2', deductions: '10', lateOnhold: '5', lateRemittance: '7' },
     expected: {
       grossPay: 131,
-      adjustments: { otherEarnings: 25, fmPickupAmount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
+      adjustments: { otherEarnings: 25, fmPickupAmount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7, absentWithoutNotice: 0 },
       otherEarnings: 25,
       fmPickupEarnings: 2,
       totalEarnings: 158,
@@ -92,7 +92,7 @@ const cases: Array<{
     adjustments: { fmPickupAmount: 4 },
     expected: {
       grossPay: 100,
-      adjustments: { otherEarnings: 0, fmPickupAmount: 4, deductions: 0, lateOnhold: 0, lateRemittance: 0 },
+      adjustments: { otherEarnings: 0, fmPickupAmount: 4, deductions: 0, lateOnhold: 0, lateRemittance: 0, absentWithoutNotice: 0 },
       otherEarnings: 0,
       fmPickupEarnings: 4,
       totalEarnings: 104,
@@ -106,7 +106,7 @@ const cases: Array<{
     adjustments: { otherEarnings: -10, fmPickupAmount: -2, deductions: -5, lateOnhold: -3, lateRemittance: -2 },
     expected: {
       grossPay: 100,
-      adjustments: { otherEarnings: -10, fmPickupAmount: -2, deductions: -5, lateOnhold: -3, lateRemittance: -2 },
+      adjustments: { otherEarnings: -10, fmPickupAmount: -2, deductions: -5, lateOnhold: -3, lateRemittance: -2, absentWithoutNotice: 0 },
       otherEarnings: -10,
       fmPickupEarnings: -2,
       totalEarnings: 88,
@@ -120,7 +120,7 @@ const cases: Array<{
     adjustments: { otherEarnings: 10.25, fmPickupAmount: 1.5, deductions: 2.25, lateOnhold: 1.5, lateRemittance: 0.5 },
     expected: {
       grossPay: 100.5,
-      adjustments: { otherEarnings: 10.25, fmPickupAmount: 1.5, deductions: 2.25, lateOnhold: 1.5, lateRemittance: 0.5 },
+      adjustments: { otherEarnings: 10.25, fmPickupAmount: 1.5, deductions: 2.25, lateOnhold: 1.5, lateRemittance: 0.5, absentWithoutNotice: 0 },
       otherEarnings: 10.25,
       fmPickupEarnings: 1.5,
       totalEarnings: 112.25,
@@ -134,12 +134,26 @@ const cases: Array<{
     adjustments: { otherEarnings: 20, fmPickupAmount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
     expected: {
       grossPay: 154,
-      adjustments: { otherEarnings: 20, fmPickupAmount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7 },
+      adjustments: { otherEarnings: 20, fmPickupAmount: 2, deductions: 10, lateOnhold: 5, lateRemittance: 7, absentWithoutNotice: 0 },
       otherEarnings: 20,
       fmPickupEarnings: 2,
       totalEarnings: 176,
       totalDeductions: 22,
       netPay: 154,
+    },
+  },
+  {
+    name: 'with absent without notice deduction',
+    grossPay: 1_000,
+    adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 50, lateOnhold: 10, lateRemittance: 5, absentWithoutNotice: 500 },
+    expected: {
+      grossPay: 1_000,
+      adjustments: { otherEarnings: 0, fmPickupAmount: 0, deductions: 50, lateOnhold: 10, lateRemittance: 5, absentWithoutNotice: 500 },
+      otherEarnings: 0,
+      fmPickupEarnings: 0,
+      totalEarnings: 1_000,
+      totalDeductions: 565,
+      netPay: 435,
     },
   },
 ];
@@ -158,12 +172,14 @@ describe('payroll adjustment compatibility helpers', () => {
       deductions: null,
       late_onhold: undefined,
       late_remittance: '7.5',
+      absent_without_notice: '500',
     })).toEqual({
       otherEarnings: 25,
       fmPickupAmount: 6,
       deductions: 0,
       lateOnhold: 0,
       lateRemittance: 7.5,
+      absentWithoutNotice: 500,
     });
   });
 
@@ -175,7 +191,8 @@ describe('payroll adjustment compatibility helpers', () => {
       deductions: '10',
       late_onhold: 5,
       late_remittance: 7,
-    }).netPay).toBe(140);
+      absent_without_notice: 500,
+    }).netPay).toBe(-360);
   });
 
   it('retains the existing calculatePayslipNetPay compatibility API', () => {
@@ -186,6 +203,39 @@ describe('payroll adjustment compatibility helpers', () => {
       lateOnhold: 5,
       lateRemittance: 7,
     })).toBe(140);
+  });
+
+  it('supports 5-item historical snapshots and 6-item current snapshots', () => {
+    const historicalSnapshot = {
+      version: 2,
+      items: [
+        { code: 'other_earnings', label: 'Other Earnings', category: 'earning', input_mode: 'manual_amount', active: true, amount: 10 },
+        { code: 'fm_pickup', label: 'FM Pick Up', category: 'earning', input_mode: 'manual_amount', active: true, amount: 20 },
+        { code: 'general_deductions', label: 'General Deductions', category: 'deduction', input_mode: 'manual_amount', active: true, amount: 30 },
+        { code: 'late_onhold', label: 'Late Onhold / FM', category: 'deduction', input_mode: 'manual_amount', active: true, amount: 40 },
+        { code: 'late_remittance', label: 'Late Remittance', category: 'deduction', input_mode: 'manual_amount', active: true, amount: 50 },
+      ],
+    };
+    const historicalAdjustments = payslipAdjustmentsFromRecord({
+      status: 'approved',
+      adjustment_snapshot: historicalSnapshot,
+    });
+    expect(historicalAdjustments.absentWithoutNotice).toBe(0);
+    expect(historicalAdjustments.deductions).toBe(30);
+
+    const sixItemSnapshot = {
+      version: 2,
+      items: [
+        ...historicalSnapshot.items,
+        { code: 'absent_without_notice', label: 'Absent w/o prior notice', category: 'deduction', input_mode: 'manual_amount', active: true, amount: 500 },
+      ],
+    };
+    const sixItemAdjustments = payslipAdjustmentsFromRecord({
+      status: 'approved',
+      adjustment_snapshot: sixItemSnapshot,
+    });
+    expect(sixItemAdjustments.absentWithoutNotice).toBe(500);
+    expect(sixItemAdjustments.deductions).toBe(30);
   });
 
   it('exports the explicitly legacy FM pickup rate', () => {

@@ -67,7 +67,7 @@ export interface SavePayrollAdjustmentPlanInput {
 }
 
 export type PayrollAdjustmentRecordCode =
-  | 'general_deductions' | 'late_onhold' | 'late_remittance'
+  | 'general_deductions' | 'late_onhold' | 'late_remittance' | 'absent_without_notice'
   | 'other_earnings' | 'fm_pickup';
 
 export interface PayrollAdjustmentBatchItem {

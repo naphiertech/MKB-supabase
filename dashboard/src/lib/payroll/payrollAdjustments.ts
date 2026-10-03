@@ -7,7 +7,8 @@ export type PayrollAdjustmentCode =
   | 'fm_pickup'
   | 'general_deductions'
   | 'late_onhold'
-  | 'late_remittance';
+  | 'late_remittance'
+  | 'absent_without_notice';
 export type PayrollAdjustmentCategory = 'earning' | 'deduction';
 
 export interface PayrollAdjustmentDefinitionLike {
@@ -31,6 +32,7 @@ export interface PayslipAdjustments {
   deductions?: number;
   lateOnhold?: number;
   lateRemittance?: number;
+  absentWithoutNotice?: number;
   definitions?: PayrollAdjustmentDefinitionLike[];
   snapshotVersion?: number;
   legacyFmPickupCount?: number;
@@ -47,6 +49,7 @@ export interface PayrollAdjustmentsInput {
   deductions?: PayrollNumericValue;
   lateOnhold?: PayrollNumericValue;
   lateRemittance?: PayrollNumericValue;
+  absentWithoutNotice?: PayrollNumericValue;
 }
 
 export interface PayrollAdjustmentRecord {
@@ -58,6 +61,7 @@ export interface PayrollAdjustmentRecord {
   deductions?: PayrollNumericValue;
   late_onhold?: PayrollNumericValue;
   late_remittance?: PayrollNumericValue;
+  absent_without_notice?: PayrollNumericValue;
   adjustment_snapshot?: unknown;
   adjustment_snapshot_version?: PayrollNumericValue;
   total_earnings_snapshot?: PayrollNumericValue;
@@ -67,7 +71,7 @@ export interface PayrollAdjustmentRecord {
 
 export type NormalizedPayslipAdjustments = Required<Pick<
   PayslipAdjustments,
-  'otherEarnings' | 'fmPickupAmount' | 'deductions' | 'lateOnhold' | 'lateRemittance'
+  'otherEarnings' | 'fmPickupAmount' | 'deductions' | 'lateOnhold' | 'lateRemittance' | 'absentWithoutNotice'
 >>;
 
 export interface PayrollAdjustmentTotals {
@@ -95,6 +99,7 @@ export function normalizePayrollAdjustments(
     deductions: Number(adjustments.deductions ?? 0),
     lateOnhold: Number(adjustments.lateOnhold ?? 0),
     lateRemittance: Number(adjustments.lateRemittance ?? 0),
+    absentWithoutNotice: Number(adjustments.absentWithoutNotice ?? 0),
   };
 }
 
@@ -124,7 +129,7 @@ function parseAdjustmentSnapshot(value: unknown): PayrollAdjustmentSnapshot | nu
     }];
   });
 
-  return items.length === 5 ? { version: Number(candidate.version), items } : null;
+  return (items.length === 5 || items.length === 6) ? { version: Number(candidate.version), items } : null;
 }
 
 function amountForCode(items: PayrollAdjustmentDefinitionLike[], code: PayrollAdjustmentCode): number {
@@ -147,6 +152,7 @@ export function payslipAdjustmentsFromRecord(
       deductions: amountForCode(snapshot.items, 'general_deductions'),
       lateOnhold: amountForCode(snapshot.items, 'late_onhold'),
       lateRemittance: amountForCode(snapshot.items, 'late_remittance'),
+      absentWithoutNotice: amountForCode(snapshot.items, 'absent_without_notice'),
       definitions: snapshot.items,
       snapshotVersion: snapshot.version,
       ...(legacyFm == null ? {} : { legacyFmPickupCount: legacyFm }),
@@ -171,6 +177,7 @@ export function payslipAdjustmentsFromRecord(
       deductions: record.deductions,
       lateOnhold: record.late_onhold,
       lateRemittance: record.late_remittance,
+      absentWithoutNotice: record.absent_without_notice,
     }),
     ...(currentDefinitions ? { definitions: currentDefinitions } : {}),
   };
@@ -186,7 +193,8 @@ export function calculatePayrollAdjustmentTotals(
   const totalEarnings = normalizedGrossPay + normalizedAdjustments.otherEarnings + fmPickupEarnings;
   const totalDeductions = normalizedAdjustments.deductions
     + normalizedAdjustments.lateOnhold
-    + normalizedAdjustments.lateRemittance;
+    + normalizedAdjustments.lateRemittance
+    + normalizedAdjustments.absentWithoutNotice;
 
   return {
     grossPay: normalizedGrossPay,

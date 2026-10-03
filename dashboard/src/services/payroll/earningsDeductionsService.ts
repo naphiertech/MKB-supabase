@@ -22,6 +22,7 @@ const DEFINITION_ORDER: PayrollAdjustmentCode[] = [
   'general_deductions',
   'late_onhold',
   'late_remittance',
+  'absent_without_notice',
 ];
 
 export async function listPayrollAdjustmentDefinitions(): Promise<PayrollAdjustmentDefinition[]> {

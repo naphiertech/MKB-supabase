@@ -17,10 +17,11 @@ export interface BatchDraft {
   reference: string;
   payrollRecordId: string;
 }
-export type BatchDrafts = Record<PayrollAdjustmentRecordCode, BatchDraft>;
+export type BatchAdjustmentCode = Exclude<PayrollAdjustmentRecordCode, 'absent_without_notice'>;
+export type BatchDrafts = Record<BatchAdjustmentCode, BatchDraft>;
 
 const DEFINITIONS: Array<{
-  code: PayrollAdjustmentRecordCode;
+  code: BatchAdjustmentCode;
   label: string;
   category: 'deduction' | 'earning';
 }> = [
@@ -72,7 +73,7 @@ export function PayrollAdjustmentBatchForm({ riders, payrolls, onCancel, onSave 
     Number(draft.amount) > 0 && Boolean(draft.date) && Boolean(draft.reason.trim())
     && (category === 'deduction' || Boolean(draft.payrollRecordId)));
 
-  const update = (code: PayrollAdjustmentRecordCode, patch: Partial<BatchDraft>) =>
+  const update = (code: BatchAdjustmentCode, patch: Partial<BatchDraft>) =>
     setDrafts((current) => ({ ...current, [code]: { ...current[code], ...patch } }));
 
   const submit = async () => {

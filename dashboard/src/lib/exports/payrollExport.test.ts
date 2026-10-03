@@ -151,7 +151,7 @@ describe('shared payroll export data', () => {
     const adjustments = module.payslipAdjustmentsFromRecord?.({
       other_earnings: '25', fm_pickup_count: 2, deductions: '10', late_onhold: 5, late_remittance: 7,
     });
-    expect(adjustments).toEqual({ otherEarnings: 25, fmPickupAmount: 6, deductions: 10, lateOnhold: 5, lateRemittance: 7 });
+    expect(adjustments).toEqual({ otherEarnings: 25, fmPickupAmount: 6, deductions: 10, lateOnhold: 5, lateRemittance: 7, absentWithoutNotice: 0 });
     expect(module.calculatePayslipNetPay?.(131, adjustments!)).toBe(140);
   });
 

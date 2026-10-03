@@ -22,6 +22,7 @@ interface PayslipSlipCardProps {
   setLateOnhold: (val: number) => void;
   lateRemittance: number;
   setLateRemittance: (val: number) => void;
+  absentWithoutNotice?: number;
   totalEarnings: number;
   totalDeductions: number;
   netSalary: number;
@@ -54,6 +55,7 @@ export function PayslipSlipCard({
   setLateOnhold,
   lateRemittance,
   setLateRemittance,
+  absentWithoutNotice = 0,
   totalEarnings,
   totalDeductions,
   netSalary,
@@ -76,6 +78,7 @@ export function PayslipSlipCard({
   const deductionsDefinition = definitionFor('general_deductions', 'General Deductions');
   const lateOnholdDefinition = definitionFor('late_onhold', 'Late Onhold / FM');
   const lateRemittanceDefinition = definitionFor('late_remittance', 'Late Remittance');
+  const absentWithoutNoticeDefinition = definitionFor('absent_without_notice', 'Absent w/o prior notice');
   const canEdit = (definition: PayrollAdjustmentDefinitionLike) =>
     role === "payroll" && isEditableStatus(record.status) && definition.active;
   return (
@@ -239,6 +242,13 @@ export function PayslipSlipCard({
                 {phpFmt(lateRemittance)}
               </span>
             )}
+          </div>
+
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">{absentWithoutNoticeDefinition.label}</span>
+            <span className="font-mono tabular-nums text-muted-foreground">
+              {phpFmt(absentWithoutNotice)}
+            </span>
           </div>
 
           <div className="flex justify-between pt-1 border-t border-border font-semibold text-xs text-foreground">

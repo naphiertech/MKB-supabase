@@ -9,7 +9,7 @@ import {
   evaluateEditableAllocationInput,
 } from '../../lib/payroll/payrollAdjustmentPlanning';
 
-type DeductionCode = 'general_deductions' | 'late_onhold' | 'late_remittance';
+type DeductionCode = 'general_deductions' | 'late_onhold' | 'late_remittance' | 'absent_without_notice';
 type EarningCode = 'other_earnings' | 'fm_pickup';
 
 interface Props {
@@ -36,6 +36,7 @@ const DEDUCTION_CATEGORIES: Array<{ code: DeductionCode; label: string }> = [
   { code: 'general_deductions', label: 'General Deductions' },
   { code: 'late_onhold', label: 'Late Onhold / FM' },
   { code: 'late_remittance', label: 'Late Remittance' },
+  { code: 'absent_without_notice', label: 'Absent w/o prior notice' },
 ];
 
 const php = (amount: number) => `₱${amount.toLocaleString('en-PH', {

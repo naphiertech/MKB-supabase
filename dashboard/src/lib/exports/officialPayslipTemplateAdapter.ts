@@ -166,6 +166,7 @@ export async function createOfficialPayslipXLSXBlob(
     worksheet.getCell(`N${deductionsRow}`).value = adjustments.deductions;
     worksheet.getCell(`C${lateOnholdRow}`).value = adjustments.lateOnhold;
     worksheet.getCell(`C${lateRemittanceRow}`).value = adjustments.lateRemittance;
+    worksheet.getCell(`K${lateRemittanceRow}`).value = adjustments.absentWithoutNotice ?? 0;
     worksheet.getCell(`N${otherEarningsRow}`).value = { formula: `D${otherEarningsRow}*5` };
     worksheet.getCell(`N${fmPickUpRow}`).value = adjustments.fmPickupAmount;
     worksheet.getCell(`N${lateOnholdRow}`).value = {

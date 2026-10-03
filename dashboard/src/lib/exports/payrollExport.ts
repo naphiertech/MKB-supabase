@@ -251,6 +251,7 @@ export function createParcelPayslipPdf(data: PayslipDocumentData): jsPDF {
     [adjustmentLabel(adjustments, 'general_deductions', 'General Deductions'), formatPdfCurrency(adjustments.deductions)],
     [adjustmentLabel(adjustments, 'late_onhold', 'Late Onhold / FM'), formatPdfCurrency(adjustments.lateOnhold)],
     [adjustmentLabel(adjustments, 'late_remittance', 'Late Remittance'), formatPdfCurrency(adjustments.lateRemittance)],
+    [adjustmentLabel(adjustments, 'absent_without_notice', 'Absent w/o prior notice'), formatPdfCurrency(adjustments.absentWithoutNotice)],
     ['TOTAL DEDUCTIONS', formatPdfCurrency(data.totals.totalDeductions)],
     ['NET TAKE-HOME PAY', formatPdfCurrency(data.totals.netPay)],
   ];
@@ -336,6 +337,7 @@ export function renderParcelPayslipCsv(data: PayslipDocumentData): void {
   const generalDeductions = values.deductions;
   const lateOnhold = values.lateOnhold;
   const lateRemittance = values.lateRemittance;
+  const absentWithoutNotice = values.absentWithoutNotice;
   const totalDeductions = data.totals.totalDeductions;
   const netTakeHome = data.totals.netPay;
 
@@ -377,6 +379,7 @@ export function renderParcelPayslipCsv(data: PayslipDocumentData): void {
     [adjustmentLabel(values, 'general_deductions', 'General Deductions'), `₱${generalDeductions.toFixed(2)}`],
     [adjustmentLabel(values, 'late_onhold', 'Late Onhold / FM'), `₱${lateOnhold.toFixed(2)}`],
     [adjustmentLabel(values, 'late_remittance', 'Late Remittance'), `₱${lateRemittance.toFixed(2)}`],
+    [adjustmentLabel(values, 'absent_without_notice', 'Absent w/o prior notice'), `₱${absentWithoutNotice.toFixed(2)}`],
     ['TOTAL DEDUCTIONS', `₱${totalDeductions.toFixed(2)}`],
     [],
     ['NET TAKE-HOME PAY', `₱${netTakeHome.toFixed(2)}`]

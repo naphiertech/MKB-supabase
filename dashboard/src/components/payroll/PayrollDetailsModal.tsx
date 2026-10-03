@@ -84,6 +84,7 @@ export interface PayrollRecordShape {
   deductions?: number;
   late_onhold?: number;
   late_remittance?: number;
+  absent_without_notice?: number;
   adjustment_snapshot?: unknown;
   adjustment_snapshot_version?: number | null;
   adjustment_source_version?: number | null;
@@ -221,6 +222,7 @@ export function PayrollDetailsModal({
   const [deductions, setDeductions] = useState(0);
   const [lateOnhold, setLateOnhold] = useState(0);
   const [lateRemittance, setLateRemittance] = useState(0);
+  const [absentWithoutNotice, setAbsentWithoutNotice] = useState(0);
   const [isSavingAdjustments, setIsSavingAdjustments] = useState(false);
   const [adjustmentDefinitions, setAdjustmentDefinitions] = useState<PayrollAdjustmentDefinitionLike[]>([]);
   const [deductionBalances, setDeductionBalances] = useState<PayrollDeductionBalance[]>([]);
@@ -285,6 +287,7 @@ export function PayrollDetailsModal({
           setDeductions(Number(resolvedAdjustments.deductions ?? 0));
           setLateOnhold(Number(resolvedAdjustments.lateOnhold ?? 0));
           setLateRemittance(Number(resolvedAdjustments.lateRemittance ?? 0));
+          setAbsentWithoutNotice(Number(resolvedAdjustments.absentWithoutNotice ?? 0));
           setAdjustmentDefinitions(resolvedAdjustments.definitions ?? currentDefinitions);
           const eligibleBalances = balanceRows.filter((row) =>
             row.rider_id === record.rider_id
@@ -467,6 +470,7 @@ export function PayrollDetailsModal({
     deductions,
     lateOnhold,
     lateRemittance,
+    absentWithoutNotice,
   });
   const {
     totalEarnings,
@@ -487,6 +491,7 @@ export function PayrollDetailsModal({
     deductions,
     lateOnhold,
     lateRemittance,
+    absentWithoutNotice,
     definitions: adjustmentDefinitions,
   };
 
@@ -973,6 +978,7 @@ export function PayrollDetailsModal({
                 setLateOnhold={setLateOnhold}
                 lateRemittance={lateRemittance}
                 setLateRemittance={setLateRemittance}
+                absentWithoutNotice={absentWithoutNotice}
                 totalEarnings={totalEarnings}
                 totalDeductions={totalDeductions}
                 netSalary={netSalary}
