@@ -96,6 +96,29 @@ select throws_ok(
   'Point 15: create_payroll_adjustments_batch rejects manual absent_without_notice'
 );
 
+-- Point 1b: Direct table insert into rider_absence_financial_consequences is forbidden for authenticated users.
+select throws_ok(
+  $$
+    insert into public.rider_absence_financial_consequences (
+      rider_id, hub_id, business_date, attendance_context_code, policy_version_id,
+      financial_eligibility_reason, policy_penalty_amount, applied_amount, currency,
+      status, confirmation_key, decided_by, supervisor_name, decision_notes
+    ) values (
+      'c8500000-0000-4000-8000-000000000001', 'a8500000-0000-4000-8000-000000000001',
+      '2026-10-02', 'no_notice', (select id from public.absence_policy_versions where version_number = 1),
+      'absence_without_prior_notice', 500.00, 500.00, 'PHP',
+      'confirmed', gen_random_uuid(), 'd8500000-0000-4000-8000-000000000001',
+      'Direct Hacker', 'Direct insert attempt'
+    )
+  $$,
+  '42501',
+  null,
+  'Point 1b: Direct table insert into rider_absence_financial_consequences is forbidden for authenticated users'
+);
+
+-- Reset role to setup context for fixture creation
+reset role;
+
 -- Create draft payroll record for Rider 1
 insert into public.payroll_records (
   id, rider_id, hub_id, cutoff_start, cutoff_end, total_parcels, standard_parcels, heavy_parcels,
@@ -108,7 +131,7 @@ insert into public.payroll_records (
   100, 100, 0, 1200.00, 0, 1200.00, 12.00, 'draft', 2, 2
 );
 
--- Point 1: Create confirmed absence consequence -> verify it does NOT touch payroll directly.
+-- Point 1: Create confirmed absence consequence fixture
 insert into public.rider_absence_financial_consequences (
   id, rider_id, hub_id, business_date, attendance_context_code, policy_version_id,
   financial_eligibility_reason, policy_penalty_amount, applied_amount, currency,
@@ -124,19 +147,7 @@ insert into public.rider_absence_financial_consequences (
   'Test Admin', 'Confirmed penalty 1'
 );
 
-select is(
-  (select absent_without_notice from public.payroll_records where id = 'e8500000-0000-4000-8000-000000000001'),
-  0.00,
-  'Point 1: Confirmed consequence does NOT automatically alter payroll deductions'
-);
-
-select is(
-  (select count(*) from public.payroll_deduction_obligations where reference = 'ABS-PEN:f8500000-0000-4000-8000-000000000001'),
-  0::bigint,
-  'Point 1: Confirmed consequence does NOT create obligation before Send to Payroll'
-);
-
--- Point 4: Waived consequence creates no obligation.
+-- Point 4: Waived consequence fixture
 insert into public.rider_absence_financial_consequences (
   id, rider_id, hub_id, business_date, attendance_context_code, policy_version_id,
   financial_eligibility_reason, policy_penalty_amount, applied_amount, currency,
@@ -152,14 +163,7 @@ insert into public.rider_absence_financial_consequences (
   'Test Admin', 'Emergency waiver', 'emergency'
 );
 
-select throws_ok(
-  $$ select public.materialize_absence_financial_deduction_obligation('f8500000-0000-4000-8000-000000000002') $$,
-  '23514',
-  null,
-  'Point 4: Waived consequence cannot materialize an obligation'
-);
-
--- Point 5: Unconfirmed (or reversed) consequence cannot create obligation.
+-- Point 5: Unconfirmed (or reversed) consequence fixture
 insert into public.rider_absence_financial_consequences (
   id, rider_id, hub_id, business_date, attendance_context_code, policy_version_id,
   financial_eligibility_reason, policy_penalty_amount, applied_amount, currency,
@@ -173,6 +177,59 @@ insert into public.rider_absence_financial_consequences (
   'absence_without_prior_notice', 500.00, 500.00, 'PHP',
   'reversed', gen_random_uuid(), 'd8500000-0000-4000-8000-000000000001',
   'Test Admin', 'Reversed decision'
+);
+
+-- Second confirmed consequence fixture for same rider and cutoff
+insert into public.rider_absence_financial_consequences (
+  id, rider_id, hub_id, business_date, attendance_context_code, policy_version_id,
+  financial_eligibility_reason, policy_penalty_amount, applied_amount, currency,
+  status, confirmation_key, decided_by, supervisor_name, decision_notes
+) values (
+  'f8500000-0000-4000-8000-000000000004',
+  'c8500000-0000-4000-8000-000000000001',
+  'a8500000-0000-4000-8000-000000000001',
+  '2026-10-01', 'no_notice',
+  (select id from public.absence_policy_versions where version_number = 1),
+  'absence_without_prior_notice', 500.00, 500.00, 'PHP',
+  'confirmed', gen_random_uuid(), 'd8500000-0000-4000-8000-000000000001',
+  'Test Admin', 'Confirmed penalty 2'
+);
+
+-- Create an independent General Deduction obligation fixture
+insert into public.payroll_deduction_obligations (
+  id, rider_id, hub_id, adjustment_code, original_amount, adjustment_date,
+  reason, reference, source, created_by, updated_by
+) values (
+  'b8500000-0000-4000-8000-000000000099',
+  'c8500000-0000-4000-8000-000000000001',
+  'a8500000-0000-4000-8000-000000000001',
+  'general_deductions', 150.00, '2026-10-01',
+  'Uniform deduction', 'UNI-1', 'manual',
+  'd8500000-0000-4000-8000-000000000001', 'd8500000-0000-4000-8000-000000000001'
+);
+
+-- Production workflow assertions under authenticated Admin
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"d8500000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select set_config('request.jwt.claim.sub', 'd8500000-0000-4000-8000-000000000001', true);
+
+select is(
+  (select absent_without_notice from public.payroll_records where id = 'e8500000-0000-4000-8000-000000000001'),
+  0.00,
+  'Point 1: Confirmed consequence does NOT automatically alter payroll deductions'
+);
+
+select is(
+  (select count(*) from public.payroll_deduction_obligations where reference = 'ABS-PEN:f8500000-0000-4000-8000-000000000001'),
+  0::bigint,
+  'Point 1: Confirmed consequence does NOT create obligation before Send to Payroll'
+);
+
+select throws_ok(
+  $$ select public.materialize_absence_financial_deduction_obligation('f8500000-0000-4000-8000-000000000002') $$,
+  '23514',
+  null,
+  'Point 4: Waived consequence cannot materialize an obligation'
 );
 
 select throws_ok(
@@ -223,40 +280,11 @@ select is(
   'Point 13: No duplicate ABS-PEN obligation created on retry'
 );
 
--- Create second confirmed consequence and obligation for same rider and cutoff
-insert into public.rider_absence_financial_consequences (
-  id, rider_id, hub_id, business_date, attendance_context_code, policy_version_id,
-  financial_eligibility_reason, policy_penalty_amount, applied_amount, currency,
-  status, confirmation_key, decided_by, supervisor_name, decision_notes
-) values (
-  'f8500000-0000-4000-8000-000000000004',
-  'c8500000-0000-4000-8000-000000000001',
-  'a8500000-0000-4000-8000-000000000001',
-  '2026-10-01', 'no_notice',
-  (select id from public.absence_policy_versions where version_number = 1),
-  'absence_without_prior_notice', 500.00, 500.00, 'PHP',
-  'confirmed', gen_random_uuid(), 'd8500000-0000-4000-8000-000000000001',
-  'Test Admin', 'Confirmed penalty 2'
-);
-
 do $$
 begin
   perform public.materialize_absence_financial_deduction_obligation('f8500000-0000-4000-8000-000000000004');
 end;
 $$;
-
--- Create an independent General Deduction obligation as well
-insert into public.payroll_deduction_obligations (
-  id, rider_id, hub_id, adjustment_code, original_amount, adjustment_date,
-  reason, reference, source, created_by, updated_by
-) values (
-  'b8500000-0000-4000-8000-000000000099',
-  'c8500000-0000-4000-8000-000000000001',
-  'a8500000-0000-4000-8000-000000000001',
-  'general_deductions', 150.00, '2026-10-01',
-  'Uniform deduction', 'UNI-1', 'manual',
-  'd8500000-0000-4000-8000-000000000001', 'd8500000-0000-4000-8000-000000000001'
-);
 
 -- Points 6, 7, 8, 9, 12: Allocate obligations to draft payroll via save_payroll_adjustment_plan
 do $$
