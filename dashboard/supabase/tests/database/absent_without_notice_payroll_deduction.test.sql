@@ -104,7 +104,7 @@ insert into public.payroll_records (
   'e8500000-0000-4000-8000-000000000001',
   'c8500000-0000-4000-8000-000000000001',
   'a8500000-0000-4000-8000-000000000001',
-  '2026-10-01', '2026-10-15',
+  '2026-09-28', '2026-10-04',
   100, 100, 0, 1200.00, 0, 1200.00, 12.00, 'draft', 2, 2
 );
 
@@ -232,7 +232,7 @@ insert into public.rider_absence_financial_consequences (
   'f8500000-0000-4000-8000-000000000004',
   'c8500000-0000-4000-8000-000000000001',
   'a8500000-0000-4000-8000-000000000001',
-  '2026-10-05', 'no_notice',
+  '2026-10-01', 'no_notice',
   (select id from public.absence_policy_versions where version_number = 1),
   'absence_without_prior_notice', 500.00, 500.00, 'PHP',
   'confirmed', gen_random_uuid(), 'd8500000-0000-4000-8000-000000000001',
