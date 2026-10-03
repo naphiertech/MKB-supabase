@@ -167,7 +167,8 @@ insert into public.rider_absence_financial_consequences (
 insert into public.rider_absence_financial_consequences (
   id, rider_id, hub_id, business_date, attendance_context_code, policy_version_id,
   financial_eligibility_reason, policy_penalty_amount, applied_amount, currency,
-  status, confirmation_key, decided_by, supervisor_name, decision_notes
+  status, confirmation_key, decided_by, supervisor_name, decision_notes,
+  reversed_by, reversed_at, reversal_reason
 ) values (
   'f8500000-0000-4000-8000-000000000003',
   'c8500000-0000-4000-8000-000000000001',
@@ -176,7 +177,8 @@ insert into public.rider_absence_financial_consequences (
   (select id from public.absence_policy_versions where version_number = 1),
   'absence_without_prior_notice', 500.00, 500.00, 'PHP',
   'reversed', gen_random_uuid(), 'd8500000-0000-4000-8000-000000000001',
-  'Test Admin', 'Reversed decision'
+  'Test Admin', 'Reversed decision',
+  'd8500000-0000-4000-8000-000000000001', clock_timestamp(), 'Reversed fixture decision'
 );
 
 -- Second confirmed consequence fixture for same rider and cutoff
