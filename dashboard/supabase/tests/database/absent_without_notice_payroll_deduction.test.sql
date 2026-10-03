@@ -119,6 +119,30 @@ select throws_ok(
 -- Reset role to setup context for fixture creation
 reset role;
 
+-- Create delivery and attendance fixtures to support gross pay calculation during submission
+insert into public.attendance_logs (
+  id, rider_id, hub_id, date, time_in, status, source
+) values (
+  'a8500000-0000-4000-8000-000000000010',
+  'c8500000-0000-4000-8000-000000000001',
+  'a8500000-0000-4000-8000-000000000001',
+  '2026-09-28',
+  timestamptz '2026-09-28 07:50:00+08',
+  'present',
+  'face-scan'
+);
+
+insert into public.parcel_logs (
+  id, rider_id, hub_id, date, parcels, heavy_parcels, failed_parcels, returned_parcels, rate, created_by
+) values (
+  'a8500000-0000-4000-8000-000000000020',
+  'c8500000-0000-4000-8000-000000000001',
+  'a8500000-0000-4000-8000-000000000001',
+  '2026-09-28',
+  100, 0, 0, 0, 12.00,
+  'd8500000-0000-4000-8000-000000000001'
+);
+
 -- Create draft payroll record for Rider 1
 insert into public.payroll_records (
   id, rider_id, hub_id, cutoff_start, cutoff_end, total_parcels, standard_parcels, heavy_parcels,
