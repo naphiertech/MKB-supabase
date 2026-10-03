@@ -12,17 +12,17 @@ select ok(to_regprocedure('private.legacy_fm_pickup_amount(integer)') is not nul
 
 select is(
   (select count(*) from public.payroll_adjustment_definitions),
-  5::bigint,
-  'exactly five baseline definitions are seeded'
+  6::bigint,
+  'exactly six approved definitions are seeded'
 );
 select results_eq(
   $$select code from public.payroll_adjustment_definitions order by code$$,
-  $$values ('fm_pickup'::text), ('general_deductions'::text), ('late_onhold'::text), ('late_remittance'::text), ('other_earnings'::text)$$,
-  'the fixed registry contains only the five approved codes'
+  $$values ('absent_without_notice'::text), ('fm_pickup'::text), ('general_deductions'::text), ('late_onhold'::text), ('late_remittance'::text), ('other_earnings'::text)$$,
+  'the fixed registry contains only the six approved codes'
 );
 select is(
   (select count(*) from public.payroll_adjustment_definitions where input_mode = 'manual_amount'),
-  5::bigint,
+  6::bigint,
   'all definitions use manual amount input'
 );
 select is(private.legacy_fm_pickup_amount(4), 12::numeric, 'legacy FM quantity converts once at PHP 3');

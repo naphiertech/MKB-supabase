@@ -109,7 +109,7 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"d7400000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select lives_ok($$insert into bridge_results values ('created', public.materialize_absence_financial_deduction_obligation('e7400000-0000-4000-8000-000000000001'))$$, 'Admin materializes confirmed snapshot');
 select is((select original_amount from public.payroll_deduction_obligations where id = (select id from bridge_results where name = 'created')), 725.50::numeric, 'amount comes from historical applied amount, not 500 or current policy');
-select is((select adjustment_code from public.payroll_deduction_obligations where id = (select id from bridge_results where name = 'created')), 'general_deductions'::text, 'uses existing general deductions classification');
+select is((select adjustment_code from public.payroll_deduction_obligations where id = (select id from bridge_results where name = 'created')), 'absent_without_notice'::text, 'uses dedicated absent_without_notice classification');
 select is((select reference from public.payroll_deduction_obligations where id = (select id from bridge_results where name = 'created')), 'ABS-PEN:e7400000-0000-4000-8000-000000000001'::text, 'canonical ABS-PEN UUID reference is exact');
 select is((select hub_id from public.payroll_deduction_obligations where id = (select id from bridge_results where name = 'created')), 'a7400000-0000-4000-8000-000000000001'::uuid, 'historical consequence hub wins over current Rider hub');
 select is((select rider_id from public.payroll_deduction_obligations where id = (select id from bridge_results where name = 'created')), 'c7400000-0000-4000-8000-000000000001'::uuid, 'Rider identity comes from consequence');

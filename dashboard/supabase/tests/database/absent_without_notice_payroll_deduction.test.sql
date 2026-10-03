@@ -41,7 +41,7 @@ insert into public.users (id, full_name, email, role, hub_access_scope, status, 
 
 -- Point 14: Policy V2 remains inactive after migration.
 select is(
-  (select count(*) from public.absence_policy_versions where version_number = 2 and active = true),
+  (select count(*) from public.absence_policy_versions where version_number = 2 and lifecycle = 'published'),
   0::bigint,
   'Point 14: Policy V2 remains inactive after migration'
 );
@@ -60,6 +60,8 @@ select is(
 );
 
 -- Point 15: Manual generic RPC creation is forbidden.
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"d8500000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select set_config('request.jwt.claim.sub', 'd8500000-0000-4000-8000-000000000001', true);
 select throws_ok(
   $$

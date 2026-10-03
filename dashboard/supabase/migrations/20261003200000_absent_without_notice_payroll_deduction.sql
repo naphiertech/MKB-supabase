@@ -190,45 +190,43 @@ create or replace function public.materialize_absence_financial_deduction_obliga
 )
 returns uuid
 language plpgsql
+volatile
 security definer
 set search_path = ''
 as $$
 declare
-  actor_id uuid;
+  actor_id uuid := (select auth.uid());
   consequence public.rider_absence_financial_consequences%rowtype;
-  obligation public.payroll_deduction_obligations%rowtype;
   linked_consequence public.rider_absence_financial_consequences%rowtype;
+  obligation public.payroll_deduction_obligations%rowtype;
   canonical_reference text;
   obligation_reason text;
 begin
-  if p_consequence_id is null then
-    raise exception 'Consequence ID is required.' using errcode = '23502';
-  end if;
-
-  actor_id := private.assert_authorized_absence_decision_maker();
-
-  if not private.user_is_admin_for(actor_id) then
-    raise exception 'FORBIDDEN: Only an active Admin can send an absence consequence to Payroll.'
+  if actor_id is null or not exists (
+    select 1 from public.users actor
+    where actor.id = actor_id
+      and actor.role = 'admin'::public.user_role
+      and actor.status = 'active'::public.user_status
+      and actor.employment_status = 'active'::public.employment_status
+  ) then
+    raise exception 'Only an active employed Admin can materialize absence obligations.'
       using errcode = '42501';
+  end if;
+  if p_consequence_id is null then
+    raise exception 'A financial consequence ID is required.' using errcode = '22023';
   end if;
 
   select c.* into consequence
   from public.rider_absence_financial_consequences c
   where c.id = p_consequence_id
   for update;
-
   if not found then
-    raise exception 'ABSENCE_CONSEQUENCE_NOT_FOUND: The requested consequence does not exist.'
-      using errcode = 'P0002';
+    raise exception 'Financial consequence was not found.' using errcode = 'P0002';
   end if;
-
   if not private.user_can_access_hub_for(actor_id, consequence.hub_id) then
-    raise exception 'FORBIDDEN: Consequence is outside the actor authorized Hub scope.'
-      using errcode = '42501';
+    raise exception 'The consequence is outside your authorized Hub scope.' using errcode = '42501';
   end if;
-
   if consequence.status <> 'confirmed'
-     or consequence.applied_amount is null
      or consequence.applied_amount <= 0
      or consequence.currency <> 'PHP' then
     raise exception 'Only a confirmed positive PHP consequence can create an obligation.'
@@ -488,13 +486,14 @@ for each row execute function public.guard_inactive_payroll_adjustment_values();
 revoke all on function public.guard_inactive_payroll_adjustment_values() from public;
 
 -- 10. Update private snapshot builder to accept optional absent_without_notice.
+drop function if exists private.build_payroll_adjustment_snapshot(numeric, numeric, numeric, numeric, numeric, integer, integer);
 create or replace function private.build_payroll_adjustment_snapshot(
   p_other_earnings numeric,
   p_fm_pickup_amount numeric,
   p_deductions numeric,
   p_late_onhold numeric,
   p_late_remittance numeric,
-  p_version integer,
+  p_version integer default 2,
   p_legacy_fm_pickup_count integer default null,
   p_absent_without_notice numeric default 0
 )
@@ -985,144 +984,276 @@ grant execute on function public.get_payroll_adjustment_rider_ledger(uuid, text,
 create or replace function public.enforce_payroll_workflow_constraints()
 returns trigger
 language plpgsql
-set search_path = ''
+security definer
+set search_path = public, auth, pg_temp
 as $$
 declare
+  actor_id uuid := (select auth.uid());
   current_user_role public.user_role;
+  actor_name_snapshot text;
+  actor_email_snapshot text;
   transition_request_id text;
-  earliest_payable date;
+  transitioned_at timestamptz := clock_timestamp();
+  workflow_event_type text;
+  workflow_description text;
+  rider_name text;
   current_date_manila date;
+  earliest_payable date;
 begin
-  current_user_role := private.current_user_role();
-  transition_request_id := nullif(current_setting('app.payroll_transition_request_id', true), '');
-
-  if current_user_role is null and session_user not in ('postgres', 'supabase_admin') then
-    raise exception 'Unauthorized payroll operation.';
+  -- Validate period shape for new weekly payroll model on/after 2026-08-31
+  if new.cutoff_start >= '2026-08-31'::date then
+    if extract(isodow from new.cutoff_start) <> 1 or new.cutoff_end <> (new.cutoff_start + 6) then
+      raise exception 'PAYROLL_INVALID_PERIOD: Weekly payroll cutoff must start on a Monday and end on Sunday (7 calendar days). Received % to %.', new.cutoff_start, new.cutoff_end;
+    end if;
   end if;
 
   if tg_op = 'INSERT' then
-    if current_user_role = 'hr'::public.user_role then
-      raise exception 'HR cannot create payroll records.';
-    end if;
-
-    if new.status <> 'draft'::public.payroll_status then
-      raise exception 'New payroll records must be created in Draft status.';
-    end if;
-
+    new.submitted_by := null;
+    new.submitted_at := null;
+    new.submitted_by_name_snapshot := null;
+    new.submitted_by_email_snapshot := null;
+    new.approved_by := null;
+    new.approved_at := null;
+    new.approved_by_name_snapshot := null;
+    new.approved_by_email_snapshot := null;
+    new.rejected_by := null;
+    new.rejected_at := null;
+    new.rejected_by_name_snapshot := null;
+    new.rejected_by_email_snapshot := null;
+    new.returned_by := null;
+    new.returned_at := null;
+    new.returned_by_name_snapshot := null;
+    new.returned_by_email_snapshot := null;
+    new.paid_by := null;
+    new.paid_at := null;
+    new.paid_by_name_snapshot := null;
+    new.paid_by_email_snapshot := null;
     return new;
   end if;
 
-  if tg_op = 'UPDATE' then
-    if old.status is distinct from new.status then
-      if new.status in ('approved'::public.payroll_status, 'rejected'::public.payroll_status)
-        and old.status = 'pending'::public.payroll_status
-        and current_user_role not in ('admin'::public.user_role, 'hr'::public.user_role) then
-        raise exception 'Only HR or Admin can approve or reject payroll.';
+  transition_request_id := nullif(current_setting('app.payroll_transition_request_id', true), '');
+
+  select
+    profile.role,
+    nullif(btrim(profile.full_name), '')
+  into current_user_role, actor_name_snapshot
+  from public.users profile
+  where profile.id = actor_id
+    and profile.status = 'active'::public.user_status;
+
+  select lower(nullif(btrim(auth_user.email), ''))
+  into actor_email_snapshot
+  from auth.users auth_user
+  where auth_user.id = actor_id
+    and auth_user.email_confirmed_at is not null;
+
+  if old.status is distinct from new.status then
+    if actor_id is null or current_user_role is null then
+      raise exception 'A signed-in active user with a confirmed email is required for payroll workflow actions.';
+    end if;
+
+    if actor_name_snapshot is null or actor_email_snapshot is null then
+      raise exception 'A confirmed actor name and email are required for payroll workflow actions.';
+    end if;
+
+    if new.status = 'approved'::public.payroll_status
+      and current_user_role not in ('admin'::public.user_role, 'hr'::public.user_role) then
+      raise exception 'Only HR or Admin can approve payroll.';
+    end if;
+
+    if new.status = 'rejected'::public.payroll_status
+      and current_user_role not in ('admin'::public.user_role, 'hr'::public.user_role) then
+      raise exception 'Only HR or Admin can reject payroll.';
+    end if;
+
+    if new.status = 'draft'::public.payroll_status
+      and old.status = 'pending'::public.payroll_status
+      and current_user_role not in ('admin'::public.user_role, 'hr'::public.user_role) then
+      raise exception 'Only HR or Admin can return payroll for revision.';
+    end if;
+
+    if new.status = 'paid'::public.payroll_status
+      and current_user_role not in ('admin'::public.user_role, 'hr'::public.user_role) then
+      raise exception 'Only HR or Admin can mark payroll as Paid.';
+    end if;
+
+    if new.status = 'pending'::public.payroll_status
+      and current_user_role not in ('admin'::public.user_role, 'payroll'::public.user_role) then
+      raise exception 'Only Payroll Officer or Admin can submit payroll for approval.';
+    end if;
+
+    if new.status in ('approved'::public.payroll_status, 'paid'::public.payroll_status)
+      and transition_request_id is null then
+      raise exception 'PAYROLL_BULK_REQUEST: Approval and payment must use the authoritative payroll transition function.';
+    end if;
+
+    -- Enforce 1-week payout lag for weekly payrolls on transition to Paid
+    if new.status = 'paid'::public.payroll_status and new.cutoff_start >= '2026-08-31'::date then
+      current_date_manila := (now() at time zone 'Asia/Manila')::date;
+      earliest_payable := public.calculate_payroll_payable_date(new.cutoff_start, new.cutoff_end);
+      if current_date_manila < earliest_payable then
+        raise exception 'PAYROLL_PREMATURE_PAYOUT: Weekly payroll (% to %) cannot be marked as Paid before earliest payable date % (Asia/Manila).', new.cutoff_start, new.cutoff_end, earliest_payable;
       end if;
-
-      if new.status = 'draft'::public.payroll_status
-        and old.status = 'pending'::public.payroll_status
-        and current_user_role not in ('admin'::public.user_role, 'hr'::public.user_role) then
-        raise exception 'Only HR or Admin can return payroll for revision.';
-      end if;
-
-      if new.status = 'paid'::public.payroll_status
-        and current_user_role not in ('admin'::public.user_role, 'hr'::public.user_role) then
-        raise exception 'Only HR or Admin can mark payroll as Paid.';
-      end if;
-
-      if new.status = 'pending'::public.payroll_status
-        and current_user_role not in ('admin'::public.user_role, 'payroll'::public.user_role) then
-        raise exception 'Only Payroll Officer or Admin can submit payroll for approval.';
-      end if;
-
-      if new.status in ('approved'::public.payroll_status, 'paid'::public.payroll_status)
-        and transition_request_id is null then
-        raise exception 'PAYROLL_BULK_REQUEST: Approval and payment must use the authoritative payroll transition function.';
-      end if;
-
-      if new.status = 'paid'::public.payroll_status and new.cutoff_start >= '2026-08-31'::date then
-        current_date_manila := (now() at time zone 'Asia/Manila')::date;
-        earliest_payable := public.calculate_payroll_payable_date(new.cutoff_start, new.cutoff_end);
-        if current_date_manila < earliest_payable then
-          raise exception 'PAYROLL_PREMATURE_PAYOUT: Weekly payroll (% to %) cannot be marked as Paid before earliest payable date % (Asia/Manila).', new.cutoff_start, new.cutoff_end, earliest_payable;
-        end if;
-      end if;
     end if;
+  end if;
 
-    if current_user_role = 'hr'::public.user_role
-      and old.status in ('draft'::public.payroll_status, 'rejected'::public.payroll_status) then
-      raise exception 'HR cannot edit payroll records in Draft or Rejected status.';
+  if current_user_role = 'hr'::public.user_role
+    and old.status in ('draft'::public.payroll_status, 'rejected'::public.payroll_status) then
+    raise exception 'HR cannot edit payroll records in Draft or Rejected status.';
+  end if;
+
+  if current_user_role = 'payroll'::public.user_role
+    and old.status not in ('draft'::public.payroll_status, 'rejected'::public.payroll_status) then
+    raise exception 'Payroll Officer can only edit payroll records in Draft or Rejected status.';
+  end if;
+
+  if old.status = 'approved'::public.payroll_status and new.status <> 'paid'::public.payroll_status then
+    raise exception 'Payroll records in Approved status cannot be modified.';
+  end if;
+
+  if old.status = 'paid'::public.payroll_status then
+    raise exception 'Paid payroll records are immutable.';
+  end if;
+
+  if current_user_role = 'hr'::public.user_role and (
+    new.total_parcels is distinct from old.total_parcels
+    or new.rate_per_parcel is distinct from old.rate_per_parcel
+    or new.gross_pay is distinct from old.gross_pay
+    or new.other_earnings is distinct from old.other_earnings
+    or new.fm_pickup_count is distinct from old.fm_pickup_count
+    or new.deductions is distinct from old.deductions
+    or new.late_onhold is distinct from old.late_onhold
+    or new.late_remittance is distinct from old.late_remittance
+    or new.absent_without_notice is distinct from old.absent_without_notice
+    or new.rider_id is distinct from old.rider_id
+    or new.cutoff_start is distinct from old.cutoff_start
+    or new.cutoff_end is distinct from old.cutoff_end
+  ) then
+    raise exception 'HR cannot modify payroll computations or adjustments.';
+  end if;
+
+  if old.status is distinct from new.status and not (
+    (old.status = 'draft'::public.payroll_status and new.status = 'pending'::public.payroll_status)
+    or (old.status = 'rejected'::public.payroll_status and new.status = 'pending'::public.payroll_status)
+    or (old.status = 'pending'::public.payroll_status and new.status = 'approved'::public.payroll_status)
+    or (old.status = 'pending'::public.payroll_status and new.status = 'rejected'::public.payroll_status)
+    or (old.status = 'pending'::public.payroll_status and new.status = 'draft'::public.payroll_status)
+    or (old.status = 'approved'::public.payroll_status and new.status = 'paid'::public.payroll_status)
+  ) then
+    raise exception 'Invalid status transition: % -> %.', initcap(old.status::text), initcap(new.status::text);
+  end if;
+
+  if old.status is not distinct from new.status and (
+    new.submitted_by is distinct from old.submitted_by
+    or new.submitted_at is distinct from old.submitted_at
+    or new.submitted_by_name_snapshot is distinct from old.submitted_by_name_snapshot
+    or new.submitted_by_email_snapshot is distinct from old.submitted_by_email_snapshot
+    or new.approved_by is distinct from old.approved_by
+    or new.approved_at is distinct from old.approved_at
+    or new.approved_by_name_snapshot is distinct from old.approved_by_name_snapshot
+    or new.approved_by_email_snapshot is distinct from old.approved_by_email_snapshot
+    or new.rejected_by is distinct from old.rejected_by
+    or new.rejected_at is distinct from old.rejected_at
+    or new.rejected_by_name_snapshot is distinct from old.rejected_by_name_snapshot
+    or new.rejected_by_email_snapshot is distinct from old.rejected_by_email_snapshot
+    or new.returned_by is distinct from old.returned_by
+    or new.returned_at is distinct from old.returned_at
+    or new.returned_by_name_snapshot is distinct from old.returned_by_name_snapshot
+    or new.returned_by_email_snapshot is distinct from old.returned_by_email_snapshot
+    or new.paid_by is distinct from old.paid_by
+    or new.paid_at is distinct from old.paid_at
+    or new.paid_by_name_snapshot is distinct from old.paid_by_name_snapshot
+    or new.paid_by_email_snapshot is distinct from old.paid_by_email_snapshot
+  ) then
+    raise exception 'Payroll actor attribution can only be changed by a workflow transition.';
+  end if;
+
+  if old.status is distinct from new.status then
+    select coalesce(rider.name, 'Rider')
+    into rider_name
+    from public.riders rider
+    where rider.id = new.rider_id;
+
+    rider_name := coalesce(rider_name, 'Rider');
+
+    if new.status = 'pending'::public.payroll_status then
+      new.submitted_by := actor_id;
+      new.submitted_by_name_snapshot := actor_name_snapshot;
+      new.submitted_by_email_snapshot := actor_email_snapshot;
+      new.submitted_at := transitioned_at;
+      workflow_event_type := 'payroll_submit';
+      workflow_description := format(
+        'Submitted payroll for %s (%s to %s) for approval - Net Pay: ₱%s (Status: Pending Review)',
+        rider_name,
+        new.cutoff_start,
+        new.cutoff_end,
+        to_char(coalesce(new.gross_pay, 0), 'FM999999999990.00')
+      );
+    elsif new.status = 'approved'::public.payroll_status then
+      new.approved_by := actor_id;
+      new.approved_by_name_snapshot := actor_name_snapshot;
+      new.approved_by_email_snapshot := actor_email_snapshot;
+      new.approved_at := coalesce(new.approved_at, transitioned_at);
+    elsif new.status = 'rejected'::public.payroll_status then
+      new.rejected_by := actor_id;
+      new.rejected_by_name_snapshot := actor_name_snapshot;
+      new.rejected_by_email_snapshot := actor_email_snapshot;
+      new.rejected_at := transitioned_at;
+      workflow_event_type := 'payroll_reject';
+      workflow_description := format(
+        'Rejected payroll for %s (%s to %s).%s (Status: Rejected)',
+        rider_name,
+        new.cutoff_start,
+        new.cutoff_end,
+        case when nullif(btrim(new.rejection_reason), '') is null
+          then ''
+          else ' Reason: "' || new.rejection_reason || '"'
+        end
+      );
+    elsif new.status = 'draft'::public.payroll_status and old.status = 'pending'::public.payroll_status then
+      new.returned_by := actor_id;
+      new.returned_by_name_snapshot := actor_name_snapshot;
+      new.returned_by_email_snapshot := actor_email_snapshot;
+      new.returned_at := transitioned_at;
+      workflow_event_type := 'payroll_return';
+      workflow_description := format(
+        'Returned payroll for %s (%s to %s) for revision (Status: Draft)',
+        rider_name,
+        new.cutoff_start,
+        new.cutoff_end
+      );
+    elsif new.status = 'paid'::public.payroll_status then
+      new.paid_by := actor_id;
+      new.paid_by_name_snapshot := actor_name_snapshot;
+      new.paid_by_email_snapshot := actor_email_snapshot;
+      new.paid_at := coalesce(new.paid_at, transitioned_at);
     end if;
+  end if;
 
-    if current_user_role = 'payroll'::public.user_role
-      and old.status not in ('draft'::public.payroll_status, 'rejected'::public.payroll_status) then
-      raise exception 'Payroll Officer can only edit payroll records in Draft or Rejected status.';
-    end if;
-
-    if old.status = 'approved'::public.payroll_status and new.status <> 'paid'::public.payroll_status then
-      raise exception 'Payroll records in Approved status cannot be modified.';
-    end if;
-
-    if old.status = 'paid'::public.payroll_status then
-      raise exception 'Paid payroll records are immutable.';
-    end if;
-
-    if current_user_role = 'hr'::public.user_role and (
-      new.total_parcels is distinct from old.total_parcels
-      or new.rate_per_parcel is distinct from old.rate_per_parcel
-      or new.gross_pay is distinct from old.gross_pay
-      or new.other_earnings is distinct from old.other_earnings
-      or new.fm_pickup_count is distinct from old.fm_pickup_count
-      or new.deductions is distinct from old.deductions
-      or new.late_onhold is distinct from old.late_onhold
-      or new.late_remittance is distinct from old.late_remittance
-      or new.absent_without_notice is distinct from old.absent_without_notice
-      or new.rider_id is distinct from old.rider_id
-      or new.cutoff_start is distinct from old.cutoff_start
-      or new.cutoff_end is distinct from old.cutoff_end
-    ) then
-      raise exception 'HR cannot modify payroll computations or adjustments.';
-    end if;
-
-    if old.status is distinct from new.status and not (
-      (old.status = 'draft'::public.payroll_status and new.status = 'pending'::public.payroll_status)
-      or (old.status = 'rejected'::public.payroll_status and new.status = 'pending'::public.payroll_status)
-      or (old.status = 'pending'::public.payroll_status and new.status = 'approved'::public.payroll_status)
-      or (old.status = 'pending'::public.payroll_status and new.status = 'rejected'::public.payroll_status)
-      or (old.status = 'pending'::public.payroll_status and new.status = 'draft'::public.payroll_status)
-      or (old.status = 'approved'::public.payroll_status and new.status = 'paid'::public.payroll_status)
-    ) then
-      raise exception 'Invalid status transition: % -> %.', initcap(old.status::text), initcap(new.status::text);
-    end if;
-
-    if old.status is not distinct from new.status and (
-      new.submitted_by is distinct from old.submitted_by
-      or new.submitted_at is distinct from old.submitted_at
-      or new.submitted_by_name_snapshot is distinct from old.submitted_by_name_snapshot
-      or new.submitted_by_email_snapshot is distinct from old.submitted_by_email_snapshot
-      or new.approved_by is distinct from old.approved_by
-      or new.approved_at is distinct from old.approved_at
-      or new.approved_by_name_snapshot is distinct from old.approved_by_name_snapshot
-      or new.approved_by_email_snapshot is distinct from old.approved_by_email_snapshot
-      or new.rejected_by is distinct from old.rejected_by
-      or new.rejected_at is distinct from old.rejected_at
-      or new.rejected_by_name_snapshot is distinct from old.rejected_by_name_snapshot
-      or new.rejected_by_email_snapshot is distinct from old.rejected_by_email_snapshot
-      or new.rejection_reason is distinct from old.rejection_reason
-      or new.returned_by is distinct from old.returned_by
-      or new.returned_at is distinct from old.returned_at
-      or new.returned_by_name_snapshot is distinct from old.returned_by_name_snapshot
-      or new.returned_by_email_snapshot is distinct from old.returned_by_email_snapshot
-      or new.paid_by is distinct from old.paid_by
-      or new.paid_at is distinct from old.paid_at
-      or new.paid_by_name_snapshot is distinct from old.paid_by_name_snapshot
-      or new.paid_by_email_snapshot is distinct from old.paid_by_email_snapshot
-    ) then
-      raise exception 'Workflow audit fields can only be modified during authorized status transitions.';
-    end if;
-
-    return new;
+  if workflow_event_type is not null then
+    insert into public.activity_logs (
+      user_id,
+      rider_id,
+      event_type,
+      description,
+      metadata,
+      created_at
+    ) values (
+      actor_id,
+      new.rider_id,
+      workflow_event_type,
+      workflow_description,
+      jsonb_strip_nulls(jsonb_build_object(
+        'record_id', new.id,
+        'previous_status', old.status,
+        'status', new.status,
+        'rejection_reason', case when new.status = 'rejected'::public.payroll_status then new.rejection_reason end,
+        'actor_user_id', actor_id,
+        'actor_name_snapshot', actor_name_snapshot,
+        'actor_email_snapshot', actor_email_snapshot
+      )),
+      transitioned_at
+    );
   end if;
 
   return new;
