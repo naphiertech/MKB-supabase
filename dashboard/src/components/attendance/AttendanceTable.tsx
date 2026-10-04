@@ -17,7 +17,9 @@ import {
   Activity,
   Cpu,
   Layers,
-  AlertTriangle
+  AlertTriangle,
+  FileEdit,
+  History
 } from 'lucide-react';
 import { getAttendanceContextLabel, type AttendanceContextLog } from '../../services/attendance/attendanceContextService';
 import type { AttendanceLog } from '../../services/types';
@@ -26,6 +28,8 @@ import { StatusPill, PunctualityPill } from './StatusPill';
 
 interface AttendanceTableProps {
   logs: Array<AttendanceLog | AttendanceContextLog>;
+  onCorrect?: (log: AttendanceLog | AttendanceContextLog) => void;
+  onViewHistory?: (log: AttendanceLog | AttendanceContextLog) => void;
 }
 
 type SortKey = 'date' | 'riderName' | 'zoneName' | 'hours' | 'status' | 'punctuality';
@@ -150,7 +154,7 @@ function buildDynamicTimelineNodes(l: AttendanceLog | AttendanceContextLog): Tim
   return nodes;
 }
 
-export function AttendanceTable({ logs }: AttendanceTableProps) {
+export function AttendanceTable({ logs, onCorrect, onViewHistory }: AttendanceTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortAsc, setSortAsc] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -203,9 +207,10 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                 ['Zone', 'zoneName'],
                 ['Status', 'status'],
                 ['Punctuality', 'punctuality'],
-                ['Source', null]
+                ['Source', null],
+                ['Actions', null]
               ].map(([label, key]) => (
-                <th key={label} className="font-semibold py-3 px-4">
+                <th key={label} className={`font-semibold py-3 px-4 ${label === 'Actions' ? 'text-right' : ''}`}>
                   {key ? (
                     <button
                       onClick={() => toggleSort(key as SortKey)}
@@ -329,12 +334,44 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                         {l.timeIn ? (l.source === 'face-scan' ? 'Face Scan' : 'Manual') : 'Not applicable'}
                       </span>
                     </td>
+
+                    {/* Actions */}
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {onCorrect && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCorrect(l);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-primary bg-primary/10 hover:bg-primary hover:text-white transition cursor-pointer"
+                            title="Correct Attendance"
+                          >
+                            <FileEdit className="w-3.5 h-3.5" />
+                            <span>Correct</span>
+                          </button>
+                        )}
+                        {onViewHistory && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onViewHistory(l);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-muted-foreground bg-panel-bg hover:text-foreground hover:bg-white border border-border transition cursor-pointer"
+                            title="View Audit History"
+                          >
+                            <History className="w-3.5 h-3.5" />
+                            <span>History</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
 
                   {/* Expanded Row Cards */}
                   {isOpen && (
                     <tr className="bg-panel-bg/80">
-                      <td colSpan={7} className="px-5 py-4 border-b border-border">
+                      <td colSpan={8} className="px-5 py-4 border-b border-border">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           {/* Left Card: Identity Verification */}
                           <div className="bg-white border border-border rounded-xl p-4 shadow-2xs flex flex-col justify-between space-y-3">
@@ -549,6 +586,30 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                                 </>
                               )}
                             </div>
+
+                            {/* Quick Actions in expanded view */}
+                            {(onCorrect || onViewHistory) && (
+                              <div className="pt-2.5 mt-2 border-t border-border/60 flex items-center justify-end gap-2">
+                                {onViewHistory && (
+                                  <button
+                                    onClick={() => onViewHistory(l)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold text-muted-foreground bg-panel-bg hover:text-foreground hover:bg-white border border-border transition cursor-pointer"
+                                  >
+                                    <History className="w-3.5 h-3.5" />
+                                    <span>Audit History</span>
+                                  </button>
+                                )}
+                                {onCorrect && (
+                                  <button
+                                    onClick={() => onCorrect(l)}
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold text-primary bg-primary/10 hover:bg-primary hover:text-white transition cursor-pointer"
+                                  >
+                                    <FileEdit className="w-3.5 h-3.5" />
+                                    <span>Correct Record</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -560,7 +621,7 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
 
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-10 text-sm text-muted-foreground">
+                <td colSpan={8} className="text-center py-10 text-sm text-muted-foreground">
                   No records match filters.
                 </td>
               </tr>

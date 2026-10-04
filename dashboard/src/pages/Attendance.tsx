@@ -6,10 +6,10 @@ import {
   PalmtreeIcon,
   Printer,
   FileText,
-  Upload,
   Download,
   Search,
-  RotateCcw
+  RotateCcw,
+  FileEdit
 } from 'lucide-react';
 import {
   getAttendanceLogs,
@@ -23,12 +23,13 @@ import {
   type AttendanceContextLog,
 } from '../services/attendance/attendanceContextService';
 import { getZones } from '../services/geofencing/geofenceService';
-import type { Zone } from '../services/types';
+import type { Zone, AttendanceLog } from '../services/types';
 import { StatCard } from '../components/common/StatCard';
 import { AttendanceTable } from '../components/attendance/AttendanceTable';
 import { getRidersLookup } from '../services/riders/riderService';
 import { AttendanceDetailsPanel } from '../components/attendance/AttendanceDetailsPanels';
-import { parseDTRPdf, saveImportedLogs, ParsedDTRLog } from '../services/attendance/dtrParserService';
+import { AttendanceCorrectionDrawer } from '../components/attendance/AttendanceCorrectionDrawer';
+import { AttendanceAuditHistoryDrawer } from '../components/attendance/AttendanceAuditHistoryDrawer';
 import { appToast } from '../hooks/useToast';
 import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 import { exportAttendanceCsv, exportAttendancePdf } from '../lib/exports/attendanceExport';
@@ -107,14 +108,29 @@ export function Attendance() {
     restoredAt: string | null;
   }[]>([]);
 
-  // DTR Import states
-  const [importModalOpen, setImportModalOpen] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [parsingStatus, setParsingStatus] = useState<string>('');
-  const [isParsing, setIsParsing] = useState(false);
-  const [parsedLogs, setParsedLogs] = useState<ParsedDTRLog[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
   const attendanceRealtimeVersion = useAttendanceContextVersion();
+
+  // Authoritative Attendance Correction & Audit states
+  const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
+  const [correctionTargetLog, setCorrectionTargetLog] = useState<{
+    id?: string;
+    riderId: string;
+    riderName?: string;
+    date: string;
+    timeIn?: string | null;
+    timeOut?: string | null;
+    status?: string | null;
+    source?: string | null;
+    zoneName?: string | null;
+  } | null>(null);
+
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyTargetLog, setHistoryTargetLog] = useState<{
+    id?: string;
+    riderId: string;
+    riderName?: string;
+    date: string;
+  } | null>(null);
 
   useEffect(() => {
     getZones().then(setZonesList);
@@ -327,53 +343,51 @@ export function Attendance() {
     }
   };
 
-  const handleProcessImport = async () => {
-    if (!importFile) return;
-    setIsParsing(true);
-    setParsingStatus('Loading document...');
-    try {
-      const logs = await parseDTRPdf(importFile, ridersList, setParsingStatus);
-      setParsedLogs(logs);
-      if (logs.length === 0) {
-        appToast.error('No attendance records parsed from PDF. Please check file format.');
-      } else {
-        appToast.success(`Successfully parsed ${logs.length} attendance records!`);
-      }
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(err);
-      appToast.error(`Import failed: ${errorMsg}`);
-    } finally {
-      setIsParsing(false);
-      setParsingStatus('');
-    }
+  const refreshAttendance = () => {
+    const previousDate = new Date(`${dateFrom}T00:00:00.000Z`);
+    previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+    const contextFrom = dateFrom === dateTo ? previousDate.toISOString().slice(0, 10) : dateFrom;
+
+    void Promise.all([
+      listAttendanceContext({ fromDate: contextFrom, toDate: dateTo }),
+      getAttendanceLogs(
+        { dateFrom: contextFrom, dateTo },
+        { finalizeDaily: false, throwOnError: true, includeEvents: true },
+      ),
+    ]).then(([contextRows, rawRows]) => {
+      setAttendanceList(mergeAttendanceContextDetails(contextRows, rawRows));
+    }).catch((error) => {
+      console.error('Error refreshing attendance context:', error);
+    });
   };
 
-  const handleSaveImported = async () => {
-    setIsSaving(true);
-    try {
-      const { count, error } = await saveImportedLogs(parsedLogs);
-      if (error) throw error;
-      appToast.success(`Successfully saved ${count} records to database!`);
-      setImportModalOpen(false);
-      setImportFile(null);
-      setParsedLogs([]);
-      void Promise.all([
-        listAttendanceContext({ fromDate: dateFrom, toDate: dateTo }),
-        getAttendanceLogs(
-          { dateFrom, dateTo },
-          { finalizeDaily: false, throwOnError: true, includeEvents: true },
-        ),
-      ]).then(([contextRows, rawRows]) => {
-        setAttendanceList(mergeAttendanceContextDetails(contextRows, rawRows));
+  const handleOpenCorrection = (log?: AttendanceLog | AttendanceContextLog) => {
+    if (log) {
+      setCorrectionTargetLog({
+        id: log.id || undefined,
+        riderId: log.riderId,
+        riderName: log.riderName,
+        date: log.date,
+        timeIn: log.timeIn,
+        timeOut: log.timeOut,
+        status: log.status,
+        source: log.source,
+        zoneName: log.zoneName,
       });
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(err);
-      appToast.error(`Save failed: ${errorMsg}`);
-    } finally {
-      setIsSaving(false);
+    } else {
+      setCorrectionTargetLog(null);
     }
+    setCorrectionModalOpen(true);
+  };
+
+  const handleOpenHistory = (log: AttendanceLog | AttendanceContextLog) => {
+    setHistoryTargetLog({
+      id: log.id || undefined,
+      riderId: log.riderId,
+      riderName: log.riderName,
+      date: log.date,
+    });
+    setHistoryModalOpen(true);
   };
 
   return (
@@ -578,13 +592,13 @@ export function Attendance() {
               <FileText className="w-3.5 h-3.5" /> PDF
             </button>
 
-            {/* Import DTR Secondary Outline */}
+            {/* Correct Attendance Secondary Outline */}
             <button
-              onClick={() => setImportModalOpen(true)}
+              onClick={() => handleOpenCorrection()}
               className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-white px-3.5 text-xs font-semibold text-foreground shadow-2xs transition hover:bg-panel-bg sm:h-[34px] sm:w-auto cursor-pointer"
             >
-              <Upload className="w-3.5 h-3.5 text-primary" />
-              <span>Import DTR</span>
+              <FileEdit className="w-3.5 h-3.5 text-primary" />
+              <span>Correct Attendance</span>
             </button>
 
             {/* Generate DTR Primary */}
@@ -631,7 +645,11 @@ export function Attendance() {
         `}</style>
       </div>
 
-      <AttendanceTable logs={filtered} />
+      <AttendanceTable
+        logs={filtered}
+        onCorrect={handleOpenCorrection}
+        onViewHistory={handleOpenHistory}
+      />
 
       {/* DTR Print Preview Modal */}
       {dtrModalOpen &&
@@ -748,121 +766,30 @@ export function Attendance() {
           );
         })()}
 
-      {/* DTR PDF Import Modal */}
-      {importModalOpen && (
-        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4">
-          <div className="viewport-dialog relative w-full max-w-xl space-y-5 rounded-xl bg-white p-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200 sm:rounded-2xl sm:p-6">
-            <div className="flex justify-between items-center pb-3 border-b border-border">
-              <div>
-                <h3 className="text-base font-bold text-foreground">Import Attendance DTR (PDF)</h3>
-                <p className="text-xs text-muted-foreground">
-                  Upload an official DTR PDF form to parse and import attendance logs into database.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setImportModalOpen(false);
-                  setImportFile(null);
-                  setParsedLogs([]);
-                }}
-                className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-panel-bg"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Attendance Correction Drawer */}
+      <AttendanceCorrectionDrawer
+        isOpen={correctionModalOpen}
+        onClose={() => {
+          setCorrectionModalOpen(false);
+          setCorrectionTargetLog(null);
+        }}
+        onSuccess={refreshAttendance}
+        initialLog={correctionTargetLog}
+        ridersList={ridersList}
+      />
 
-            {!parsedLogs.length ? (
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-border hover:border-primary/50 rounded-xl p-8 text-center bg-panel-bg transition-colors cursor-pointer relative">
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
-                  <Upload className="w-8 h-8 text-primary mx-auto mb-2 opacity-80" />
-                  <div className="text-xs font-semibold text-foreground">
-                    {importFile ? importFile.name : 'Click or drag PDF DTR file here'}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mt-1">Supports standard DTR PDF exports</div>
-                </div>
-
-                {isParsing && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-2">
-                    <Clock className="w-4 h-4 animate-spin text-primary" />
-                    <span>{parsingStatus || 'Parsing PDF file...'}</span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                    Parsed {parsedLogs.length} attendance records
-                  </span>
-                  <button
-                    onClick={() => setParsedLogs([])}
-                    className="text-xs text-muted-foreground hover:text-foreground underline"
-                  >
-                    Re-upload file
-                  </button>
-                </div>
-
-                <div className="max-h-[250px] overflow-y-auto border border-border rounded-lg p-2 space-y-1.5 bg-panel-bg custom-scrollbar text-xs">
-                  {parsedLogs.map((log, i) => (
-                    <div
-                      key={i}
-                      className="p-2 bg-white rounded border border-border flex justify-between items-center font-mono text-[11px]"
-                    >
-                      <div>
-                        <span className="font-bold text-foreground">{log.riderName}</span>
-                        <span className="text-muted-foreground ml-2">({log.date})</span>
-                      </div>
-                      <div>
-                        <span>
-                          {log.timeIn || '—'} → {log.timeOut || '—'}
-                        </span>
-                        <span className="ml-2 font-bold text-primary">{log.hours}h</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-border">
-              <button
-                onClick={() => {
-                  setImportModalOpen(false);
-                  setImportFile(null);
-                  setParsedLogs([]);
-                }}
-                className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-lg hover:bg-panel-bg transition"
-              >
-                Cancel
-              </button>
-
-              {!parsedLogs.length ? (
-                <button
-                  disabled={!importFile || isParsing}
-                  onClick={handleProcessImport}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-xs font-bold transition shadow-sm"
-                >
-                  <span>Parse PDF DTR</span>
-                </button>
-              ) : (
-                <button
-                  disabled={isSaving}
-                  onClick={handleSaveImported}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold transition shadow-sm"
-                >
-                  {isSaving ? 'Saving...' : 'Save All Records to Database'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Attendance Audit History Drawer */}
+      <AttendanceAuditHistoryDrawer
+        isOpen={historyModalOpen}
+        onClose={() => {
+          setHistoryModalOpen(false);
+          setHistoryTargetLog(null);
+        }}
+        attendanceLogId={historyTargetLog?.id}
+        riderId={historyTargetLog?.riderId}
+        date={historyTargetLog?.date}
+        riderName={historyTargetLog?.riderName}
+      />
     </div>
   );
 }

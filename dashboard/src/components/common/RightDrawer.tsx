@@ -14,6 +14,7 @@ interface RightDrawerProps {
   dismissible?: boolean;
   widthClassName?: string;
   panelClassName?: string;
+  backdropClassName?: string;
   closeLabel?: string;
 }
 
@@ -28,6 +29,7 @@ export function RightDrawer({
   dismissible = true,
   widthClassName = 'max-w-md',
   panelClassName = '',
+  backdropClassName = '',
   closeLabel = 'Close drawer',
 }: RightDrawerProps) {
   const panelRef = useRef<HTMLElement>(null);
@@ -108,8 +110,8 @@ export function RightDrawer({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             onClick={() => dismissibleRef.current && onCloseRef.current()}
-            style={{ backgroundColor: 'color-mix(in srgb, var(--foreground) 45%, transparent)' }}
-            className="fixed inset-0 h-dvh w-screen cursor-default border-0 p-0 backdrop-blur-xs"
+            style={backdropClassName ? undefined : { backgroundColor: 'color-mix(in srgb, var(--foreground) 55%, transparent)' }}
+            className={`fixed inset-0 h-dvh w-screen cursor-default border-0 p-0 backdrop-blur-xs ${backdropClassName}`}
           />
 
           <motion.aside
