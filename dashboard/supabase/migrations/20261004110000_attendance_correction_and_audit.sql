@@ -888,3 +888,12 @@ $$;
 
 revoke all on function public.get_attendance_log_audit_history(uuid, uuid, date) from public, anon;
 grant execute on function public.get_attendance_log_audit_history(uuid, uuid, date) to authenticated, service_role;
+
+-- ============================================================================
+-- 7. EXPLICIT CORE TABLE GRANTS FOR AUTHENTICATED
+-- ============================================================================
+
+-- Ensure explicit least-privilege table grants on public.zones for authenticated users.
+-- RLS policies remain strictly authoritative for all row-level access.
+revoke all on table public.zones from anon, public;
+grant select, insert, update, delete on table public.zones to authenticated;
