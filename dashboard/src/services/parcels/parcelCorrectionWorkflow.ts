@@ -46,6 +46,7 @@ export interface ParcelLogAuditEntry {
   actionType: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected';
   correctionRequestId?: string;
   reason?: string;
+  changeSource?: string;
   changedBy?: string;
   changedByName?: string;
   approvedBy?: string;
@@ -100,53 +101,18 @@ export async function createParcelCorrectionRequest(payload: {
   validateParcelCount(payload.requestedHeavy, 'Requested Heavy Delivered');
   validateParcelCount(payload.requestedFailed, 'Requested Failed');
   validateParcelCount(payload.requestedReturned, 'Requested Returned');
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const validRequestedBy = uuidRegex.test(payload.requestedBy) ? payload.requestedBy : null;
-
-  const { data: request, error } = await supabase.from('parcel_correction_requests').insert({
-    parcel_log_id: payload.parcelLogId,
-    rider_id: payload.riderId,
-    date: payload.date,
-    previous_delivered: payload.previousDelivered,
-    previous_heavy: payload.previousHeavy,
-    previous_failed: payload.previousFailed,
-    previous_returned: payload.previousReturned,
-    requested_delivered: payload.requestedDelivered,
-    requested_heavy: payload.requestedHeavy,
-    requested_failed: payload.requestedFailed,
-    requested_returned: payload.requestedReturned,
-    reason: payload.reason,
-    requested_by: validRequestedBy,
-    status: 'pending',
-    requested_at: new Date().toISOString(),
-  }).select('id').single();
-
-  if (error || !request) {
-    console.error('Error creating parcel correction request:', error);
-    throw new Error(`Failed to submit correction request: ${error?.message || 'Insert error'}`);
-  }
-
-  const { error: auditErr } = await supabase.from('parcel_log_audit').insert({
-    parcel_log_id: payload.parcelLogId,
-    rider_id: payload.riderId,
-    date: payload.date,
-    old_delivered: payload.previousDelivered,
-    old_heavy: payload.previousHeavy,
-    old_failed: payload.previousFailed,
-    old_returned: payload.previousReturned,
-    new_delivered: payload.requestedDelivered,
-    new_heavy: payload.requestedHeavy,
-    new_failed: payload.requestedFailed,
-    new_returned: payload.requestedReturned,
-    action_type: 'correction_requested',
-    correction_request_id: request.id,
-    reason: payload.reason,
-    changed_by: validRequestedBy,
-    timestamp: new Date().toISOString(),
+  const { error } = await supabase.rpc('submit_parcel_correction_request', {
+    p_parcel_log_id: payload.parcelLogId,
+    p_requested_delivered: payload.requestedDelivered,
+    p_requested_heavy: payload.requestedHeavy,
+    p_requested_failed: payload.requestedFailed,
+    p_requested_returned: payload.requestedReturned,
+    p_reason: payload.reason,
   });
 
-  if (auditErr) {
-    console.warn('Audit insert warning:', auditErr);
+  if (error) {
+    console.error('Error creating parcel correction request via RPC:', error);
+    throw new Error(`Failed to submit correction request: ${error.message}`);
   }
 
   try {
@@ -282,7 +248,7 @@ export async function getParcelCorrectionRequests(statusFilter?: 'pending' | 'ap
 }
 
 /**
- * Reviews (Approve or Reject) a parcel correction request.
+ * Reviews (Approve or Reject) a parcel correction request via authoritative atomic RPC.
  */
 export async function reviewParcelCorrectionRequest(
   requestId: string,
@@ -292,7 +258,7 @@ export async function reviewParcelCorrectionRequest(
 ): Promise<void> {
   const { data: request, error: fetchErr } = await supabase
     .from('parcel_correction_requests')
-    .select('*')
+    .select('id, parcel_log_id, rider_id, date')
     .eq('id', requestId)
     .single();
 
@@ -300,99 +266,24 @@ export async function reviewParcelCorrectionRequest(
     throw new Error(`Correction request not found: ${fetchErr?.message || requestId}`);
   }
 
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const validReviewerId = uuidRegex.test(reviewerId) ? reviewerId : null;
-  const now = new Date().toISOString();
+  const { error: rpcErr } = await supabase.rpc('review_parcel_correction_request', {
+    p_request_id: requestId,
+    p_decision: decision,
+    p_review_notes: reviewNotes || null,
+  });
+
+  if (rpcErr) {
+    console.error('Error reviewing parcel correction request via RPC:', rpcErr);
+    throw new Error(`Failed to review correction request: ${rpcErr.message}`);
+  }
 
   if (decision === 'approved') {
-    // 1. Update master parcel_logs record
-    const { error: updateLogErr } = await supabase
-      .from('parcel_logs')
-      .update({
-        parcels: request.requested_delivered,
-        heavy_parcels: request.requested_heavy,
-        failed_parcels: request.requested_failed,
-        returned_parcels: request.requested_returned,
-        updated_at: now,
-      })
-      .eq('id', request.parcel_log_id);
-
-    if (updateLogErr) {
-      console.error('Error updating parcel_log on approval:', updateLogErr);
-      throw new Error(`Failed to update parcel log: ${updateLogErr.message}`);
-    }
-
-    // 2. Insert immutable audit trail entry 'correction_approved'
-    const { error: auditErr } = await supabase.from('parcel_log_audit').insert({
-      parcel_log_id: request.parcel_log_id,
-      rider_id: request.rider_id,
-      date: request.date,
-      old_delivered: request.previous_delivered,
-      old_heavy: request.previous_heavy,
-      old_failed: request.previous_failed,
-      old_returned: request.previous_returned,
-      new_delivered: request.requested_delivered,
-      new_heavy: request.requested_heavy,
-      new_failed: request.requested_failed,
-      new_returned: request.requested_returned,
-      action_type: 'correction_approved',
-      correction_request_id: request.id,
-      reason: request.reason,
-      changed_by: request.requested_by,
-      approved_by: validReviewerId,
-      timestamp: now,
-    });
-
-    if (auditErr) {
-      console.warn('Audit record insert warning:', auditErr);
-    }
-
     try {
       const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(request.date);
       await refreshDraftPayrollForRiderCutoff(request.rider_id, cutoffFrom, cutoffTo);
     } catch (syncErr) {
       console.warn('Post-correction payroll sync warning:', syncErr);
     }
-  } else {
-    const { error: rejectAuditErr } = await supabase.from('parcel_log_audit').insert({
-      parcel_log_id: request.parcel_log_id,
-      rider_id: request.rider_id,
-      date: request.date,
-      old_delivered: request.previous_delivered,
-      old_heavy: request.previous_heavy,
-      old_failed: request.previous_failed,
-      old_returned: request.previous_returned,
-      new_delivered: request.requested_delivered,
-      new_heavy: request.requested_heavy,
-      new_failed: request.requested_failed,
-      new_returned: request.requested_returned,
-      action_type: 'correction_rejected',
-      correction_request_id: request.id,
-      reason: reviewNotes || request.reason,
-      changed_by: request.requested_by,
-      approved_by: validReviewerId,
-      timestamp: now,
-    });
-    if (rejectAuditErr) {
-      console.warn('Audit insert warning:', rejectAuditErr);
-    }
-  }
-
-  // 3. Mark request status
-  const { error: reqUpdateErr } = await supabase
-    .from('parcel_correction_requests')
-    .update({
-      status: decision,
-      reviewed_by: validReviewerId,
-      reviewed_at: now,
-      review_notes: reviewNotes || null,
-      updated_at: now,
-    })
-    .eq('id', requestId);
-
-  if (reqUpdateErr) {
-    console.error('Error updating correction request status:', reqUpdateErr);
-    throw new Error(`Failed to update request status: ${reqUpdateErr.message}`);
   }
 
   try {
@@ -437,6 +328,7 @@ export async function getParcelLogAuditHistory(parcelLogId: string): Promise<Par
     action_type: 'created' | 'updated' | 'correction_requested' | 'correction_approved' | 'correction_rejected';
     correction_request_id: string | null;
     reason: string | null;
+    change_source: string | null;
     changed_by: string | null;
     approved_by: string | null;
     timestamp: string;
@@ -476,6 +368,7 @@ export async function getParcelLogAuditHistory(parcelLogId: string): Promise<Par
     actionType: r.action_type,
     correctionRequestId: r.correction_request_id || undefined,
     reason: r.reason || undefined,
+    changeSource: r.change_source || undefined,
     changedBy: r.changed_by || undefined,
     changedByName: r.changed_by ? userMap[r.changed_by] || 'HR Staff' : 'Operations Staff',
     approvedBy: r.approved_by || undefined,

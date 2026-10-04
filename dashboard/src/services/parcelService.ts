@@ -276,22 +276,19 @@ export const upsertParcelLog = async (
   riderId: string,
   date: string,
   parcels: number,
-  rate: number,
-  createdBy: string
+  _rate: number,
+  _createdBy: string
 ): Promise<void> => {
-  const { error } = await supabase
-    .from('parcel_logs')
-    .upsert(
+  const { error } = await supabase.rpc('save_daily_parcel_entries', {
+    p_entries: [
       {
-        rider_id: riderId,
+        riderId,
         date,
         parcels,
-        rate,
-        created_by: createdBy,
-        updated_at: new Date().toISOString(),
+        reason: 'Direct parcel log update',
       },
-      { onConflict: 'rider_id,date' }
-    );
+    ],
+  });
 
   if (error) throw error;
 
@@ -1203,15 +1200,22 @@ export const bulkUpsertParcelLogs = async (
     rider_id: string;
     date: string;
     parcels: number;
-    rate: number;
+    rate?: number;
     daily_gross?: number;
-    created_by: string;
+    created_by?: string;
+    reason?: string;
   }[]
 ): Promise<void> => {
-  const sanitizedLogs = logs.map(({ daily_gross: _daily_gross, ...rest }) => rest);
-  const { error } = await supabase
-    .from('parcel_logs')
-    .upsert(sanitizedLogs, { onConflict: 'rider_id,date' });
+  const rpcPayloads = logs.map(log => ({
+    riderId: log.rider_id,
+    date: log.date,
+    parcels: log.parcels,
+    reason: log.reason || 'Bulk parcel upload import',
+  }));
+
+  const { error } = await supabase.rpc('save_daily_parcel_entries', {
+    p_entries: rpcPayloads,
+  });
 
   if (error) throw error;
 

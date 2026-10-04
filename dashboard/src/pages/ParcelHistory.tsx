@@ -714,8 +714,30 @@ export function ParcelHistory() {
                               />
                             </div>
                           ) : (
-                            <div className="text-[10.5px] text-slate-600 italic">
-                              Payroll cutoff is currently in draft. Edits will be applied directly to the operational log.
+                            <div className="space-y-2">
+                              <div className="text-[10.5px] text-slate-600 italic">
+                                Payroll cutoff is currently in draft. Edits will be applied directly to the operational log.
+                              </div>
+                              {(editDelivered !== selectedDetailRow.deliveredParcels ||
+                                editHeavy !== selectedDetailRow.heavyParcels ||
+                                editFailed !== (selectedDetailRow.failedDeliveries || 0) ||
+                                editReturned !== (selectedDetailRow.returnedParcels || 0)) && (
+                                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+                                  <label className="block text-[10.5px] font-semibold text-foreground">
+                                    Reason for Modification <span className="text-red-500">*</span>
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    value={editReason}
+                                    onChange={e => setEditReason(e.target.value)}
+                                    placeholder="State reason for parcel count change (e.g. manifest discrepancy, missed counts)..."
+                                    className="w-full p-2 rounded-lg bg-white border border-border text-xs text-foreground outline-none focus:border-primary font-sans"
+                                  />
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Mandatory for audit trail traceability when modifying existing counts.
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -729,7 +751,16 @@ export function ParcelHistory() {
                             </button>
                             <button
                               type="button"
-                              disabled={submittingDrawerEdit || (drawerCutoffLocked && !editReason.trim())}
+                              disabled={
+                                submittingDrawerEdit ||
+                                (drawerCutoffLocked && !editReason.trim()) ||
+                                (!drawerCutoffLocked &&
+                                  (editDelivered !== selectedDetailRow.deliveredParcels ||
+                                    editHeavy !== selectedDetailRow.heavyParcels ||
+                                    editFailed !== (selectedDetailRow.failedDeliveries || 0) ||
+                                    editReturned !== (selectedDetailRow.returnedParcels || 0)) &&
+                                  !editReason.trim())
+                              }
                               onClick={async () => {
                                 setSubmittingDrawerEdit(true);
                                 try {
@@ -767,6 +798,7 @@ export function ParcelHistory() {
                                           failedDeliveries: editFailed,
                                           returnedParcels: editReturned,
                                           notes: selectedDetailRow.notes,
+                                          reason: editReason.trim() || undefined,
                                         }
                                       ],
                                       user?.id || user?.email || 'Operations Staff'
@@ -905,12 +937,32 @@ export function ParcelHistory() {
                                 ? 'Correction Approved'
                                 : 'Correction Rejected';
 
+                            const sourceLabel =
+                              log.changeSource === 'draft_edit'
+                                ? 'Draft Edit'
+                                : log.changeSource === 'initial_entry'
+                                ? 'Initial Entry'
+                                : log.changeSource === 'correction_request'
+                                ? 'Correction Request'
+                                : log.changeSource === 'locked_correction'
+                                ? 'Locked Correction'
+                                : log.changeSource === 'fms_import'
+                                ? 'FMS Import'
+                                : log.changeSource;
+
                             return (
                               <div key={log.id} className="p-3 rounded-xl bg-white border border-border text-xs space-y-2 font-sans shadow-2xs">
                                 <div className="flex items-center justify-between">
-                                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${badgeStyle}`}>
-                                    {label}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${badgeStyle}`}>
+                                      {label}
+                                    </span>
+                                    {log.changeSource && (
+                                      <span className="text-[9.5px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                        {sourceLabel}
+                                      </span>
+                                    )}
+                                  </div>
                                   <span className="text-[10px] font-mono text-muted-foreground">
                                     {new Date(log.timestamp).toLocaleString('en-US', {
                                       month: 'short',
