@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
+  rpc: vi.fn(),
   getRiderWorkforceDirectory: vi.fn(),
   logActivity: vi.fn(),
   getLocalDateString: vi.fn(),
@@ -14,7 +15,7 @@ const mocks = vi.hoisted(() => ({
   calculateParcelOperationalMetrics: vi.fn(),
 }));
 
-vi.mock('../../lib/supabaseClient', () => ({ supabase: { from: mocks.from } }));
+vi.mock('../../lib/supabaseClient', () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }));
 vi.mock('../workforce/workforceDirectoryService', () => ({ getRiderWorkforceDirectory: mocks.getRiderWorkforceDirectory }));
 vi.mock('../../lib/apiService', () => ({ logActivity: mocks.logActivity }));
 vi.mock('../attendance/attendanceService', () => ({ getLocalDateString: mocks.getLocalDateString }));
@@ -79,56 +80,23 @@ function savedRow(entry = baseEntry) {
 
 function configureSave(options: {
   events?: string[];
-  existingLogs?: Array<Record<string, unknown>> | null;
-  existingReadError?: { message: string } | null;
   savedRows?: ReturnType<typeof savedRow>[];
-  upsertError?: { code: string; message: string; details?: string } | null;
-  auditError?: { message: string } | null;
+  rpcError?: { code: string; message: string; details?: string } | null;
 } = {}) {
   const events = options.events ?? [];
-  let parcelLogCalls = 0;
-  const upsert = vi.fn(() => {
-    events.push('upsert');
-    return {
-      select: vi.fn().mockResolvedValue({
+  const rpc = vi.fn(async (fnName: string, _args: unknown) => {
+    if (fnName === 'save_daily_parcel_entries') {
+      events.push('rpc');
+      return {
         data: options.savedRows ?? [savedRow()],
-        error: options.upsertError ?? null,
-        status: options.upsertError ? 400 : 200,
-        statusText: options.upsertError ? 'Bad Request' : 'OK',
-      }),
-    };
-  });
-  const auditInsert = vi.fn(async () => {
-    events.push('audit');
-    return { error: options.auditError ?? null };
-  });
-
-  mocks.from.mockImplementation((table: string) => {
-    if (table === 'parcel_logs') {
-      parcelLogCalls += 1;
-      if (parcelLogCalls === 1) {
-        events.push('existing-read');
-        let inCalls = 0;
-        const chain = {
-          select: vi.fn(),
-          in: vi.fn(),
-        };
-        chain.select.mockReturnValue(chain);
-        chain.in.mockImplementation(() => {
-          inCalls += 1;
-          return inCalls === 1
-            ? chain
-            : Promise.resolve({ data: options.existingLogs ?? [], error: options.existingReadError ?? null });
-        });
-        return chain;
-      }
-      return { upsert };
+        error: options.rpcError ?? null,
+      };
     }
-    if (table === 'parcel_log_audit') return { insert: auditInsert };
-    throw new Error(`Unexpected table: ${table}`);
+    throw new Error(`Unexpected rpc: ${fnName}`);
   });
 
-  return { events, upsert, auditInsert };
+  mocks.rpc.mockImplementation(rpc);
+  return { events, rpc };
 }
 
 describe('parcel operations Records characterization', () => {
@@ -172,10 +140,10 @@ describe('parcel operations Records characterization', () => {
     await expect(saveDailyParcelEntries([], 'operator')).resolves.toBe(0);
     expect(mocks.validateParcelWorkDate).not.toHaveBeenCalled();
     expect(mocks.getParcelRateContextForDate).not.toHaveBeenCalled();
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
-  it('preserves validation, rate, read, upsert, audit, sync, and activity ordering', async () => {
+  it('preserves validation, rate, rpc, sync, and activity ordering', async () => {
     const events: string[] = [];
     const configured = configureSave({ events });
     mocks.validateParcelWorkDate.mockImplementation(() => { events.push('validate-date'); });
@@ -195,38 +163,37 @@ describe('parcel operations Records characterization', () => {
       'validate-Returned',
       'validate-Assigned Parcels',
       'rate',
-      'existing-read',
-      'upsert',
-      'audit',
+      'rpc',
       'sync',
       'activity',
     ]);
-    expect(configured.upsert).toHaveBeenCalledWith([
-      expect.objectContaining({ created_by: null, assigned_parcels: 25 }),
-    ], { onConflict: 'rider_id,date' });
+    expect(configured.rpc).toHaveBeenCalledWith('save_daily_parcel_entries', {
+      p_entries: [
+        expect.objectContaining({ riderId: 'rider-1', parcels: 20 }),
+      ],
+    });
   });
 
-  it('keeps an upsert failure fatal and prevents later side effects', async () => {
+  it('keeps an rpc failure fatal and prevents later side effects', async () => {
     const events: string[] = [];
-    const configured = configureSave({
+    configureSave({
       events,
-      upsertError: { code: 'P0001', message: 'upsert failed', details: 'details' },
+      rpcError: { code: 'P0001', message: 'save failed', details: 'details' },
     });
     mocks.getParcelRateContextForDate.mockImplementation(async () => {
       events.push('rate');
       return rateContext;
     });
     await expect(saveDailyParcelEntries([baseEntry], 'operator'))
-      .rejects.toThrow('Supabase DB Error [P0001]: upsert failed (details)');
-    expect(events).toEqual(['rate', 'existing-read', 'upsert']);
-    expect(configured.auditInsert).not.toHaveBeenCalled();
+      .rejects.toThrow('Supabase DB Error [P0001]: save failed (details)');
+    expect(events).toEqual(['rate', 'rpc']);
     expect(mocks.refreshDraftPayrollForRiderCutoff).not.toHaveBeenCalled();
     expect(mocks.logActivity).not.toHaveBeenCalled();
   });
 
-  it('keeps audit, payroll-sync, and activity failures warning-only', async () => {
+  it('keeps payroll-sync and activity failures warning-only', async () => {
     const events: string[] = [];
-    configureSave({ events, auditError: { message: 'audit failed' } });
+    configureSave({ events });
     mocks.refreshDraftPayrollForRiderCutoff.mockImplementation(async () => {
       events.push('sync');
       throw new Error('sync failed');
@@ -236,13 +203,7 @@ describe('parcel operations Records characterization', () => {
       throw new Error('activity failed');
     });
     await expect(saveDailyParcelEntries([baseEntry], 'operator')).resolves.toBe(1);
-    expect(events).toEqual(['existing-read', 'upsert', 'audit', 'sync', 'activity']);
-  });
-
-  it('continues after the existing-log comparison read returns an error', async () => {
-    const configured = configureSave({ existingReadError: { message: 'read failed' } });
-    await expect(saveDailyParcelEntries([baseEntry], 'operator')).resolves.toBe(1);
-    expect(configured.upsert).toHaveBeenCalledOnce();
+    expect(events).toEqual(['rpc', 'sync', 'activity']);
   });
 
   it('deduplicates cutoff ranges and synchronizes them sequentially per affected rider', async () => {

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fromMock } = vi.hoisted(() => ({ fromMock: vi.fn() }));
+const { fromMock, rpcMock } = vi.hoisted(() => ({ fromMock: vi.fn(), rpcMock: vi.fn() }));
 
 vi.mock('../lib/supabaseClient', () => ({
-  supabase: { from: fromMock },
+  supabase: { from: fromMock, rpc: rpcMock },
 }));
 vi.mock('../lib/apiService', () => ({ logActivity: vi.fn() }));
 vi.mock('./parcelService', () => ({
@@ -144,14 +144,8 @@ describe('heavy-aware parcel operations', () => {
     await expect(getParcelRateContextForDate('2026-08-05')).rejects.toThrow('No active parcel rate configuration');
   });
 
-  it('stores heavy parcel values in correction requests and the append-only audit event', async () => {
-    const correctionInsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: { id: 'request-1' }, error: null }) }),
-    });
-    const auditInsert = vi.fn().mockResolvedValue({ error: null });
-    fromMock.mockImplementation((table: string) => table === 'parcel_correction_requests'
-      ? { insert: correctionInsert }
-      : { insert: auditInsert });
+  it('stores heavy parcel values in correction requests via submit_parcel_correction_request RPC', async () => {
+    rpcMock.mockResolvedValue({ data: { success: true }, error: null });
 
     await createParcelCorrectionRequest({
       parcelLogId: 'log-1', riderId: 'rider-1', date: '2026-08-05',
@@ -160,7 +154,13 @@ describe('heavy-aware parcel operations', () => {
       reason: 'Weighing records corrected', requestedBy: 'not-a-uuid',
     });
 
-    expect(correctionInsert).toHaveBeenCalledWith(expect.objectContaining({ previous_heavy: 2, requested_heavy: 5 }));
-    expect(auditInsert).toHaveBeenCalledWith(expect.objectContaining({ old_heavy: 2, new_heavy: 5 }));
+    expect(rpcMock).toHaveBeenCalledWith('submit_parcel_correction_request', {
+      p_parcel_log_id: 'log-1',
+      p_requested_delivered: 20,
+      p_requested_heavy: 5,
+      p_requested_failed: 1,
+      p_requested_returned: 0,
+      p_reason: 'Weighing records corrected',
+    });
   });
 });

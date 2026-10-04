@@ -104,6 +104,7 @@ export interface SaveParcelEntryPayload {
   assignedParcels?: number;
   failedDeliveries?: number;
   returnedParcels?: number;
+  reason?: string;
 }
 
 function formatTimeString(rawTime: string | null | undefined, fallbackTime: string | null | undefined): string | null {
@@ -445,46 +446,20 @@ export async function saveDailyParcelEntries(
 
   await Promise.all(Array.from(new Set(entries.map(entry => entry.date))).map(getParcelRateContextForDate));
 
-  // Validate if recordedBy is a valid UUID matching public.users(id)
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const validCreatedBy = uuidRegex.test(recordedBy) ? recordedBy : null;
-
-  // Fetch existing logs for audit comparison
-  const dates = Array.from(new Set(entries.map(e => e.date)));
-  const riderIds = Array.from(new Set(entries.map(e => e.riderId)));
-  const { data: existingLogs } = await supabase
-    .from('parcel_logs')
-    .select('id, rider_id, date, parcels, heavy_parcels, failed_parcels, returned_parcels')
-    .in('date', dates)
-    .in('rider_id', riderIds);
-
-  const existingMap = new Map((existingLogs || []).map(l => [`${l.rider_id}_${l.date}`, l]));
-
-  const payloads = entries.map(e => ({
-    rider_id: e.riderId,
+  const rpcPayloads = entries.map(e => ({
+    riderId: e.riderId,
     date: e.date,
     parcels: e.parcels,
-    heavy_parcels: e.heavyParcels ?? 0,
-    assigned_parcels: e.assignedParcels || 0,
-    failed_parcels: e.failedDeliveries || 0,
-    returned_parcels: e.returnedParcels || 0,
+    heavyParcels: e.heavyParcels ?? 0,
+    assignedParcels: e.assignedParcels || 0,
+    failedDeliveries: e.failedDeliveries || 0,
+    returnedParcels: e.returnedParcels || 0,
     notes: e.notes || null,
-    created_by: validCreatedBy,
-    updated_at: new Date().toISOString(),
+    reason: e.reason || null,
   }));
 
-  console.log('[ParcelOps] Sending payload to Supabase:', payloads);
-
-  const res = await supabase
-    .from('parcel_logs')
-    .upsert(payloads, { onConflict: 'rider_id,date' })
-    .select('id, rider_id, date, parcels, heavy_parcels, assigned_parcels, failed_parcels, returned_parcels, notes, rate, heavy_rate, standard_earnings, heavy_earnings, daily_gross, rate_configuration_id');
-
-  console.log('[ParcelOps] Supabase Response:', {
-    data: res.data,
-    error: res.error,
-    status: res.status,
-    statusText: res.statusText
+  const res = await supabase.rpc('save_daily_parcel_entries', {
+    p_entries: rpcPayloads,
   });
 
   if (res.error) {
@@ -492,43 +467,11 @@ export async function saveDailyParcelEntries(
     throw new Error(`Supabase DB Error [${res.error.code}]: ${res.error.message}${res.error.details ? ` (${res.error.details})` : ''}`);
   }
 
-  // Insert audit log entries for created / updated events
-  if (res.data) {
-    const auditEntries = res.data.map(savedLog => {
-      const key = `${savedLog.rider_id}_${savedLog.date}`;
-      const prev = existingMap.get(key);
-      const isNew = !prev;
-
-      return {
-        parcel_log_id: savedLog.id,
-        rider_id: savedLog.rider_id,
-        date: savedLog.date,
-        old_delivered: prev ? prev.parcels : 0,
-        old_heavy: prev ? prev.heavy_parcels : 0,
-        old_failed: prev ? prev.failed_parcels || 0 : 0,
-        old_returned: prev ? prev.returned_parcels || 0 : 0,
-        new_delivered: savedLog.parcels,
-        new_heavy: savedLog.heavy_parcels,
-        new_failed: savedLog.failed_parcels || 0,
-        new_returned: savedLog.returned_parcels || 0,
-        action_type: (isNew ? 'created' : 'updated') as 'created' | 'updated',
-        changed_by: validCreatedBy,
-        reason: isNew ? 'Initial parcel count entry' : 'Direct operational edit in draft status',
-        timestamp: new Date().toISOString(),
-      };
-    });
-
-    const { error: auditErr } = await supabase.from('parcel_log_audit').insert(auditEntries);
-    if (auditErr) {
-      console.warn('Audit insert warning:', auditErr);
-    }
-  }
-
   // Sync affected cutoff payroll_records for all saved riders and dates
   try {
     const riderCutoffKeys = new Set<string>();
     for (const entry of entries) {
-      const riderId = entry.riderId || (entry as any).rider_id;
+      const riderId = entry.riderId;
       if (riderId && entry.date) {
         const { cutoffFrom, cutoffTo } = getCutoffRangeForDate(entry.date);
         riderCutoffKeys.add(`${riderId}|${cutoffFrom}|${cutoffTo}`);
