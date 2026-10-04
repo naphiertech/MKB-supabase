@@ -883,7 +883,9 @@ export type Database = {
           heavy_parcel_rate: number
           heavy_threshold_kg: number
           id: string
+          late_heavy_rate: number
           late_standard_rate: number
+          regular_heavy_rate: number
           regular_standard_rate: number
           updated_at: string
           updated_by: string | null
@@ -899,7 +901,9 @@ export type Database = {
           heavy_parcel_rate: number
           heavy_threshold_kg: number
           id?: string
+          late_heavy_rate?: number
           late_standard_rate: number
+          regular_heavy_rate?: number
           regular_standard_rate: number
           updated_at?: string
           updated_by?: string | null
@@ -915,7 +919,9 @@ export type Database = {
           heavy_parcel_rate?: number
           heavy_threshold_kg?: number
           id?: string
+          late_heavy_rate?: number
           late_standard_rate?: number
+          regular_heavy_rate?: number
           regular_standard_rate?: number
           updated_at?: string
           updated_by?: string | null
@@ -1638,6 +1644,8 @@ export type Database = {
           heavy_earnings: number
           heavy_parcels: number
           heavy_rate_snapshot: number | null
+          regular_heavy_rate_snapshot: number | null
+          late_heavy_rate_snapshot: number | null
           heavy_threshold_kg_snapshot: number | null
           hub_id: string | null
           id: string
@@ -1699,6 +1707,8 @@ export type Database = {
           heavy_earnings?: number
           heavy_parcels?: number
           heavy_rate_snapshot?: number | null
+          regular_heavy_rate_snapshot?: number | null
+          late_heavy_rate_snapshot?: number | null
           heavy_threshold_kg_snapshot?: number | null
           hub_id?: string | null
           id?: string
