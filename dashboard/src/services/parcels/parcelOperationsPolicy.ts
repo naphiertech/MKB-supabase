@@ -7,6 +7,8 @@ export interface ParcelRateContext {
   regularStandardRate: number;
   lateStandardRate: number;
   heavyParcelRate: number;
+  regularHeavyRate?: number | null;
+  lateHeavyRate?: number | null;
   heavyThresholdKg: number;
   effectiveFrom: string;
   effectiveUntil: string | null;
@@ -61,26 +63,45 @@ export function calculateParcelOperationalMetrics(input: {
   };
 }
 
-function timeInMinutes(rawTimeIn: string | null | undefined): number | null {
+function timeInSeconds(rawTimeIn: string | null | undefined): number | null {
   if (!rawTimeIn) return null;
-  const timeOnly = rawTimeIn.match(/^(\d{1,2}):(\d{2})/);
-  if (timeOnly) return Number(timeOnly[1]) * 60 + Number(timeOnly[2]);
+  const timeOnly = rawTimeIn.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (timeOnly) {
+    const hours = Number(timeOnly[1]);
+    const minutes = Number(timeOnly[2]);
+    const seconds = timeOnly[3] ? Number(timeOnly[3]) : 0;
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) return null;
+    return hours * 3600 + minutes * 60 + seconds;
+  }
   const value = new Date(rawTimeIn);
   if (Number.isNaN(value.getTime())) return null;
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false,
+    timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
   }).formatToParts(value);
   const hour = Number(parts.find(part => part.type === 'hour')?.value);
   const minute = Number(parts.find(part => part.type === 'minute')?.value);
-  return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : null;
+  const second = Number(parts.find(part => part.type === 'second')?.value);
+  return Number.isFinite(hour) && Number.isFinite(minute) && Number.isFinite(second)
+    ? hour * 3600 + minute * 60 + second
+    : null;
 }
 
 export function resolveStandardRateForTimeIn(rate: ParcelRateContext, rawTimeIn: string | null | undefined): number | null {
-  const minutes = timeInMinutes(rawTimeIn);
-  if (minutes === null) return null;
-  if (minutes <= 8 * 60) return rate.earlyStandardRate;
-  if (minutes <= 9 * 60) return rate.regularStandardRate;
+  const seconds = timeInSeconds(rawTimeIn);
+  if (seconds === null) return null;
+  if (seconds <= 8 * 3600) return rate.earlyStandardRate;
+  if (seconds <= 9 * 3600) return rate.regularStandardRate;
   return rate.lateStandardRate;
+}
+
+export function resolveHeavyRateForTimeIn(rate: ParcelRateContext, rawTimeIn: string | null | undefined): number | null {
+  const seconds = timeInSeconds(rawTimeIn);
+  if (seconds === null) return null;
+  const regular = rate.regularHeavyRate ?? rate.heavyParcelRate;
+  const late = rate.lateHeavyRate ?? rate.heavyParcelRate;
+  if (seconds <= 8 * 3600) return rate.heavyParcelRate;
+  if (seconds <= 9 * 3600) return regular;
+  return late;
 }
 
 export function resolveRateTierInfo(rate: ParcelRateContext, rawTimeIn: string | null | undefined): {
@@ -88,14 +109,14 @@ export function resolveRateTierInfo(rate: ParcelRateContext, rawTimeIn: string |
   tier: 'early' | 'regular' | 'late' | 'missing';
   label: string;
 } {
-  const minutes = timeInMinutes(rawTimeIn);
-  if (minutes === null) {
+  const seconds = timeInSeconds(rawTimeIn);
+  if (seconds === null) {
     return { rate: null, tier: 'missing', label: 'Missing Attendance' };
   }
-  if (minutes <= 8 * 60) {
+  if (seconds <= 8 * 3600) {
     return { rate: rate.earlyStandardRate, tier: 'early', label: 'Early Standard' };
   }
-  if (minutes <= 9 * 60) {
+  if (seconds <= 9 * 3600) {
     return { rate: rate.regularStandardRate, tier: 'regular', label: 'Regular Standard' };
   }
   return { rate: rate.lateStandardRate, tier: 'late', label: 'Late Standard' };
@@ -105,7 +126,7 @@ export async function getParcelRateContextForDate(date: string): Promise<ParcelR
   validateParcelWorkDate(date);
   const { data, error } = await supabase
     .from('parcel_rate_configurations')
-    .select('id, early_standard_rate, regular_standard_rate, late_standard_rate, heavy_parcel_rate, heavy_threshold_kg, effective_from, effective_until')
+    .select('id, early_standard_rate, regular_standard_rate, late_standard_rate, heavy_parcel_rate, regular_heavy_rate, late_heavy_rate, heavy_threshold_kg, effective_from, effective_until')
     .eq('active', true)
     .lte('effective_from', date)
     .or(`effective_until.is.null,effective_until.gte.${date}`)
@@ -114,12 +135,15 @@ export async function getParcelRateContextForDate(date: string): Promise<ParcelR
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error(`No active parcel rate configuration exists for ${date}.`);
+  const record = data as Record<string, unknown>;
   return {
     id: data.id,
     earlyStandardRate: Number(data.early_standard_rate),
     regularStandardRate: Number(data.regular_standard_rate),
     lateStandardRate: Number(data.late_standard_rate),
     heavyParcelRate: Number(data.heavy_parcel_rate),
+    regularHeavyRate: Number(record.regular_heavy_rate ?? data.heavy_parcel_rate),
+    lateHeavyRate: Number(record.late_heavy_rate ?? data.heavy_parcel_rate),
     heavyThresholdKg: Number(data.heavy_threshold_kg),
     effectiveFrom: data.effective_from,
     effectiveUntil: data.effective_until,

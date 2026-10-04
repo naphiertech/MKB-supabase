@@ -10,6 +10,8 @@ export interface ParcelRateInput {
   regularStandardRate: number;
   lateStandardRate: number;
   heavyParcelRate: number;
+  regularHeavyRate: number;
+  lateHeavyRate: number;
   heavyThresholdKg: number;
   effectiveFrom: string;
   reason: string;
@@ -29,11 +31,32 @@ export function addDays(date: string, amount: number): string {
 }
 
 export function validateParcelRateInput(input: ParcelRateInput, today = localDateString()): string | null {
-  const rates = [input.earlyStandardRate, input.regularStandardRate, input.lateStandardRate, input.heavyParcelRate];
+  const rates = [
+    input.earlyStandardRate,
+    input.regularStandardRate,
+    input.lateStandardRate,
+    input.heavyParcelRate,
+    input.regularHeavyRate,
+    input.lateHeavyRate,
+  ];
   if (rates.some((rate) => !Number.isFinite(rate) || rate < 0)) return 'Rates must be zero or greater.';
   if (!Number.isFinite(input.heavyThresholdKg) || input.heavyThresholdKg <= 0) return 'Heavy parcel threshold must be greater than zero.';
   if (!input.effectiveFrom || input.effectiveFrom <= today) return 'Effective date must be a future date.';
   if (!input.reason.trim()) return 'A reason is required for every rate change.';
+
+  if (input.regularStandardRate > input.earlyStandardRate) {
+    return 'Invalid rate progression. The 8:01–9:00 AM rate cannot exceed the ≤8:00 AM rate under the current parcel compensation policy.';
+  }
+  if (input.lateStandardRate > input.regularStandardRate) {
+    return 'Invalid rate progression. The >9:00 AM rate cannot exceed the 8:01–9:00 AM rate under the current parcel compensation policy.';
+  }
+  if (input.regularHeavyRate > input.heavyParcelRate) {
+    return 'Invalid rate progression. The 8:01–9:00 AM bulky rate cannot exceed the ≤8:00 AM rate under the current parcel compensation policy.';
+  }
+  if (input.lateHeavyRate > input.regularHeavyRate) {
+    return 'Invalid rate progression. The >9:00 AM bulky rate cannot exceed the 8:01–9:00 AM rate under the current parcel compensation policy.';
+  }
+
   return null;
 }
 
@@ -108,11 +131,13 @@ export async function createFutureParcelRateConfiguration(input: ParcelRateInput
     predecessorWasUpdated = true;
   }
 
-  const { error: insertError } = await supabase.from('parcel_rate_configurations').insert({
+  const payload: Record<string, unknown> = {
     early_standard_rate: input.earlyStandardRate,
     regular_standard_rate: input.regularStandardRate,
     late_standard_rate: input.lateStandardRate,
     heavy_parcel_rate: input.heavyParcelRate,
+    regular_heavy_rate: input.regularHeavyRate,
+    late_heavy_rate: input.lateHeavyRate,
     heavy_threshold_kg: input.heavyThresholdKg,
     effective_from: input.effectiveFrom,
     effective_until: successor ? addDays(successor.effective_from, -1) : null,
@@ -120,7 +145,9 @@ export async function createFutureParcelRateConfiguration(input: ParcelRateInput
     change_reason: input.reason.trim(),
     created_by: userId,
     updated_by: userId,
-  });
+  };
+
+  const { error: insertError } = await supabase.from('parcel_rate_configurations').insert(payload as never);
 
   if (insertError) {
     if (predecessor && predecessorWasUpdated) {
@@ -142,15 +169,18 @@ export async function updateFutureParcelRateConfiguration(
   const validation = validateParcelRateInput({ ...input, effectiveFrom: configuration.effective_from });
   if (validation) throw new Error(validation);
   const userId = await currentAuthUserId();
-  const { error } = await supabase.from('parcel_rate_configurations').update({
+  const payload: Record<string, unknown> = {
     early_standard_rate: input.earlyStandardRate,
     regular_standard_rate: input.regularStandardRate,
     late_standard_rate: input.lateStandardRate,
     heavy_parcel_rate: input.heavyParcelRate,
+    regular_heavy_rate: input.regularHeavyRate,
+    late_heavy_rate: input.lateHeavyRate,
     heavy_threshold_kg: input.heavyThresholdKg,
     change_reason: input.reason.trim(),
     updated_by: userId,
-  }).eq('id', configuration.id);
+  };
+  const { error } = await supabase.from('parcel_rate_configurations').update(payload as never).eq('id', configuration.id);
   if (error) throw error;
 }
 
