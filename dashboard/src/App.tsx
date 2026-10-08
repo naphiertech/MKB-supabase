@@ -442,7 +442,7 @@ export function App() {
                   <RiderSchedule userId={user.id} riderId={riderId} />
                 }
                 {riderPage === 'leave_absence' &&
-                  <RiderLeaveAbsence userId={user.id} riderId={riderId} />
+                  <RiderLeaveAbsence userId={user.id} riderId={riderId} employmentType={user.employmentType} />
                 }
                 {riderPage === 'profile' &&
                   <RiderProfile

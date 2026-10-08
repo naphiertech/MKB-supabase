@@ -404,4 +404,83 @@ describe('RiderLeaveAbsence', () => {
     expect(container.textContent).toContain('Server revalidation failed');
     expect(container.textContent).toContain('Reason unavailable in offline cache.');
   });
+
+  it('blocks Planned Leave tab and displays part-time notice for part-time riders', async () => {
+    mocks.isOnline = true;
+    mocks.cached.mockResolvedValue(null);
+    mocks.list.mockResolvedValue([]);
+
+    await act(async () => {
+      root.render(<RiderLeaveAbsence userId="user-1" riderId="rider-1" employmentType="part-time" />);
+    });
+    await flushEffects();
+
+    expect(container.textContent).toContain('Part-time account notice');
+    expect(container.textContent).toContain('Part-time riders submit attendance updates via Absence Notice');
+    expect(container.textContent).toContain('Record an Absence Notice for HR review.');
+
+    const tabButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('button[role="tab"]'));
+    const tabLabels = tabButtons.map((btn) => btn.textContent?.trim());
+    expect(tabLabels).toContain('Current Requests');
+    expect(tabLabels).toContain('Report Absence');
+    expect(tabLabels).toContain('History');
+    expect(tabLabels).not.toContain('Request Leave');
+
+    const reportAbsenceTab = tabButtons.find((btn) => btn.textContent?.trim() === 'Report Absence');
+    expect(reportAbsenceTab).toBeDefined();
+    act(() => reportAbsenceTab?.click());
+    expect(container.textContent).toContain('An Absence Notice records evidence for one Manila business date.');
+  });
+
+  it('allows Request Leave tab for full-time riders', async () => {
+    mocks.isOnline = true;
+    mocks.cached.mockResolvedValue(null);
+    mocks.list.mockResolvedValue([]);
+
+    await act(async () => {
+      root.render(<RiderLeaveAbsence userId="user-1" riderId="rider-1" employmentType="full-time" />);
+    });
+    await flushEffects();
+
+    expect(container.textContent).not.toContain('Part-time account notice');
+    expect(container.textContent).toContain('Submit a full-day Planned Leave request or record an Absence Notice for HR review.');
+
+    const tabButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('button[role="tab"]'));
+    const tabLabels = tabButtons.map((btn) => btn.textContent?.trim());
+    expect(tabLabels).toContain('Request Leave');
+
+    const requestLeaveTab = tabButtons.find((btn) => btn.textContent?.trim() === 'Request Leave');
+    act(() => requestLeaveTab?.click());
+    expect(container.textContent).toContain('Request Planned Leave');
+    expect(container.textContent).toContain('Submit Planned Leave');
+  });
+
+  it('allows contractual personnel to request leave and report absence without restriction', async () => {
+    mocks.isOnline = true;
+    mocks.cached.mockResolvedValue(null);
+    mocks.list.mockResolvedValue([]);
+
+    await act(async () => {
+      root.render(<RiderLeaveAbsence userId="user-1" riderId="rider-1" employmentType="contractual" />);
+    });
+    await flushEffects();
+
+    expect(container.textContent).not.toContain('Part-time account notice');
+    expect(container.textContent).toContain('Submit a full-day Planned Leave request or record an Absence Notice for HR review.');
+
+    const tabButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('button[role="tab"]'));
+    const tabLabels = tabButtons.map((btn) => btn.textContent?.trim());
+    expect(tabLabels).toContain('Current Requests');
+    expect(tabLabels).toContain('Request Leave');
+    expect(tabLabels).toContain('Report Absence');
+    expect(tabLabels).toContain('History');
+
+    const requestLeaveTab = tabButtons.find((btn) => btn.textContent?.trim() === 'Request Leave');
+    act(() => requestLeaveTab?.click());
+    expect(container.textContent).toContain('Request Planned Leave');
+
+    const reportAbsenceTab = tabButtons.find((btn) => btn.textContent?.trim() === 'Report Absence');
+    act(() => reportAbsenceTab?.click());
+    expect(container.textContent).toContain('Report Absence');
+  });
 });

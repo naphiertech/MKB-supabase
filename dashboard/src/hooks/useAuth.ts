@@ -31,6 +31,7 @@ export interface Session {
   accountStatus: UserStatus;
   employmentStatus: EmploymentStatus;
   hubAccessScope: 'global' | 'assigned';
+  employmentType?: string;
 }
 
 export function isProfileLoginBlocked(profile: {
@@ -53,7 +54,8 @@ function readSession(): Session | null {
       ...parsed,
       accountStatus: parsed.accountStatus || 'active',
       employmentStatus: parsed.employmentStatus || 'active',
-      hubAccessScope: parsed.hubAccessScope || 'assigned'
+      hubAccessScope: parsed.hubAccessScope || 'assigned',
+      employmentType: parsed.employmentType
     };
   } catch {
     return null;
@@ -94,7 +96,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
 
   const { data: profile, error } = await supabase
     .from('users')
-    .select('full_name, role, status, rider_id, employment_status, hub_access_scope')
+    .select('full_name, role, status, rider_id, employment_status, hub_access_scope, employment_type')
     .eq('id', authUser.id)
     .single();
 
@@ -109,6 +111,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
     accountStatus: profile.status as UserStatus,
     employmentStatus: profile.employment_status as EmploymentStatus,
     hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
+    employmentType: profile.employment_type || undefined,
   };
   if (!currentSession || currentSession.id !== authUser.id) return;
   if (
@@ -282,7 +285,7 @@ export function useAuth() {
         // Fetch latest profile status & details
         const { data: profile, error } = await supabase
           .from("users")
-          .select("full_name, role, status, rider_id, employment_status, hub_access_scope")
+          .select("full_name, role, status, rider_id, employment_status, hub_access_scope, employment_type")
           .eq("id", supabaseSession.user.id)
           .single();
 
@@ -355,6 +358,7 @@ export function useAuth() {
             accountStatus: profile.status as UserStatus,
             employmentStatus: profile.employment_status as EmploymentStatus,
             hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
+            employmentType: profile.employment_type || undefined,
           };
           currentSession = next;
           writeSession(next);
@@ -414,6 +418,7 @@ export function useAuth() {
       zoneId: null,
       status: session.accountStatus,
       employmentStatus: session.employmentStatus,
+      employmentType: session.employmentType || null,
       lastLogin: Date.now(),
     };
   }, [session, customAvatar]);
@@ -436,7 +441,7 @@ export function useAuth() {
 
         const { data: profile, error: profileError } = await supabase
           .from("users")
-          .select("full_name, role, status, rider_id, employment_status, hub_access_scope")
+          .select("full_name, role, status, rider_id, employment_status, hub_access_scope, employment_type")
           .eq("id", authData.user.id)
           .single();
 
@@ -570,6 +575,7 @@ export function useAuth() {
           accountStatus: profile.status as UserStatus,
           employmentStatus: profile.employment_status as EmploymentStatus,
           hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
+          employmentType: profile.employment_type || undefined,
         };
 
         currentSession = next;

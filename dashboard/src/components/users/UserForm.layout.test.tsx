@@ -149,4 +149,44 @@ describe('UserForm layout refinement', () => {
     expect(textarea?.getAttribute('rows')).toBe('4');
     expect(textarea?.classList.contains('ar-textarea')).toBe(true);
   });
+
+  it('includes Contractual option for admin/staff user creation, but excludes Contractual for rider creation', () => {
+    act(() => {
+      root.render(
+        <UserForm
+          key="admin"
+          defaultRole="admin"
+          zones={mockZones}
+          hubs={mockHubs}
+          onClose={noop}
+        />,
+      );
+    });
+
+    const adminSelect = container.querySelector('select:has(option[value="full-time"])') as HTMLSelectElement | null;
+    expect(adminSelect).not.toBeNull();
+    const adminOptions = Array.from(adminSelect?.options || []).map((opt) => opt.value);
+    expect(adminOptions).toContain('full-time');
+    expect(adminOptions).toContain('part-time');
+    expect(adminOptions).toContain('contractual');
+
+    act(() => {
+      root.render(
+        <UserForm
+          key="rider"
+          defaultRole="rider"
+          zones={mockZones}
+          hubs={mockHubs}
+          onClose={noop}
+        />,
+      );
+    });
+
+    const riderSelect = container.querySelector('select:has(option[value="full-time"])') as HTMLSelectElement | null;
+    expect(riderSelect).not.toBeNull();
+    const riderOptions = Array.from(riderSelect?.options || []).map((opt) => opt.value);
+    expect(riderOptions).toContain('full-time');
+    expect(riderOptions).toContain('part-time');
+    expect(riderOptions).not.toContain('contractual');
+  });
 });

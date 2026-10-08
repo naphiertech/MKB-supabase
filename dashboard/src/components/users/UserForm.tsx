@@ -62,6 +62,7 @@ type UserWithExtensions = AppUser &
 
 interface UserFormProps {
   user?: AppUser | null;
+  defaultRole?: EditableRole;
   zones: Zone[];
   hubs: Hub[];
   onClose: () => void;
@@ -131,7 +132,7 @@ const EMPTY_FORM: FormState = {
   notes: "",
 };
 
-export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps) {
+export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: UserFormProps) {
   const { session } = useAuth();
   const { selectedHubId, canSelectAll } = useHub();
   const currentUserRole = session?.role;
@@ -258,10 +259,11 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
         })();
       }
     } else {
+      const initialRole: EditableRole = currentUserRole === "hr" ? "rider" : (defaultRole ?? "admin");
       const initialForm: FormState = {
         ...EMPTY_FORM,
-        role: currentUserRole === "hr" ? "rider" : "admin",
-        hubAccessScope: currentUserRole === "hr" ? "assigned" : "global",
+        role: initialRole,
+        hubAccessScope: currentUserRole === "hr" ? "assigned" : (initialRole === "rider" ? "assigned" : "global"),
         hubId: resolveInitialRiderHubId({
           selectedWorkspaceHubId: selectedHubId,
           canSelectAll,
@@ -275,7 +277,7 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
     setShowSummary(false);
     setShowPassword(false);
     setSubmitting(false);
-  }, [activeAuthorizedHubIds, canSelectAll, currentUserRole, selectedHubId, user]);
+  }, [activeAuthorizedHubIds, canSelectAll, currentUserRole, defaultRole, selectedHubId, user]);
 
   const isRider = form.role === "rider";
   const riderHubLocked = !canSelectAll;
@@ -309,6 +311,9 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
         next.city = nextCities.includes("Zamboanga City")
           ? "Zamboanga City"
           : nextCities[0] || "";
+      }
+      if (key === "role" && value === "rider" && f.employmentType === "contractual" && mode === "create") {
+        next.employmentType = "";
       }
       return next;
     });
@@ -651,7 +656,13 @@ export function UserForm({ user, zones, hubs, onClose, onSaved }: UserFormProps)
                     <option value="">Select Type</option>
                     <option value="full-time">Full-time</option>
                     <option value="part-time">Part-time</option>
-                    <option value="contractual">Contractual</option>
+                    {form.role !== "rider" ? (
+                      <option value="contractual">Contractual</option>
+                    ) : (
+                      form.employmentType === "contractual" && (
+                        <option value="contractual">Contractual (Legacy)</option>
+                      )
+                    )}
                   </select>
                 </Field>
                 <Field

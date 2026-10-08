@@ -32,7 +32,6 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
         'Live Monitoring',
         'Geofence & Zones',
         'Hub Management',
-        'FMS Import',
       ]);
 
       // 3. Workforce & Users section
@@ -46,6 +45,7 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
 
       // 4. Parcel Operations section
       expect(sectionChildrenLabels(ADMIN_ITEMS, 'Parcel Operations')).toEqual([
+        'Parcel Data Import',
         'Daily Parcel Entry',
         'Parcel History',
         'Parcel Rate Settings',
@@ -103,7 +103,7 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
 
       // 4. Parcel Operations section
       expect(sectionChildrenLabels(HR_ITEMS, 'Parcel Operations')).toEqual([
-        'FMS Import',
+        'Parcel Data Import',
         'Daily Parcel Entry',
         'Parcel History',
         'Parcel Rates (Reference)',
@@ -229,35 +229,35 @@ describe('MKBRiderTrack Role-Specific Sidebar Navigation', () => {
     });
   });
 
-  describe('FMS Import Navigation Entry', () => {
-    it('exposes fms_import with "FMS Import" label in Admin and HR visible navigation items', () => {
+  describe('Parcel Data Import Navigation Entry', () => {
+    it('exposes fms_import with "Parcel Data Import" label in Admin and HR visible navigation items', () => {
       expect(allPageKeys(ADMIN_ITEMS)).toContain('fms_import');
       expect(allPageKeys(HR_ITEMS)).toContain('fms_import');
       expect(allPageKeys(PAYROLL_ITEMS)).not.toContain('fms_import');
 
-      expect(allLabels(ADMIN_ITEMS)).toContain('FMS Import');
-      expect(allLabels(HR_ITEMS)).toContain('FMS Import');
-      expect(allLabels(PAYROLL_ITEMS)).not.toContain('FMS Import');
+      expect(allLabels(ADMIN_ITEMS)).toContain('Parcel Data Import');
+      expect(allLabels(HR_ITEMS)).toContain('Parcel Data Import');
+      expect(allLabels(PAYROLL_ITEMS)).not.toContain('Parcel Data Import');
     });
 
-    it('places FMS Import under Fleet & Operations in Admin with FMS_IMPORT_NAV_ICON', () => {
-      const fleetSection = ADMIN_ITEMS.find((item) => item.type === 'section' && item.title === 'Fleet & Operations');
-      expect(fleetSection?.type).toBe('section');
-      if (fleetSection?.type === 'section') {
-        const fmsItem = fleetSection.items.find((item) => item.key === 'fms_import');
+    it('places Parcel Data Import under Parcel Operations in Admin with FMS_IMPORT_NAV_ICON', () => {
+      const parcelSection = ADMIN_ITEMS.find((item) => item.type === 'section' && item.title === 'Parcel Operations');
+      expect(parcelSection?.type).toBe('section');
+      if (parcelSection?.type === 'section') {
+        const fmsItem = parcelSection.items.find((item) => item.key === 'fms_import');
         expect(fmsItem).toBeDefined();
-        expect(fmsItem?.label).toBe('FMS Import');
+        expect(fmsItem?.label).toBe('Parcel Data Import');
         expect(fmsItem?.icon).toBe(FMS_IMPORT_NAV_ICON);
       }
     });
 
-    it('places FMS Import under Parcel Operations in HR with FMS_IMPORT_NAV_ICON', () => {
+    it('places Parcel Data Import under Parcel Operations in HR with FMS_IMPORT_NAV_ICON', () => {
       const parcelSection = HR_ITEMS.find((item) => item.type === 'section' && item.title === 'Parcel Operations');
       expect(parcelSection?.type).toBe('section');
       if (parcelSection?.type === 'section') {
         const fmsItem = parcelSection.items.find((item) => item.key === 'fms_import');
         expect(fmsItem).toBeDefined();
-        expect(fmsItem?.label).toBe('FMS Import');
+        expect(fmsItem?.label).toBe('Parcel Data Import');
         expect(fmsItem?.icon).toBe(FMS_IMPORT_NAV_ICON);
       }
     });

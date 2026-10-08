@@ -37,6 +37,8 @@ interface UsersTableProps {
   onToggleSuspension?: (user: AppUser, suspended: boolean) => Promise<void>;
   onArchive?: (user: AppUser) => void;
   onRestore?: (user: AppUser) => void;
+  variant?: 'all' | 'staff' | 'rider';
+  itemLabel?: string;
 }
 
 const ROLE_STYLES: Record<
@@ -193,6 +195,8 @@ export function UsersTable({
   onToggleSuspension,
   onArchive,
   onRestore,
+  variant = 'all',
+  itemLabel,
 }: UsersTableProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -230,13 +234,13 @@ export function UsersTable({
         <table className="data-table-wide w-full text-sm">
           <thead>
             <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-muted-foreground border-b border-border bg-panel-bg">
-              <th className="font-semibold py-3 px-4">User</th>
-              <th className="font-semibold py-3 px-4">Role</th>
+              <th className="font-semibold py-3 px-4">{variant === 'rider' ? 'Rider' : 'User'}</th>
+              {variant !== 'rider' && <th className="font-semibold py-3 px-4">Role</th>}
               <th className="font-semibold py-3 px-4">Email</th>
-              <th className="font-semibold py-3 px-4">Zone</th>
+              {variant !== 'staff' && <th className="font-semibold py-3 px-4">Zone</th>}
               <th className="font-semibold py-3 px-4">Employment</th>
               <th className="font-semibold py-3 px-4">Account</th>
-              <th className="font-semibold py-3 px-4">Presence</th>
+              {variant !== 'staff' && <th className="font-semibold py-3 px-4">Presence</th>}
               <th className="font-semibold py-3 px-4">Last Login</th>
               <th className="font-semibold py-3 px-4 w-12" />
             </tr>
@@ -244,8 +248,15 @@ export function UsersTable({
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-muted-foreground italic text-xs">
-                  No users found matching your filters.
+                <td
+                  colSpan={variant === 'staff' ? 7 : variant === 'rider' ? 8 : 9}
+                  className="py-8 text-center text-muted-foreground italic text-xs"
+                >
+                  {variant === 'staff'
+                    ? 'No staff members found matching your filters.'
+                    : variant === 'rider'
+                      ? 'No riders found matching your filters.'
+                      : 'No users found matching your filters.'}
                 </td>
               </tr>
             ) : (
@@ -273,19 +284,23 @@ export function UsersTable({
                         </span>
                       </div>
                     </td>
-                    <td className="py-2.5 px-4">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${r.bg} ${r.text} ${r.border}`}
-                      >
-                        {r.label}
-                      </span>
-                    </td>
+                    {variant !== 'rider' && (
+                      <td className="py-2.5 px-4">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${r.bg} ${r.text} ${r.border}`}
+                        >
+                          {r.label}
+                        </span>
+                      </td>
+                    )}
                     <td className="py-2.5 px-4 font-mono text-muted-foreground text-xs">
                       {u.email}
                     </td>
-                    <td className="py-2.5 px-4 text-foreground">
-                      {zone?.name ?? '—'}
-                    </td>
+                    {variant !== 'staff' && (
+                      <td className="py-2.5 px-4 text-foreground">
+                        {zone?.name ?? '—'}
+                      </td>
+                    )}
                     <td className="py-2.5 px-4">
                       <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${archived ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
                         {archived ? 'Archived' : 'Employed'}
@@ -304,14 +319,16 @@ export function UsersTable({
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 px-4">
-                      {u.role === 'rider' ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                          <span className={`w-1.5 h-1.5 rounded-full ${onlineUserIds.includes(u.id) && !archived ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                          {onlineUserIds.includes(u.id) && !archived ? 'Online' : 'Offline'}
-                        </span>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </td>
+                    {variant !== 'staff' && (
+                      <td className="py-2.5 px-4">
+                        {u.role === 'rider' ? (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                            <span className={`w-1.5 h-1.5 rounded-full ${onlineUserIds.includes(u.id) && !archived ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                            {onlineUserIds.includes(u.id) && !archived ? 'Online' : 'Offline'}
+                          </span>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </td>
+                    )}
                     <td className="py-2.5 px-4 font-mono text-muted-foreground text-xs">
                       {u.lastLogin === 0 ? 'Never' : relativeTime(u.lastLogin, now)}
                     </td>
@@ -434,7 +451,7 @@ export function UsersTable({
             <span>
               Showing <strong className="text-foreground font-semibold">{startItem}</strong> to{' '}
               <strong className="text-foreground font-semibold">{endItem}</strong> of{' '}
-              <strong className="text-foreground font-semibold">{total}</strong> employees
+              <strong className="text-foreground font-semibold">{total}</strong> {itemLabel ?? 'employees'}
             </span>
 
             {onPageSizeChange && (

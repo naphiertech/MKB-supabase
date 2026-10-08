@@ -89,8 +89,7 @@ export const ADMIN_ITEMS: SidebarItem[] = [
     items: [
       { key: 'monitoring', label: 'Live Monitoring', icon: Activity },
       { key: 'geofence', label: 'Geofence & Zones', icon: Target },
-      { key: 'hubs', label: 'Hub Management', icon: Building2 },
-      { key: 'fms_import', label: 'FMS Import', icon: Upload }
+      { key: 'hubs', label: 'Hub Management', icon: Building2 }
     ]
   },
   {
@@ -110,6 +109,7 @@ export const ADMIN_ITEMS: SidebarItem[] = [
     title: 'Parcel Operations',
     icon: PackageCheck,
     items: [
+      { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
       { key: 'parcel_history', label: 'Parcel History', icon: History },
       { key: 'parcel_rates', label: 'Parcel Rate Settings', icon: Coins }
@@ -179,7 +179,7 @@ export const HR_ITEMS: SidebarItem[] = [
     title: 'Parcel Operations',
     icon: PackageCheck,
     items: [
-      { key: 'fms_import', label: 'FMS Import', icon: Upload },
+      { key: 'fms_import', label: 'Parcel Data Import', icon: Upload },
       { key: 'daily_parcels', label: 'Daily Parcel Entry', icon: PackageCheck },
       { key: 'parcel_history', label: 'Parcel History', icon: History },
       { key: 'parcel_rates', label: 'Parcel Rates (Reference)', icon: Coins }

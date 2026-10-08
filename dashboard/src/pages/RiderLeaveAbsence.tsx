@@ -71,15 +71,18 @@ function statusTone(status: RiderAbsenceRequest['status']) {
 interface RiderLeaveAbsenceProps {
   userId: string;
   riderId: string;
+  employmentType?: string | null;
 }
 
 export function RiderLeaveAbsence(props: RiderLeaveAbsenceProps) {
   return <RiderLeaveAbsenceContent key={`${props.userId}:${props.riderId}`} {...props} />;
 }
 
-function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
+function RiderLeaveAbsenceContent({ userId, riderId, employmentType }: RiderLeaveAbsenceProps) {
   const isOnline = useNetworkStatus();
   const identityKey = `${userId}:${riderId}`;
+  const isPartTime = (employmentType ?? '').toLowerCase().trim() === 'part-time';
+  const canRequestLeave = !isPartTime;
   const [windowStart, setWindowStart] = useState(() => getCurrentRiderAbsenceWindow().fromDate);
   const [view, setView] = useState<RiderLeaveView>('current');
   const [requests, setRequests] = useState<RiderAbsenceRequest[]>([]);
@@ -125,6 +128,12 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
     plannedAttemptSignature.current = null;
     absenceAttemptSignature.current = null;
   }, [identityKey]);
+
+  useEffect(() => {
+    if (!canRequestLeave && view === 'request_leave') {
+      setView('report_absence');
+    }
+  }, [canRequestLeave, view]);
 
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current;
@@ -210,6 +219,10 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
   }
 
   async function handlePlannedLeaveSubmit() {
+    if (!canRequestLeave) {
+      setActionError('Planned Leave is reserved for full-time personnel. Part-time riders may submit Absence Notices.');
+      return;
+    }
     const validation = validatePlannedLeaveInput({ startDate: plannedStart, endDate: plannedEnd, reason: plannedReason });
     if (validation) {
       setActionError(validation);
@@ -319,7 +332,11 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
           <div>
             <p className="ui-eyebrow">Rider self-service</p>
             <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground">Leave &amp; Absence</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Submit a full-day Planned Leave request or record an Absence Notice for HR review.</p>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              {isPartTime
+                ? 'Record an Absence Notice for HR review.'
+                : 'Submit a full-day Planned Leave request or record an Absence Notice for HR review.'}
+            </p>
           </div>
           <StatusBadge tone={isOnline ? 'success' : 'warning'} dot size="md">
             {!isOnline ? 'Offline view' : cacheState === 'cached' ? 'Cached / Revalidating' : cacheState === 'failed' ? 'Cached / Revalidation failed' : 'Online'}
@@ -337,7 +354,7 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
         <div className="flex flex-wrap gap-2 border-b border-border pb-3" role="tablist" aria-label="Leave and absence sections">
           {([
             ['current', 'Current Requests'],
-            ['request_leave', 'Request Leave'],
+            ...(canRequestLeave ? [['request_leave', 'Request Leave'] as const] : []),
             ['report_absence', 'Report Absence'],
             ['history', 'History'],
           ] as const).map(([key, label]) => (
@@ -346,13 +363,19 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
               type="button"
               role="tab"
               aria-selected={view === key}
-              onClick={() => { setView(key); setActionError(null); }}
+              onClick={() => { setView(key as RiderLeaveView); setActionError(null); }}
               className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${view === key ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-panel-bg hover:text-foreground'}`}
             >
               {label}
             </button>
           ))}
         </div>
+
+        {isPartTime && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/70 px-3.5 py-2.5 text-xs text-blue-900" role="note">
+            <span><strong className="font-semibold">Part-time account notice:</strong> Part-time riders submit attendance updates via <span className="font-semibold">Absence Notice</span>. Planned Leave is reserved for full-time personnel.</span>
+          </div>
+        )}
 
         {(cacheState === 'cached' || cacheState === 'failed') && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -367,7 +390,7 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
           </div>
         )}
 
-        {view === 'request_leave' && (
+        {view === 'request_leave' && canRequestLeave && (
           <div className="max-w-2xl space-y-4 rounded-xl border border-border bg-panel-bg/45 p-4">
             <div><h2 className="text-sm font-semibold text-foreground">Request Planned Leave</h2><p className="mt-1 text-xs text-muted-foreground">Use full Manila business dates. HR/Admin will review the request.</p></div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -394,7 +417,18 @@ function RiderLeaveAbsenceContent({ userId, riderId }: RiderLeaveAbsenceProps) {
 
         {(view === 'current' || view === 'history') && (
           visibleRequests.length === 0 ? (
-            <StatePanel compact icon={view === 'current' ? CalendarDays : History} title={view === 'current' ? 'No current requests' : 'No request history'} description={view === 'current' ? 'Submit Planned Leave or Report Absence when you need to record a request.' : 'Requests in the displayed Manila date range will appear here.'} />
+            <StatePanel
+              compact
+              icon={view === 'current' ? CalendarDays : History}
+              title={view === 'current' ? 'No current requests' : 'No request history'}
+              description={
+                view === 'current'
+                  ? (canRequestLeave
+                      ? 'Submit Planned Leave or Report Absence when you need to record a request.'
+                      : 'Submit an Absence Notice when you need to record an absence.')
+                  : 'Requests in the displayed Manila date range will appear here.'
+              }
+            />
           ) : (
             <div className="space-y-3" aria-live="polite">
               {visibleRequests.map((request) => (

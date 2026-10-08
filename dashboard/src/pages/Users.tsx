@@ -79,6 +79,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
   const [editing, setEditing] = useState<AppUser | null>(null);
 
   const [zoneFilter, setZoneFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<'staff' | 'riders'>('staff');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [lifecycleTarget, setLifecycleTarget] = useState<AppUser | null>(null);
@@ -92,6 +93,8 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
   const [showFiltersPopover, setShowFiltersPopover] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
 
+  const effectiveTab: 'staff' | 'riders' = currentUserRole === 'hr' ? 'riders' : activeTab;
+
   // Sync roleFilter for HR
   useEffect(() => {
     if (currentUserRole === 'hr') {
@@ -99,10 +102,10 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
     }
   }, [currentUserRole]);
 
-  // Reset pagination on filter changes
+  // Reset pagination on filter or tab changes
   useEffect(() => {
     setPage(1);
-  }, [q, roleFilter, statusFilter, employmentFilter, zoneFilter]);
+  }, [q, roleFilter, statusFilter, employmentFilter, zoneFilter, activeTab]);
 
   // Dismiss popover on outside click or Escape key
   useEffect(() => {
@@ -265,6 +268,8 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
     payroll: activeWorkforce.filter((u) => u.role === 'payroll').length,
     archived: userList.filter((u) => u.employmentStatus === 'archived').length,
   };
+  const staffCount = counts.admin + counts.hr + counts.payroll;
+  const riderCount = counts.rider;
 
   const groupedZones = useMemo(() => {
     if (workspaceKey !== 'all' || hubs.length <= 1) {
@@ -298,39 +303,56 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
   const isAnyFilterActive = useMemo(() => {
     return Boolean(
       q.trim() ||
-      (currentUserRole !== 'hr' && roleFilter !== 'all') ||
-      zoneFilter !== 'all' ||
+      (effectiveTab === 'staff' && roleFilter !== 'all') ||
+      (effectiveTab === 'riders' && zoneFilter !== 'all') ||
       employmentFilter !== 'active' ||
       statusFilter !== 'all'
     );
-  }, [q, roleFilter, zoneFilter, employmentFilter, statusFilter, currentUserRole]);
+  }, [q, effectiveTab, roleFilter, zoneFilter, employmentFilter, statusFilter]);
 
   const handleResetFilters = () => {
     setQ('');
-    if (currentUserRole !== 'hr') setRoleFilter('all');
+    setRoleFilter(effectiveTab === 'riders' ? 'rider' : 'all');
     setZoneFilter('all');
     setEmploymentFilter('active');
     setStatusFilter('all');
     setPage(1);
   };
 
+  const handleTabChange = (tab: 'staff' | 'riders') => {
+    setActiveTab(tab);
+    setPage(1);
+    if (tab === 'staff') {
+      if (roleFilter === 'rider') setRoleFilter('all');
+    } else {
+      setRoleFilter('rider');
+      setZoneFilter('all');
+    }
+  };
+
   const filtered = useMemo(
     () =>
-    userList.filter((u) => {
-      const matchesQ =
-      !q ||
-      u.name.toLowerCase().includes(q.toLowerCase()) ||
-      u.email.toLowerCase().includes(q.toLowerCase());
-      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-      
-      const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
-      const matchesEmployment = employmentFilter === 'all' || u.employmentStatus === employmentFilter;
+      userList.filter((u) => {
+        if (effectiveTab === 'staff' && u.role === 'rider') return false;
+        if (effectiveTab === 'riders' && u.role !== 'rider') return false;
 
-      const matchesZone = zoneFilter === 'all' || u.zoneId === zoneFilter;
+        const matchesQ =
+          !q ||
+          u.name.toLowerCase().includes(q.toLowerCase()) ||
+          u.email.toLowerCase().includes(q.toLowerCase());
 
-      return matchesQ && matchesRole && matchesStatus && matchesEmployment && matchesZone;
-    }),
-    [q, roleFilter, statusFilter, employmentFilter, zoneFilter, userList]
+        const matchesRole =
+          effectiveTab === 'riders'
+            ? true
+            : roleFilter === 'all' || u.role === roleFilter;
+
+        const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
+        const matchesEmployment = employmentFilter === 'all' || u.employmentStatus === employmentFilter;
+        const matchesZone = effectiveTab === 'staff' ? true : zoneFilter === 'all' || u.zoneId === zoneFilter;
+
+        return matchesQ && matchesRole && matchesStatus && matchesEmployment && matchesZone;
+      }),
+    [userList, effectiveTab, q, roleFilter, statusFilter, employmentFilter, zoneFilter]
   );
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
@@ -342,27 +364,39 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
 
   const handleExportExcel = async () => {
     try {
-      const headers = ['Name', 'Email', 'Role', 'Employment', 'Account', 'Contact', 'Zone'];
-      
-      const rows = filtered.map(u => {
-        const zoneName = zonesList.find(z => z.id === u.zoneId)?.name || '—';
-        return [
+      const isStaffTab = effectiveTab === 'staff';
+      const headers = isStaffTab
+        ? ['Name', 'Email', 'Role', 'Employment', 'Account', 'Contact']
+        : ['Name', 'Email', 'Zone', 'Employment', 'Account', 'Contact'];
+
+      const rows = filtered.map((u) => {
+        const zoneName = zonesList.find((z) => z.id === u.zoneId)?.name || '—';
+        return isStaffTab ? [
           u.name || '',
           u.email || '',
           u.role || '',
-          (u.employmentStatus === 'archived' ? 'Archived' : 'Employed'),
-          (u.status === 'suspended' ? (u.role === 'rider' ? 'Restricted' : 'Suspended') : 'Enabled'),
+          u.employmentStatus === 'archived' ? 'Archived' : 'Employed',
+          u.status === 'suspended' ? 'Suspended' : 'Enabled',
           u.contact || '',
-          zoneName
+        ] : [
+          u.name || '',
+          u.email || '',
+          zoneName,
+          u.employmentStatus === 'archived' ? 'Archived' : 'Employed',
+          u.status === 'suspended' ? 'Restricted' : 'Enabled',
+          u.contact || '',
         ];
       });
 
+      const filenamePrefix = isStaffTab ? 'staff_registry' : 'rider_registry';
+      const sheetName = isStaffTab ? 'Staff Registry' : 'Rider Registry';
+
       await exportXLSXFile(
-        'Employee Registry',
+        sheetName,
         headers,
         rows,
-        buildExportFilename({ prefix: 'employee_registry', extension: 'xlsx' }).replace(/\.xlsx$/, ''),
-        'employeeRegistry'
+        buildExportFilename({ prefix: filenamePrefix, extension: 'xlsx' }).replace(/\.xlsx$/, ''),
+        isStaffTab ? 'staffRegistry' : 'riderRegistry'
       );
     } catch (err) {
       console.error('Failed to export registry:', err);
@@ -492,6 +526,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
         >
           <UserForm
             user={editing}
+            defaultRole={effectiveTab === 'staff' ? 'admin' : 'rider'}
             zones={riderFormZones}
             hubs={hubs}
             onClose={() => {
@@ -678,13 +713,13 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2.5 flex-wrap">
               <div className="text-2xl font-semibold text-foreground tracking-tight">
-                {currentUserRole === 'hr' ? counts.rider : activeWorkforce.length}
+                {effectiveTab === 'riders' ? counts.rider : staffCount}
               </div>
               <div className="text-sm text-muted-foreground">
-                {currentUserRole === 'hr' ? 'employed riders' : 'employees'}
+                {effectiveTab === 'riders' ? 'employed riders' : 'employed staff'}
               </div>
               <div className="hidden md:flex items-center gap-1.5 ml-3">
-                {currentUserRole !== 'hr' ? (
+                {effectiveTab === 'staff' ? (
                   <>
                     <RoleChip
                       icon={Shield}
@@ -697,12 +732,6 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                       label="HR"
                       count={counts.hr}
                       tone="amber" />
-                    
-                    <RoleChip
-                      icon={Bike}
-                      label="Rider"
-                      count={counts.rider}
-                      tone="slate" />
                     
                     <RoleChip
                       icon={Wallet}
@@ -736,10 +765,51 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                 }}
                 className="inline-flex h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/25 sm:h-9 sm:px-3.5 sm:text-sm cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> Add Rider
+                <Plus className="w-4 h-4" /> {effectiveTab === 'staff' ? 'Add Staff' : 'Add Rider'}
               </button>
             </div>
           </div>
+
+          {/* Tab Switcher for Staff vs Field Riders */}
+          {currentUserRole !== 'hr' && (
+            <div className="flex items-center justify-between gap-3 border-b border-border/70 pb-1">
+              <div className="ui-tab-list table-scroll-region" role="tablist" aria-label="Directory view">
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-staff"
+                  aria-selected={effectiveTab === 'staff'}
+                  aria-controls="panel-staff"
+                  onClick={() => handleTabChange('staff')}
+                  className={`ui-tab ${effectiveTab === 'staff' ? 'ui-tab-active' : ''}`}
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Staff &amp; Management</span>
+                  <span className={`ml-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${effectiveTab === 'staff' ? 'bg-primary text-white' : 'bg-slate-200 text-slate-700'}`}>
+                    {staffCount}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-riders"
+                  aria-selected={effectiveTab === 'riders'}
+                  aria-controls="panel-riders"
+                  onClick={() => handleTabChange('riders')}
+                  className={`ui-tab ${effectiveTab === 'riders' ? 'ui-tab-active' : ''}`}
+                >
+                  <Bike className="w-4 h-4" />
+                  <span>Field Riders</span>
+                  <span className={`ml-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${effectiveTab === 'riders' ? 'bg-primary text-white' : 'bg-slate-200 text-slate-700'}`}>
+                    {riderCount}
+                  </span>
+                </button>
+              </div>
+              <div className="hidden sm:block text-xs text-muted-foreground font-mono">
+                {filtered.length} {effectiveTab === 'staff' ? 'staff' : 'riders'} shown
+              </div>
+            </div>
+          )}
 
           {/* Compact Filter Toolbar */}
           <div className="ui-toolbar p-3">
@@ -750,7 +820,7 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder={currentUserRole === 'hr' ? "Search riders by name or email…" : "Search by name or email…"}
+                  placeholder={effectiveTab === 'riders' ? "Search riders by name or email…" : "Search staff by name or email…"}
                   className="bg-transparent outline-none text-xs sm:text-sm text-foreground placeholder:text-subtle-text flex-1 min-w-0"
                 />
                 {q && (
@@ -766,46 +836,47 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
               </div>
 
               <div className="flex min-w-0 flex-wrap items-center gap-2 lg:flex-nowrap">
-                {/* Role Select Dropdown */}
-                {currentUserRole !== 'hr' && (
+                {/* Role Select Dropdown (Staff tab only) */}
+                {effectiveTab === 'staff' && currentUserRole !== 'hr' && (
                   <select
                     value={roleFilter}
                     onChange={(e) => setRoleFilter(e.target.value as typeof roleFilter)}
                     aria-label="Filter by role"
                     className="ui-control h-9 w-full px-3 text-xs font-medium sm:w-36"
                   >
-                    <option value="all">All Roles</option>
+                    <option value="all">All Staff ({staffCount})</option>
                     <option value="admin">Admin ({counts.admin})</option>
                     <option value="hr">HR ({counts.hr})</option>
-                    <option value="rider">Rider ({counts.rider})</option>
                     <option value="payroll">Payroll ({counts.payroll})</option>
                   </select>
                 )}
 
-                {/* Hub-Aware Zone Dropdown */}
-                <select
-                  value={zoneFilter}
-                  onChange={(e) => setZoneFilter(e.target.value)}
-                  aria-label="Filter by zone"
-                  className="ui-control h-9 w-full truncate px-3 text-xs font-medium sm:w-64"
-                >
-                  <option value="all">All Zones ({zonesList.length})</option>
-                  {groupedZones.isGrouped
-                    ? groupedZones.groups.map((group) => (
-                        <optgroup key={group.hubName} label={group.hubName}>
-                          {group.zones.map((z) => (
-                            <option key={z.id} value={z.id}>
-                              {z.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))
-                    : groupedZones.list.map((z) => (
-                        <option key={z.id} value={z.id}>
-                          {z.name}
-                        </option>
-                      ))}
-                </select>
+                {/* Hub-Aware Zone Dropdown (Riders tab only) */}
+                {effectiveTab === 'riders' && (
+                  <select
+                    value={zoneFilter}
+                    onChange={(e) => setZoneFilter(e.target.value)}
+                    aria-label="Filter by zone"
+                    className="ui-control h-9 w-full truncate px-3 text-xs font-medium sm:w-64"
+                  >
+                    <option value="all">All Zones ({zonesList.length})</option>
+                    {groupedZones.isGrouped
+                      ? groupedZones.groups.map((group) => (
+                          <optgroup key={group.hubName} label={group.hubName}>
+                            {group.zones.map((z) => (
+                              <option key={z.id} value={z.id}>
+                                {z.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))
+                      : groupedZones.list.map((z) => (
+                          <option key={z.id} value={z.id}>
+                            {z.name}
+                          </option>
+                        ))}
+                  </select>
+                )}
 
                 {/* More Filters Popover Button & Container */}
                 <div className="relative" ref={filtersRef}>
@@ -928,36 +999,38 @@ export function Users({ onlineUserIds = [], onManageAssignment }: UsersProps) {
 
                 {/* Results Count Badge */}
                 <div className="ml-auto text-xs text-muted-foreground font-mono px-1 shrink-0">
-                  {filtered.length} shown
+                  {filtered.length} {effectiveTab === 'staff' ? 'staff' : 'riders'}
                 </div>
               </div>
             </div>
           </div>
 
           <UsersTable
-              users={paginatedUsers}
-              zones={zonesList}
-              onlineUserIds={onlineUserIds}
-              totalCount={filtered.length}
-              currentPage={safePage}
-              pageSize={pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-              onEdit={(u) => {
-                setEditing(u);
-                setView('form');
-              }}
-              onViewDetails={(u) => {
-                setSelectedUser(u);
-                setView('details');
-              }}
-              currentUserId={session?.id}
-              currentUserRole={currentUserRole === 'admin' || currentUserRole === 'hr' ? currentUserRole : undefined}
-              onSendPasswordReset={handleSendPasswordReset}
-              onToggleSuspension={handleToggleSuspension}
-              onArchive={openArchive}
-              onRestore={openRestore}
-            />
+            users={paginatedUsers}
+            zones={zonesList}
+            onlineUserIds={onlineUserIds}
+            totalCount={filtered.length}
+            currentPage={safePage}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            onEdit={(u) => {
+              setEditing(u);
+              setView('form');
+            }}
+            onViewDetails={(u) => {
+              setSelectedUser(u);
+              setView('details');
+            }}
+            currentUserId={session?.id}
+            currentUserRole={currentUserRole === 'admin' || currentUserRole === 'hr' ? currentUserRole : undefined}
+            onSendPasswordReset={handleSendPasswordReset}
+            onToggleSuspension={handleToggleSuspension}
+            onArchive={openArchive}
+            onRestore={openRestore}
+            variant={effectiveTab === 'staff' ? 'staff' : 'rider'}
+            itemLabel={effectiveTab === 'staff' ? 'staff' : 'riders'}
+          />
         </motion.div>
       )}
     </AnimatePresence>

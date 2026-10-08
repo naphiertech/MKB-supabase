@@ -113,4 +113,67 @@ describe('UsersTable status semantics', () => {
     expect(rows[1].querySelectorAll('td')[6].textContent?.trim()).toBe('Offline');
     expect(rows[2].querySelectorAll('td')[6].textContent?.trim()).toBe('—');
   });
+
+  it('renders tailored 7-column layout for staff variant omitting Zone and Presence', () => {
+    act(() => {
+      root.render(
+        <UsersTable
+          users={[baseStaff]}
+          zones={[]}
+          onlineUserIds={[]}
+          currentUserRole="admin"
+          variant="staff"
+          itemLabel="staff members"
+          currentPage={1}
+          totalCount={1}
+          onPageChange={() => {}}
+        />
+      );
+    });
+
+    const headers = Array.from(container.querySelectorAll('thead th')).map((th) => th.textContent?.trim());
+    expect(headers).toEqual(['User', 'Role', 'Email', 'Employment', 'Account', 'Last Login', '']);
+
+    const cells = Array.from(container.querySelectorAll('tbody tr td')).map((td) => td.textContent?.trim());
+    expect(cells).toHaveLength(7);
+    expect(cells[0]).toContain('Admin User');
+    expect(cells[1]).toBe('Admin');
+    expect(cells[2]).toBe('admin@example.com');
+    expect(cells[3]).toBe('Employed');
+    expect(cells[4]).toBe('Enabled');
+
+    expect(container.textContent).toContain('1 staff members');
+  });
+
+  it('renders tailored 8-column layout for rider variant omitting Role', () => {
+    act(() => {
+      root.render(
+        <UsersTable
+          users={[baseRider]}
+          zones={[{ id: 'z1', name: 'Zone Alpha', hubId: 'h1', active: true, color: '#ff0000' } as any]}
+          onlineUserIds={['user-rider-1']}
+          currentUserRole="admin"
+          variant="rider"
+          itemLabel="riders"
+          currentPage={1}
+          totalCount={1}
+          onPageChange={() => {}}
+        />
+      );
+    });
+
+    const headers = Array.from(container.querySelectorAll('thead th')).map((th) => th.textContent?.trim());
+    expect(headers).toEqual(['Rider', 'Email', 'Zone', 'Employment', 'Account', 'Presence', 'Last Login', '']);
+
+    const cells = Array.from(container.querySelectorAll('tbody tr td')).map((td) => td.textContent?.trim());
+    expect(cells).toHaveLength(8);
+    expect(cells[0]).toContain('Juan Dela Cruz');
+    expect(cells[1]).toBe('juan@example.com');
+    expect(cells[2]).toBe('—');
+    expect(cells[3]).toBe('Employed');
+    expect(cells[4]).toBe('Enabled');
+    expect(cells[5]).toBe('Online');
+
+    expect(container.textContent).toContain('1 riders');
+  });
 });
