@@ -4,7 +4,9 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { UsersTable } from './UsersTable';
-import type { AppUser } from '../../services/types';
+import type { AppUser, Zone } from '../../services/types';
+
+const noop = () => undefined;
 
 describe('UsersTable status semantics', () => {
   let container: HTMLDivElement;
@@ -126,7 +128,7 @@ describe('UsersTable status semantics', () => {
           itemLabel="staff members"
           currentPage={1}
           totalCount={1}
-          onPageChange={() => {}}
+          onPageChange={noop}
         />
       );
     });
@@ -150,14 +152,14 @@ describe('UsersTable status semantics', () => {
       root.render(
         <UsersTable
           users={[baseRider]}
-          zones={[{ id: 'z1', name: 'Zone Alpha', hubId: 'h1', active: true, color: '#ff0000' } as any]}
+          zones={[{ id: 'z1', name: 'Zone Alpha', hubId: 'h1', active: true, color: '#ff0000' } as unknown as Zone]}
           onlineUserIds={['user-rider-1']}
           currentUserRole="admin"
           variant="rider"
           itemLabel="riders"
           currentPage={1}
           totalCount={1}
-          onPageChange={() => {}}
+          onPageChange={noop}
         />
       );
     });
