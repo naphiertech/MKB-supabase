@@ -211,8 +211,18 @@ export function AbsenceAssessmentsTab({
   if (showFinancial) return (
     <div className="space-y-4">
       <button type="button" className="ui-button-secondary" onClick={() => setShowFinancial(false)}>Back to attendance assessments</button>
-      <FinancialAbsencePanel startDate={startDate} endDate={endDate} hubId={effectiveHubId} riderId={propRiderId}
-        riderNames={Object.fromEntries(Object.entries(riderInfoMap).map(([id, info]) => [id, info.name]))} />
+      <FinancialAbsencePanel
+        startDate={startDate}
+        endDate={endDate}
+        hubId={effectiveHubId}
+        riderId={propRiderId}
+        riderNames={Object.fromEntries(Object.entries(riderInfoMap).map(([id, info]) => [id, info.name]))}
+        riderCodes={Object.fromEntries(
+          Object.entries(riderInfoMap)
+            .filter(([, info]) => info.mkbId)
+            .map(([id, info]) => [id, info.mkbId!]),
+        )}
+      />
     </div>
   );
 

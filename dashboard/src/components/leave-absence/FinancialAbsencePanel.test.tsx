@@ -179,4 +179,57 @@ describe('Admin/HR financial absence workflow', () => {
   it('denies non-staff roles without financial requests', async () => {
     mocks.role = 'payroll'; await render(); expect(mocks.load).not.toHaveBeenCalled(); expect(buttons('Confirm')).toHaveLength(0);
   });
+  it('groups multiple absences under a single rider header with summary counters', async () => {
+    const row1: FinancialReviewRow = { ...candidate, business_date: '2026-10-08', assessmentPolicyVersionNumber: 2, assessmentPolicyType: 'official' };
+    const row2: FinancialReviewRow = { ...decided, business_date: '2026-10-09', assessmentPolicyVersionNumber: 2, assessmentPolicyType: 'official' };
+    mocks.load.mockResolvedValue([row1, row2]);
+    await render();
+    expect(container.textContent).toContain('Juan');
+    expect(container.textContent).toContain('MKB1');
+    expect(container.textContent).toContain('1 Pending Decision');
+    expect(container.textContent).toContain('1 Confirmed');
+    expect(container.textContent).toContain('2 absences');
+    expect(container.textContent).toContain('2026-10-08');
+    expect(container.textContent).toContain('2026-10-09');
+    expect(container.textContent).toContain('V2 · Official');
+  });
+  it('filters rows by search query matching rider name or ID', async () => {
+    const r1: FinancialReviewRow = { ...candidate, rider_id: 'r1', business_date: '2026-10-08' };
+    const r2: FinancialReviewRow = { ...candidate, rider_id: 'r2', business_date: '2026-10-08', financial: { ...financial, rider_id: 'r2', rider_name: 'Maria', rider_code: 'MKB2' } };
+    mocks.load.mockResolvedValue([r1, r2]);
+    await act(async () => root.render(<FinancialAbsencePanel startDate="2026-09-01" endDate="2026-09-30" hubId="h1" riderNames={{ r1: 'Juan', r2: 'Maria' }} />));
+    expect(container.textContent).toContain('Juan');
+    expect(container.textContent).toContain('Maria');
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set?.call(input, 'Maria');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(container.textContent).toContain('Maria');
+    expect(container.textContent).not.toContain('Juan');
+  });
+  it('filters rows by status pill button', async () => {
+    const row1: FinancialReviewRow = { ...candidate, business_date: '2026-10-08' };
+    const row2: FinancialReviewRow = { ...decided, business_date: '2026-10-09' };
+    mocks.load.mockResolvedValue([row1, row2]);
+    await render();
+    expect(container.textContent).toContain('2026-10-08');
+    expect(container.textContent).toContain('2026-10-09');
+    const confirmedBtn = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Confirmed')!;
+    await act(async () => confirmedBtn.click());
+    expect(container.textContent).toContain('2026-10-09');
+    expect(container.textContent).not.toContain('2026-10-08');
+  });
+  it('supports collapsing and expanding rider sections', async () => {
+    mocks.load.mockResolvedValue([candidate]);
+    await render();
+    expect(container.textContent).toContain('2026-09-15');
+    const toggleBtn = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Collapse All')!;
+    await act(async () => toggleBtn.click());
+    expect(container.textContent).not.toContain('2026-09-15');
+    const expandBtn = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Expand All')!;
+    await act(async () => expandBtn.click());
+    expect(container.textContent).toContain('2026-09-15');
+  });
 });

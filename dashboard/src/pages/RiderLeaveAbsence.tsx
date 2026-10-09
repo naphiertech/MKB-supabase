@@ -315,7 +315,14 @@ function RiderLeaveAbsenceContent({ userId, riderId, employmentType }: RiderLeav
     }
   }
 
-  if (loading && requests.length === 0) {
+  const hasLoadedInitial = useRef(false);
+  useEffect(() => {
+    if (!loading) {
+      hasLoadedInitial.current = true;
+    }
+  }, [loading]);
+
+  if (!hasLoadedInitial.current && loading && requests.length === 0) {
     return <RiderLeaveAbsenceSkeleton />;
   }
 

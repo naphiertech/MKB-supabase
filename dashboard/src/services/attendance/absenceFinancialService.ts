@@ -36,6 +36,8 @@ export interface PayrollFinancialHistoryQuery extends FinancialHistoryQuery {
 export interface FinancialReviewRow extends FinancialEligibilityRow {
   policyApplicable: boolean;
   financial: FinancialDecisionRow | null;
+  assessmentPolicyVersionNumber?: number | null;
+  assessmentPolicyType?: 'provisional' | 'official' | string | null;
 }
 export interface FinancialReviewQuery {
   startDate: string; endDate: string; hubId?: string | null; riderId?: string | null; page: number;
@@ -131,7 +133,7 @@ export async function loadFinancialAbsencePage(
     const rows = await listFinancialEligibility(input);
     // Per-Rider reads stay bounded by the 32-day window (at most 32 decisions).
     // Independent RPC pagination/orderings must never be zipped by row index.
-    const candidates = [...new Set(rows.filter(r => r.requires_confirmation && r.financial_eligibility_reason).map(r => r.rider_id))];
+    const candidates = [...new Set(rows.map(r => r.rider_id))];
     const decided = role === 'admin' ? [...new Set(rows.filter(r => r.existing_consequence_id).map(r => r.rider_id))] : [];
     const [policies, decisions] = await Promise.all([
       Promise.all(candidates.map(riderId => listAbsenceAssessments({ ...input, riderId, assessmentStatus: null, limit: 500, offset: 0 }))),
@@ -139,14 +141,19 @@ export async function loadFinancialAbsencePage(
     ]);
     const policyRows = policies.flat();
     const financialRows = decisions.flat();
-    return rows.map(row => ({
-      ...row,
-      // Presentation gate from published server metadata, never a substitute
-      // for Phase 3 authorization, effective-policy validation, or eligibility.
-      policyApplicable: policyRows.some(p => p.riderId === row.rider_id && p.businessDate === row.business_date
-        && p.policyVersionId === row.assessment_policy_version_id && p.policyVersionNumber === 2 && p.policyType === 'official'),
-      financial: financialRows.find(d => d.consequence_id === row.existing_consequence_id) ?? null,
-    }));
+    return rows.map(row => {
+      const matchedPolicy = policyRows.find(p => p.riderId === row.rider_id && p.businessDate === row.business_date);
+      return {
+        ...row,
+        // Presentation gate from published server metadata, never a substitute
+        // for Phase 3 authorization, effective-policy validation, or eligibility.
+        policyApplicable: policyRows.some(p => p.riderId === row.rider_id && p.businessDate === row.business_date
+          && p.policyVersionId === row.assessment_policy_version_id && p.policyVersionNumber === 2 && p.policyType === 'official'),
+        financial: financialRows.find(d => d.consequence_id === row.existing_consequence_id) ?? null,
+        assessmentPolicyVersionNumber: matchedPolicy?.policyVersionNumber ?? null,
+        assessmentPolicyType: matchedPolicy?.policyType ?? null,
+      };
+    });
   } catch (error) {
     throw new FinancialServiceError(financialErrorMessage(error));
   }

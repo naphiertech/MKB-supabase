@@ -195,7 +195,14 @@ export function LeaveAbsence() {
   const noticeCount = requests.filter((request) => request.requestKind === 'absence_notice').length;
   const approvedCount = requests.filter((request) => request.status === 'approved').length;
 
-  if (loading && requests.length === 0) {
+  const hasLoadedInitial = useRef(false);
+  useEffect(() => {
+    if (!loading) {
+      hasLoadedInitial.current = true;
+    }
+  }, [loading]);
+
+  if (!hasLoadedInitial.current && loading && requests.length === 0) {
     return <LeaveAbsenceSkeleton />;
   }
 
@@ -239,6 +246,8 @@ export function LeaveAbsence() {
             endDate={toDate}
             hubId={selectedHubId}
           />
+        ) : loading ? (
+          <StatePanel compact loading title="Loading requests" description="Fetching records for this section..." />
         ) : requests.length === 0 ? (
           <StatePanel compact icon={view === 'notices' ? ShieldAlert : History} title="No requests in this view" description="Change the review section or Hub workspace, or wait for a Rider submission." />
         ) : (
