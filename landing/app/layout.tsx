@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono, Source_Serif_4 } from "next/font/google"
+import { DM_Sans, Manrope } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
@@ -9,21 +9,15 @@ import { ScrollProgress } from "@/components/animations/scroll-progress"
 import { siteConfig } from "@/lib/data"
 import "./globals.css"
 
-const geistSans = Geist({
+const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
 })
 
-const geistMono = Geist_Mono({
+const manrope = Manrope({
   subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-})
-
-const sourceSerif = Source_Serif_4({
-  subsets: ["latin"],
-  variable: "--font-serif",
+  variable: "--font-heading",
   display: "swap",
 })
 
@@ -89,7 +83,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#0c0c0f",
+  themeColor: "#f3682c",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -103,10 +97,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable}`}
+      className={`${dmSans.variable} ${manrope.variable}`}
       suppressHydrationWarning
     >
-      <body className="font-sans antialiased bg-background text-foreground selection:bg-accent selection:text-accent-foreground">
+      <body className="font-sans antialiased bg-white text-[#272923] selection:bg-[#f9d7c6] selection:text-[#252823]">
         <GSAPProvider>
           <SmoothScroll>
             <ScrollProgress />

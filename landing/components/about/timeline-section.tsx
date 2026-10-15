@@ -15,7 +15,6 @@ export function TimelineSection() {
     () => {
       gsap.registerPlugin(ScrollTrigger)
 
-      // Animate the vertical line
       gsap.fromTo(
         lineRef.current,
         { scaleY: 0 },
@@ -31,7 +30,6 @@ export function TimelineSection() {
         }
       )
 
-      // Animate each timeline entry
       const items = gsap.utils.toArray(".timeline-item")
       items.forEach((item: any, i: number) => {
         const content = item.querySelector(".timeline-content")
@@ -42,12 +40,12 @@ export function TimelineSection() {
           content,
           {
             opacity: 0,
-            x: isEven ? -30 : 30,
+            x: isEven ? -25 : 25,
           },
           {
             opacity: 1,
             x: 0,
-            duration: 0.8,
+            duration: 0.7,
             ease: "power2.out",
             scrollTrigger: {
               trigger: item,
@@ -78,51 +76,61 @@ export function TimelineSection() {
   )
 
   return (
-    <section className="overflow-hidden border-b border-border bg-background py-20 lg:py-28" ref={containerRef}>
-      <div className="mx-auto max-w-7xl px-4 lg:px-8">
-        <SectionHeader
-          label="03 // IMPLEMENTATION ROADMAP"
-          title="Milestones of the MKB Project"
-          description="Five distinct engineering iterations delivering end-to-end workforce transparency."
+    <section className="container section-space" ref={containerRef}>
+      <SectionHeader
+        label="IMPLEMENTATION ROADMAP"
+        title={
+          <>
+            Milestones of the
+            <br />
+            MKB project.
+          </>
+        }
+        description="Five distinct engineering iterations delivering end-to-end workforce transparency."
+      />
+      <div className="relative mt-14 max-w-4xl mx-auto">
+        {/* Center line (Animated) */}
+        <div
+          ref={lineRef}
+          className="absolute left-4 top-0 hidden h-full w-px origin-top bg-[var(--orange)] md:left-1/2 md:block z-0"
         />
-        <div className="relative mt-14 max-w-4xl mx-auto">
-          {/* Center line (Animated) */}
-          <div
-            ref={lineRef}
-            className="absolute left-4 top-0 hidden h-full w-px origin-top bg-accent md:left-1/2 md:block"
-          />
-          {/* Static gray track */}
-          <div className="absolute left-4 top-0 hidden h-full w-px bg-border md:left-1/2 md:block" />
+        {/* Static track */}
+        <div className="absolute left-4 top-0 hidden h-full w-px bg-[#e7e8e2] md:left-1/2 md:block" />
 
-          <div className="flex flex-col gap-10">
-            {storyTimeline.map((event, index) => (
+        <div className="flex flex-col gap-10">
+          {storyTimeline.map((event, index) => (
+            <div
+              key={event.year}
+              className={`timeline-item relative flex flex-col gap-4 md:flex-row md:gap-10 ${
+                index % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
+              }`}
+            >
+              {/* Content */}
               <div
-                key={event.year}
-                className={`timeline-item relative flex flex-col gap-4 md:flex-row md:gap-10 ${
-                  index % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
+                className={`timeline-content flex-1 rounded-md border border-[#e3e8da] bg-[#fafbf7] p-6 shadow-sm transition-all duration-200 hover:border-[#b5c39f] ${
+                  index % 2 === 0 ? "md:text-right" : "md:text-left"
                 }`}
               >
-                {/* Content */}
                 <div
-                  className={`timeline-content flex-1 rounded-2xl border border-border bg-card p-5 shadow-bryl ${
-                    index % 2 === 0 ? "md:text-right" : "md:text-left"
+                  className={`eyebrow mb-2 ${
+                    index % 2 === 0 ? "md:justify-end" : "md:justify-start"
                   }`}
+                  style={{ fontSize: "8px", letterSpacing: "1.4px" }}
                 >
-                  <span className="inline-block rounded-md border border-accent/30 bg-accent/15 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-accent">
-                    {event.year}
-                  </span>
-                  <h3 className="mt-2.5 font-sans text-base font-bold text-foreground">{event.title}</h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{event.description}</p>
+                  <span />
+                  {event.year.toUpperCase()}
                 </div>
-
-                {/* Dot */}
-                <div className="timeline-dot z-10 absolute left-4 top-5 hidden size-2.5 -translate-x-1/2 rounded-full border-2 border-background bg-accent md:left-1/2 md:block shadow-xs" />
-
-                {/* Spacer */}
-                <div className="hidden flex-1 md:block" />
+                <h3 className="text-base font-semibold text-[#282b26]">{event.title}</h3>
+                <p className="mt-2 text-xs leading-relaxed text-[#767a71]">{event.description}</p>
               </div>
-            ))}
-          </div>
+
+              {/* Dot */}
+              <div className="timeline-dot z-10 absolute left-4 top-6 hidden size-2.5 -translate-x-1/2 rounded-full border-2 border-white bg-[var(--orange)] md:left-1/2 md:block shadow-xs" />
+
+              {/* Spacer */}
+              <div className="hidden flex-1 md:block" />
+            </div>
+          ))}
         </div>
       </div>
     </section>

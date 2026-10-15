@@ -3,8 +3,9 @@
 import { useRef, useState, useEffect } from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
-import { Star, Quote } from "lucide-react"
-import { SectionHeader } from "@/components/section-header"
+import { ScrollTrigger } from "gsap/ScrollTrigger"
+import { Star, Quote, Plus } from "lucide-react"
+import { Eyebrow } from "@/components/section-header"
 import { testimonials as staticTestimonials, type Testimonial } from "@/lib/data"
 import {
   Dialog,
@@ -18,7 +19,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 import { Turnstile } from "@marsidev/react-turnstile"
 
 export function TestimonialsSection() {
@@ -29,7 +29,7 @@ export function TestimonialsSection() {
   const [isSuccess, setIsSuccess] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   const [formData, setFormData] = useState({
     name: "",
     role_title: "",
@@ -63,41 +63,37 @@ export function TestimonialsSection() {
 
   useGSAP(
     () => {
+      gsap.registerPlugin(ScrollTrigger)
       const cards = gsap.utils.toArray(".testimonial-card")
       if (!cards.length) return
 
-      gsap.fromTo(
-        cards,
-        {
-          opacity: 0,
-          y: 25,
+      gsap.from(cards, {
+        opacity: 0,
+        y: 20,
+        duration: 0.6,
+        stagger: 0.08,
+        ease: "power2.out",
+        clearProps: "all",
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: "top 85%",
+          once: true,
         },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          stagger: 0.1,
-          ease: "power3.out",
-          scrollTrigger: {
-            trigger: containerRef.current,
-            start: "top 80%",
-            toggleActions: "play none none none",
-          },
-        }
-      )
+      })
     },
     { scope: containerRef, dependencies: [dynamicReviews] }
   )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name || !formData.comment || !turnstileToken) {
-      setError("Please fill in all required fields and complete the captcha check.")
-      return
-    }
-
     setIsSubmitting(true)
     setError(null)
+
+    if (!turnstileToken) {
+      setError("Please complete the Turnstile verification.")
+      setIsSubmitting(false)
+      return
+    }
 
     try {
       const res = await fetch("/api/reviews", {
@@ -110,6 +106,7 @@ export function TestimonialsSection() {
       })
 
       const data = await res.json()
+
       if (!res.ok) {
         throw new Error(data.error || "Failed to submit review")
       }
@@ -118,7 +115,7 @@ export function TestimonialsSection() {
       setFormData({ name: "", role_title: "", rating: 5, comment: "" })
       setTurnstileToken("")
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred. Please try again.")
+      setError(err.message || "An unexpected error occurred.")
     } finally {
       setIsSubmitting(false)
     }
@@ -126,275 +123,236 @@ export function TestimonialsSection() {
 
   const handleClose = () => {
     setIsDialogOpen(false)
-    setIsSuccess(false)
-    setError(null)
+    setTimeout(() => {
+      setIsSuccess(false)
+      setError(null)
+    }, 300)
   }
 
-  const allTestimonials = [...dynamicReviews, ...staticTestimonials]
+  const allTestimonials = dynamicReviews.length > 0 ? dynamicReviews : staticTestimonials
 
   return (
-    <section ref={containerRef} className="border-b border-border bg-background py-20 lg:py-28 text-foreground">
-      <div className="mx-auto max-w-7xl px-4 lg:px-8">
-        <SectionHeader
-          label="05 // SYSTEM IMPACT"
-          title="Workforce Transparency Achieved"
-          description="Driving attendance accuracy, geofence compliance, and operational transparency across logistics operations."
-        />
-
-        {/* Write a Review Button and Modal */}
-        <div className="mt-8 flex justify-center">
-          {mounted && (
-            <Dialog
-              open={isDialogOpen}
-              onOpenChange={(open) => {
-                if (!open) handleClose()
-                else setIsDialogOpen(true)
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button
-                  size="sm"
-                  className="h-9 bg-accent text-accent-foreground hover:bg-accent/90 px-4 rounded-full font-mono text-xs uppercase tracking-wider shadow-sm transition-transform hover:scale-105 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Star className="size-3.5 fill-accent-foreground text-accent-foreground" />
-                  Write a Review
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[460px] bg-background text-foreground border-border shadow-bryl rounded-2xl p-6">
-                {isSuccess ? (
-                  <div className="flex flex-col items-center text-center p-4 space-y-3">
-                    <div className="flex size-12 items-center justify-center rounded-full bg-accent/20 text-accent">
-                      <Star className="size-6 fill-accent text-accent" />
-                    </div>
-                    <DialogTitle className="text-xl font-bold font-sans text-foreground">Review Submitted</DialogTitle>
-                    <DialogDescription className="text-muted-foreground text-xs max-w-sm leading-relaxed">
-                      Thank you. Your feedback has been received. To maintain integrity, submissions undergo administrator approval before displaying.
-                    </DialogDescription>
-                    <Button
-                      onClick={() => handleClose()}
-                      className="mt-3 bg-accent text-accent-foreground hover:bg-accent/90 rounded-md px-5 text-xs font-mono uppercase"
-                    >
-                      Close
-                    </Button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <DialogHeader>
-                      <DialogTitle className="text-lg font-bold font-sans text-foreground flex items-center gap-2">
-                        <Star className="size-4 fill-amber-400 text-amber-400" />
-                        Write a System Review
-                      </DialogTitle>
-                      <DialogDescription className="text-muted-foreground text-xs">
-                        Share your field experience with MKBRiderTrack&apos;s biometric attendance, geofencing, or payroll platform.
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    {error && (
-                      <div className="bg-destructive/10 text-destructive text-xs p-2.5 rounded-md border border-destructive/20 font-mono">
-                        {error}
-                      </div>
-                    )}
-
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="name" className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
-                          Full Name
-                        </Label>
-                        <Input
-                          id="name"
-                          required
-                          value={formData.name}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                          placeholder="e.g. John Doe"
-                          className="h-9 text-xs border-border bg-secondary/40 text-foreground"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor="role_title" className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
-                          Designation / Role (Optional)
-                        </Label>
-                        <Input
-                          id="role_title"
-                          value={formData.role_title}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, role_title: e.target.value }))}
-                          placeholder="e.g. Operations Manager, Courier Partner"
-                          className="h-9 text-xs border-border bg-secondary/40 text-foreground"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground block">
-                          Rating
-                        </Label>
-                        <div className="flex gap-1 items-center">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              type="button"
-                              key={star}
-                              onClick={() => setFormData((prev) => ({ ...prev, rating: star }))}
-                              className="p-1 hover:scale-110 transition-transform focus:outline-hidden cursor-pointer"
-                            >
-                              <Star
-                                className={`size-5 transition-colors ${
-                                  star <= formData.rating
-                                    ? "fill-amber-400 text-amber-400"
-                                    : "text-muted-foreground/30 hover:text-amber-400/50"
-                                }`}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor="comment" className="text-[11px] font-mono font-semibold uppercase tracking-wider text-muted-foreground">
-                          Review Comment
-                        </Label>
-                        <Textarea
-                          id="comment"
-                          required
-                          value={formData.comment}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, comment: e.target.value }))}
-                          placeholder="Provide detailed feedback on system reliability, attendance accuracy, or payroll clarity..."
-                          rows={3}
-                          className="text-xs border-border bg-secondary/40 text-foreground resize-none"
-                        />
-                      </div>
-
-                      <div className="pt-2 flex justify-center">
-                        <Turnstile
-                          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
-                          onSuccess={(token) => setTurnstileToken(token)}
-                          onError={() => setError("Captcha validation failed to load. Please refresh.")}
-                          onExpire={() => setTurnstileToken("")}
-                        />
-                      </div>
-                    </div>
-
-                    <DialogFooter className="pt-3 border-t border-border flex sm:justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleClose()}
-                        className="text-xs text-muted-foreground hover:bg-secondary cursor-pointer"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={isSubmitting || !turnstileToken}
-                        className="bg-accent text-accent-foreground hover:bg-accent/90 px-4 text-xs font-mono uppercase tracking-wider cursor-pointer disabled:opacity-50"
-                      >
-                        {isSubmitting ? "Submitting..." : "Submit Review"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                )}
-              </DialogContent>
-            </Dialog>
-          )}
+    <section ref={containerRef} className="container section-space">
+      <div className="section-header" data-reveal>
+        <div>
+          <Eyebrow>VERIFIED FEEDBACK</Eyebrow>
+          <h2>
+            Operational trust.
+            <br />
+            In practice.
+          </h2>
         </div>
+        <div className="flex flex-col items-start gap-4 max-w-[340px]">
+          <p className="text-xs md:text-sm text-[#70766a] leading-relaxed">
+            Direct feedback from dispatchers, HR officers, and logistics leads operating across our network.
+          </p>
 
-        {allTestimonials.length === 0 ? (
-          <div className="mt-14 grid gap-6 md:grid-cols-3 max-w-4xl mx-auto items-stretch">
-            {/* Rating Summary Bento Card */}
-            <div className="md:col-span-1 rounded-2xl border border-border bg-card p-5 shadow-bryl flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Rating Summary</span>
-                  <span className="font-mono text-[9px] uppercase tracking-wider border border-accent/30 bg-accent/10 px-1.5 py-0.5 rounded text-accent">
-                    Live
-                  </span>
+          {mounted && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <button className="button button-outline text-xs cursor-pointer">
+                  <Plus size={14} />
+                  <span>Share Experience</span>
+                </button>
+              </DialogTrigger>
+            <DialogContent className="sm:max-w-md border border-[#e3e8da] bg-[#fafbf7] p-6 text-[#272923]">
+              <DialogHeader>
+                <div className="eyebrow mb-2">
+                  <span />
+                  PUBLIC FEEDBACK
                 </div>
+                <DialogTitle className="font-semibold text-xl tracking-tight text-[#282b26]">
+                  Submit Operator Feedback
+                </DialogTitle>
+                <DialogDescription className="text-xs text-[#767a71] leading-relaxed">
+                  Submitted testimonials undergo human verification by MKB Operations administrators
+                  prior to public publication.
+                </DialogDescription>
+              </DialogHeader>
 
-                <div className="space-y-1">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-mono text-4xl font-bold tracking-tight text-foreground">0.0</span>
-                    <span className="font-mono text-xs text-muted-foreground">/ 5.0</span>
+              {isSuccess ? (
+                <div className="py-8 text-center space-y-3">
+                  <div className="size-12 rounded-full bg-[#eaf0e3] text-[#657855] mx-auto flex items-center justify-center font-bold text-lg">
+                    ✓
                   </div>
-                  <div className="flex gap-0.5">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className="size-3.5 text-muted-foreground/30" />
-                    ))}
-                  </div>
-                  <p className="font-mono text-[10px] text-muted-foreground">0 verified submissions</p>
+                  <h4 className="font-semibold text-base text-[#282b26]">
+                    Feedback Received for Moderation
+                  </h4>
+                  <p className="text-xs text-[#767a71] max-w-xs mx-auto">
+                    Thank you. Your operational feedback has been saved and will appear publicly once
+                    reviewed.
+                  </p>
+                  <button onClick={handleClose} className="button button-dark mt-4">
+                    Done
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                  {error && (
+                    <div className="p-3 text-xs bg-[#f8eae4] text-[#b3816d] rounded border border-[#f2e6d9]">
+                      {error}
+                    </div>
+                  )}
 
-              <div className="pt-4 border-t border-border font-mono text-[10px] text-muted-foreground flex items-center gap-1.5">
-                <Quote className="size-3 text-accent/50" />
-                Moderation queue is active and empty.
-              </div>
-            </div>
+                  <div className="space-y-3 text-left">
+                    <div className="space-y-1">
+                      <Label htmlFor="name" className="text-[11px] font-semibold text-[#767a71]">
+                        Full Name
+                      </Label>
+                      <Input
+                        id="name"
+                        required
+                        value={formData.name}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, name: e.target.value }))
+                        }
+                        placeholder="e.g. John Doe"
+                        className="h-9 text-xs border-[#e3e8da] bg-white text-[#272923]"
+                      />
+                    </div>
 
-            {/* Feed Overview Card */}
-            <div className="md:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-bryl flex flex-col justify-between min-h-[220px]">
-              <div className="space-y-2">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-accent">// Feed Overview</span>
-                <h3 className="text-lg font-bold font-sans text-foreground tracking-tight">
-                  Share Your Experience
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  How has MKBRiderTrack impacted your workforce operations? Feedback from dispatchers, HR specialists, payroll controllers, and courier partners drives continuous platform refinement.
-                </p>
-              </div>
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="role_title"
+                        className="text-[11px] font-semibold text-[#767a71]"
+                      >
+                        Designation / Role (Optional)
+                      </Label>
+                      <Input
+                        id="role_title"
+                        value={formData.role_title}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, role_title: e.target.value }))
+                        }
+                        placeholder="e.g. Operations Manager, Courier Lead"
+                        className="h-9 text-xs border-[#e3e8da] bg-white text-[#272923]"
+                      />
+                    </div>
 
-              <button
-                type="button"
-                onClick={() => setIsDialogOpen(true)}
-                className="mt-4 p-3 rounded-xl border border-dashed border-border bg-secondary/30 flex items-center justify-between group hover:border-accent/50 transition-colors cursor-pointer text-left w-full"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-accent/15 text-accent font-mono text-xs font-bold">
-                    ★
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-semibold text-[#767a71] block">
+                        Rating
+                      </Label>
+                      <div className="flex gap-1 items-center">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setFormData((prev) => ({ ...prev, rating: star }))}
+                            className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                          >
+                            <Star
+                              className={`size-5 transition-colors ${
+                                star <= formData.rating
+                                  ? "fill-[var(--orange)] text-[var(--orange)]"
+                                  : "text-[#dce3d0] hover:text-[var(--orange)]"
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="comment"
+                        className="text-[11px] font-semibold text-[#767a71]"
+                      >
+                        Review Comment
+                      </Label>
+                      <Textarea
+                        id="comment"
+                        required
+                        value={formData.comment}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, comment: e.target.value }))
+                        }
+                        placeholder="Share your experience on attendance accuracy, geofence reliability, or payroll ease..."
+                        rows={3}
+                        className="text-xs border-[#e3e8da] bg-white text-[#272923] resize-none"
+                      />
+                    </div>
+
+                    <div className="pt-2 flex justify-center">
+                      <Turnstile
+                        siteKey={
+                          process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+                          "1x00000000000000000000AA"
+                        }
+                        onSuccess={(token) => setTurnstileToken(token)}
+                        onError={() =>
+                          setError("Captcha validation failed to load. Please refresh.")
+                        }
+                        onExpire={() => setTurnstileToken("")}
+                      />
+                    </div>
                   </div>
-                  <span className="font-mono text-xs text-muted-foreground group-hover:text-foreground">
-                    Submit first verified review...
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-accent underline decoration-accent/40 group-hover:decoration-accent">
-                  Open Form &rarr;
-                </span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-14 grid gap-5 md:grid-cols-2">
-            {allTestimonials.map((testimonial, index) => (
+
+                  <DialogFooter className="pt-3 border-t border-[#e7e8e2] flex sm:justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleClose}
+                      className="button button-outline text-xs"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || !turnstileToken}
+                      className="button button-orange text-xs"
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit Review"}
+                    </button>
+                  </DialogFooter>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
+        )}
+        </div>
+      </div>
+
+      {allTestimonials.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2">
+          {allTestimonials.map((testimonial, index) => {
+            const colors = ["sage", "peach", "blue", "sand"]
+            const avatarColor = colors[index % colors.length]
+
+            return (
               <div
                 key={index}
-                className="testimonial-card relative rounded-2xl border border-border bg-card p-6 shadow-bryl"
+                className="testimonial-card relative rounded-md border border-[#e7e8e2] bg-[#ffffff] p-7 transition-all duration-300 hover:border-[#f3682c]/40 hover:-translate-y-1 shadow-[0_2px_12px_rgba(40,43,38,0.04)]"
               >
-                <Quote className="absolute right-5 top-5 size-5 text-accent/25" />
-                <div className="mb-3 flex gap-0.5">
+                <Quote className="absolute right-6 top-6 size-5 text-[#d0d5c8] pointer-events-none" />
+                <div className="mb-3.5 flex gap-1">
                   {Array.from({ length: testimonial.rating }).map((_, i) => (
-                    <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
+                    <Star key={i} className="size-3.5 fill-[var(--orange)] text-[var(--orange)]" />
                   ))}
                 </div>
-                <blockquote className="text-xs leading-relaxed text-foreground">
+                <blockquote className="text-xs leading-relaxed text-[#282b26] italic font-sans md:text-[13px]">
                   &ldquo;{testimonial.quote}&rdquo;
                 </blockquote>
-                <div className="mt-5 flex items-center gap-2.5 border-t border-border pt-3">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-accent text-accent-foreground font-mono text-xs font-bold shadow-xs">
-                    {testimonial.author.charAt(0)}
-                  </div>
+                <div className="mt-6 flex items-center gap-3 border-t border-[#e7e8e2] pt-4">
+                  <span className={`avatar ${avatarColor}`}>{testimonial.author.charAt(0)}</span>
                   <div>
-                    <p className="text-xs font-semibold text-foreground">
-                      {testimonial.author}
-                    </p>
-                    <p className="font-mono text-[10px] text-muted-foreground">
-                      {testimonial.location}
-                    </p>
+                    <p className="text-xs font-semibold text-[#282b26]">{testimonial.author}</p>
+                    <p className="text-[10px] text-[#70766a] font-mono uppercase tracking-wider">{testimonial.location}</p>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-[#e7e8e2] bg-[#fafbf7] p-10 text-center">
+          <p className="font-heading text-sm font-semibold text-[#282b26]">
+            No verified reviews published yet
+          </p>
+          <p className="mt-1 text-xs text-[#70766a] max-w-sm mx-auto">
+            Feedback submitted by dispatchers and operators will appear here once verified by administrators.
+          </p>
+        </div>
+      )}
     </section>
   )
 }

@@ -7,8 +7,6 @@ import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { ArrowRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { SectionHeader } from "@/components/section-header"
 
 export function JoinBanner() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -58,29 +56,33 @@ export function JoinBanner() {
   )
 
   return (
-    <section className="bg-background py-20 lg:py-28 overflow-hidden" ref={containerRef}>
-      <div className="mx-auto max-w-7xl px-4 lg:px-8">
+    <section className="container section-space" ref={containerRef}>
+      <div className="rounded-xl border border-[#e7e8e2] bg-[#f5f5ef] p-8 md:p-14 overflow-hidden">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="banner-content">
-            <SectionHeader
-              label="02 // CAREERS & EXPANSION"
-              title="We Are Always Looking for Innovators"
-              description="MKB Corporation is at the forefront of AI-driven logistics. If you share our passion for operational efficiency, computer vision, and spatial engineering, we'd love to connect."
-              align="left"
-            />
-            <Button asChild size="sm" className="mt-7 h-10 bg-accent text-accent-foreground hover:bg-accent/90 font-semibold text-xs rounded-md px-5 shadow-xs cursor-pointer">
-              <Link href="/contact">
+            <div className="eyebrow mb-3" style={{ fontSize: "8px", letterSpacing: "1.4px" }}>
+              <span />
+              CAREERS & EXPANSION
+            </div>
+            <h2 className="text-3xl font-semibold tracking-tight text-[#282b26] md:text-4xl">
+              We Are Always Looking for Innovators
+            </h2>
+            <p className="mt-4 text-xs leading-relaxed text-[#70766a] md:text-sm">
+              MKB Corporation is at the forefront of AI-driven logistics. If you share our passion for operational efficiency, computer vision, and spatial engineering, we&apos;d love to connect.
+            </p>
+            <div className="mt-8">
+              <Link href="/contact" className="button button-orange text-xs">
                 <span>Get in Touch</span>
-                <ArrowRight className="size-3.5 ml-1.5" />
+                <ArrowRight size={16} />
               </Link>
-            </Button>
+            </div>
           </div>
-          <div className="banner-image relative aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-card shadow-bryl">
+          <div className="banner-image relative aspect-[16/10] overflow-hidden rounded-md border border-[#e3e6da] bg-[#ffffff] shadow-sm">
             <Image
               src="https://images.pexels.com/photos/29267512/pexels-photo-29267512.jpeg?auto=compress&cs=tinysrgb&w=1200"
               alt="Engineers collaborating on a dashboard"
               fill
-              className="object-cover transition-transform duration-500 hover:scale-[1.04]"
+              className="object-cover transition-transform duration-500 hover:scale-[1.03]"
               sizes="(max-width: 1024px) 100vw, 50vw"
             />
           </div>

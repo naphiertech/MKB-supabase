@@ -1,168 +1,120 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, MapPin, ArrowUpRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
-import { BrandLogo } from "@/components/brand-logo"
-import { staticHubsList, getDashboardUrl } from "@/lib/data"
-import { cn } from "@/lib/utils"
-
-export const navigation = [
-  { name: "Platform", href: "/about", index: "01" },
-  { name: "Capabilities", href: "/modules", index: "02" },
-  { name: "Operations", href: "/locations", index: "03" },
-  { name: "Team", href: "/team", index: "04" },
-  { name: "Contact", href: "/contact", index: "05" },
-]
+import { ArrowUpRight, Menu, X } from "lucide-react"
+import gsap from "gsap"
+import { Brand } from "@/components/brand-logo"
+import { getDashboardUrl, navigation } from "@/lib/data"
 
 export function SiteHeader() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const menu = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setMounted(true)
+    const update = () => setScrolled(window.scrollY > 20)
+    update()
+    window.addEventListener("scroll", update, { passive: true })
+    return () => window.removeEventListener("scroll", update)
   }, [])
+
+  useEffect(() => {
+    setOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    if (open && menu.current) {
+      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (!prefersReduced) {
+        const tween = gsap.fromTo(
+          menu.current,
+          { opacity: 0, y: -8 },
+          { opacity: 1, y: 0, duration: 0.22 }
+        )
+        return () => {
+          tween.kill()
+        }
+      }
+    }
+  }, [open])
+
+  useEffect(() => {
+    const close = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false)
+        document.querySelector<HTMLButtonElement>(".menu-toggle")?.focus()
+      }
+    }
+    if (open) window.addEventListener("keydown", close)
+    return () => window.removeEventListener("keydown", close)
+  }, [open])
 
   const dashboardUrl = getDashboardUrl()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-md transition-colors">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-8">
-        {/* Logo & Brand Hierarchy: [ AMBER M ] MKBRiderTrack */}
-        <BrandLogo showVersion={true} />
-
-        {/* Desktop Nav */}
-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main Navigation">
+    <header className={`site-header ${scrolled ? "scrolled" : ""}`}>
+      <div className="container nav-inner">
+        <Link href="/" aria-label="MKB RiderTrack home">
+          <Brand />
+        </Link>
+        <nav className="desktop-nav" aria-label="Main navigation">
           {navigation.map((item) => {
-            const isActive = pathname === item.href
+            const active = pathname === item.href
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                  isActive
-                    ? "text-accent bg-accent/10 font-semibold border border-accent/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                )}
+                className={active ? "active" : ""}
+                aria-current={active ? "page" : undefined}
               >
-                <span className={cn("font-mono text-[9px]", isActive ? "text-accent" : "text-muted-foreground/70")}>
-                  {item.index}
-                </span>
-                <span>{item.name}</span>
+                {item.name}
               </Link>
             )
           })}
         </nav>
-
-        {/* Desktop CTA */}
-        <div className="hidden items-center gap-2.5 lg:flex">
-          {/* Secondary Neutral Action */}
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary px-3"
-          >
-            <Link href="/contact">
-              <span>Request Demo</span>
-            </Link>
-          </Button>
-
-          {/* Primary Amber Action */}
-          <Button
-            asChild
-            size="sm"
-            className="h-8 px-3.5 group cursor-pointer"
-          >
-            <Link href={dashboardUrl}>
-              <span>Access Portal</span>
-              <ArrowUpRight className="size-3.5 ml-0.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
-          </Button>
-        </div>
-
-        {/* Mobile Menu */}
-        {mounted && (
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-8 lg:hidden hover:bg-secondary">
-                <Menu className="size-4" />
-                <span className="sr-only">Open navigation menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full max-w-sm border-l border-border bg-background/95 backdrop-blur-xl p-6">
-              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-              <SheetDescription className="sr-only">Site navigation links and operational zones</SheetDescription>
-              <div className="flex flex-col gap-6 pt-2">
-                <div onClick={() => setOpen(false)}>
-                  <BrandLogo />
-                </div>
-                <nav className="flex flex-col gap-1" aria-label="Mobile Navigation">
-                  {navigation.map((item) => (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setOpen(false)}
-                      className={cn(
-                        "flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary",
-                        pathname === item.href
-                          ? "text-accent bg-accent/10 font-semibold"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <span>{item.name}</span>
-                      <span className="font-mono text-[10px] text-muted-foreground/60">{item.index}</span>
-                    </Link>
-                  ))}
-                </nav>
-                <div className="border-t border-border pt-4">
-                  <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent">
-                    // Operational Hubs
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    {staticHubsList.map((hub) => (
-                      <Link
-                        key={hub.slug}
-                        href={`/locations/${hub.slug}`}
-                        onClick={() => setOpen(false)}
-                        className="flex items-start gap-2.5 rounded-md px-3 py-2 transition-colors hover:bg-secondary"
-                      >
-                        <MapPin className="mt-0.5 size-3.5 shrink-0 text-accent" />
-                        <div>
-                          <p className="text-xs font-medium text-foreground">
-                            {hub.shortName}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground font-mono">
-                            {hub.district}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-                <div className="border-t border-border pt-4 flex flex-col gap-2">
-                  <Button asChild variant="outline" className="w-full h-9 text-xs">
-                    <Link href="/contact" onClick={() => setOpen(false)}>
-                      <span>Request Demo</span>
-                    </Link>
-                  </Button>
-                  <Button asChild className="w-full h-9 text-xs flex items-center justify-center gap-1.5">
-                    <Link href={dashboardUrl} onClick={() => setOpen(false)}>
-                      <span>Access Portal</span>
-                      <ArrowUpRight className="size-3.5" />
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        )}
+        <a
+          className="button button-dark nav-access"
+          href={dashboardUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Access Portal <ArrowUpRight size={16} />
+        </a>
+        <button
+          className="menu-toggle"
+          aria-expanded={open}
+          aria-controls="mobile-navigation"
+          aria-label={open ? "Close menu" : "Open menu"}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? <X /> : <Menu />}
+        </button>
       </div>
+      {open && (
+        <div className="mobile-menu" id="mobile-navigation" ref={menu}>
+          <nav aria-label="Mobile navigation">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                aria-current={pathname === item.href ? "page" : undefined}
+                className={pathname === item.href ? "active" : ""}
+              >
+                {item.name}
+                <ArrowUpRight size={16} />
+              </Link>
+            ))}
+            <a href={dashboardUrl} target="_blank" rel="noopener noreferrer">
+              Access Portal
+              <ArrowUpRight size={16} />
+            </a>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }

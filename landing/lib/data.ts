@@ -2,6 +2,14 @@
 // MKBRIDERTRACK SITE DATA - Fleet Logistics & Payroll System
 // ============================================================
 
+export const navigation = [
+  { name: "About", href: "/about" },
+  { name: "Modules", href: "/modules" },
+  { name: "Locations", href: "/locations" },
+  { name: "Team", href: "/team" },
+  { name: "Contact", href: "/contact" },
+]
+
 export const siteConfig = {
   name: "MKBRiderTrack",
   tagline: "Fleet Logistics, Biometric Attendance & Automated Payroll",
@@ -11,6 +19,7 @@ export const siteConfig = {
   ogImage: "/images/og-image.jpg",
   email: "operations@mkbsystem.com",
   phone: "(062) 991-2345",
+  navigation,
   socials: {
     instagram: "https://instagram.com/mkbsystem",
     facebook: "https://facebook.com/mkbsystem",

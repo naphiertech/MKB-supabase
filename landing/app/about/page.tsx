@@ -1,30 +1,26 @@
 import type { Metadata } from "next"
-import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, ShieldCheck, MapPin, Package, CreditCard } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { SectionHeader } from "@/components/section-header"
+import {
+  ScanFace,
+  MapPin,
+  Users,
+  FileCheck2,
+  ArrowRight,
+  ArrowUpRight,
+  ShieldCheck,
+  ListChecks,
+  Focus,
+} from "lucide-react"
+import { SectionHeader, Eyebrow } from "@/components/section-header"
 import { TimelineSection } from "@/components/about/timeline-section"
+import { RoleSwitcher } from "@/components/home/role-switcher"
+import { CtaSection } from "@/components/home/cta-section"
 import { siteConfig, getDashboardUrl } from "@/lib/data"
 
 export const metadata: Metadata = {
-  title: "Platform Overview",
+  title: "About",
   description:
-    "Learn about the architectural evolution of the MKBRiderTrack workforce platform — from biometric facial verification to spatial geofencing and automated cutoff payroll.",
-  openGraph: {
-    title: `Platform Overview | ${siteConfig.name}`,
-    description:
-      "Learn about the architectural evolution of the MKBRiderTrack workforce platform.",
-    url: `${siteConfig.url}/about`,
-    images: [{ url: siteConfig.ogImage, width: 1200, height: 630 }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `Platform Overview | ${siteConfig.name}`,
-    description:
-      "Learn about the architectural evolution of the MKBRiderTrack workforce platform.",
-  },
-  alternates: { canonical: `${siteConfig.url}/about` },
+    "A workforce attendance and monitoring system built for MKB Corporation’s third-party logistics courier riders—and the teams supporting them.",
 }
 
 export default function AboutPage() {
@@ -32,166 +28,173 @@ export default function AboutPage() {
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative flex min-h-[42vh] items-center overflow-hidden border-b border-border bg-background">
-        <div className="absolute inset-0 z-0">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="h-full w-full object-cover opacity-25"
-          >
-            <source src="https://www.pexels.com/download/video/32750417/" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/85 to-background" />
-          <div className="absolute inset-0 bg-halftone-radial opacity-50 pointer-events-none" />
+      <section className="page-hero container">
+        <div data-enter>
+          <Eyebrow>ABOUT MKB RIDERTRACK</Eyebrow>
         </div>
-        <div className="relative z-10 mx-auto max-w-7xl px-4 py-20 lg:px-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3.5 py-1 mb-4 shadow-xs backdrop-blur-md">
-            <span className="size-1.5 rounded-full bg-accent animate-pulse" />
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
-              [ 01 // PLATFORM OVERVIEW ]
-            </p>
-          </div>
-          <h1 className="max-w-3xl font-sans text-3xl font-bold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl">
-            Built on Operational Integrity & Intelligence
+        <div className="page-hero-grid">
+          <h1 data-enter>
+            Built around the work
+            <br />
+            <span>behind the routes.</span>
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-            Every critical platform evolves from a tangible operational bottleneck. MKBRiderTrack was built to solve last-mile courier visibility, eliminate attendance disputes, and automate complex parcel compensation.
+          <div data-enter>
+            <p className="lead">
+              A workforce attendance and monitoring system built for MKB Corporation’s third-party
+              logistics courier riders—and the teams supporting them.
+            </p>
+            <a
+              href={dashboardUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-link"
+            >
+              Access Portal <ArrowUpRight size={18} />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="about-statement container" data-enter>
+        <div className="statement-label">
+          <span className="brand-symbol">
+            <i />
+            <i />
+            <i />
+          </span>
+          <span>
+            THE WORKFORCE,
+            <br />
+            CONNECTED.
+          </span>
+        </div>
+        <div>
+          <h2>
+            The work is connected.
+            <br />
+            The records should be, too.
+          </h2>
+          <p>
+            When rider verification, attendance, location information, and payroll preparation live
+            separately, even a straightforward workday becomes difficult to piece together.
+          </p>
+          <p>
+            RiderTrack brings these workflows into one centralized system. It gives teams a clearer
+            understanding of who recorded attendance, where it happened, and how that record moves
+            forward.
           </p>
         </div>
+        <span className="statement-corner" aria-hidden="true">
+          ↗
+        </span>
       </section>
 
-      {/* The Origin & Evolution */}
-      <section className="border-b border-border bg-background py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-4 lg:px-8">
-          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-            <div className="relative">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-border bg-secondary shadow-bryl">
-                <Image
-                  src="https://images.pexels.com/photos/6169169/pexels-photo-6169169.jpeg?auto=compress&cs=tinysrgb&w=1200"
-                  alt="Operations team monitoring workforce dispatch metrics"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                />
-              </div>
-              <div className="absolute -bottom-4 -right-4 rounded-xl border border-accent/30 bg-background p-4 shadow-bryl">
-                <p className="font-mono text-xl font-bold text-accent">
-                  Phased
-                </p>
-                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Evolution Model
-                </p>
-              </div>
+      <section className="container section-space">
+        <SectionHeader
+          label="WHAT RIDERTRACK IS"
+          title={
+            <>
+              Operational clarity.
+              <br />
+              From check-in to payslip.
+            </>
+          }
+          description="Not a parcel tracking tool. Not a delivery dispatch system. A focused platform for the people and records behind daily rider operations."
+        />
+        <div className="editorial-process">
+          {[
+            {
+              icon: ScanFace,
+              title: "A verified start",
+              text: "Riders use face-based verification when recording Time In and Time Out.",
+            },
+            {
+              icon: MapPin,
+              title: "A location with context",
+              text: "Geofence checks validate attendance against an approved operational area.",
+            },
+            {
+              icon: Users,
+              title: "A shared operational view",
+              text: "Admin and HR review workforce attendance, activity, and records.",
+            },
+            {
+              icon: FileCheck2,
+              title: "A clear path to payroll",
+              text: "Payroll Officers prepare records for review, approval, and rider payslip access.",
+            },
+          ].map(({ icon: Icon, title, text }, i) => (
+            <div className="editorial-process-row" data-reveal key={title}>
+              <span className="process-number">0{i + 1}</span>
+              <Icon size={26} strokeWidth={1.4} />
+              <h3>{title}</h3>
+              <p>{text}</p>
+              <ArrowRight size={19} />
             </div>
-            <div>
-              <SectionHeader
-                label="01 // THE PROGRESSION"
-                title="From Biometric Attendance to Complete Logistics Oversight"
-                align="left"
-              />
-              <div className="mt-6 space-y-4 text-xs md:text-sm leading-relaxed text-muted-foreground">
-                <p>
-                  Third-party courier fleets have traditionally struggled with proxy attendance, ghost shifts, and disjointed delivery logs. The inception of MKBRiderTrack began by deploying on-device facial landmark verification with 3D liveness detection to create an airtight, biometric-authenticated attendance record.
-                </p>
-                <p>
-                  As field operations expanded, the need for spatial discipline became paramount. We engineered real-time polygon geofence mapping, tracking active couriers against assigned delivery perimeters and triggering automatic incident notifications during unauthorized exits or prolonged idle delays.
-                </p>
-                <p>
-                  Today, MKBRiderTrack has matured into a complete logistics intelligence ecosystem. The platform seamlessly links biometric attendance records with daily parcel operations, heavy surcharge rate matrices, and server-authoritative cutoff salary calculations across multiple operational fulfillment hubs.
-                </p>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* Philosophy */}
-      <section className="border-b border-border bg-background py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-4 lg:px-8">
+      <section className="principles-section">
+        <div className="container">
           <SectionHeader
-            label="02 // CORE PHILOSOPHY"
-            title="Guiding Architectural Principles"
-            description="Four core pillars govern every feature, workflow, and safeguard engineered into MKBRiderTrack."
+            label="SYSTEM PRINCIPLES"
+            title={<>Clarity is a working principle.</>}
           />
-          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="principles-grid">
             {[
               {
-                title: "Biometric Truth",
-                description:
-                  "Sub-second neural face matching with 3D liveness checks ensures that every shift timestamp represents verified physical presence.",
-                image: "https://images.pexels.com/photos/6169584/pexels-photo-6169584.jpeg?auto=compress&cs=tinysrgb&w=800",
+                icon: ShieldCheck,
+                title: "Verification before records.",
+                text: "Connect identity and attendance location to the check-in—not as an afterthought.",
               },
               {
-                title: "Spatial Discipline",
-                description:
-                  "Polygon boundary enforcement tracks couriers within authorized delivery corridors, automatically flagging detours and perimeter exits.",
-                image: "https://images.pexels.com/photos/6994156/pexels-photo-6994156.jpeg?auto=compress&cs=tinysrgb&w=800",
+                icon: Focus,
+                title: "Access with a purpose.",
+                text: "Each role has a focused workspace, aligned with its operational responsibilities.",
               },
               {
-                title: "Auditable Parcel Rates",
-                description:
-                  "Daily package logs, >4kg heavy surcharge matrices, and append-only supervisor audits ensure transparent delivery compensation.",
-                image: "https://images.pexels.com/photos/8978630/pexels-photo-8978630.jpeg?auto=compress&cs=tinysrgb&w=800",
+                icon: ListChecks,
+                title: "A workflow you can follow.",
+                text: "Keep preparation, submission, review, and approval as distinct, understandable steps.",
               },
-              {
-                title: "Authoritative Payroll",
-                description:
-                  "Coverage-based readiness algorithms sync attendance and parcel throughput into immutable, server-approved payslips.",
-                image: "https://images.pexels.com/photos/5498230/pexels-photo-5498230.jpeg?auto=compress&cs=tinysrgb&w=800",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-card p-4.5 shadow-bryl transition-all duration-300 hover:border-accent/50 hover:-translate-y-1"
-              >
-                <div>
-                  <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-secondary">
-                    <Image
-                      src={item.image}
-                      alt={item.title}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                    />
-                  </div>
-                  <h3 className="mt-4 font-sans text-sm font-bold text-foreground transition-colors group-hover:text-accent">
-                    {item.title}
-                  </h3>
-                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                    {item.description}
-                  </p>
-                </div>
-              </div>
+            ].map(({ icon: Icon, title, text }) => (
+              <article key={title} data-reveal>
+                <Icon size={25} />
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Timeline Section */}
       <TimelineSection />
 
-      {/* Access Portal CTA */}
-      <section className="border-t border-border bg-background py-16 text-center">
-        <div className="mx-auto max-w-xl px-4">
-          <h2 className="font-sans text-2xl font-bold tracking-tight text-foreground">
-            Explore the Live Workforce Portal
-          </h2>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Log in with authorized dispatch, HR, or payroll credentials.
-          </p>
-          <div className="mt-6 flex justify-center gap-3">
-            <Button asChild size="sm" className="h-9 bg-accent text-accent-foreground hover:bg-accent/90 text-xs font-mono uppercase shadow-xs">
-              <Link href={dashboardUrl}>Access Portal &rarr;</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="h-9 border-border hover:bg-secondary text-xs">
-              <Link href="/contact">Request System Demo</Link>
-            </Button>
-          </div>
-        </div>
+      <section className="container section-space">
+        <SectionHeader
+          label="WHO USES RIDERTRACK"
+          title={
+            <>
+              Different responsibilities.
+              <br />
+              One connected workforce.
+            </>
+          }
+          description="Four supported roles. A shared system with the right perspective for each person."
+        />
+        <RoleSwitcher />
       </section>
+
+      <div className="container about-bottom" data-reveal>
+        <Eyebrow>SEE IT IN PRACTICE</Eyebrow>
+        <Link href="/modules" className="text-link">
+          Explore core capabilities
+          <ArrowRight size={18} />
+        </Link>
+      </div>
+
+      <CtaSection />
     </>
   )
 }

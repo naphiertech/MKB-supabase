@@ -12,7 +12,10 @@
     "lint:dashboard": "npm --prefix dashboard run lint",
     "test": "npm --prefix dashboard test",
     "build": "npm --prefix dashboard run build && npm --prefix landing run build",
-    "check": "npm run typecheck && npm run lint:dashboard && npm test"
+    "check": "npm run typecheck && npm run lint:dashboard && npm test",
+    "graph": "python -m graphify extract . --code-only && python -m graphify export obsidian"
+
+
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

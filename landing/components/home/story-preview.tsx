@@ -1,142 +1,107 @@
 "use client"
 
-import { useRef } from "react"
 import Link from "next/link"
-import Image from "next/image"
-import gsap from "gsap"
-import { useGSAP } from "@gsap/react"
-import { ScrollTrigger } from "gsap/ScrollTrigger"
-import { ArrowRight } from "lucide-react"
-import { SectionHeader } from "@/components/section-header"
-import { AnimateIn } from "@/components/animations/animate-in"
+import {
+  ScanFace,
+  MapPin,
+  LayoutDashboard,
+  FileCheck2,
+  ArrowRight,
+  Route,
+} from "lucide-react"
+import { Eyebrow, SectionHeader } from "@/components/section-header"
+
+const steps = [
+  {
+    number: "01",
+    icon: ScanFace,
+    title: "Verify the rider.",
+    text: "Start with the right person. Face-based verification establishes who is recording attendance.",
+    to: "/modules",
+    link: "Identity & attendance",
+  },
+  {
+    number: "02",
+    icon: MapPin,
+    title: "Validate the location.",
+    text: "Check that attendance is recorded within the approved operational area. Not just anywhere.",
+    to: "/locations",
+    link: "Location validation",
+  },
+  {
+    number: "03",
+    icon: LayoutDashboard,
+    title: "See the workforce.",
+    text: "Give Admin and HR teams a shared view of rider attendance, activity, and exceptions.",
+    to: "/about",
+    link: "Workforce monitoring",
+  },
+  {
+    number: "04",
+    icon: FileCheck2,
+    title: "Prepare payroll.",
+    text: "Bring verified attendance into a clear preparation, review, and approval workflow.",
+    to: "/modules",
+    link: "Payroll workflow",
+  },
+]
 
 export function StoryPreview() {
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useGSAP(
-    () => {
-      gsap.registerPlugin(ScrollTrigger)
-
-      // Column 1 Parallax (Moving Up)
-      gsap.to(".parallax-col-1", {
-        y: -35,
-        ease: "none",
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "top bottom",
-          end: "bottom top",
-          scrub: true,
-        },
-      })
-
-      // Column 2 Parallax (Moving Down)
-      gsap.to(".parallax-col-2", {
-        y: 35,
-        ease: "none",
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "top bottom",
-          end: "bottom top",
-          scrub: true,
-        },
-      })
-    },
-    { scope: containerRef }
-  )
-
   return (
-    <section ref={containerRef} className="border-b border-border bg-background py-20 lg:py-28">
-      <div className="mx-auto max-w-7xl px-4 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          {/* Image Grid with Hairline Framing and Natural Color */}
-          <AnimateIn
-            from={{ opacity: 0, scale: 0.98, y: 20 }}
-            stagger={0.15}
-            className="relative grid grid-cols-2 gap-3"
-          >
-            <div className="space-y-3">
-              <div className="parallax-col-1 space-y-3">
-                <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-secondary shadow-bryl">
-                  <Image
-                    src="https://images.pexels.com/photos/5860937/pexels-photo-5860937.jpeg?auto=compress&cs=tinysrgb&w=800"
-                    alt="Biometric facial recognition attendance terminal"
-                    fill
-                    className="object-cover transition-transform duration-500 hover:scale-[1.04]"
-                    sizes="(max-width: 1024px) 50vw, 25vw"
-                  />
-                </div>
-                <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-secondary shadow-bryl">
-                  <Image
-                    src="https://images.pexels.com/photos/10697106/pexels-photo-10697106.jpeg?auto=compress&cs=tinysrgb&w=800"
-                    alt="Live workforce monitoring and geofencing map"
-                    fill
-                    className="object-cover transition-transform duration-500 hover:scale-[1.04]"
-                    sizes="(max-width: 1024px) 50vw, 25vw"
-                  />
-                </div>
+    <>
+      <section className="workflow-section container">
+        <SectionHeader
+          label="CONNECTED FROM THE FIRST CHECK-IN"
+          title={
+            <>
+              One system.
+              <br />
+              Every part of the workday.
+            </>
+          }
+          description="From the moment a rider checks in to the records your team relies on. Each step connected. Nothing left in between."
+        />
+        <div className="workflow-grid">
+          {steps.map(({ number, icon: Icon, title, text, to, link }) => (
+            <article className="workflow-step" data-reveal key={number}>
+              <div className="step-top">
+                <span>{number}</span>
+                <Icon size={25} strokeWidth={1.5} />
               </div>
-            </div>
-            <div className="mt-6 space-y-3">
-              <div className="parallax-col-2 space-y-3">
-                <div className="relative aspect-square overflow-hidden rounded-xl border border-border bg-secondary shadow-bryl">
-                  <Image
-                    src="https://images.pexels.com/photos/5498230/pexels-photo-5498230.jpeg?auto=compress&cs=tinysrgb&w=800"
-                    alt="Operations dashboard for rider attendance and payroll"
-                    fill
-                    className="object-cover transition-transform duration-500 hover:scale-[1.04]"
-                    sizes="(max-width: 1024px) 50vw, 25vw"
-                  />
-                </div>
-                <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-secondary shadow-bryl">
-                  <Image
-                    src="https://images.pexels.com/photos/35665496/pexels-photo-35665496.jpeg?auto=compress&cs=tinysrgb&w=800"
-                    alt="Digital workforce intelligence dashboard"
-                    fill
-                    className="object-cover transition-transform duration-500 hover:scale-[1.04]"
-                    sizes="(max-width: 1024px) 50vw, 25vw"
-                  />
-                </div>
-              </div>
-            </div>
-          </AnimateIn>
-
-          {/* Text Content */}
-          <AnimateIn delay={0.2}>
-            <SectionHeader
-              label="02 // THE PROBLEM & ARCHITECTURE"
-              title="Eliminating Inaccuracies Across Last-Mile Operations"
-              description="Traditional courier fleets encounter persistent challenges with buddy punching, unverified field locations, and complex manual parcel pay calculations. MKBRiderTrack resolves these operational bottlenecks through a single authoritative system integrating biometric verification, spatial geofencing, daily parcel rate tracking, and automated cutoff payroll."
-              align="left"
-            />
-
-            {/* Stat Row with Hairline Dividers & Amber Accents */}
-            <div className="mt-8 grid grid-cols-3 divide-x divide-border border-y border-border py-4">
-              <div className="pr-4">
-                <p className="font-mono text-2xl font-bold tracking-tight text-accent">128-D</p>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Vectors</p>
-              </div>
-              <div className="px-4">
-                <p className="font-mono text-2xl font-bold tracking-tight text-accent">4 Hubs</p>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Centers</p>
-              </div>
-              <div className="pl-4">
-                <p className="font-mono text-2xl font-bold tracking-tight text-accent">Auto</p>
-                <p className="mt-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Payroll</p>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <Link
-                href="/about"
-                className="group inline-flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-accent hover:underline"
-              >
-                <span>Explore Platform Architecture</span>
-                <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+              <h3>{title}</h3>
+              <p>{text}</p>
+              <Link href={to} className="text-link">
+                {link}
+                <ArrowRight size={18} />
               </Link>
-            </div>
-          </AnimateIn>
+            </article>
+          ))}
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section className="purpose-band">
+        <div className="container purpose-inner">
+          <div data-reveal>
+            <Eyebrow>BUILT FOR ATTENDANCE. NOT PARCELS.</Eyebrow>
+            <h2>
+              A clearer view of people.
+              <br />
+              Not packages.
+            </h2>
+          </div>
+          <div data-reveal>
+            <p>
+              Behind every delivery is a rider—and a team making sure the workday runs as it
+              should. RiderTrack connects those people with records they can rely on.
+            </p>
+            <Link href="/about" className="text-link">
+              Meet MKB RiderTrack
+              <ArrowRight size={18} />
+            </Link>
+          </div>
+          <Route className="purpose-icon" size={150} strokeWidth={0.65} aria-hidden="true" />
+        </div>
+      </section>
+    </>
   )
 }
