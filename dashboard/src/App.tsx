@@ -6,11 +6,6 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { HRDashboard } from './pages/HRDashboard';
 import { Login } from './pages/Login';
 import { RiderDashboard } from './pages/RiderDashboard';
-import { RiderAttendance } from './pages/RiderAttendance';
-import { RiderMonitoring } from './pages/RiderMonitoring';
-import { RiderProfile } from './pages/RiderProfile';
-import { RiderSchedule } from './pages/RiderSchedule';
-import { RiderLeaveAbsence } from './pages/RiderLeaveAbsence';
 import { RiderTopNav, type RiderPageKey } from './components/rider/RiderTopNav';
 import { useAuth } from './hooks/useAuth';
 import { supabase } from './lib/supabaseClient';
@@ -29,6 +24,11 @@ import { getCurrentAuthSessionIdentity, getMfaState, subscribeToOtherSessionLogo
 import { isPasswordRecoveryUrl } from './lib/authRecoveryRoute';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
+const RiderAttendance = lazy(() => import('./pages/RiderAttendance').then((module) => ({ default: module.RiderAttendance })));
+const RiderMonitoring = lazy(() => import('./pages/RiderMonitoring').then((module) => ({ default: module.RiderMonitoring })));
+const RiderProfile = lazy(() => import('./pages/RiderProfile').then((module) => ({ default: module.RiderProfile })));
+const RiderSchedule = lazy(() => import('./pages/RiderSchedule').then((module) => ({ default: module.RiderSchedule })));
+const RiderLeaveAbsence = lazy(() => import('./pages/RiderLeaveAbsence').then((module) => ({ default: module.RiderLeaveAbsence })));
 const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring').then((module) => ({ default: module.LiveMonitoring })));
 const Geofence = lazy(() => import('./pages/Geofence').then((module) => ({ default: module.Geofence })));
 const Attendance = lazy(() => import('./pages/Attendance').then((module) => ({ default: module.Attendance })));
@@ -427,31 +427,33 @@ export function App() {
                 exit="exit"
                 className="h-full"
               >
-                {riderPage === 'dashboard' && <RiderDashboard userId={user.id} riderId={riderId} restricted={user.status === 'suspended'} />}
-                {riderPage === 'attendance' &&
-                  <RiderAttendance userId={user.id} riderId={riderId} onBack={() => setRiderPage('dashboard')} />
-                }
-                {riderPage === 'monitoring' &&
-                  <RiderMonitoring
-                    userId={user.id}
-                    riderId={riderId}
-                    restricted={user.status === 'suspended'}
-                    onBack={() => setRiderPage('dashboard')} />
-                }
-                {riderPage === 'schedule' &&
-                  <RiderSchedule userId={user.id} riderId={riderId} />
-                }
-                {riderPage === 'leave_absence' &&
-                  <RiderLeaveAbsence userId={user.id} riderId={riderId} employmentType={user.employmentType} />
-                }
-                {riderPage === 'profile' &&
-                  <RiderProfile
-                    userId={user.id}
-                    riderId={riderId}
-                    restricted={user.status === 'suspended'}
-                    onBack={() => setRiderPage('dashboard')}
-                    onSignOut={handleRiderSignOut} />
-                }
+                <Suspense fallback={<DashboardSkeleton page={riderPage} role="rider" />}>
+                  {riderPage === 'dashboard' && <RiderDashboard userId={user.id} riderId={riderId} restricted={user.status === 'suspended'} />}
+                  {riderPage === 'attendance' &&
+                    <RiderAttendance userId={user.id} riderId={riderId} onBack={() => setRiderPage('dashboard')} />
+                  }
+                  {riderPage === 'monitoring' &&
+                    <RiderMonitoring
+                      userId={user.id}
+                      riderId={riderId}
+                      restricted={user.status === 'suspended'}
+                      onBack={() => setRiderPage('dashboard')} />
+                  }
+                  {riderPage === 'schedule' &&
+                    <RiderSchedule userId={user.id} riderId={riderId} />
+                  }
+                  {riderPage === 'leave_absence' &&
+                    <RiderLeaveAbsence userId={user.id} riderId={riderId} employmentType={user.employmentType} />
+                  }
+                  {riderPage === 'profile' &&
+                    <RiderProfile
+                      userId={user.id}
+                      riderId={riderId}
+                      restricted={user.status === 'suspended'}
+                      onBack={() => setRiderPage('dashboard')}
+                      onSignOut={handleRiderSignOut} />
+                  }
+                </Suspense>
             </motion.div>
           </AnimatePresence>
         </main>

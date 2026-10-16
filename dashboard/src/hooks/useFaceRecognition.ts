@@ -94,6 +94,7 @@ export function useFaceRecognition({
   const blinkCompletedRef = useRef(false);
   const headTiltedDetectedRef = useRef(false);
   const faceMatchedRef = useRef(false);
+  const lastVerifiedConfidenceRef = useRef(0.95);
   const currentEarRef = useRef(0);
   const optionsRef = useRef({
     riderId,
@@ -112,7 +113,7 @@ export function useFaceRecognition({
     onDescriptorCalculated,
   };
 
-  // Liveness Frame Stability Counters (requires ~800ms stable alignment before blink prompt)
+  // Liveness Frame Stability Counters (fast alignment + responsive blink detection)
   const alignmentFramesRef = useRef<number>(0);
   const closedFramesRef = useRef<number>(0);
   const reopenFramesRef = useRef<number>(0);
@@ -164,6 +165,7 @@ export function useFaceRecognition({
     blinkCompletedRef.current = false;
     headTiltedDetectedRef.current = false;
     faceMatchedRef.current = false;
+    lastVerifiedConfidenceRef.current = 0.95;
     currentEarRef.current = 0;
     alignmentFramesRef.current = 0;
     closedFramesRef.current = 0;
@@ -304,11 +306,32 @@ export function useFaceRecognition({
     const scanDuration = isVerificationMode ? 30000 : activeDuration;
     const startTime = Date.now();
 
-    // Priority 1: Throttle AI inferences to ~9 FPS (110ms interval) to keep UI smooth at 60 FPS
-    const INFERENCE_INTERVAL_MS = 110;
+    // Priority 1: Throttle AI inferences to ~12.5 FPS (80ms interval) for responsive blink & alignment
+    const INFERENCE_INTERVAL_MS = 80;
+    const DESCRIPTOR_INTERVAL_MS = 350;
     const finishLiveness = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.liveness);
     const finishMatch = biometricTelemetry.start(BIOMETRIC_TIMING_NAMES.matchComplete);
     let livenessTimingCompleted = false;
+
+    const completeVerifiedMatch = (confidence: number, canvasEl: HTMLCanvasElement | null) => {
+      isScanningActiveRef.current = false;
+      finishMatch();
+      finishScannerDuration();
+      setPhase('matched');
+      setProgress(1.0);
+      setLivenessPrompt('Verify complete!');
+
+      if (canvasEl) {
+        const ctx = canvasEl.getContext('2d');
+        ctx?.clearRect(0, 0, canvasEl.width, canvasEl.height);
+      }
+
+      setResult({
+        matched: true,
+        confidence,
+        capturedAt: Date.now()
+      });
+    };
 
     const tick = async () => {
       if (!sessionIsCurrent()) return;
@@ -347,34 +370,34 @@ export function useFaceRecognition({
                 currentEarRef.current = mpEAR;
 
                 if (isVerificationMode) {
-                  // Challenge Sequence with Frame-Stability Verification:
-                  // Stage A: Require ~800ms (8 consecutive frames) of stable alignment with open eyes
+                  // Challenge Sequence with Fast Frame-Stability Verification:
+                  // Stage A: Require ~240ms (3 frames) of stable alignment with open eyes
                   if (!eyesOpenDetectedRef.current) {
                     if (mpEAR > 0.20) {
                       alignmentFramesRef.current += 1;
-                      if (alignmentFramesRef.current >= 8) {
+                      if (alignmentFramesRef.current >= 3) {
                         eyesOpenDetectedRef.current = true;
                       }
                     } else {
-                      alignmentFramesRef.current = 0;
+                      alignmentFramesRef.current = Math.max(0, alignmentFramesRef.current - 1);
                     }
                   }
-                  // Stage B: Require at least 2 consecutive frames of closed eyes (mpEAR < 0.19)
+                  // Stage B: Detect eye closure (1 frame deep closure < 0.175 or 2 frames < 0.195)
                   else if (!eyesClosedDetectedRef.current) {
-                    if (mpEAR < 0.19) {
+                    if (mpEAR < 0.195) {
                       closedFramesRef.current += 1;
-                      if (closedFramesRef.current >= 2) {
+                      if (closedFramesRef.current >= 2 || mpEAR < 0.175) {
                         eyesClosedDetectedRef.current = true;
                       }
                     } else {
                       closedFramesRef.current = 0;
                     }
                   }
-                  // Stage C: Require at least 2 consecutive frames of reopened eyes (mpEAR > 0.20)
+                  // Stage C: Detect reopened eyes (mpEAR > 0.20)
                   else if (!blinkCompletedRef.current) {
                     if (mpEAR > 0.20) {
                       reopenFramesRef.current += 1;
-                      if (reopenFramesRef.current >= 2) {
+                      if (reopenFramesRef.current >= 1) {
                         blinkCompletedRef.current = true;
                       }
                     } else {
@@ -382,7 +405,7 @@ export function useFaceRecognition({
                     }
                   }
 
-                   livenessPassed = blinkCompletedRef.current;
+                  livenessPassed = blinkCompletedRef.current;
                 } else {
                   livenessPassed = mpEAR > 0.20;
                 }
@@ -397,16 +420,26 @@ export function useFaceRecognition({
             }
           }
 
-          // Priority 3: Execute heavy face-api descriptor extraction ONLY after liveness blink is complete (or enrollment mode)
-          // and no more than once per 1000ms
-          const canRunDescriptorMatching = !isVerificationMode || (livenessPassed && (now - lastDescriptorMatchTimeRef.current >= 1000));
+          // Instant completion if identity was already verified in parallel while user blinked
+          if (isVerificationMode && faceMatchedRef.current && livenessPassed) {
+            completeVerifiedMatch(lastVerifiedConfidenceRef.current, canvas);
+            return;
+          }
+
+          // Priority 3: Execute face-api descriptor extraction in parallel as soon as face is aligned
+          // Stop running descriptor inference once faceMatchedRef is already satisfied
+          const canRunDescriptorMatching = !isVerificationMode || (
+            !faceMatchedRef.current
+            && (eyesOpenDetectedRef.current || livenessPassed)
+            && (now - lastDescriptorMatchTimeRef.current >= DESCRIPTOR_INTERVAL_MS)
+          );
 
           let freshFaceData: FaceRecognitionData | null = null;
           let freshSampleId = 0;
 
           if (canRunDescriptorMatching) {
             lastDescriptorMatchTimeRef.current = now;
-            // Priority 4: Call downscaled 320x320 offscreen canvas detector for ultra-fast inference
+            // Priority 4: Call downscaled offscreen canvas detector for fast inference
             const nextSampleId = descriptorSampleIdRef.current + 1;
             const finishRecognition = biometricTelemetry.start(
               BIOMETRIC_TIMING_NAMES.descriptorInference(nextSampleId),
@@ -527,28 +560,16 @@ export function useFaceRecognition({
               matched: verify.matched,
             });
 
-            if (freshMatchStateRef.current.matchCount >= 3) {
+            if (
+              freshMatchStateRef.current.matchCount >= 2
+              || (verify.matched && verify.distance < 0.38)
+            ) {
               faceMatchedRef.current = true;
+              lastVerifiedConfidenceRef.current = verify.confidence;
             }
 
             if (faceMatchedRef.current && livenessPassed) {
-              isScanningActiveRef.current = false;
-              finishMatch();
-              finishScannerDuration();
-              setPhase('matched');
-              setProgress(1.0);
-              setLivenessPrompt('Verify complete!');
-
-              if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx?.clearRect(0, 0, canvas.width, canvas.height);
-              }
-
-              setResult({
-                matched: true,
-                confidence: verify.confidence,
-                capturedAt: Date.now()
-              });
+              completeVerifiedMatch(verify.confidence, canvas);
               return;
             }
 
@@ -598,6 +619,9 @@ export function useFaceRecognition({
         } else {
           setDebugInfo(prev => ({
             ...prev,
+            eyesOpen: eyesOpenDetectedRef.current,
+            eyesClosed: eyesClosedDetectedRef.current,
+            blinkCompleted: blinkCompletedRef.current,
             currentEAR: mpEAR,
             headTiltAngle: mpRoll,
             lastDistance: faceData ? prev.lastDistance : null
@@ -647,6 +671,7 @@ export function useFaceRecognition({
     blinkCompletedRef.current = false;
     headTiltedDetectedRef.current = false;
     faceMatchedRef.current = false;
+    lastVerifiedConfidenceRef.current = 0.95;
     currentEarRef.current = 0;
     alignmentFramesRef.current = 0;
     closedFramesRef.current = 0;

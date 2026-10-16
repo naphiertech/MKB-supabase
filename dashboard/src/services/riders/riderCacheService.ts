@@ -169,36 +169,42 @@ export async function fetchRiderDashboardWithSWR(
   // 2. Perform background revalidation
   console.log('[OfflineCache] Background revalidation started');
   try {
-    const dbUser = await getRiderUserMapping(userId);
     const resolvedRiderId = fallbackRiderId;
-    const dbRider = await getRiderFullProfile(resolvedRiderId);
-
-    const {
-      todayAttendance,
-      latestViolation,
-      monthAttendance,
-      monthViolationCount
-    } = await getRiderDashboardStats(
-      resolvedRiderId,
-      todayStr,
-      firstDayStr,
-      firstDayOfMonthIso
+    const contextPromise = listAttendanceContext({
+      fromDate: firstDayStr,
+      toDate: todayStr,
+      riderId: resolvedRiderId,
+    }).then(
+      (fetchedContext) => sanitizeAttendanceContextLogs(fetchedContext),
+      (contextError) => {
+        console.warn('[AttendanceContext] Failed to refresh Rider context, using stale fallback:', contextError);
+        return cached?.monthAttendanceContext?.length
+          ? sanitizeAttendanceContextLogs(cached.monthAttendanceContext)
+          : [];
+      },
     );
 
-    let monthAttendanceContext: AttendanceContextLog[] = [];
-    try {
-      const fetchedContext = await listAttendanceContext({
-        fromDate: firstDayStr,
-        toDate: todayStr,
-        riderId: resolvedRiderId,
-      });
-      monthAttendanceContext = sanitizeAttendanceContextLogs(fetchedContext);
-    } catch (contextError) {
-      console.warn('[AttendanceContext] Failed to refresh Rider context, using stale fallback:', contextError);
-      if (cached?.monthAttendanceContext?.length) {
-        monthAttendanceContext = sanitizeAttendanceContextLogs(cached.monthAttendanceContext);
-      }
-    }
+    const [
+      dbUser,
+      dbRider,
+      {
+        todayAttendance,
+        latestViolation,
+        monthAttendance,
+        monthViolationCount,
+      },
+      monthAttendanceContext,
+    ] = await Promise.all([
+      getRiderUserMapping(userId),
+      getRiderFullProfile(resolvedRiderId),
+      getRiderDashboardStats(
+        resolvedRiderId,
+        todayStr,
+        firstDayStr,
+        firstDayOfMonthIso,
+      ),
+      contextPromise,
+    ]);
 
     // Merge valid local/persisted clocks into context rows by canonical (riderId, business_date)
     // so valid clocks override stale On Leave / Absent context
@@ -420,9 +426,12 @@ export async function fetchRiderMonitoringWithSWR(
 
   console.log('[OfflineCache] Background revalidation started (Monitoring)');
   try {
-    const dbUser = await getRiderUserMapping(userId);
     const resolvedRiderId = fallbackRiderId;
-    const dbRider = await getRiderFullProfile(resolvedRiderId);
+    const [dbUser, dbRider, routePoints] = await Promise.all([
+      getRiderUserMapping(userId),
+      getRiderFullProfile(resolvedRiderId),
+      getRouteForRider(resolvedRiderId, todayStr),
+    ]);
 
     let zone: Zone | null = null;
     if (dbRider?.zones) {
@@ -451,7 +460,6 @@ export async function fetchRiderMonitoringWithSWR(
       if (zList.length > 0) zone = zList[0];
     }
 
-    const routePoints = await getRouteForRider(resolvedRiderId, todayStr);
     const routeStats = computeRouteStats(routePoints);
 
     const freshPayload: CachedMonitoringPayload = {
@@ -507,9 +515,11 @@ export async function fetchRiderProfileWithSWR(
 
   console.log('[OfflineCache] Background revalidation started (Profile)');
   try {
-    const dbUser = await getUserProfileById(userId);
     const resolvedRiderId = fallbackRiderId;
-    const dbRider = await getRiderFullProfile(resolvedRiderId);
+    const [dbUser, dbRider] = await Promise.all([
+      getUserProfileById(userId),
+      getRiderFullProfile(resolvedRiderId),
+    ]);
 
     const freshPayload: CachedProfilePayload = {
       resolvedRiderId,
