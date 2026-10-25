@@ -7,6 +7,7 @@ import { pushToast } from '../../hooks/useToast';
 import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricTelemetry';
 import { isPointInPolygon } from '../../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../../lib/riderGeolocation';
+import { notifyAttendanceEvent, notifyGeofenceWarning } from '../../lib/nativeNotifications';
 import { updateCachedAttendanceState } from '../../services/riders/riderCacheService';
 import {
   getMyHubAttendanceGeofence,
@@ -276,6 +277,12 @@ export function useRiderShiftController({
       || inZone === null || distance === null || zoneRadius === null || !zoneName
     ) return;
     const id = window.setInterval(() => {
+      if (!inZone) {
+        void notifyGeofenceWarning({
+          zoneName: zoneName || 'Assigned Zone',
+          distanceMeters: Math.round(distance - zoneRadius),
+        });
+      }
       setEventsRef.current((prev) => [
         {
           id: `geo-${Date.now()}`,
@@ -584,6 +591,7 @@ export function useRiderShiftController({
         }
         finishUserPerceivedTimingRef.current?.();
         finishUserPerceivedTimingRef.current = null;
+        void notifyAttendanceEvent({ type: 'time-in', timestamp: stamp });
 
         setEventsRef.current((prev) => [
           {
@@ -698,6 +706,7 @@ export function useRiderShiftController({
         }
         finishUserPerceivedTimingRef.current?.();
         finishUserPerceivedTimingRef.current = null;
+        void notifyAttendanceEvent({ type: 'time-out', timestamp: stamp });
 
         setEventsRef.current((prev) => [
           {

@@ -9,6 +9,7 @@ import {
 import { StatePanel, StatusBadge } from '../components/common/DashboardPrimitives';
 import { RiderScheduleSkeleton } from '../components/rider/RiderRouteSkeletons';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { scheduleShiftReminder } from '../lib/nativeNotifications';
 import {
   addBusinessDays,
   getCachedRiderSchedules,
@@ -99,6 +100,15 @@ export function RiderSchedule({ userId, riderId }: RiderScheduleProps) {
         const nextCachedAt = new Date().toISOString();
         setSchedules(fresh);
         setCachedAt(nextCachedAt);
+        fresh.forEach((item) => {
+          if (item.dayKind !== 'day_off' && item.startsAt && item.status !== 'cancelled') {
+            void scheduleShiftReminder({
+              shiftId: item.id,
+              shiftDate: item.date,
+              startsAt: item.startsAt,
+            });
+          }
+        });
         setShowCachedState(false);
         setLoading(false);
         setError(null);

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { pushToast, type ToastTone } from '../hooks/useToast';
 import { getNotificationPresentation } from '../lib/notificationPresentation';
 import { playNotificationSound } from '../lib/notificationSound';
+import { notifyIncomingSystemAlert } from '../lib/nativeNotifications';
 import {
   getNotificationsForUser,
   markNotificationAsRead,
@@ -252,6 +253,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                   });
                 }
                 if (presentation.playSound) void playNotificationSound();
+                void notifyIncomingSystemAlert({
+                  title: newRow.title || 'System Alert',
+                  message: newRow.message,
+                  priority: newRow.priority,
+                });
               }
             }
           }

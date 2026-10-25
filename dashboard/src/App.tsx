@@ -23,6 +23,7 @@ import { MfaChallenge } from './components/auth/MfaChallenge';
 import { getCurrentAuthSessionIdentity, getMfaState, subscribeToOtherSessionLogout } from './services/auth/authSecurity';
 import { isPasswordRecoveryUrl } from './lib/authRecoveryRoute';
 import { isNativePlatform, initializeNativeShell } from './lib/nativeShell';
+import { initNativeNotifications } from './lib/nativeNotifications';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
 const RiderAttendance = lazy(() => import('./pages/RiderAttendance').then((module) => ({ default: module.RiderAttendance })));
@@ -235,9 +236,10 @@ export function App() {
     };
   }, [isPasswordRecovery, session?.id, signOutLocally]);
 
-  // Initialize native shell (hardware back button, status bar, splash screen) when running in Capacitor
+  // Initialize native shell (hardware back button, status bar, splash screen, notifications) when running in Capacitor
   useEffect(() => {
     let cleanup: (() => void) | undefined;
+    void initNativeNotifications();
     void initializeNativeShell({
       onHardwareBack: () => {
         // If mobile navigation drawer is open, close it first

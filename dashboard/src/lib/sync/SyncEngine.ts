@@ -8,6 +8,7 @@ import {
   type StorageAdapter
 } from '../storage';
 import { patchCachedAttendanceState } from '../../services/riders/riderCacheService';
+import { notifySyncComplete } from '../nativeNotifications';
 
 export const MAX_SYNC_RETRIES = 5;
 export const PROCESSING_LEASE_MS = 2 * 60 * 1000;
@@ -329,10 +330,15 @@ export class SyncEngine {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
 
+      let syncedCount = 0;
       for (const item of executableItems) {
         if (!this.isOnlineCheck() || this.identity?.riderId !== runIdentity.riderId) break;
         const canContinue = await this.processItem(item, runIdentity);
         if (!canContinue) break;
+        syncedCount++;
+      }
+      if (syncedCount > 0) {
+        void notifySyncComplete(syncedCount);
       }
     } catch (err) {
       console.warn('[SyncEngine] Unexpected error during sync loop:', err);
