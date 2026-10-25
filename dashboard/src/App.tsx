@@ -356,8 +356,8 @@ export function App() {
     useNotifications();
 
   const sidebarBadgeCounts = useMemo(() => ({
-    attendance: badgeCounts.attendance,
-    monitoring: badgeCounts.monitoring,
+    attendance: badgeCounts?.attendance ?? 0,
+    monitoring: badgeCounts?.monitoring ?? 0,
   } as Partial<Record<PageKey, number>>), [badgeCounts]);
 
   // If route is 404
