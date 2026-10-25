@@ -16,7 +16,9 @@ import {
   trashNotificationsBulk,
   restoreNotificationsBulk,
   deleteNotificationsPermanentlyBulk,
-  emptyTrashNotifications
+  emptyTrashNotifications,
+  projectNotificationFeed,
+  type ProjectedNotificationFeed,
 } from '../services/notifications/notificationService';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -27,9 +29,17 @@ import {
 import { AttendanceRealtimeContext } from './attendanceRealtimeContext';
 import { useHub } from './HubContext';
 
+export interface NotificationBadgeCounts {
+  attendance: number;
+  monitoring: number;
+  notifications: number;
+}
+
 interface NotificationContextType {
   notifications: NotificationRecord[];
+  projectedFeed: ProjectedNotificationFeed;
   unreadCount: number;
+  badgeCounts: NotificationBadgeCounts;
   loading: boolean;
   notificationPreferences: NotificationPreferences;
   notificationPreferencesLoading: boolean;
@@ -412,15 +422,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setNotificationPreferencesError(null);
   }, [userId]);
 
-  const unreadCount = useMemo(
-    () => notifications.filter(n => !n.read).length,
-    [notifications]
+  const projectedFeed = useMemo(
+    () => projectNotificationFeed(notifications, { role: userRole }),
+    [notifications, userRole]
   );
+
+  const unreadCount = projectedFeed.counts.unread;
+  const badgeCounts = useMemo(() => ({
+    attendance: projectedFeed.counts.attendance,
+    monitoring: projectedFeed.counts.monitoring,
+    notifications: projectedFeed.counts.unread,
+  }), [projectedFeed]);
 
   const value = useMemo(
     () => ({
       notifications,
+      projectedFeed,
       unreadCount,
+      badgeCounts,
       loading,
       notificationPreferences,
       notificationPreferencesLoading,
@@ -435,7 +454,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       refreshNotifications,
       saveNotificationPreferences,
     }),
-    [notifications, unreadCount, loading, notificationPreferences, notificationPreferencesLoading, notificationPreferencesError, handleMarkAsRead, handleMarkAllAsRead, handleArchiveNotifications, handleTrashNotifications, handleRestoreNotifications, handleDeletePermanently, handleEmptyTrash, refreshNotifications, saveNotificationPreferences]
+    [notifications, projectedFeed, unreadCount, badgeCounts, loading, notificationPreferences, notificationPreferencesLoading, notificationPreferencesError, handleMarkAsRead, handleMarkAllAsRead, handleArchiveNotifications, handleTrashNotifications, handleRestoreNotifications, handleDeletePermanently, handleEmptyTrash, refreshNotifications, saveNotificationPreferences]
   );
 
   return (

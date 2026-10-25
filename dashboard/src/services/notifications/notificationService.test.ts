@@ -7,7 +7,9 @@ import {
   deleteNotificationsPermanentlyBulk,
   emptyTrashNotifications,
   calculateTrashDaysRemaining,
-  isExpiredTrash
+  isExpiredTrash,
+  projectNotificationFeed,
+  type NotificationRecord,
 } from './notificationService';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -173,6 +175,61 @@ describe('notificationService lifecycle and retention', () => {
 
       expect(mockQuery.delete).toHaveBeenCalled();
       expect(mockQuery.not).toHaveBeenCalledWith('deleted_at', 'is', null);
+    });
+  });
+
+  describe('projectNotificationFeed', () => {
+    const makeRecord = (overrides: Partial<NotificationRecord>): NotificationRecord => ({
+      id: 'n-1',
+      type: 'attendance',
+      title: 'Alert',
+      message: 'Message',
+      read: false,
+      target_roles: ['admin', 'rider'],
+      created_at: new Date().toISOString(),
+      sender_id: null,
+      recipient_id: null,
+      rider_id: null,
+      violation_id: null,
+      action_link: null,
+      metadata: null,
+      archived_at: null,
+      deleted_at: null,
+      hub_id: null,
+      ...overrides,
+    } as NotificationRecord);
+
+    it('consistently excludes archived and soft-deleted items from unread count', () => {
+      const records: NotificationRecord[] = [
+        makeRecord({ id: '1', read: false }),
+        makeRecord({ id: '2', read: false, archived_at: new Date().toISOString() }),
+        makeRecord({ id: '3', read: false, deleted_at: new Date().toISOString() }),
+        makeRecord({ id: '4', read: true }),
+      ];
+
+      const projected = projectNotificationFeed(records);
+      expect(projected.counts.all).toBe(2);
+      expect(projected.counts.unread).toBe(1);
+      expect(projected.counts.read).toBe(1);
+      expect(projected.counts.archived).toBe(1);
+      expect(projected.counts.trash).toBe(1);
+      expect(projected.unread.map(n => n.id)).toEqual(['1']);
+    });
+
+    it('filters notifications by role when role is rider or payroll', () => {
+      const records: NotificationRecord[] = [
+        makeRecord({ id: '1', type: 'attendance', read: false }),
+        makeRecord({ id: '2', type: 'violation', read: false }),
+        makeRecord({ id: '3', type: 'system', read: false }),
+      ];
+
+      const riderFeed = projectNotificationFeed(records, { role: 'rider' });
+      expect(riderFeed.active.map(n => n.id)).toEqual(['1', '3']);
+      expect(riderFeed.counts.unread).toBe(2);
+
+      const payrollFeed = projectNotificationFeed(records, { role: 'payroll' });
+      expect(payrollFeed.active.map(n => n.id)).toEqual(['3']);
+      expect(payrollFeed.counts.unread).toBe(1);
     });
   });
 });

@@ -46,13 +46,12 @@ const mapNotification = (record: NotificationRecord): Notification => ({
 });
 
 export function useNotifications(allowedTypes?: NotificationType[]) {
-  const { notifications: rawRecords, markAsRead: ctxMarkAsRead, markAllAsRead: ctxMarkAllAsRead } = useNotificationContext();
+  const { projectedFeed, badgeCounts, markAsRead: ctxMarkAsRead, markAllAsRead: ctxMarkAllAsRead } = useNotificationContext();
 
-
-  // Exclude soft-deleted items from the topbar bell popover feed
+  // Active notifications already exclude expired trash and archived items via canonical projection
   const activeMapped = useMemo(
-    () => rawRecords.filter(r => !r.deleted_at).map(mapNotification),
-    [rawRecords]
+    () => projectedFeed.active.map(mapNotification),
+    [projectedFeed.active]
   );
 
   const visible = useMemo(
@@ -63,10 +62,9 @@ export function useNotifications(allowedTypes?: NotificationType[]) {
     [activeMapped, allowedTypes]
   );
 
-  const unreadCount = useMemo(
-    () => visible.filter((n) => !n.read).length,
-    [visible]
-  );
+  const unreadCount = allowedTypes
+    ? visible.filter((n) => !n.read).length
+    : projectedFeed.counts.unread;
 
   const markAsRead = useCallback(
     async (id: Notification['id']) => {
@@ -85,6 +83,7 @@ export function useNotifications(allowedTypes?: NotificationType[]) {
   return {
     notifications: visible,
     unreadCount,
+    badgeCounts,
     markAsRead,
     markAllAsRead
   };

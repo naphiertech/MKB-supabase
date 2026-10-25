@@ -22,7 +22,8 @@ import { motion } from 'framer-motion';
 import { useNotificationContext } from '../context/NotificationContext';
 import {
   calculateTrashDaysRemaining,
-  isExpiredTrash,
+  projectNotificationFeed,
+  type NotificationRecord,
   type NotificationStatusTab
 } from '../services/notifications/notificationService';
 import { appToast } from '../hooks/useToast';
@@ -104,6 +105,7 @@ const PRIORITY_BADGES: Record<
 export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
   const {
     notifications: allNotifications,
+    projectedFeed: contextProjectedFeed,
     loading,
     markAsRead,
     markAllAsRead,
@@ -113,6 +115,11 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
     deleteNotificationsPermanently,
     emptyTrash
   } = useNotificationContext();
+
+  const projectedFeed = useMemo(
+    () => contextProjectedFeed || projectNotificationFeed(allNotifications),
+    [contextProjectedFeed, allNotifications]
+  );
 
   const [activeTab, setActiveTab] = useState<NotificationStatusTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,45 +134,32 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
     setSelectedIds(new Set());
   }, [activeTab]);
 
-  // Tab counts calculation
-  const counts = useMemo(() => {
-    const unexpired = allNotifications.filter(n => !isExpiredTrash(n.deleted_at));
-    const active = unexpired.filter(n => !n.deleted_at && !n.archived_at);
-    return {
-      all: active.length,
-      unread: active.filter(n => !n.read).length,
-      read: active.filter(n => n.read).length,
-      archived: unexpired.filter(n => !n.deleted_at && n.archived_at).length,
-      trash: unexpired.filter(n => Boolean(n.deleted_at)).length
-    };
-  }, [allNotifications]);
+  // Tab counts from canonical feed projection
+  const counts = projectedFeed.counts;
 
   // Filter notifications based on tab, search, priority, and category
   const filteredNotifications = useMemo(() => {
-    return allNotifications.filter(n => {
-      // Exclude expired trash (over 30 days) everywhere
-      if (isExpiredTrash(n.deleted_at)) return false;
+    let source: NotificationRecord[];
+    switch (activeTab) {
+      case 'trash':
+        source = projectedFeed.trash;
+        break;
+      case 'archived':
+        source = projectedFeed.archived;
+        break;
+      case 'unread':
+        source = projectedFeed.unread;
+        break;
+      case 'read':
+        source = projectedFeed.read;
+        break;
+      case 'all':
+      default:
+        source = projectedFeed.active;
+        break;
+    }
 
-      // Tab filter
-      switch (activeTab) {
-        case 'trash':
-          if (!n.deleted_at) return false;
-          break;
-        case 'archived':
-          if (n.deleted_at || !n.archived_at) return false;
-          break;
-        case 'unread':
-          if (n.deleted_at || n.archived_at || n.read) return false;
-          break;
-        case 'read':
-          if (n.deleted_at || n.archived_at || !n.read) return false;
-          break;
-        case 'all':
-        default:
-          if (n.deleted_at || n.archived_at) return false;
-          break;
-      }
-
+    return source.filter(n => {
       // Priority filter
       if (selectedPriority !== 'all' && n.priority !== selectedPriority) {
         return false;
@@ -189,7 +183,7 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
 
       return true;
     });
-  }, [allNotifications, activeTab, selectedPriority, selectedCategory, searchQuery]);
+  }, [projectedFeed, activeTab, selectedPriority, selectedCategory, searchQuery]);
 
   // Bulk selection toggles
   const isAllSelected = filteredNotifications.length > 0 && selectedIds.size === filteredNotifications.length;

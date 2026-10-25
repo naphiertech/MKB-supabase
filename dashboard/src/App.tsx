@@ -352,26 +352,13 @@ export function App() {
 
 
   const role = session?.role;
-  // Riders only see attendance + system notifications.
-  // Payroll only sees system notifications.
-  const allowedTypes = useMemo(
-    () =>
-      role === 'rider' ?
-        (['attendance', 'system'] as const).slice() :
-        role === 'payroll' ?
-          (['system'] as const).slice() :
-          undefined,
-    [role]
-  );
-  const { notifications, unreadCount, markAsRead, markAllAsRead } =
-    useNotifications(allowedTypes);
+  const { notifications, unreadCount, badgeCounts, markAsRead, markAllAsRead } =
+    useNotifications();
 
-  const sidebarBadgeCounts = useMemo(() => {
-    return {
-      attendance: notifications.filter(n => !n.read && (n.type === 'attendance' || n.type === 'absent')).length,
-      monitoring: notifications.filter(n => !n.read && n.type === 'violation').length,
-    } as Partial<Record<PageKey, number>>;
-  }, [notifications]);
+  const sidebarBadgeCounts = useMemo(() => ({
+    attendance: badgeCounts.attendance,
+    monitoring: badgeCounts.monitoring,
+  } as Partial<Record<PageKey, number>>), [badgeCounts]);
 
   // If route is 404
   if (isNotFound) {

@@ -93,7 +93,16 @@ describe('NotificationCenter page component', () => {
 
     vi.mocked(useNotificationContext).mockReturnValue({
       notifications: mockNotifications as any,
+      projectedFeed: {
+        active: mockNotifications.filter(n => !n.archived_at && !n.deleted_at),
+        unread: mockNotifications.filter(n => !n.archived_at && !n.deleted_at && !n.read),
+        read: mockNotifications.filter(n => !n.archived_at && !n.deleted_at && n.read),
+        archived: mockNotifications.filter(n => n.archived_at),
+        trash: mockNotifications.filter(n => n.deleted_at),
+        counts: { all: 2, unread: 1, read: 1, archived: 1, trash: 1, attendance: 0, monitoring: 1 },
+      } as any,
       unreadCount: 1,
+      badgeCounts: { attendance: 0, monitoring: 1, notifications: 1 },
       loading: false,
       notificationPreferences: {} as any,
       notificationPreferencesLoading: false,

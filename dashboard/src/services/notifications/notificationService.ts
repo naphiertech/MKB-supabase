@@ -57,6 +57,71 @@ export function isExpiredTrash(deletedAt: string | null | undefined, now: Date =
   return msElapsed >= TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 }
 
+export interface NotificationFeedCounts {
+  all: number;
+  unread: number;
+  read: number;
+  archived: number;
+  trash: number;
+  attendance: number;
+  monitoring: number;
+}
+
+export interface ProjectedNotificationFeed {
+  active: NotificationRecord[];
+  unread: NotificationRecord[];
+  read: NotificationRecord[];
+  archived: NotificationRecord[];
+  trash: NotificationRecord[];
+  counts: NotificationFeedCounts;
+}
+
+/**
+ * Projects a raw notification list into canonical views and counts.
+ * Consistently excludes Soft-Delete (Trash) and archived items from the active/unread badge counts.
+ */
+export function projectNotificationFeed(
+  records: NotificationRecord[],
+  options?: {
+    role?: UserRole | null;
+  },
+): ProjectedNotificationFeed {
+  const role = options?.role;
+  const roleFiltered = records.filter((r) => {
+    if (role === 'rider') {
+      return r.type === 'attendance' || r.type === 'system';
+    }
+    if (role === 'payroll') {
+      return r.type === 'system';
+    }
+    return true;
+  });
+
+  const unexpired = roleFiltered.filter((n) => !isExpiredTrash(n.deleted_at));
+  const active = unexpired.filter((n) => !n.deleted_at && !n.archived_at);
+  const unread = active.filter((n) => !n.read);
+  const read = active.filter((n) => n.read);
+  const archived = unexpired.filter((n) => !n.deleted_at && Boolean(n.archived_at));
+  const trash = unexpired.filter((n) => Boolean(n.deleted_at));
+
+  return {
+    active,
+    unread,
+    read,
+    archived,
+    trash,
+    counts: {
+      all: active.length,
+      unread: unread.length,
+      read: read.length,
+      archived: archived.length,
+      trash: trash.length,
+      attendance: unread.filter((n) => n.type === 'attendance' || n.type === 'absent').length,
+      monitoring: unread.filter((n) => n.type === 'violation').length,
+    },
+  };
+}
+
 export interface NotificationRow {
   id: string;
   sender_id?: string | null;
