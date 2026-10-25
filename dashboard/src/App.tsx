@@ -419,7 +419,7 @@ export function App() {
           onMarkAllAsRead={markAllAsRead}
           onSignOut={handleRiderSignOut} />
 
-        <main className="flex min-w-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col">
           <AnimatePresence mode="wait">
             <motion.div
                 key={riderPage}
@@ -427,7 +427,7 @@ export function App() {
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="h-full"
+                className="w-full flex-1"
               >
                 <Suspense fallback={<DashboardSkeleton page={riderPage} role="rider" />}>
                   {riderPage === 'dashboard' && <RiderDashboard userId={user.id} riderId={riderId} restricted={user.status === 'suspended'} />}

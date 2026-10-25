@@ -189,7 +189,7 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
   ) : 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="p-4 md:p-6 lg:p-7 max-w-5xl mx-auto space-y-6">
       {/* 1. Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -197,14 +197,18 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
             <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
               <Wallet className="w-5 h-5" />
             </div>
-            <h1 className="text-xl font-bold text-foreground tracking-tight">My Payouts</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-              Approved Records Only
-            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-foreground tracking-tight">My Payouts</h1>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  Approved Records Only
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Official cutoff earnings, itemized deduction statements, and printable payslip vouchers.
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Official cutoff earnings, itemized deduction statements, and printable payslip vouchers.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
