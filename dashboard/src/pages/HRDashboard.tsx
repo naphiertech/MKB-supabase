@@ -5,10 +5,12 @@ import { useRealtimeLocation } from '../hooks/useRealtimeLocation';
 import { getZones } from '../services/geofencing/geofenceService';
 import { getLocalDateString } from '../services/attendance/attendanceService';
 import { getPresentationCompletionState, getPresentationStatus, listAttendanceContext, type AttendancePresentationLog } from '../services/attendance/attendanceContextService';
-import type { Zone } from '../services/types';
+import type { RiderStatus, Zone } from '../services/types';
+import { summarizeFleet } from '../lib/fleetRollup';
 import { QuickReportShortcuts, type QuickReportKey } from '../components/hr/QuickReportShortcuts';
 import { HRAttendanceOverview } from '../components/hr/HRAttendanceOverview';
-import { RiderStatusGrid } from '../components/hr/RiderStatusGrid';
+import { HRLiveFleetTable } from '../components/hr/HRLiveFleetTable';
+import { FleetRollupPanel } from '../components/fleet/FleetRollupPanel';
 import { HRViolationSummary } from '../components/hr/HRViolationSummary';
 import { HRDetailsPanel } from '../components/hr/HRDetailsPanels';
 import { NeedsAttention } from '../components/hr/NeedsAttention';
@@ -29,12 +31,18 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
   const [zonesList, setZonesList] = useState<Zone[]>([]);
   const [attendanceList, setAttendanceList] = useState<AttendancePresentationLog[]>([]);
   const [activeSummaryPanel, setActiveSummaryPanel] = useState<'on_duty' | 'complete' | 'absent' | 'pending' | null>(null);
+  const [workspaceView, setWorkspaceView] = useState<'ledger' | 'fleet'>('ledger');
+  const [zoneId, setZoneId] = useState('all');
+  const [search, setSearch] = useState('');
+  const [fleetStatus, setFleetStatus] = useState<RiderStatus | null>(null);
   const attendanceRealtimeVersion = useAttendanceContextVersion();
   const today = getLocalDateString();
 
   useEffect(() => {
     getZones().then(setZonesList);
   }, []);
+
+  const fleetSummary = useMemo(() => summarizeFleet(riders, zonesList), [riders, zonesList]);
 
   useEffect(() => {
     let active = true;
@@ -105,6 +113,11 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
 
   function handleRiderClick(riderId: string) {
     onNavigate('monitoring', { rider: riderId });
+  }
+
+  function handleFleetStatusSelect(status: RiderStatus | null) {
+    setFleetStatus(status);
+    if (status) setWorkspaceView('fleet');
   }
 
   return (
@@ -178,18 +191,61 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
 
       {/* 3. Core Operational Workspace (2-Column Asymmetric Canvas) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* Left Primary Workstage (Attendance Manifest & Verification Ledger) */}
-        <section className="lg:col-span-7 xl:col-span-8 space-y-5" aria-label="Attendance Ledger">
-          <HRAttendanceOverview logs={attendanceList} zones={zonesList} />
+        {/* Left Primary Workstage: one roster at a time, always paginated */}
+        <section className="lg:col-span-7 xl:col-span-8 space-y-3 min-w-0" aria-label="Workforce roster">
+          <div className="inline-flex p-0.5 rounded-md bg-panel-bg border border-border" role="tablist" aria-label="Workforce view">
+            {([
+              { key: 'ledger', label: 'Attendance Ledger' },
+              { key: 'fleet', label: 'Live Fleet' },
+            ] as const).map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={workspaceView === tab.key}
+                onClick={() => setWorkspaceView(tab.key)}
+                className={`px-3 py-1.5 text-xs rounded font-semibold transition cursor-pointer ${
+                  workspaceView === tab.key ? 'bg-white text-primary shadow-2xs' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {workspaceView === 'ledger' ? (
+            <HRAttendanceOverview
+              logs={attendanceList}
+              zones={zonesList}
+              zoneId={zoneId}
+              onZoneIdChange={setZoneId}
+              search={search}
+              onSearchChange={setSearch}
+            />
+          ) : (
+            <HRLiveFleetTable
+              riders={riders}
+              zones={zonesList}
+              todayLogs={todayLogs}
+              zoneId={zoneId}
+              onZoneClear={() => setZoneId('all')}
+              search={search}
+              onSearchChange={setSearch}
+              status={fleetStatus}
+              onStatusChange={setFleetStatus}
+              onSelectRider={handleRiderClick}
+            />
+          )}
         </section>
 
-        {/* Right Telemetry & Actions Rail (Live Presence, Exceptions & Reports) */}
+        {/* Right Rail: fleet counts that filter the roster, then exceptions and reports */}
         <aside className="lg:col-span-5 xl:col-span-4 space-y-5" aria-label="Workforce Telemetry and Actions">
-          <RiderStatusGrid
-            riders={riders}
-            zones={zonesList}
-            todayLogs={todayLogs}
-            onSelectRider={handleRiderClick}
+          <FleetRollupPanel
+            summary={fleetSummary}
+            activeStatus={fleetStatus}
+            onStatusSelect={handleFleetStatusSelect}
+            activeZoneId={zoneId === 'all' ? null : zoneId}
+            onZoneSelect={(id) => setZoneId(id ?? 'all')}
           />
 
           <HRViolationSummary

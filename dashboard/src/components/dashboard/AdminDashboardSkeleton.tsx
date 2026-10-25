@@ -1,8 +1,9 @@
 import { SkeletonPage, SkeletonStatCard, SkeletonMap, SkeletonTable } from '../common/SkeletonPrimitives';
+import { FleetRollupSkeleton } from '../fleet/FleetRollupSkeleton';
 
 export function OnlineRidersSkeleton() {
   return (
-    <div className="bg-white border border-border rounded-xl flex flex-col h-full min-h-[400px] lg:h-[512px] shadow-sm">
+    <div className="bg-white border border-border rounded-xl flex flex-col shadow-sm">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg ar-shimmer shrink-0" />
@@ -78,20 +79,14 @@ export function AdminDashboardSkeleton() {
         <SkeletonStatCard />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
+        <div className="lg:col-span-3 space-y-5">
           <SkeletonMap />
-        </div>
-        <div className="lg:col-span-2">
-          <OnlineRidersSkeleton />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3">
           <SkeletonTable rows={5} columns={5} />
         </div>
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-5">
+          <FleetRollupSkeleton />
+          <OnlineRidersSkeleton />
           <ViolationFeedSkeleton />
         </div>
       </div>

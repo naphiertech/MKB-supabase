@@ -15,8 +15,10 @@ import {
   hasUnderlyingAttendanceLog,
   type AttendancePresentationLog,
 } from "../services/attendance/attendanceContextService";
-import type { Zone } from "../services/types";
+import type { RiderStatus, Zone } from "../services/types";
+import { summarizeFleet } from "../lib/fleetRollup";
 import { StatCard } from "../components/common/StatCard";
+import { FleetRollupPanel } from "../components/fleet/FleetRollupPanel";
 import { LiveMonitoringMap } from "../components/maps/LiveMonitoringMap";
 import { OnlineRiders } from "../components/monitoring/OnlineRiders";
 import { AttendanceLogs } from "../components/attendance/AttendanceLogs";
@@ -39,8 +41,11 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const activeCount = riders.filter((r) => r.status !== "offline").length;
   const violationCount = riders.filter((r) => r.status === "violation").length;
   const [zonesList, setZonesList] = useState<Zone[]>([]);
+  const [rosterZoneId, setRosterZoneId] = useState<string | null>(null);
+  const [rosterStatus, setRosterStatus] = useState<RiderStatus | null>(null);
   const [attendanceList, setAttendanceList] = useState<AttendancePresentationLog[]>([]);
   const attendanceRealtimeVersion = useAttendanceContextVersion();
+  const fleetSummary = useMemo(() => summarizeFleet(riders, zonesList), [riders, zonesList]);
 
   useEffect(() => {
     getZones().then(setZonesList);
@@ -188,9 +193,9 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
         </div>
       )}
 
-      {/* Map + Online Riders */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3">
+      {/* Two independent stacks: the map and attendance on the left, fleet counts, roster and alerts on the right */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
+        <div className="lg:col-span-3 space-y-5 min-w-0">
           <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <div>
@@ -198,7 +203,7 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
                   Live Rider Map
                 </div>
                 <div className="text-[11px] text-muted-foreground font-mono">
-                  Zamboanga City · 5 geofenced zones
+                  Zamboanga City · {zonesList.length} geofenced zones
                 </div>
               </div>
               <button
@@ -217,25 +222,32 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
               />
             </div>
           </div>
-        </div>
-        <div className="lg:col-span-2">
-          <OnlineRiders
-            riders={riders}
-            zones={zonesList}
-            onSelectRider={setFocusRiderId}
-          />
-        </div>
-      </div>
 
-      {/* Attendance Logs + Violation Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3">
           <AttendanceLogs
             logs={attendanceList}
             onViewAll={() => onNavigate("attendance")}
           />
         </div>
-        <div className="lg:col-span-2">
+
+        <div className="lg:col-span-2 space-y-5 min-w-0">
+          <FleetRollupPanel
+            summary={fleetSummary}
+            activeStatus={rosterStatus}
+            onStatusSelect={setRosterStatus}
+            activeZoneId={rosterZoneId}
+            onZoneSelect={setRosterZoneId}
+          />
+
+          <OnlineRiders
+            riders={riders}
+            zones={zonesList}
+            zoneId={rosterZoneId}
+            status={rosterStatus}
+            onClearZone={() => setRosterZoneId(null)}
+            onClearStatus={() => setRosterStatus(null)}
+            onSelectRider={setFocusRiderId}
+          />
+
           <ViolationFeed
             alerts={violations}
             onView={handleViewViolation}

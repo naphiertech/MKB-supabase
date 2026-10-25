@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ClipboardCheck, Download, ScanFace, UserCheck, X } from 'lucide-react';
+import { ClipboardCheck, Download, ScanFace, Search, UserCheck, X } from 'lucide-react';
 import type { Zone } from '../../services/types';
 import {
   getAttendanceContextLabel,
@@ -9,10 +9,17 @@ import {
 import { exportLogsCsv, getLocalDateString, type HrLogStatus } from '../../services/attendance/attendanceService';
 import { pushToast } from '../../hooks/useToast';
 import { StatusBadge } from '../common/DashboardPrimitives';
+import { TablePagination } from '../common/TablePagination';
+import { usePagedRows } from '../../hooks/usePagedRows';
+import { countTriage, matchesTriage, TRIAGE_KEYS, TRIAGE_LABEL, type TriageKey } from '../../lib/attendance/attendanceTriage';
 
 interface HRAttendanceOverviewProps {
   logs: AttendancePresentationLog[];
   zones: Zone[];
+  zoneId: string;
+  onZoneIdChange: (zoneId: string) => void;
+  search: string;
+  onSearchChange: (search: string) => void;
 }
 
 type Range = 'today' | 'week' | 'all';
@@ -67,26 +74,39 @@ function daysAgo(n: number) {
   return getLocalDateString(d);
 }
 
-export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps) {
+export function HRAttendanceOverview({ logs, zones, zoneId, onZoneIdChange, search, onSearchChange }: HRAttendanceOverviewProps) {
   const [range, setRange] = useState<Range>('today');
-  const [zoneId, setZoneId] = useState<string>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
+  const [triage, setTriage] = useState<TriageKey>('all');
   const [selectedLog, setSelectedLog] = useState<AttendancePresentationLog | null>(null);
 
-  const filtered = useMemo(() => {
+  const scoped = useMemo(() => {
     const today = daysAgo(0);
     const weekAgo = daysAgo(6);
-    return logs
+    const query = search.trim().toLowerCase();
+    return logs.filter((l) => {
+      if (range === 'today' && l.date !== today) return false;
+      if (range === 'week' && (l.date < weekAgo || l.date > today)) return false;
+      if (zoneId !== 'all' && l.zoneId !== zoneId) return false;
+      if (query && !l.riderName.toLowerCase().includes(query)) return false;
+      return true;
+    });
+  }, [logs, range, zoneId, search]);
+
+  const triageCounts = useMemo(() => countTriage(scoped), [scoped]);
+
+  const filtered = useMemo(() => {
+    return scoped
       .filter((l) => {
-        if (range === 'today' && l.date !== today) return false;
-        if (range === 'week' && (l.date < weekAgo || l.date > today)) return false;
-        if (zoneId !== 'all' && l.zoneId !== zoneId) return false;
+        if (!matchesTriage(l, triage)) return false;
         const s = resolveOverviewStatus(l);
         if (status !== 'all' && s !== status) return false;
         return true;
       })
       .sort((a, b) => (b.date === a.date ? (b.timeIn ?? '').localeCompare(a.timeIn ?? '') : b.date.localeCompare(a.date)));
-  }, [logs, range, zoneId, status]);
+  }, [scoped, triage, status]);
+
+  const paging = usePagedRows(filtered, `${range}|${zoneId}|${search}|${status}|${triage}`);
 
   function handleExport() {
     exportLogsCsv(filtered, `mkbridertrack-attendance-${daysAgo(0)}.csv`);
@@ -138,7 +158,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
 
         <select
           value={zoneId}
-          onChange={(e) => setZoneId(e.target.value)}
+          onChange={(e) => onZoneIdChange(e.target.value)}
           className="hr-select"
           aria-label="Filter by zone"
         >
@@ -167,10 +187,51 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
           <option value="Pending">Pending Finalization</option>
         </select>
 
+        <div className="flex items-center gap-2 px-2.5 h-8 rounded-md bg-white border border-border w-44 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15 transition">
+          <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search rider..."
+            aria-label="Search riders"
+            className="bg-transparent text-xs text-foreground placeholder:text-muted-foreground/70 outline-none flex-1 min-w-0"
+          />
+        </div>
+
         <div className="flex-1" />
         <div className="text-[11px] text-muted-foreground font-mono">
           {range === 'today' ? daysAgo(0) : range === 'week' ? `${daysAgo(6)} → ${daysAgo(0)}` : 'All dates'}
         </div>
+      </div>
+
+      {/* Exception triage */}
+      <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b border-border" role="group" aria-label="Exception triage">
+        {TRIAGE_KEYS.map((key) => {
+          const active = triage === key;
+          const attention = key !== 'all' && triageCounts[key] > 0;
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setTriage(key)}
+              className={`inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full border text-xs font-semibold transition cursor-pointer ${
+                active
+                  ? 'bg-primary border-primary text-white'
+                  : 'bg-white border-border text-muted-foreground hover:text-foreground hover:border-primary/30'
+              }`}
+            >
+              {TRIAGE_LABEL[key]}
+              <span
+                className={`font-mono tabular-nums ${
+                  active ? 'text-white/90' : attention ? 'text-primary' : 'text-muted-foreground'
+                }`}
+              >
+                {triageCounts[key]}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Table */}
@@ -188,7 +249,7 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(0, 30).map((l, idx) => {
+            {paging.items.map((l, idx) => {
               const s = resolveOverviewStatus(l);
               return (
                 <tr
@@ -243,6 +304,17 @@ export function HRAttendanceOverview({ logs, zones }: HRAttendanceOverviewProps)
           </tbody>
         </table>
       </div>
+
+      <TablePagination
+        from={paging.from}
+        to={paging.to}
+        total={paging.total}
+        page={paging.page}
+        pageCount={paging.pageCount}
+        pageSize={paging.pageSize}
+        onPageChange={paging.setPage}
+        onPageSizeChange={paging.setPageSize}
+      />
 
       {/* Clickable Attendance Details Modal */}
       {selectedLog && (

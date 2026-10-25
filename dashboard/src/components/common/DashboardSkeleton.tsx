@@ -18,7 +18,8 @@ import { ReviewsSkeleton } from './ReviewsSkeleton';
 
 // Domain Skeletons
 import { AdminDashboardSkeleton, OnlineRidersSkeleton, ViolationFeedSkeleton } from '../dashboard/AdminDashboardSkeleton';
-import { HRDashboardSkeleton, RiderStatusGridSkeleton, HRViolationSummarySkeleton } from '../hr/HRDashboardSkeleton';
+import { HRDashboardSkeleton, HRViolationSummarySkeleton } from '../hr/HRDashboardSkeleton';
+import { FleetRollupSkeleton } from '../fleet/FleetRollupSkeleton';
 import { AttendanceSkeleton } from '../attendance/AttendanceSkeleton';
 import { GeofenceSkeleton } from '../geofence/GeofenceSkeleton';
 import { LiveMonitoringSkeleton } from '../monitoring/LiveMonitoringSkeleton';
@@ -61,7 +62,7 @@ export {
   OnlineRidersSkeleton,
   ViolationFeedSkeleton,
   HRDashboardSkeleton,
-  RiderStatusGridSkeleton,
+  FleetRollupSkeleton,
   HRViolationSummarySkeleton,
   AttendanceSkeleton,
   GeofenceSkeleton,
