@@ -5,18 +5,10 @@ import {
   cacheRiderFaceDescriptor,
   getRiderViolationsForMonth
 } from '../services/riders/riderService';
-import { setCachedDescriptor } from '../lib/descriptorCache';
-import { preloadBiometrics, releaseBiometrics } from '../lib/faceAi';
 import {
-  BIOMETRIC_TIMING_NAMES,
-  biometricTelemetry,
-  observeBiometricPreloadLongTasks,
-} from '../lib/biometricTelemetry';
-import {
-  biometricPreloadPriority,
-  scheduleBiometricPreload,
-  waitForBrowserIdle,
-} from '../lib/biometricPreloadScheduler';
+  attachBiometricsInactivityWatcher,
+  scheduleBackgroundBiometricsPrewarm,
+} from '../lib/faceAi';
 import { Modal } from '../components/common/Modal';
 import { FaceScanner } from '../components/attendance/FaceScanner';
 import { AttendanceButton } from '../components/attendance/AttendanceButton';
@@ -148,57 +140,12 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
   // Background Biometrics Pre-warming (decoupled from initial page render)
   useEffect(() => {
     if (loading) return;
-
-    const observedAt = performance.now();
-    biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.dashboardInteractive, 0, observedAt);
-    biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadScheduled, 0, observedAt);
-
-    return scheduleBiometricPreload(async () => {
-      if (!biometricPreloadPriority.canContinueBackground()) return;
-
-      console.log('[RiderDashboard] Dashboard idle. Starting biometrics background pre-warming...');
-      biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadStarted, 0);
-      const stopLongTaskObserver = observeBiometricPreloadLongTasks();
-
-      try {
-        await preloadBiometrics({
-          beforeStage: () => waitForBrowserIdle(),
-          canContinue: biometricPreloadPriority.canContinueBackground,
-        });
-      } catch (err) {
-        console.warn('[RiderDashboard] Background biometrics preloading exception:', err);
-      } finally {
-        stopLongTaskObserver();
-        biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadComplete, 0);
-      }
-    });
+    return scheduleBackgroundBiometricsPrewarm();
   }, [loading]);
 
   // Tab Inactivity Geolocation/Biometrics Resource Cleanup
   useEffect(() => {
-    let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // Tab is minimized or hidden. Release transient MediaPipe resources after 3 minutes.
-        inactivityTimer = setTimeout(async () => {
-          console.log('[RiderDashboard] Tab hidden for 3 minutes. Releasing transient biometric resources...');
-          await releaseBiometrics();
-        }, 180000);
-      } else {
-        if (inactivityTimer) {
-          clearTimeout(inactivityTimer);
-          inactivityTimer = null;
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      if (inactivityTimer) clearTimeout(inactivityTimer);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return attachBiometricsInactivityWatcher();
   }, []);
 
   const [events, setEvents] = useState<ActivityEvent[]>([]);
@@ -254,7 +201,6 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
       console.debug('[RiderDashboard] Saving fallback face descriptor to database.');
       try {
         await cacheRiderFaceDescriptor(actualRiderId, descriptor);
-        setCachedDescriptor(actualRiderId, descriptor, rider?.avatar);
         console.log('[RiderDashboard] Successfully cached face descriptor to Supabase.');
         updateRiderFaceDescriptor(descriptor);
       } catch (err) {

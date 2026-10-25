@@ -62,7 +62,12 @@ vi.mock('../services/riders/riderService', () => ({
   cacheRiderFaceDescriptor: vi.fn(),
 }));
 vi.mock('../components/maps/RiderMap', () => ({ RiderMap: () => <div /> }));
-vi.mock('../lib/faceAi', () => ({ preloadBiometrics: vi.fn(), releaseBiometrics: vi.fn() }));
+vi.mock('../lib/faceAi', () => ({
+  preloadBiometrics: vi.fn(),
+  releaseBiometrics: vi.fn(),
+  scheduleBackgroundBiometricsPrewarm: () => () => undefined,
+  attachBiometricsInactivityWatcher: () => () => undefined,
+}));
 vi.mock('../lib/biometricPreloadScheduler', () => ({
   biometricPreloadPriority: { canContinueBackground: () => false },
   scheduleBiometricPreload: () => () => undefined,

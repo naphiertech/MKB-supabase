@@ -3,7 +3,16 @@
  * Coordinates face-api.js (TensorFlow) and MediaPipe dynamically.
  */
 
-import { BIOMETRIC_TIMING_NAMES, biometricTelemetry } from './biometricTelemetry';
+import {
+  BIOMETRIC_TIMING_NAMES,
+  biometricTelemetry,
+  observeBiometricPreloadLongTasks,
+} from './biometricTelemetry';
+import {
+  biometricPreloadPriority,
+  scheduleBiometricPreload,
+  waitForBrowserIdle,
+} from './biometricPreloadScheduler';
 
 export { createBiometricTelemetry } from './biometricTelemetry';
 
@@ -645,4 +654,61 @@ export async function releaseBiometrics() {
   } catch (err) {
     console.warn('[Face AI] Error while releasing resources:', err);
   }
+}
+
+/**
+ * Internalizes idle scheduling, long-task monitoring, and priority preemption
+ * for background biometric pre-warming.
+ */
+export function scheduleBackgroundBiometricsPrewarm(): () => void {
+  const observedAt = performance.now();
+  biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.dashboardInteractive, 0, observedAt);
+  biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadScheduled, 0, observedAt);
+
+  return scheduleBiometricPreload(async () => {
+    if (!biometricPreloadPriority.canContinueBackground()) return;
+
+    console.log('[Face AI] Dashboard idle. Starting biometrics background pre-warming...');
+    biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadStarted, 0);
+    const stopLongTaskObserver = observeBiometricPreloadLongTasks();
+
+    try {
+      await preloadBiometrics({
+        beforeStage: () => waitForBrowserIdle(),
+        canContinue: biometricPreloadPriority.canContinueBackground,
+      });
+    } catch (err) {
+      console.warn('[Face AI] Background biometrics preloading exception:', err);
+    } finally {
+      stopLongTaskObserver();
+      biometricTelemetry.record(BIOMETRIC_TIMING_NAMES.preloadComplete, 0);
+    }
+  });
+}
+
+/**
+ * Automatically releases transient MediaPipe resources after inactivity.
+ */
+export function attachBiometricsInactivityWatcher(inactivityMs = 180000): () => void {
+  let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      inactivityTimer = setTimeout(async () => {
+        console.log('[Face AI] Tab hidden for inactivity duration. Releasing transient biometric resources...');
+        await releaseBiometrics();
+      }, inactivityMs);
+    } else {
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = null;
+      }
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  return () => {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
 }
