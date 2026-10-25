@@ -5,10 +5,8 @@ const config: CapacitorConfig = {
   appName: 'MKBRiderTrack',
   webDir: 'dist',
   server: {
-    url: 'https://mkb-system.vercel.app',
     androidScheme: 'https',
     cleartext: false,
-    allowNavigation: ['mkb-system.vercel.app', '*.supabase.co'],
   },
   plugins: {
     SplashScreen: {
