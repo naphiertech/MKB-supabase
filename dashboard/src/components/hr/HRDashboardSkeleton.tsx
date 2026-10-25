@@ -2,8 +2,8 @@ import { SkeletonPage, SkeletonStatCard, SkeletonTable } from '../common/Skeleto
 
 export function RiderStatusGridSkeleton() {
   return (
-    <div className="bg-white border border-border rounded-xl shadow-sm">
-      <div className="flex flex-wrap items-center gap-3 justify-between p-4 border-b border-border">
+    <div className="bg-white border border-border rounded-xl shadow-sm flex flex-col overflow-hidden">
+      <div className="flex flex-wrap items-center gap-3 justify-between p-3.5 border-b border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-accent ring-1 ring-primary/25 flex items-center justify-center shrink-0" />
           <div className="space-y-1">
@@ -12,31 +12,27 @@ export function RiderStatusGridSkeleton() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="w-56 h-8 rounded-md border border-border ar-shimmer opacity-50" />
+          <div className="w-44 h-8 rounded-md border border-border ar-shimmer opacity-50" />
           <div className="w-32 h-8 rounded-md border border-border ar-shimmer opacity-50" />
         </div>
       </div>
-      <div className="p-4">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3">
-          {Array.from({ length: 5 }).map((_, i) => (
+      <div className="p-3.5 max-h-[460px] overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-2 gap-2.5">
+          {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="relative text-left bg-white border border-border rounded-xl p-3.5 flex flex-col gap-3 overflow-hidden before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-border"
+              className="relative text-left bg-white border border-border rounded-xl p-3 flex flex-col gap-2.5 overflow-hidden before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-border"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-panel-bg ring-2 ring-border ring-offset-2 ring-offset-white ar-shimmer shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-panel-bg ring-2 ring-border ring-offset-1 ring-offset-white ar-shimmer shrink-0" />
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="w-20 h-3.5 rounded ar-shimmer" />
                   <div className="w-12 h-2.5 rounded ar-shimmer" />
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <div className="w-12 h-4 rounded ar-shimmer" />
-                <div className="w-14 h-4 rounded ar-shimmer" />
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-border">
-                <div className="w-10 h-3 rounded ar-shimmer" />
-                <div className="w-8 h-3.5 rounded ar-shimmer" />
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="w-14 h-3.5 rounded ar-shimmer" />
+                <div className="w-12 h-3.5 rounded ar-shimmer" />
               </div>
             </div>
           ))}
@@ -94,22 +90,32 @@ export function HRDashboardSkeleton() {
         <SkeletonStatCard />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="bg-white border border-border rounded-xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-panel-bg ar-shimmer shrink-0" />
-            <div className="flex-1 min-w-0 space-y-1.5">
-              <div className="w-32 h-3.5 rounded ar-shimmer" />
-              <div className="w-20 h-2.5 rounded ar-shimmer" />
-            </div>
-            <div className="w-4 h-4 ar-shimmer shrink-0" />
-          </div>
-        ))}
+      <div className="bg-[#FFF8F0] border border-[#FFE8D1] rounded-xl p-4 space-y-3">
+        <div className="w-36 h-4 rounded ar-shimmer" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-white border border-border rounded-lg p-3 h-16 ar-shimmer" />
+          ))}
+        </div>
       </div>
 
-      <SkeletonTable rows={6} columns={6} />
-      <RiderStatusGridSkeleton />
-      <HRViolationSummarySkeleton />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div className="lg:col-span-7 xl:col-span-8 space-y-5">
+          <SkeletonTable rows={6} columns={6} />
+        </div>
+        <div className="lg:col-span-5 xl:col-span-4 space-y-5">
+          <RiderStatusGridSkeleton />
+          <HRViolationSummarySkeleton />
+          <div className="space-y-2">
+            <div className="w-32 h-3 rounded ar-shimmer" />
+            <div className="space-y-2.5">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white border border-border rounded-xl p-3 h-14 ar-shimmer" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </SkeletonPage>
   );
 }

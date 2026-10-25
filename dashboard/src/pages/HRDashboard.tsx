@@ -53,6 +53,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
     });
     return () => { active = false; };
   }, [attendanceRealtimeVersion, today]);
+
   const yesterday = useMemo(() => {
     const d = new Date(`${today}T00:00:00`);
     d.setDate(d.getDate() - 1);
@@ -108,7 +109,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
 
   return (
     <div className="dashboard-page space-y-5">
-      {/* 1. Refined KPI Cards */}
+      {/* 1. Command Header: Primary Shift KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           label="Riders On Duty"
@@ -168,34 +169,42 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
         </div>
       )}
 
-      {/* 2. Needs Attention Priority Section */}
+      {/* 2. Priority Exception & Action Triage Bar */}
       <NeedsAttention
         attendanceLogs={attendanceList}
         violations={violations}
         onNavigate={onNavigate}
       />
 
-      {/* 3. Quick Actions / Report Shortcuts */}
-      <QuickReportShortcuts onSelect={handleQuickReport} />
+      {/* 3. Core Operational Workspace (2-Column Asymmetric Canvas) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left Primary Workstage (Attendance Manifest & Verification Ledger) */}
+        <section className="lg:col-span-7 xl:col-span-8 space-y-5" aria-label="Attendance Ledger">
+          <HRAttendanceOverview logs={attendanceList} zones={zonesList} />
+        </section>
 
-      {/* 4. Attendance Overview Table */}
-      <HRAttendanceOverview logs={attendanceList} zones={zonesList} />
+        {/* Right Telemetry & Actions Rail (Live Presence, Exceptions & Reports) */}
+        <aside className="lg:col-span-5 xl:col-span-4 space-y-5" aria-label="Workforce Telemetry and Actions">
+          <RiderStatusGrid
+            riders={riders}
+            zones={zonesList}
+            todayLogs={todayLogs}
+            onSelectRider={handleRiderClick}
+          />
 
-      {/* 5. Rider Status Cards Grid */}
-      <RiderStatusGrid
-        riders={riders}
-        zones={zonesList}
-        todayLogs={todayLogs}
-        onSelectRider={handleRiderClick}
-      />
+          <HRViolationSummary
+            violations={violations}
+            riders={riders}
+            onViewAll={() => onNavigate('monitoring')}
+          />
 
-      {/* 6. Recent Violation Summary */}
-      <div className="grid grid-cols-1">
-        <HRViolationSummary
-          violations={violations}
-          riders={riders}
-          onViewAll={() => onNavigate('monitoring')}
-        />
+          <div className="space-y-2">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-1 font-mono">
+              Quick Reports & Exports
+            </div>
+            <QuickReportShortcuts onSelect={handleQuickReport} layout="stack" />
+          </div>
+        </aside>
       </div>
     </div>
   );
