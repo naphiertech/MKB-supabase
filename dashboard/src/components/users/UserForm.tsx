@@ -20,15 +20,22 @@ import { PROVINCES, PHILIPPINES_LOCATIONS } from "../../lib/phLocations";
 import {
   ensureScriptsLoaded,
   loadFaceModels,
-  getFaceDescriptor,
   getDescriptorFromUrl,
+  extractEnrollmentFaceDescriptor,
+  preloadBiometrics,
 } from "../../lib/faceAi";
+import {
+  biometricPreloadPriority,
+  scheduleBiometricPreload,
+  waitForBrowserIdle,
+} from "../../lib/biometricPreloadScheduler";
 import { FaceCaptureModal } from "./FaceCaptureModal";
 import {
   type EditableRole,
   type Shift,
   type FormState,
   type FormErrors,
+  isValidFaceDescriptor,
   generateMkbId,
   compressBase64Image,
   filterZonesForRiderHub,
@@ -144,6 +151,7 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
   const [showPassword, setShowPassword] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [processingBiometrics, setProcessingBiometrics] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialFormRef = useRef<FormState | null>(null);
   const activeAuthorizedHubs = useMemo(() => hubs.filter((hub) => hub.active), [hubs]);
@@ -281,6 +289,21 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
 
   const isRider = form.role === "rider";
   const riderHubLocked = !canSelectAll;
+
+  useEffect(() => {
+    if (!isRider) return;
+    return scheduleBiometricPreload(async () => {
+      if (!biometricPreloadPriority.canContinueBackground()) return;
+      try {
+        await preloadBiometrics({
+          beforeStage: () => waitForBrowserIdle(),
+          canContinue: biometricPreloadPriority.canContinueBackground,
+        });
+      } catch (err) {
+        console.warn("[Admin UserForm] Background biometric preload failed:", err);
+      }
+    });
+  }, [isRider]);
   const riderZones = useMemo(
     () => filterZonesForRiderHub(zones, form.hubId, form.zoneId),
     [form.hubId, form.zoneId, zones],
@@ -333,6 +356,46 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
     }));
     setErrors((current) => ({ ...current, hubId: undefined, zoneId: undefined }));
   };
+
+  const clearFaceEnrollment = (errorMessage?: string) => {
+    setField("faceImage", null);
+    setField("faceDescriptor", null);
+    if (errorMessage !== undefined) {
+      setErrors((prev) => ({ ...prev, faceImage: errorMessage }));
+    }
+  };
+
+  const verifyAndApplyFaceEnrollment = async (compressedImage: string, descriptor: number[]) => {
+    const existingRiderId =
+      mode === "edit"
+        ? (user as unknown as { rider_id?: string; riderId?: string })?.rider_id ||
+          (user as unknown as { riderId?: string })?.riderId
+        : undefined;
+    const dupCheck = await checkEmployeeDuplicates({
+      faceDescriptor: descriptor,
+      excludeRiderId: existingRiderId,
+    });
+
+    if (dupCheck.hasDuplicate && dupCheck.duplicateField === "face_descriptor") {
+      const msg = dupCheck.message || "This face is already registered to another employee.";
+      pushToast({
+        title: "Duplicate Face Biometric Blocked",
+        description: msg,
+        tone: "error",
+      });
+      clearFaceEnrollment(msg);
+      return false;
+    }
+
+    setField("faceImage", compressedImage);
+    setField("faceDescriptor", descriptor);
+    setErrors((prev) => ({ ...prev, faceImage: undefined }));
+    return true;
+  };
+
+  const isFaceEnrollmentVerified = Boolean(
+    form.faceImage && (mode === "edit" || isValidFaceDescriptor(form.faceDescriptor)),
+  );
 
   const handleSubmit = async () => {
     const v = validate(form, mode, mode === "edit" ? initialFormRef.current ?? undefined : undefined);
@@ -1062,88 +1125,110 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
+                        if (!file || processingBiometrics) return;
+                        e.target.value = "";
+                        setProcessingBiometrics(true);
+                        biometricPreloadPriority.requestForeground();
+
                         const reader = new FileReader();
                         reader.onload = async () => {
                           const result = reader.result;
-                          if (typeof result === "string") {
-                            const compressed =
-                              await compressBase64Image(result);
+                          if (typeof result !== "string") {
+                            setProcessingBiometrics(false);
+                            return;
+                          }
 
-                            try {
-                              const active = await ensureScriptsLoaded();
-                              if (active) {
-                                await loadFaceModels();
-                                const img = new Image();
-                                img.onload = async () => {
-                                  const desc = await getFaceDescriptor(img);
-                                  if (desc) {
-                                    const descriptorArray = Array.from(desc);
-                                    // Check duplicate face biometric immediately on 2x2 image upload
-                                    const existingRiderId = mode === "edit" ? (user as unknown as { rider_id?: string; riderId?: string })?.rider_id || (user as unknown as { riderId?: string })?.riderId : undefined;
-                                    const dupCheck = await checkEmployeeDuplicates({
-                                      faceDescriptor: descriptorArray,
-                                      excludeRiderId: existingRiderId,
-                                    });
+                          await new Promise<void>((resolve) => {
+                            window.setTimeout(resolve, 50);
+                          });
 
-                                    if (dupCheck.hasDuplicate && dupCheck.duplicateField === "face_descriptor") {
-                                      pushToast({
-                                        title: "Duplicate Face Biometric Blocked",
-                                        description: dupCheck.message || "This face is already registered to another employee.",
-                                        tone: "error",
-                                      });
-                                      setErrors(prev => ({ ...prev, faceImage: dupCheck.message }));
-                                      setField("faceImage", null);
-                                      setField("faceDescriptor", null);
-                                      return;
-                                    }
-
-                                    console.log(
-                                      "[Admin UserForm] Face descriptor extracted & verified from upload.",
-                                    );
-                                    setField("faceImage", compressed);
-                                    setField("faceDescriptor", descriptorArray);
-                                    setErrors(prev => ({ ...prev, faceImage: undefined }));
-                                  } else {
-                                    pushToast({
-                                      title: "Invalid Face Photo",
-                                      description:
-                                        "No face detected. Please upload a clear 2x2 front-facing photo.",
-                                      tone: "warning",
-                                    });
-                                    setField("faceImage", compressed);
-                                  }
-                                };
-                                img.src = compressed;
-                              } else {
-                                setField("faceImage", compressed);
-                              }
-                            } catch (err) {
-                              console.error(
-                                "[Admin UserForm] Extraction failed:",
-                                err,
-                              );
-                              setField("faceImage", compressed);
+                          try {
+                            const compressed = await compressBase64Image(result);
+                            const active = await ensureScriptsLoaded();
+                            if (!active) {
+                              const msg = "Face recognition engine is unavailable. Please check your connection and try again.";
+                              pushToast({
+                                title: "Biometric Engine Unavailable",
+                                description: msg,
+                                tone: "error",
+                              });
+                              clearFaceEnrollment(msg);
+                              return;
                             }
+
+                            await loadFaceModels();
+                            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                              const el = new Image();
+                              el.onload = () => resolve(el);
+                              el.onerror = () => reject(new Error("Failed to decode uploaded image."));
+                              el.src = compressed;
+                            });
+
+                            const extraction = await extractEnrollmentFaceDescriptor(img);
+                            if (extraction.status === "multiple_faces") {
+                              const msg = "Multiple faces found. Please upload a clear solo 2x2 front-facing photo.";
+                              pushToast({
+                                title: "Multiple Faces Detected",
+                                description: msg,
+                                tone: "error",
+                              });
+                              clearFaceEnrollment(msg);
+                              return;
+                            }
+
+                            if (extraction.status !== "ok" || !extraction.descriptor) {
+                              const msg = "No face detected. Please upload a clear 2x2 front-facing photo.";
+                              pushToast({
+                                title: "Invalid Face Photo",
+                                description: msg,
+                                tone: "warning",
+                              });
+                              clearFaceEnrollment(msg);
+                              return;
+                            }
+
+                            const descriptorArray = Array.from(extraction.descriptor);
+                            const applied = await verifyAndApplyFaceEnrollment(compressed, descriptorArray);
+                            if (applied) {
+                              console.log("[Admin UserForm] Face descriptor extracted & verified from upload.");
+                            }
+                          } catch (err) {
+                            console.error("[Admin UserForm] Extraction failed:", err);
+                            const msg = "No face detected or image could not be processed. Please try another photo.";
+                            pushToast({
+                              title: "Face Processing Failed",
+                              description: msg,
+                              tone: "error",
+                            });
+                            clearFaceEnrollment(msg);
+                          } finally {
+                            setProcessingBiometrics(false);
                           }
                         };
+                        reader.onerror = () => {
+                          setProcessingBiometrics(false);
+                          pushToast({
+                            title: "Upload Failed",
+                            description: "Could not read the selected image file.",
+                            tone: "error",
+                          });
+                        };
                         reader.readAsDataURL(file);
-                        e.target.value = "";
                       }}
                     />
                     <button
                       type="button"
-                      disabled={submitting}
+                      disabled={submitting || processingBiometrics}
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-white border border-border text-xs text-foreground hover:border-primary/30 hover:text-primary transition cursor-pointer font-semibold shadow-sm"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-white border border-border text-xs text-foreground hover:border-primary/30 hover:text-primary transition cursor-pointer font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Upload className="w-3.5 h-3.5" /> Upload
                     </button>
                     <button
                       type="button"
-                      disabled={submitting}
+                      disabled={submitting || processingBiometrics}
                       onClick={() => setCameraOpen(true)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-primary text-white text-xs hover:bg-primary-hover transition cursor-pointer font-semibold shadow-sm"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-md bg-primary text-white text-xs hover:bg-primary-hover transition cursor-pointer font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Camera className="w-3.5 h-3.5" /> Scan Face
                     </button>
@@ -1152,12 +1237,9 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                   {form.faceImage && (
                     <button
                       type="button"
-                      disabled={submitting}
-                      onClick={() => {
-                        setField("faceImage", null);
-                        setField("faceDescriptor", null);
-                      }}
-                      className="mt-3 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-red-600 transition cursor-pointer font-medium"
+                      disabled={submitting || processingBiometrics}
+                      onClick={() => clearFaceEnrollment()}
+                      className="mt-3 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-red-600 transition cursor-pointer font-medium disabled:opacity-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Remove Face
                       Registration
@@ -1171,13 +1253,13 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                     className={`rounded-lg border px-3 py-2.5 flex items-center justify-between transition ${
                       errors.faceImage
                         ? "border-red-200 bg-red-50/40"
-                        : form.faceImage
+                        : isFaceEnrollmentVerified
                           ? "border-emerald-200 bg-emerald-50/40"
                           : "border-border bg-panel-bg"
                     }`}
                   >
                     <div className="flex items-center gap-2 text-xs">
-                      {form.faceImage ? (
+                      {isFaceEnrollmentVerified ? (
                         <>
                           <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                           <span className="font-bold text-emerald-700">
@@ -1449,32 +1531,55 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
           }
           onCancel={() => setCameraOpen(false)}
           onCapture={async (dataUrl, descriptor) => {
-            if (descriptor && Array.isArray(descriptor) && descriptor.length === 128) {
-              const existingRiderId = mode === "edit" ? (user as unknown as { rider_id?: string; riderId?: string })?.rider_id || (user as unknown as { riderId?: string })?.riderId : undefined;
-              const dupCheck = await checkEmployeeDuplicates({
-                faceDescriptor: descriptor,
-                excludeRiderId: existingRiderId,
+            setCameraOpen(false);
+            setProcessingBiometrics(true);
+            try {
+              await new Promise<void>((resolve) => {
+                window.setTimeout(resolve, 50);
               });
 
-              if (dupCheck.hasDuplicate && dupCheck.duplicateField === "face_descriptor") {
+              if (!isValidFaceDescriptor(descriptor)) {
+                const msg = "No face detected. Please align your face clearly in the camera frame and retry.";
                 pushToast({
-                  title: "Duplicate Face Biometric Blocked",
-                  description: dupCheck.message || "This face is already registered to another employee.",
-                  tone: "error",
+                  title: "Face Capture Incomplete",
+                  description: msg,
+                  tone: "warning",
                 });
-                setErrors(prev => ({ ...prev, faceImage: dupCheck.message }));
-                setCameraOpen(false);
+                clearFaceEnrollment(msg);
                 return;
               }
-            }
 
-            const compressed = await compressBase64Image(dataUrl);
-            setField("faceImage", compressed);
-            setField("faceDescriptor", descriptor);
-            setErrors(prev => ({ ...prev, faceImage: undefined }));
-            setCameraOpen(false);
+              const compressed = await compressBase64Image(dataUrl);
+              await verifyAndApplyFaceEnrollment(compressed, descriptor);
+            } finally {
+              setProcessingBiometrics(false);
+            }
           }}
         />
+      )}
+
+      {processingBiometrics && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="biometric-processing-title"
+          className="fixed inset-0 z-[1400] flex items-center justify-center p-4"
+        >
+          <div className="absolute inset-0 bg-foreground/60 backdrop-blur-sm" />
+          <div className="relative z-[1410] w-full max-w-xs rounded-2xl border border-border bg-white p-6 shadow-2xl flex flex-col items-center text-center space-y-3">
+            <div className="relative flex items-center justify-center w-14 h-14 rounded-full bg-accent border border-primary/20">
+              <Loader2 className="w-7 h-7 text-primary animate-spin" />
+            </div>
+            <div className="space-y-1">
+              <div id="biometric-processing-title" className="text-sm font-bold text-foreground">
+                Processing Face Biometrics...
+              </div>
+              <p className="text-xs text-muted-foreground font-mono">
+                Decrypting &amp; validating facial vector...
+              </p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

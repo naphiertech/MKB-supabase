@@ -170,4 +170,41 @@ describe('biometric model lifecycle', () => {
       { willReadFrequently: true },
     );
   });
+
+  it('rejects uploaded images with zero or multiple faces and returns descriptor only for a single face', async () => {
+    installFaceApi();
+    const detectAllDescriptorsTask = vi.fn();
+    const detectAllLandmarksTask = Object.assign(Promise.resolve([]), {
+      withFaceDescriptors: detectAllDescriptorsTask,
+    });
+    const detectAllFaces = vi.fn(() => Object.assign(Promise.resolve([]), {
+      withFaceLandmarks: vi.fn(() => detectAllLandmarksTask),
+    }));
+    Object.assign((window as unknown as { faceapi: object }).faceapi, { detectAllFaces });
+
+    const module = await import('./faceAi');
+    const img = document.createElement('img');
+
+    detectAllDescriptorsTask.mockResolvedValueOnce([]);
+    await expect(module.extractEnrollmentFaceDescriptor(img)).resolves.toEqual({
+      status: 'no_face',
+      descriptor: null,
+    });
+
+    detectAllDescriptorsTask.mockResolvedValueOnce([
+      { descriptor: new Float32Array(128) },
+      { descriptor: new Float32Array(128) },
+    ]);
+    await expect(module.extractEnrollmentFaceDescriptor(img)).resolves.toEqual({
+      status: 'multiple_faces',
+      descriptor: null,
+    });
+
+    const validDesc = new Float32Array(128).fill(0.12);
+    detectAllDescriptorsTask.mockResolvedValueOnce([{ descriptor: validDesc }]);
+    await expect(module.extractEnrollmentFaceDescriptor(img)).resolves.toEqual({
+      status: 'ok',
+      descriptor: validDesc,
+    });
+  });
 });

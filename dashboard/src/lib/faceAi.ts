@@ -41,6 +41,14 @@ interface FaceDetectionChain extends Promise<FaceDetectionBox | undefined> {
   withFaceLandmarks(): FaceDetectionWithLandmarksChain;
 }
 
+interface FaceDetectionAllWithLandmarksChain extends Promise<FaceDetectionFull[]> {
+  withFaceDescriptors(): Promise<FaceDetectionFull[]>;
+}
+
+interface FaceDetectionAllChain extends Promise<FaceDetectionBox[]> {
+  withFaceLandmarks(): FaceDetectionAllWithLandmarksChain;
+}
+
 interface FaceApiInstance {
   nets: {
     ssdMobilenetv1: { loadFromUri(uri: string): Promise<void> };
@@ -52,6 +60,10 @@ interface FaceApiInstance {
     element: unknown,
     options?: unknown
   ): FaceDetectionChain;
+  detectAllFaces?(
+    element: unknown,
+    options?: unknown
+  ): FaceDetectionAllChain;
   detectFaceLandmarks(element: unknown): Promise<unknown>;
   computeFaceDescriptor(element: unknown): Promise<Float32Array>;
   euclideanDistance(desc1: Float32Array, desc2: Float32Array): number;
@@ -179,6 +191,48 @@ export async function getFaceDescriptor(
   } catch (err) {
     console.warn('Descriptor extraction error:', err);
     return null;
+  }
+}
+
+export type EnrollmentFaceExtractionResult =
+  | { status: 'ok'; descriptor: Float32Array }
+  | { status: 'no_face'; descriptor: null }
+  | { status: 'multiple_faces'; descriptor: null }
+  | { status: 'error'; descriptor: null };
+
+/**
+ * Extracts a Face Descriptor for Face Enrollment while rejecting images with zero or multiple faces.
+ */
+export async function extractEnrollmentFaceDescriptor(
+  element: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement
+): Promise<EnrollmentFaceExtractionResult> {
+  const { faceapi } = getFaceAiGlobals();
+  if (!faceapi) return { status: 'error', descriptor: null };
+
+  try {
+    const options = new faceapi.SsdMobilenetv1Options({ minConfidence: FACE_DETECTION_MIN_CONFIDENCE });
+    if (typeof faceapi.detectAllFaces === 'function') {
+      const detections = await faceapi.detectAllFaces(element, options)
+        .withFaceLandmarks()
+        .withFaceDescriptors();
+
+      if (!detections || detections.length === 0) {
+        return { status: 'no_face', descriptor: null };
+      }
+      if (detections.length > 1) {
+        return { status: 'multiple_faces', descriptor: null };
+      }
+      return { status: 'ok', descriptor: detections[0].descriptor };
+    }
+
+    const singleDesc = await getFaceDescriptor(element);
+    if (!singleDesc) {
+      return { status: 'no_face', descriptor: null };
+    }
+    return { status: 'ok', descriptor: singleDesc };
+  } catch (err) {
+    console.warn('Enrollment descriptor extraction error:', err);
+    return { status: 'error', descriptor: null };
   }
 }
 

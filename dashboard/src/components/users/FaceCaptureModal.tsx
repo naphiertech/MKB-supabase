@@ -16,8 +16,8 @@ export function FaceCaptureModal({
   onCapture,
   onCancel
 }: FaceCaptureModalProps) {
-  const { phase, progress, result, start, videoRef, canvasRef, debugInfo } = useFaceRecognition({
-    durationMs: 2500
+  const { phase, progress, result, start, reset, livenessPrompt, videoRef, canvasRef, debugInfo } = useFaceRecognition({
+    durationMs: 15000
   });
   const initialStartRef = useRef(start);
 
@@ -66,10 +66,33 @@ export function FaceCaptureModal({
           progress={progress}
           videoRef={videoRef}
           canvasRef={canvasRef}
+          livenessPrompt={livenessPrompt}
           debugInfo={debugInfo}
           riderAvatar={seedAvatar}
           riderName={riderName}
         />
+
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 h-9 rounded-md text-sm text-foreground bg-panel-bg border border-border hover:bg-white hover:border-primary/30 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          {phase === 'failed' && (
+            <button
+              type="button"
+              onClick={() => {
+                reset();
+                void start();
+              }}
+              className="px-4 h-9 rounded-md text-sm text-white bg-primary hover:bg-primary-hover transition-colors shadow-sm cursor-pointer font-semibold"
+            >
+              Retry scan
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

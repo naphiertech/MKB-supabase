@@ -37,6 +37,10 @@ export interface FormState {
 
 export type FormErrors = Partial<Record<keyof FormState, string>>;
 
+export function isValidFaceDescriptor(descriptor: number[] | null | undefined): descriptor is number[] {
+  return Array.isArray(descriptor) && descriptor.length === 128;
+}
+
 export function generateMkbId() {
   const n = Math.floor(1000 + Math.random() * 9000);
   return `MKB-${n}`;
@@ -166,7 +170,11 @@ export function validate(form: FormState, mode: 'create' | 'edit', original?: Fo
     if (!form.mkbRiderId.trim()) errors.mkbRiderId = 'MKB Rider ID is required.';
     if (!form.hubId) errors.hubId = 'Assigned hub is required.';
     if (!form.zoneId) errors.zoneId = 'Assigned zone is required.';
-    if (!form.faceImage) errors.faceImage = 'Face registration is required.';
+    const hasValidDescriptor = isValidFaceDescriptor(form.faceDescriptor);
+    const shouldRequireDescriptor = mode === 'create' || (original && form.faceImage !== original.faceImage);
+    if (!form.faceImage || (shouldRequireDescriptor && !hasValidDescriptor)) {
+      errors.faceImage = 'Face registration is required.';
+    }
     if (!form.province) errors.province = 'Province is required.';
     if (!form.city) errors.city = 'City/Municipality is required.';
     if (!form.barangay.trim()) errors.barangay = 'Barangay is required.';

@@ -7,7 +7,7 @@ const { validate } = formUtils;
 
 const validRider: FormState = {
   firstName: 'Juan', middleName: '', lastName: 'Rider', email: 'juan@example.com', contact: '09123456789', tempPassword: 'password1', role: 'rider', status: 'active',
-  mkbRiderId: 'MKB-1000', hubId: 'hub-1', zoneId: 'zone-1', hubAccessScope: 'assigned', hubIds: [], shift: '', faceImage: 'data:image/jpeg;base64,ok', faceDescriptor: null,
+  mkbRiderId: 'MKB-1000', hubId: 'hub-1', zoneId: 'zone-1', hubAccessScope: 'assigned', hubIds: [], shift: '', faceImage: 'data:image/jpeg;base64,ok', faceDescriptor: new Array(128).fill(0.1),
   province: 'Zamboanga del Sur', city: 'Zamboanga City', barangay: 'Tetuan', zipCode: '7000', streetAddress: 'Main Street',
   emergencyContactName: 'Maria Rider', emergencyContactPhone: '09987654321', employmentType: 'full-time', dateOfHire: '2026-01-01',
   vehicleType: 'motorcycle', vehiclePlateNumber: 'ABC 1234', notes: '',
@@ -43,6 +43,11 @@ describe('employee required-field validation', () => {
     expect(errors.hubId).toContain('required');
     expect(errors.zoneId).toContain('required');
     expect(errors.faceImage).toContain('required');
+  });
+
+  it('requires both faceImage and a 128-element faceDescriptor for newly created riders', () => {
+    const errorsWithoutDesc = validate({ ...validRider, faceDescriptor: null }, 'create');
+    expect(errorsWithoutDesc.faceImage).toContain('required');
   });
 
   it('does not require a password when editing an existing employee', () => {

@@ -24,12 +24,29 @@ vi.mock('../../services/users/userService', () => ({
   checkEmployeeDuplicates: vi.fn().mockResolvedValue({ hasDuplicate: false }),
 }));
 
-vi.mock('../../lib/faceAi', () => ({
-  ensureScriptsLoaded: vi.fn().mockResolvedValue(false),
+const faceAiMocks = vi.hoisted(() => ({
+  ensureScriptsLoaded: vi.fn().mockResolvedValue(true),
   loadFaceModels: vi.fn().mockResolvedValue(undefined),
   getFaceDescriptor: vi.fn().mockResolvedValue(null),
   getDescriptorFromUrl: vi.fn().mockResolvedValue(null),
+  extractEnrollmentFaceDescriptor: vi.fn().mockResolvedValue({ status: 'no_face', descriptor: null }),
+  preloadBiometrics: vi.fn().mockResolvedValue(undefined),
 }));
+
+const schedulerMocks = vi.hoisted(() => ({
+  scheduleBiometricPreload: vi.fn((task: () => void) => {
+    void task();
+    return () => undefined;
+  }),
+  waitForBrowserIdle: vi.fn().mockResolvedValue(undefined),
+  biometricPreloadPriority: {
+    requestForeground: vi.fn(),
+    canContinueBackground: vi.fn(() => true),
+  },
+}));
+
+vi.mock('../../lib/faceAi', () => faceAiMocks);
+vi.mock('../../lib/biometricPreloadScheduler', () => schedulerMocks);
 
 const mockHubs: Hub[] = [
   { id: 'hub-1', name: 'Talon-Talon Hub', active: true, description: null, latitude: null, longitude: null, attendanceRadiusM: null, createdAt: '', updatedAt: '' },
@@ -188,5 +205,102 @@ describe('UserForm layout refinement', () => {
     expect(riderOptions).toContain('full-time');
     expect(riderOptions).toContain('part-time');
     expect(riderOptions).not.toContain('contractual');
+  });
+
+  it('preloads biometric models in background when role is rider', () => {
+    faceAiMocks.preloadBiometrics.mockClear();
+    schedulerMocks.scheduleBiometricPreload.mockClear();
+
+    act(() => {
+      root.render(
+        <UserForm
+          defaultRole="rider"
+          zones={mockZones}
+          hubs={mockHubs}
+          onClose={noop}
+        />,
+      );
+    });
+
+    expect(schedulerMocks.scheduleBiometricPreload).toHaveBeenCalledTimes(1);
+    expect(faceAiMocks.preloadBiometrics).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows Biometric Processing Modal on image upload and rejects photos with no face or multiple faces without setting faceImage', async () => {
+    vi.useFakeTimers();
+    const origFileReader = globalThis.FileReader;
+    const origImage = globalThis.Image;
+
+    class MockFileReader {
+      result: string | null = 'data:image/jpeg;base64,fakeimage';
+      onload: (() => void) | null = null;
+      readAsDataURL() {
+        this.onload?.();
+      }
+    }
+
+    class MockImage {
+      width = 100;
+      height = 100;
+      onload: (() => void) | null = null;
+      set src(_v: string) {
+        this.onload?.();
+      }
+    }
+
+    globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
+    globalThis.Image = MockImage as unknown as typeof Image;
+    const getCtxSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+
+    try {
+      let resolveExtraction!: (val: { status: string; descriptor: Float32Array | null }) => void;
+      faceAiMocks.extractEnrollmentFaceDescriptor.mockImplementationOnce(
+        () => new Promise((r) => { resolveExtraction = r; }),
+      );
+
+      act(() => {
+        root.render(
+          <UserForm
+            defaultRole="rider"
+            zones={mockZones}
+            hubs={mockHubs}
+            onClose={noop}
+          />,
+        );
+      });
+
+      const fileInput = container.querySelector('#face-registration-file') as HTMLInputElement;
+      expect(fileInput).not.toBeNull();
+
+      await act(async () => {
+        const file = new File(['dummy'], 'rider.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(fileInput, 'files', { value: [file], configurable: true });
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+      // Immediately shows Biometric Processing Modal
+      expect(document.body.textContent).toContain('Processing Face Biometrics...');
+      expect(document.body.textContent).toContain('Decrypting & validating facial vector...');
+
+      // Advance frame yield timer
+      await act(async () => {
+        vi.advanceTimersByTime(100);
+      });
+
+      // Resolve with multiple_faces
+      await act(async () => {
+        resolveExtraction({ status: 'multiple_faces', descriptor: null });
+      });
+
+      // Modal dismissed, error displayed, not marked verified
+      expect(document.body.textContent).not.toContain('Processing Face Biometrics...');
+      expect(container.textContent).not.toContain('Face Verified & Registered');
+      expect(container.textContent).toContain('Multiple faces found');
+    } finally {
+      getCtxSpy.mockRestore();
+      globalThis.FileReader = origFileReader;
+      globalThis.Image = origImage;
+      vi.useRealTimers();
+    }
   });
 });
