@@ -122,7 +122,8 @@ describe('NotificationCenter page component', () => {
       root.render(<NotificationCenter />);
     });
 
-    expect(container.textContent).toContain('Notification Center');
+    // Topbar now renders page title; verified removed from in-page body
+    expect(container.textContent).not.toContain('Notification Center');
     expect(container.textContent).toContain('All');
     expect(container.textContent).toContain('Unread');
     expect(container.textContent).toContain('Archived');

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Bell,
   Search,
   Check,
   CheckCheck,
@@ -301,55 +300,8 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-12">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <Bell className="w-6 h-6 text-primary" />
-            Notification Center
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Manage system alerts, compliance warnings, and operational events.
-          </p>
-        </div>
+    <div className="dashboard-page space-y-5">
 
-        <div className="flex items-center gap-2">
-          {counts.unread > 0 && activeTab !== 'trash' && activeTab !== 'archived' && (
-            <button
-              type="button"
-              disabled={isActionInProgress}
-              onClick={async () => {
-                setIsActionInProgress(true);
-                try {
-                  await markAllAsRead();
-                  appToast.success('All notifications marked as read');
-                } catch {
-                  appToast.error('Failed to mark all as read');
-                } finally {
-                  setIsActionInProgress(false);
-                }
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/20 bg-accent text-primary text-xs font-semibold hover:bg-accent/80 transition cursor-pointer disabled:opacity-50"
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              Mark all as read
-            </button>
-          )}
-
-          {activeTab === 'trash' && counts.trash > 0 && (
-            <button
-              type="button"
-              disabled={isActionInProgress}
-              onClick={() => setEmptyTrashDialogOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 transition cursor-pointer disabled:opacity-50"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Empty Trash
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Retention Banner for Trash Tab */}
       {activeTab === 'trash' && (
@@ -363,46 +315,83 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
 
       {/* Tabs & Filters Card */}
       <div className="bg-white rounded-xl border border-border p-4 shadow-xs space-y-4">
-        {/* Status Tabs */}
-        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-1 border-b border-border">
-          {(
-            [
-              { key: 'all', label: 'All', count: counts.all },
-              { key: 'unread', label: 'Unread', count: counts.unread },
-              { key: 'read', label: 'Read', count: counts.read },
-              { key: 'archived', label: 'Archived', count: counts.archived },
-              { key: 'trash', label: 'Trash', count: counts.trash }
-            ] as const
-          ).map(tab => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap inline-flex items-center gap-1.5 cursor-pointer ${
-                activeTab === tab.key
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'
-              }`}
-            >
-              <span>{tab.label}</span>
-              {tab.count > 0 && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                    activeTab === tab.key
-                      ? 'bg-white/20 text-white'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        {/* Status Tabs and Quick Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border">
+          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-0.5">
+            {(
+              [
+                { key: "all", label: "All", count: counts.all },
+                { key: "unread", label: "Unread", count: counts.unread },
+                { key: "read", label: "Read", count: counts.read },
+                { key: "archived", label: "Archived", count: counts.archived },
+                { key: "trash", label: "Trash", count: counts.trash }
+              ] as const
+            ).map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap inline-flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === tab.key
+                    ? "bg-primary text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-panel-bg"
+                }`}
+              >
+                <span>{tab.label}</span>
+                {tab.count > 0 && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      activeTab === tab.key
+                        ? "bg-white/20 text-white"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-        {/* Search & Filter Pills */}
-        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-          <div className="relative flex-1 max-w-md">
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            {counts.unread > 0 && activeTab !== "trash" && activeTab !== "archived" && (
+              <button
+                type="button"
+                disabled={isActionInProgress}
+                onClick={async () => {
+                  setIsActionInProgress(true);
+                  try {
+                    await markAllAsRead();
+                    appToast.success("All notifications marked as read");
+                  } catch {
+                    appToast.error("Failed to mark all as read");
+                  } finally {
+                    setIsActionInProgress(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/20 bg-accent text-primary text-xs font-semibold hover:bg-accent/80 transition cursor-pointer disabled:opacity-50"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                Mark all as read
+              </button>
+            )}
+
+            {activeTab === "trash" && counts.trash > 0 && (
+              <button
+                type="button"
+                disabled={isActionInProgress}
+                onClick={() => setEmptyTrashDialogOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 transition cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Empty Trash
+              </button>
+            )}
+          </div>
+        </div>
+        {/* Search & Filter Controls */}
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="relative flex-1 max-w-lg">
             <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -415,19 +404,19 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2.5 shrink-0">
             {/* Priority Selector */}
             <select
               value={selectedPriority}
               onChange={e => setSelectedPriority(e.target.value)}
-              className="ar-input text-xs py-1.5 h-9"
+              className="ar-input text-xs py-1.5 h-9 min-w-[130px]"
             >
               <option value="all">All Priorities</option>
               <option value="critical">Critical</option>
@@ -440,7 +429,7 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
             <select
               value={selectedCategory}
               onChange={e => setSelectedCategory(e.target.value)}
-              className="ar-input text-xs py-1.5 h-9 capitalize"
+              className="ar-input text-xs py-1.5 h-9 min-w-[140px] capitalize"
             >
               <option value="all">All Categories</option>
               <option value="attendance">Attendance</option>
