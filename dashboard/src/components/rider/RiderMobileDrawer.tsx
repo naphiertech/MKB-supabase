@@ -8,6 +8,7 @@ import {
   CalendarDays,
   FileWarning,
   MapPin,
+  Wallet,
   User,
   LogOut
 } from 'lucide-react';
@@ -56,6 +57,11 @@ const ITEMS: {
     key: 'monitoring',
     label: 'My Location',
     icon: MapPin
+  },
+  {
+    key: 'payouts',
+    label: 'My Payouts',
+    icon: Wallet
   },
   {
     key: 'profile',

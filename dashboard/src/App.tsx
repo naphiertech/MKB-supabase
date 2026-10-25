@@ -29,6 +29,7 @@ const RiderMonitoring = lazy(() => import('./pages/RiderMonitoring').then((modul
 const RiderProfile = lazy(() => import('./pages/RiderProfile').then((module) => ({ default: module.RiderProfile })));
 const RiderSchedule = lazy(() => import('./pages/RiderSchedule').then((module) => ({ default: module.RiderSchedule })));
 const RiderLeaveAbsence = lazy(() => import('./pages/RiderLeaveAbsence').then((module) => ({ default: module.RiderLeaveAbsence })));
+const RiderPayouts = lazy(() => import('./pages/RiderPayouts').then((module) => ({ default: module.RiderPayouts })));
 const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring').then((module) => ({ default: module.LiveMonitoring })));
 const Geofence = lazy(() => import('./pages/Geofence').then((module) => ({ default: module.Geofence })));
 const Attendance = lazy(() => import('./pages/Attendance').then((module) => ({ default: module.Attendance })));
@@ -446,10 +447,13 @@ export function App() {
                   {riderPage === 'leave_absence' &&
                     <RiderLeaveAbsence userId={user.id} riderId={riderId} employmentType={user.employmentType} />
                   }
+                  {riderPage === 'payouts' &&
+                    <RiderPayouts userId={user.id} riderId={riderId} restricted={user.status === 'suspended'} />
+                  }
                   {riderPage === 'notifications' && (
                     <NotificationCenter onNavigate={(p) => {
                       const key = p.replace('/rider/', '').replace('/', '') as RiderPageKey;
-                      if (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'profile' || key === 'notifications') {
+                      if (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'payouts' || key === 'profile' || key === 'notifications') {
                         setRiderPage(key);
                       }
                     }} />

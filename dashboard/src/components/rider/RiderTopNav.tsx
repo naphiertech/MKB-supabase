@@ -13,7 +13,8 @@ import {
   X,
   Bell,
   RefreshCw,
-  TriangleAlert } from
+  TriangleAlert,
+  Wallet } from
 'lucide-react';
 import { BRANDING } from "../../config/branding";
 import { NotificationDropdown } from '../common/NotificationDropdown';
@@ -21,7 +22,7 @@ import type { Notification } from '../../hooks/useNotifications';
 import { useSyncQueueStatus } from '../../hooks/useSyncQueueStatus';
 import { SyncQueueDiagnosticsModal } from './SyncQueueDiagnosticsModal';
 import { RiderMobileDrawer } from './RiderMobileDrawer';
-export type RiderPageKey = 'dashboard' | 'attendance' | 'schedule' | 'leave_absence' | 'monitoring' | 'profile' | 'notifications';
+export type RiderPageKey = 'dashboard' | 'attendance' | 'schedule' | 'leave_absence' | 'monitoring' | 'payouts' | 'profile' | 'notifications';
 interface RiderTopNavProps {
   current: RiderPageKey;
   onNavigate: (page: RiderPageKey) => void;
@@ -71,6 +72,12 @@ const ITEMS: {
   label: 'My Location',
   icon: MapPin,
   route: '/rider/monitoring'
+},
+{
+  key: 'payouts',
+  label: 'My Payouts',
+  icon: Wallet,
+  route: '/rider/payouts'
 },
 {
   key: 'profile',

@@ -107,11 +107,17 @@ function normalizeBalance(row: BalanceRow): PayrollDeductionBalance {
   };
 }
 
-export async function listPayrollDeductionBalances(): Promise<PayrollDeductionBalance[]> {
-  const { data, error } = await supabase
+export async function listPayrollDeductionBalances(riderId?: string): Promise<PayrollDeductionBalance[]> {
+  let query = supabase
     .from('v_payroll_deduction_balances')
     .select('*')
     .order('adjustment_date', { ascending: false });
+
+  if (riderId) {
+    query = query.eq('rider_id', riderId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map(normalizeBalance);
 }

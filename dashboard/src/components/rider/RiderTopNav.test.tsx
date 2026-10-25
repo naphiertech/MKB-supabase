@@ -141,4 +141,29 @@ describe('RiderTopNav', () => {
 
     expect(onNavigate).toHaveBeenCalledWith('leave_absence');
   });
+
+  it('renders My Payouts nav item and calls onNavigate with payouts', () => {
+    const onNavigate = vi.fn();
+
+    act(() => {
+      root.render(
+        <RiderTopNav
+          current="dashboard"
+          onNavigate={onNavigate}
+          user={{ name: 'Juan Dela Cruz', avatar: 'https://example.com/avatar.png', zoneName: 'Tetuan Sector' }}
+          notifications={[]}
+          unreadCount={0}
+          onMarkAsRead={vi.fn()}
+          onMarkAllAsRead={vi.fn()}
+        />,
+      );
+    });
+
+    const payoutsButton = Array.from(container.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('My Payouts'),
+    );
+    expect(payoutsButton).toBeDefined();
+    act(() => payoutsButton?.click());
+    expect(onNavigate).toHaveBeenCalledWith('payouts');
+  });
 });

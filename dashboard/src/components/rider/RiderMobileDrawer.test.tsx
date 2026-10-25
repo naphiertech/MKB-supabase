@@ -58,6 +58,7 @@ describe('RiderMobileDrawer', () => {
     expect(dialog?.textContent).toContain('Time-In/Out');
     expect(dialog?.textContent).toContain('My Schedule');
     expect(dialog?.textContent).toContain('My Location');
+    expect(dialog?.textContent).toContain('My Payouts');
     expect(dialog?.textContent).toContain('Profile');
     expect(dialog?.textContent).toContain('Sign out');
 

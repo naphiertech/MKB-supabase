@@ -181,3 +181,44 @@ export function RiderLeaveAbsenceSkeleton() {
     </SkeletonPage>
   );
 }
+
+export function RiderPayoutsSkeleton() {
+  return (
+    <SkeletonPage className="mx-auto max-w-5xl space-y-6" label="Loading My Payouts">
+      <div className="space-y-1.5">
+        <SkeletonBlock className="h-6 w-36 rounded" />
+        <SkeletonBlock className="h-3.5 w-72 max-w-full rounded" />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="ui-card p-4 space-y-2">
+            <SkeletonBlock className="h-3 w-24 rounded" />
+            <SkeletonBlock className="h-7 w-32 rounded" />
+            <SkeletonBlock className="h-2.5 w-40 max-w-full rounded" />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-3">
+          <SkeletonBlock className="h-4 w-32 rounded" />
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="ui-card p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <SkeletonBlock className="h-4 w-28 rounded" />
+                <SkeletonBlock className="h-5 w-16 rounded-full" />
+              </div>
+              <SkeletonBlock className="h-5 w-24 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="lg:col-span-2 ui-card p-5 space-y-4">
+          <SkeletonBlock className="h-5 w-48 rounded" />
+          <SkeletonBlock className="h-32 w-full rounded-xl" />
+          <SkeletonBlock className="h-40 w-full rounded-xl" />
+        </div>
+      </div>
+    </SkeletonPage>
+  );
+}
