@@ -8,7 +8,7 @@ import { clearCachedAvatar } from '../../lib/avatarCache';
 import { clearCachedDescriptor } from '../../lib/descriptorCache';
 import { clearRiderScheduleCache } from '../workforce/riderScheduleService';
 import { clearRiderAbsenceRequestCache } from '../workforce/riderAbsenceRequestService';
-import { listAttendanceContext, type AttendanceContextLog } from '../attendance/attendanceContextService';
+import { listAttendanceContext, reconcileClockIntoContextRow, type AttendanceContextLog } from '../attendance/attendanceContextService';
 
 export interface DBUserProfileRow {
   id: string;
@@ -219,18 +219,7 @@ export async function fetchRiderDashboardWithSWR(
       for (const ctx of monthAttendanceContext) {
         const clockRow = clocksByDate.get(ctx.date);
         if (clockRow && clockRow.time_in) {
-          ctx.id = clockRow.id;
-          ctx.attendanceLogId = clockRow.id;
-          ctx.timeIn = clockRow.time_in;
-          ctx.timeOut = clockRow.time_out;
-          ctx.rawTimeIn = clockRow.time_in;
-          ctx.rawTimeOut = clockRow.time_out;
-          ctx.rawStatus = clockRow.status as typeof ctx.rawStatus;
-          ctx.status = clockRow.status as typeof ctx.status;
-          ctx.presence = ctx.status;
-          ctx.punctuality = clockRow.status === 'late' ? 'late' : 'on_time';
-          if (ctx.plannedLeaveEffective) ctx.contextCode = 'worked_during_approved_leave';
-          else if (ctx.absenceNoticeEffective) ctx.contextCode = 'worked_despite_accepted_notice';
+          reconcileClockIntoContextRow(ctx, clockRow);
         }
       }
     }
@@ -291,19 +280,7 @@ export async function updateCachedAttendanceState(
       if (attLog && cached.monthAttendanceContext) {
         const context = cached.monthAttendanceContext.find(row => (row.riderId ? row.riderId === riderId : true) && row.date === attLog.date);
         if (context) {
-          context.id = attLog.id;
-          context.attendanceLogId = attLog.id;
-          context.timeIn = attLog.time_in;
-          context.timeOut = attLog.time_out;
-          context.rawTimeIn = attLog.time_in;
-          context.rawTimeOut = attLog.time_out;
-          context.rawStatus = attLog.status as typeof context.rawStatus;
-          context.status = attLog.status as typeof context.status;
-          context.presence = context.status;
-          context.source = attLog.source as typeof context.source;
-          context.punctuality = attLog.status === 'late' ? 'late' : 'on_time';
-          if (context.plannedLeaveEffective) context.contextCode = 'worked_during_approved_leave';
-          else if (context.absenceNoticeEffective) context.contextCode = 'worked_despite_accepted_notice';
+          reconcileClockIntoContextRow(context, attLog);
         }
       }
       await setCachedRiderDashboard(userId, cached);

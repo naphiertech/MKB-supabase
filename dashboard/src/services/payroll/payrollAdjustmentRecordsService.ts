@@ -177,7 +177,8 @@ export async function listPayrollAdjustmentRiderEvents(input: {
   const source = data ?? [];
   return {
     rows: source.map((row: RiderEventRow) => {
-      const { total_count: _totalCount, ...balance } = row;
+      const balance = { ...row };
+      delete (balance as Record<string, unknown>).total_count;
       return normalizeBalance(balance as BalanceRow);
     }),
     total: Number(source[0]?.total_count ?? 0),

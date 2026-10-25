@@ -7,22 +7,19 @@ import { pushToast } from '../../hooks/useToast';
 import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricTelemetry';
 import { isPointInPolygon } from '../../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../../lib/riderGeolocation';
-import { notifyAttendanceEvent, notifyGeofenceWarning } from '../../lib/nativeNotifications';
+import { notifyGeofenceWarning } from '../../lib/nativeNotifications';
 import { startForegroundDutyTracking, stopForegroundDutyTracking } from '../../lib/foregroundTracking';
-import { updateCachedAttendanceState } from '../../services/riders/riderCacheService';
 import {
   getMyHubAttendanceGeofence,
   isAttendanceFinalized,
-  recordTimeIn,
-  recordTimeOut,
   type HubAttendanceGeofence,
 } from '../../services/attendance/attendanceService';
-import { logRiderLocation, updateRiderStatus } from '../../services/monitoring/monitoringService';
+import { executeShiftTransition } from '../../services/attendance/shiftSessionService';
+import { logRiderLocation } from '../../services/monitoring/monitoringService';
 import { haversine, type Zone } from '../../services/types';
 import {
   deriveAttendanceAction,
   diffPretty,
-  getLocalDateString,
   nowHHMM,
   parseTime,
   type DashboardActiveViolation,
@@ -534,82 +531,45 @@ export function useRiderShiftController({
 
     if (!currentRider || !currentRiderId) return;
 
-    const stamp = nowHHMM(new Date(result.capturedAt));
-    if (currentPendingAction === 'time-in') {
-      if (!currentVerifiedPosition) {
-        pushToast({
-          title: 'Time-In paused',
-          description: 'The GPS reading expired during verification. Acquire a new location and try again.',
-          tone: 'error',
-        });
-        setScanOpen(false);
-        retryLocation();
-        return;
-      }
-      const finishAttendancePersistence = biometricTelemetry.start(
-        BIOMETRIC_TIMING_NAMES.attendancePersistence('time_in'),
-      );
-      attendanceWriteInFlightRef.current = true;
-      recordTimeIn(currentRiderId, {
-        lat: currentVerifiedPosition.lat,
-        lng: currentVerifiedPosition.lng,
-        accuracy: currentVerifiedPosition.accuracy,
-        positionTimestamp: currentVerifiedPosition.ts,
-      }).then(async (newLog) => {
-        finishAttendancePersistence();
-        if (!newLog) {
-          pushToast({
-            title: 'Time-In failed',
-            description: 'Database clock-in failed. Please try again.',
-            tone: 'error',
-          });
-          return;
-        }
+    const actionLabel = currentPendingAction === 'time-in' ? 'Time-In' : 'Time-Out';
+    if (currentPendingAction === 'time-out' && !attendanceRef.current.id) {
+      console.error('[RiderDashboard] Cannot record time-out: No active attendance log ID.');
+      pushToast({
+        title: 'Time-Out failed',
+        description: 'Active shift record not found. Please refresh and try again.',
+        tone: 'error',
+      });
+      return;
+    }
 
-        const finishStatusPersistence = biometricTelemetry.start(
-          BIOMETRIC_TIMING_NAMES.riderStatusPersistence('time_in'),
-        );
-        try {
-          await updateRiderStatus(currentRiderId, 'active', currentVerifiedPosition.lat, currentVerifiedPosition.lng);
-          if (inZoneRef.current === null) {
-            await logRiderLocation(currentRiderId, currentVerifiedPosition.lat, currentVerifiedPosition.lng);
-          } else {
-            await logRiderLocation(currentRiderId, currentVerifiedPosition.lat, currentVerifiedPosition.lng, 'active');
-          }
-        } catch (err) {
-          console.error('[RiderDashboard] Failed to push initial time-in coordinates:', err);
-        } finally {
-          finishStatusPersistence();
-        }
+    if (!currentVerifiedPosition) {
+      pushToast({
+        title: `${actionLabel} paused`,
+        description: 'The GPS reading expired during verification. Acquire a new location and try again.',
+        tone: 'error',
+      });
+      setScanOpen(false);
+      retryLocation();
+      return;
+    }
 
-        if (!navigator.onLine) {
-          await updateCachedAttendanceState(userId, currentRiderId, {
-            id: newLog.id,
-            rider_id: currentRiderId,
-            date: newLog.date,
-            time_in: newLog.rawTimeIn || null,
-            time_out: null,
-            hours: 0,
-            status: 'present',
-          });
-        }
+    attendanceWriteInFlightRef.current = true;
+    executeShiftTransition({
+      riderId: currentRiderId,
+      userId,
+      action: currentPendingAction,
+      activeLogId: attendanceRef.current.id,
+      currentTimeIn,
+      hubName: hubGeofence?.hub_name || zoneName || 'Assigned Hub',
+      position: currentVerifiedPosition,
+      inZone: inZoneRef.current,
+      capturedAt: result.capturedAt,
+      reload,
+    }).then(({ stamp }) => {
+      finishUserPerceivedTimingRef.current?.();
+      finishUserPerceivedTimingRef.current = null;
 
-        const finishDashboardRefresh = biometricTelemetry.start(
-          BIOMETRIC_TIMING_NAMES.dashboardRefresh('time_in'),
-        );
-        try {
-          await reload();
-        } finally {
-          finishDashboardRefresh();
-        }
-        finishUserPerceivedTimingRef.current?.();
-        finishUserPerceivedTimingRef.current = null;
-        void notifyAttendanceEvent({ type: 'time-in', timestamp: stamp });
-        void startForegroundDutyTracking({
-          riderId: currentRiderId,
-          hubName: hubGeofence?.hub_name || zoneName || 'Assigned Hub',
-        });
-
+      if (currentPendingAction === 'time-in') {
         setEventsRef.current((prev) => [
           {
             id: `ti-${Date.now()}`,
@@ -620,112 +580,12 @@ export function useRiderShiftController({
           },
           ...prev,
         ]);
-        outsideAttemptsRef.current = 0;
-        setOutsideAttempts(0);
-        cooldownActiveRef.current = false;
-        setCooldownSecondsRemaining(0);
         pushToast({
           title: 'Time-In recorded',
           description: `Welcome on duty, ${currentRider.name.split(' ')[0]}.`,
           tone: 'success',
         });
-      }).catch((err) => {
-        finishAttendancePersistence();
-        console.error('Error ticking in:', err);
-        pushToast({
-          title: 'Time-In failed',
-          description: err?.message || 'Database clock-in failed. Please try again.',
-          tone: 'error',
-        });
-      }).finally(() => {
-        attendanceWriteInFlightRef.current = false;
-      });
-    } else {
-      const activeLogId = attendanceRef.current.id;
-      if (!activeLogId) {
-        console.error('[RiderDashboard] Cannot record time-out: No active attendance log ID.');
-        pushToast({
-          title: 'Time-Out failed',
-          description: 'Active shift record not found. Please refresh and try again.',
-          tone: 'error',
-        });
-        return;
-      }
-
-      if (!currentVerifiedPosition) {
-        pushToast({
-          title: 'Time-Out paused',
-          description: 'The GPS reading expired during verification. Acquire a new location and try again.',
-          tone: 'error',
-        });
-        setScanOpen(false);
-        retryLocation();
-        return;
-      }
-
-      const finishAttendancePersistence = biometricTelemetry.start(
-        BIOMETRIC_TIMING_NAMES.attendancePersistence('time_out'),
-      );
-      attendanceWriteInFlightRef.current = true;
-      recordTimeOut(activeLogId, {
-        riderId: currentRiderId,
-        date: getLocalDateString(),
-        lat: currentVerifiedPosition.lat,
-        lng: currentVerifiedPosition.lng,
-        accuracy: currentVerifiedPosition.accuracy,
-        positionTimestamp: currentVerifiedPosition.ts,
-      }).then(async (success) => {
-        finishAttendancePersistence();
-        if (!success) {
-          pushToast({
-            title: 'Time-Out failed',
-            description: 'Database clock-out failed. Please try again.',
-            tone: 'error',
-          });
-          return;
-        }
-
-        const finishStatusPersistence = biometricTelemetry.start(
-          BIOMETRIC_TIMING_NAMES.riderStatusPersistence('time_out'),
-        );
-        try {
-          await updateRiderStatus(
-            currentRiderId,
-            'offline',
-            currentVerifiedPosition.lat,
-            currentVerifiedPosition.lng,
-          );
-        } catch (err) {
-          console.error('[RiderDashboard] Failed to update offline status:', err);
-        } finally {
-          finishStatusPersistence();
-        }
-
-        if (!navigator.onLine) {
-          await updateCachedAttendanceState(userId, currentRiderId, {
-            id: activeLogId,
-            rider_id: currentRiderId,
-            date: getLocalDateString(),
-            time_in: currentTimeIn,
-            time_out: new Date().toISOString(),
-            hours: 0,
-            status: 'present',
-          });
-        }
-
-        const finishDashboardRefresh = biometricTelemetry.start(
-          BIOMETRIC_TIMING_NAMES.dashboardRefresh('time_out'),
-        );
-        try {
-          await reload();
-        } finally {
-          finishDashboardRefresh();
-        }
-        finishUserPerceivedTimingRef.current?.();
-        finishUserPerceivedTimingRef.current = null;
-        void notifyAttendanceEvent({ type: 'time-out', timestamp: stamp });
-        void stopForegroundDutyTracking();
-
+      } else {
         setEventsRef.current((prev) => [
           {
             id: `to-${Date.now()}`,
@@ -736,27 +596,27 @@ export function useRiderShiftController({
           },
           ...prev,
         ]);
-        outsideAttemptsRef.current = 0;
-        setOutsideAttempts(0);
-        cooldownActiveRef.current = false;
-        setCooldownSecondsRemaining(0);
         pushToast({
           title: 'Time-Out recorded',
           description: 'Great work today. Drive safe.',
           tone: 'success',
         });
-      }).catch((err) => {
-        finishAttendancePersistence();
-        console.error('Error ticking out:', err);
-        pushToast({
-          title: 'Time-Out failed',
-          description: err?.message || 'Database clock-out failed. Please try again.',
-          tone: 'error',
-        });
-      }).finally(() => {
-        attendanceWriteInFlightRef.current = false;
+      }
+
+      outsideAttemptsRef.current = 0;
+      setOutsideAttempts(0);
+      cooldownActiveRef.current = false;
+      setCooldownSecondsRemaining(0);
+    }).catch((err) => {
+      console.error(`Error ticking ${currentPendingAction === 'time-in' ? 'in' : 'out'}:`, err);
+      pushToast({
+        title: `${actionLabel} failed`,
+        description: err?.message || `Database clock-${currentPendingAction === 'time-in' ? 'in' : 'out'} failed. Please try again.`,
+        tone: 'error',
       });
-    }
+    }).finally(() => {
+      attendanceWriteInFlightRef.current = false;
+    });
     const t = window.setTimeout(() => setScanOpen(false), 1200);
     return () => window.clearTimeout(t);
   }, [phase, result, reload, retryLocation, restricted, setScanOpen, userId]);

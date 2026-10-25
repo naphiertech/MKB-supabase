@@ -251,6 +251,52 @@ export function mergeAttendanceContextDetails(
   });
 }
 
+export interface AttendanceClockSnapshot {
+  id?: string | null;
+  time_in?: string | null;
+  time_out?: string | null;
+  status?: string | null;
+  source?: string | null;
+  hours?: number | null;
+  date?: string | null;
+}
+
+/**
+ * Reconciles an active or offline clock record into an attendance context row.
+ * Sets punctuality, status, timestamps, and preserves worked-during-leave or worked-despite-notice context codes.
+ */
+export function reconcileClockIntoContextRow(
+  context: AttendanceContextLog,
+  clock: AttendanceClockSnapshot,
+): AttendanceContextLog {
+  if (!clock.time_in) return context;
+
+  context.id = clock.id ?? context.id;
+  context.attendanceLogId = clock.id ?? context.attendanceLogId;
+  context.timeIn = clock.time_in;
+  context.timeOut = clock.time_out ?? context.timeOut;
+  context.rawTimeIn = clock.time_in;
+  context.rawTimeOut = clock.time_out ?? context.rawTimeOut;
+  if (clock.hours !== undefined && clock.hours !== null) {
+    context.hours = clock.hours;
+  }
+  if (clock.status) {
+    context.rawStatus = clock.status as typeof context.rawStatus;
+    context.status = clock.status as typeof context.status;
+    context.presence = context.status;
+    context.punctuality = clock.status === 'late' ? 'late' : 'on_time';
+  }
+  if (clock.source) {
+    context.source = clock.source as typeof context.source;
+  }
+  if (context.plannedLeaveEffective) {
+    context.contextCode = 'worked_during_approved_leave';
+  } else if (context.absenceNoticeEffective) {
+    context.contextCode = 'worked_despite_accepted_notice';
+  }
+  return context;
+}
+
 export async function listAttendanceContext(query: AttendanceContextQuery): Promise<AttendanceContextLog[]> {
   if (!isValidDate(query.fromDate) || !isValidDate(query.toDate) || query.toDate < query.fromDate) {
     throw new Error('A valid Attendance context date range is required.');

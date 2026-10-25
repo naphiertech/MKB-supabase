@@ -5,6 +5,7 @@ import {
   getPresentationStatus,
   mergeAttendanceContextDetails,
   mapAttendanceContextRow,
+  reconcileClockIntoContextRow,
   type AttendanceContextApiRow,
 } from './attendanceContextService';
 
@@ -174,5 +175,69 @@ describe('listAttendanceContext', () => {
     await expect(listAttendanceContext({ fromDate: '2026-09-03', toDate: '2026-09-01' }))
       .rejects.toThrow('valid Attendance context date range');
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  describe('reconcileClockIntoContextRow', () => {
+    it('reconciles timestamps, late status, and punctuality', () => {
+      const base = mapAttendanceContextRow(apiRow({
+        business_date: '2026-09-01',
+        raw_status: null,
+        effective_status: 'absent',
+      }));
+
+      const reconciled = reconcileClockIntoContextRow(base, {
+        id: 'log-123',
+        time_in: '2026-09-01T08:35:00.000Z',
+        time_out: '2026-09-01T17:00:00.000Z',
+        status: 'late',
+        hours: 8,
+      });
+
+      expect(reconciled.id).toBe('log-123');
+      expect(reconciled.attendanceLogId).toBe('log-123');
+      expect(reconciled.timeIn).toBe('2026-09-01T08:35:00.000Z');
+      expect(reconciled.timeOut).toBe('2026-09-01T17:00:00.000Z');
+      expect(reconciled.status).toBe('late');
+      expect(reconciled.punctuality).toBe('late');
+      expect(reconciled.hours).toBe(8);
+    });
+
+    it('updates context code to worked_during_approved_leave when leave was approved', () => {
+      const base = mapAttendanceContextRow(apiRow({
+        planned_leave_effective: true,
+        context_code: 'approved_leave',
+      }));
+
+      const reconciled = reconcileClockIntoContextRow(base, {
+        id: 'log-456',
+        time_in: '2026-09-01T08:00:00.000Z',
+        status: 'present',
+      });
+
+      expect(reconciled.contextCode).toBe('worked_during_approved_leave');
+    });
+
+    it('updates context code to worked_despite_accepted_notice when notice was accepted', () => {
+      const base = mapAttendanceContextRow(apiRow({
+        planned_leave_effective: false,
+        absence_notice_effective: true,
+        context_code: 'accepted_notice',
+      }));
+
+      const reconciled = reconcileClockIntoContextRow(base, {
+        id: 'log-789',
+        time_in: '2026-09-01T08:00:00.000Z',
+        status: 'present',
+      });
+
+      expect(reconciled.contextCode).toBe('worked_despite_accepted_notice');
+    });
+
+    it('leaves context unchanged if clock has no time_in', () => {
+      const base = mapAttendanceContextRow(apiRow());
+      const reconciled = reconcileClockIntoContextRow(base, { id: 'log-no-time' });
+      expect(reconciled.id).toBeNull();
+      expect(reconciled.timeIn).toBeNull();
+    });
   });
 });

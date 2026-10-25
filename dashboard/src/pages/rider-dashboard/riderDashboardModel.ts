@@ -2,7 +2,7 @@ import type {
   CachedDashboardPayload,
   DBRiderRow,
 } from '../../services/riders/riderCacheService';
-import type { AttendanceContextLog } from '../../services/attendance/attendanceContextService';
+import { reconcileClockIntoContextRow, type AttendanceContextLog } from '../../services/attendance/attendanceContextService';
 import type { Rider } from '../../services/types';
 
 export interface DashboardAttendanceLog {
@@ -196,16 +196,9 @@ export function mapCachedDashboardPayloadToState(
   const monthAttendanceLogs = payload.monthAttendanceContext?.length
     ? payload.monthAttendanceContext.map((log) => {
         if (payload.todayAttendance && payload.todayAttendance.date === log.date && payload.todayAttendance.time_in) {
-          return mapContextToDashboardLog({
-            ...log,
-            rawTimeIn: payload.todayAttendance.time_in,
-            rawTimeOut: payload.todayAttendance.time_out,
-            timeIn: payload.todayAttendance.time_in,
-            timeOut: payload.todayAttendance.time_out,
-            hours: payload.todayAttendance.hours ?? log.hours,
-            rawStatus: payload.todayAttendance.status as any,
-            status: payload.todayAttendance.status as any,
-          });
+          const cloned = { ...log };
+          reconcileClockIntoContextRow(cloned, payload.todayAttendance);
+          return mapContextToDashboardLog(cloned);
         }
         return mapContextToDashboardLog(log);
       })
