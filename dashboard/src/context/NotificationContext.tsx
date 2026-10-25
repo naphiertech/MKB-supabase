@@ -334,7 +334,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [userRole, userId]);
 
-  const handleArchiveNotifications = useCallback(async (ids: string[], archive: boolean = true) => {
+  const handleArchiveNotifications = useCallback(async (ids: string[], archive = true) => {
     const timestamp = archive ? new Date().toISOString() : null;
     setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, archived_at: timestamp } : n));
     try {

@@ -266,7 +266,7 @@ export async function getNotificationsForUser(options: {
 /**
  * Marks multiple notifications as read or unread in bulk.
  */
-export async function markNotificationsAsReadBulk(ids: string[], read: boolean = true): Promise<void> {
+export async function markNotificationsAsReadBulk(ids: string[], read = true): Promise<void> {
   if (ids.length === 0) return;
   const { error } = await supabase
     .from('notifications')
@@ -279,7 +279,7 @@ export async function markNotificationsAsReadBulk(ids: string[], read: boolean =
 /**
  * Archives or unarchives notifications in bulk.
  */
-export async function archiveNotificationsBulk(ids: string[], archive: boolean = true): Promise<void> {
+export async function archiveNotificationsBulk(ids: string[], archive = true): Promise<void> {
   if (ids.length === 0) return;
   const { error } = await supabase
     .from('notifications')

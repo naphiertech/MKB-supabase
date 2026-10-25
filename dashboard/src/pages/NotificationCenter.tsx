@@ -229,7 +229,7 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
     }
   };
 
-  const handleBulkArchive = async (archive: boolean = true) => {
+  const handleBulkArchive = async (archive = true) => {
     if (selectedIds.size === 0) return;
     setIsActionInProgress(true);
     try {
