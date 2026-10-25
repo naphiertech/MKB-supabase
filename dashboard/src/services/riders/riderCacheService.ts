@@ -351,7 +351,13 @@ export async function clearRiderSensitiveCache(userId: string, riderId?: string)
     clearRiderScheduleCache(userId, riderId),
     clearRiderAbsenceRequestCache(userId, riderId),
   ]);
-  if (typeof localStorage !== 'undefined') localStorage.removeItem(`custom_avatar_${userId}`);
+  try {
+    if (typeof localStorage !== 'undefined' && typeof localStorage.removeItem === 'function') {
+      localStorage.removeItem(`custom_avatar_${userId}`);
+    }
+  } catch {
+    // Ignore environments where localStorage access is restricted
+  }
   if (riderId) {
     clearCachedAvatar(riderId);
     clearCachedDescriptor(riderId);
