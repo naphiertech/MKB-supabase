@@ -23,6 +23,7 @@ interface NotificationDropdownProps {
   onMarkAllAsRead: () => void;
   onClose: () => void;
   onNavigate?: (path: string) => void;
+  onViewAll?: () => void;
 }
 
 const CATEGORY_STYLES: Record<
@@ -112,7 +113,8 @@ export function NotificationDropdown({
   onMarkAsRead,
   onMarkAllAsRead,
   onClose,
-  onNavigate
+  onNavigate,
+  onViewAll
 }: NotificationDropdownProps) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -308,6 +310,24 @@ export function NotificationDropdown({
             })}
           </ul>
         )}
+        {/* Sticky Footer: View All Notifications */}
+        <div className="sticky bottom-0 border-t border-border bg-white/95 backdrop-blur-xs p-2.5 px-4 flex items-center justify-between text-xs rounded-b-2xl">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              if (onViewAll) {
+                onViewAll();
+              } else if (onNavigate) {
+                onNavigate('/notifications');
+              }
+            }}
+            className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-accent/60 hover:bg-accent text-primary font-bold transition text-xs border border-primary/20 shadow-xs cursor-pointer group"
+          >
+            <span>View All Notifications</span>
+            <ChevronRight className="w-3.5 h-3.5 transition group-hover:translate-x-0.5" />
+          </button>
+        </div>
       </motion.div>
     </>
   );

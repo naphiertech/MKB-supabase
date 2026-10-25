@@ -21,7 +21,7 @@ import type { Notification } from '../../hooks/useNotifications';
 import { useSyncQueueStatus } from '../../hooks/useSyncQueueStatus';
 import { SyncQueueDiagnosticsModal } from './SyncQueueDiagnosticsModal';
 import { RiderMobileDrawer } from './RiderMobileDrawer';
-export type RiderPageKey = 'dashboard' | 'attendance' | 'schedule' | 'leave_absence' | 'monitoring' | 'profile';
+export type RiderPageKey = 'dashboard' | 'attendance' | 'schedule' | 'leave_absence' | 'monitoring' | 'profile' | 'notifications';
 interface RiderTopNavProps {
   current: RiderPageKey;
   onNavigate: (page: RiderPageKey) => void;
@@ -194,9 +194,10 @@ export function RiderTopNav({
             onMarkAsRead={onMarkAsRead}
             onMarkAllAsRead={onMarkAllAsRead}
             onClose={() => setNotifOpen(false)}
+            onViewAll={() => onNavigate('notifications')}
             onNavigate={(path) => {
               const key = path.replace('/rider/', '').replace('/', '') as RiderPageKey;
-              if (onNavigate && (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'profile')) {
+              if (onNavigate && (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'profile' || key === 'notifications')) {
                 onNavigate(key);
               }
             }}

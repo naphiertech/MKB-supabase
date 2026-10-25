@@ -48,17 +48,19 @@ const mapNotification = (record: NotificationRecord): Notification => ({
 export function useNotifications(allowedTypes?: NotificationType[]) {
   const { notifications: rawRecords, markAsRead: ctxMarkAsRead, markAllAsRead: ctxMarkAllAsRead } = useNotificationContext();
 
-  const mapped = useMemo(
-    () => rawRecords.map(mapNotification),
+
+  // Exclude soft-deleted items from the topbar bell popover feed
+  const activeMapped = useMemo(
+    () => rawRecords.filter(r => !r.deleted_at).map(mapNotification),
     [rawRecords]
   );
 
   const visible = useMemo(
     () =>
       allowedTypes
-        ? mapped.filter((n) => allowedTypes.includes(n.type))
-        : mapped,
-    [mapped, allowedTypes]
+        ? activeMapped.filter((n) => allowedTypes.includes(n.type))
+        : activeMapped,
+    [activeMapped, allowedTypes]
   );
 
   const unreadCount = useMemo(

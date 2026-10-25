@@ -100,15 +100,19 @@ const TITLES: Record<
     title: 'Leave & Absence',
     subtitle: 'Review private Rider leave requests and Absence Notices'
   },
+  notifications: {
+    title: "Notification Center",
+    subtitle: "System alerts, compliance notices, and operational events"
+  },
   hubs: {
     title: 'Hub Management',
     subtitle: 'Manage hubs and zone assignments'
   }
 };
 const ALLOWED_PAGES_BY_ROLE: Record<TopbarRole, PageKey[]> = {
-  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'rider_scheduling', 'leave_absence', 'reviews', 'payroll', 'payroll_adjustments', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'fms_import', 'daily_parcels', 'parcel_history'],
-  hr: ['dashboard', 'monitoring', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'rider_scheduling', 'leave_absence', 'reviews', 'payroll', 'payroll_adjustments', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'fms_import', 'daily_parcels', 'parcel_history'],
-  payroll: ['dashboard', 'computation', 'payroll_adjustments', 'reports', 'settings', 'attendance_policy', 'parcel_rates']
+  admin: ['dashboard', 'monitoring', 'geofence', 'hubs', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'rider_scheduling', 'leave_absence', 'reviews', 'payroll', 'payroll_adjustments', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'fms_import', 'daily_parcels', 'parcel_history', 'notifications'],
+  hr: ['dashboard', 'monitoring', 'attendance', 'attendance_policy', 'users', 'rider_assignments', 'rider_scheduling', 'leave_absence', 'reviews', 'payroll', 'payroll_adjustments', 'parcel_rates', 'reports', 'settings', 'audit_logs', 'fms_import', 'daily_parcels', 'parcel_history', 'notifications'],
+  payroll: ['dashboard', 'computation', 'payroll_adjustments', 'reports', 'settings', 'attendance_policy', 'parcel_rates', 'notifications']
 };
 
 type TopbarRole = 'admin' | 'hr' | 'payroll';

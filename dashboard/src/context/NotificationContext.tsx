@@ -10,7 +10,12 @@ import {
   markAllNotificationsAsRead,
   type NotificationRecord,
   type UserRole,
-  type NotificationPriority
+  type NotificationPriority,
+  archiveNotificationsBulk,
+  trashNotificationsBulk,
+  restoreNotificationsBulk,
+  deleteNotificationsPermanentlyBulk,
+  emptyTrashNotifications
 } from '../services/notifications/notificationService';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -30,6 +35,11 @@ interface NotificationContextType {
   notificationPreferencesError: string | null;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  archiveNotifications: (ids: string[], archive?: boolean) => Promise<void>;
+  trashNotifications: (ids: string[]) => Promise<void>;
+  restoreNotifications: (ids: string[]) => Promise<void>;
+  deleteNotificationsPermanently: (ids: string[]) => Promise<void>;
+  emptyTrash: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   saveNotificationPreferences: (preferences: NotificationPreferences) => Promise<void>;
 }
@@ -151,7 +161,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const data = await getNotificationsForUser({
         userId: userId || undefined,
         userRole,
-        limit: 100
+        limit: 150,
+        tab: 'any'
       });
       if (requestId === notificationRequestIdRef.current) {
         setNotifications(data);
@@ -184,7 +195,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const data = await getNotificationsForUser({
           userId: userId || undefined,
           userRole,
-          limit: 100
+          limit: 150,
+        tab: 'any'
         });
         if (isMounted && requestId === notificationRequestIdRef.current) {
           setNotifications(data);
@@ -322,6 +334,60 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [userRole, userId]);
 
+  const handleArchiveNotifications = useCallback(async (ids: string[], archive: boolean = true) => {
+    const timestamp = archive ? new Date().toISOString() : null;
+    setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, archived_at: timestamp } : n));
+    try {
+      await archiveNotificationsBulk(ids, archive);
+    } catch (err) {
+      console.warn("[NotificationContext] Failed to archive notifications:", err);
+      void refreshNotifications();
+    }
+  }, [refreshNotifications]);
+
+  const handleTrashNotifications = useCallback(async (ids: string[]) => {
+    const timestamp = new Date().toISOString();
+    setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, deleted_at: timestamp } : n));
+    try {
+      await trashNotificationsBulk(ids);
+    } catch (err) {
+      console.warn("[NotificationContext] Failed to trash notifications:", err);
+      void refreshNotifications();
+    }
+  }, [refreshNotifications]);
+
+  const handleRestoreNotifications = useCallback(async (ids: string[]) => {
+    setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, deleted_at: null } : n));
+    try {
+      await restoreNotificationsBulk(ids);
+    } catch (err) {
+      console.warn("[NotificationContext] Failed to restore notifications:", err);
+      void refreshNotifications();
+    }
+  }, [refreshNotifications]);
+
+  const handleDeletePermanently = useCallback(async (ids: string[]) => {
+    setNotifications(prev => prev.filter(n => !ids.includes(n.id)));
+    try {
+      await deleteNotificationsPermanentlyBulk(ids);
+    } catch (err) {
+      console.warn("[NotificationContext] Failed to permanently delete notifications:", err);
+      void refreshNotifications();
+    }
+  }, [refreshNotifications]);
+
+  const handleEmptyTrash = useCallback(async () => {
+    if (!userRole) return;
+    setNotifications(prev => prev.filter(n => !n.deleted_at));
+    try {
+      await emptyTrashNotifications(userRole, userId || undefined);
+    } catch (err) {
+      console.warn("[NotificationContext] Failed to empty trash:", err);
+      void refreshNotifications();
+    }
+  }, [userRole, userId, refreshNotifications]);
+
+
   const saveNotificationPreferences = useCallback(async (preferences: NotificationPreferences) => {
     if (!userId) throw new Error('Sign in to save notification preferences.');
     const record = await persistNotificationPreferences(userId, preferences);
@@ -355,10 +421,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       notificationPreferencesError,
       markAsRead: handleMarkAsRead,
       markAllAsRead: handleMarkAllAsRead,
+      archiveNotifications: handleArchiveNotifications,
+      trashNotifications: handleTrashNotifications,
+      restoreNotifications: handleRestoreNotifications,
+      deleteNotificationsPermanently: handleDeletePermanently,
+      emptyTrash: handleEmptyTrash,
       refreshNotifications,
       saveNotificationPreferences,
     }),
-    [notifications, unreadCount, loading, notificationPreferences, notificationPreferencesLoading, notificationPreferencesError, handleMarkAsRead, handleMarkAllAsRead, refreshNotifications, saveNotificationPreferences]
+    [notifications, unreadCount, loading, notificationPreferences, notificationPreferencesLoading, notificationPreferencesError, handleMarkAsRead, handleMarkAllAsRead, handleArchiveNotifications, handleTrashNotifications, handleRestoreNotifications, handleDeletePermanently, handleEmptyTrash, refreshNotifications, saveNotificationPreferences]
   );
 
   return (

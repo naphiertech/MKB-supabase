@@ -387,8 +387,10 @@ export type Database = {
       notifications: {
         Row: {
           action_link: string | null
+          archived_at: string | null
           category: Database["public"]["Enums"]["notification_category"]
           created_at: string
+          deleted_at: string | null
           hub_id: string | null
           id: string
           message: string
@@ -405,8 +407,10 @@ export type Database = {
         }
         Insert: {
           action_link?: string | null
+          archived_at?: string | null
           category?: Database["public"]["Enums"]["notification_category"]
           created_at?: string
+          deleted_at?: string | null
           hub_id?: string | null
           id?: string
           message: string
@@ -423,8 +427,10 @@ export type Database = {
         }
         Update: {
           action_link?: string | null
+          archived_at?: string | null
           category?: Database["public"]["Enums"]["notification_category"]
           created_at?: string
+          deleted_at?: string | null
           hub_id?: string | null
           id?: string
           message?: string

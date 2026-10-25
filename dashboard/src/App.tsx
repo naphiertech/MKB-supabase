@@ -51,6 +51,7 @@ const LeaveAbsence = lazy(() => import('./pages/LeaveAbsence').then((module) => 
 const AttendancePolicy = lazy(() => import('./pages/AttendancePolicy').then((module) => ({ default: module.AttendancePolicy })));
 const ParcelRates = lazy(() => import('./pages/ParcelRates').then((module) => ({ default: module.ParcelRates })));
 const PayrollAdjustments = lazy(() => import('./pages/PayrollAdjustments').then((module) => ({ default: module.PayrollAdjustments })));
+const NotificationCenter = lazy(() => import('./pages/NotificationCenter').then((module) => ({ default: module.NotificationCenter })));
 class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
   state: { hasError: boolean; error: unknown } = { hasError: false, error: null };
   static getDerivedStateFromError(error: unknown) {
@@ -445,6 +446,14 @@ export function App() {
                   {riderPage === 'leave_absence' &&
                     <RiderLeaveAbsence userId={user.id} riderId={riderId} employmentType={user.employmentType} />
                   }
+                  {riderPage === 'notifications' && (
+                    <NotificationCenter onNavigate={(p) => {
+                      const key = p.replace('/rider/', '').replace('/', '') as RiderPageKey;
+                      if (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'profile' || key === 'notifications') {
+                        setRiderPage(key);
+                      }
+                    }} />
+                  )}
                   {riderPage === 'profile' &&
                     <RiderProfile
                       userId={user.id}
@@ -485,6 +494,7 @@ export function App() {
         'payroll_history',
         'payroll_adjustments',
         'parcel_rates',
+        'notifications',
         'audit_logs',
         'fms_import',
         'daily_parcels',
@@ -508,6 +518,7 @@ export function App() {
         'payroll_history',
         'payroll_adjustments',
         'parcel_rates',
+        'notifications',
         'audit_logs',
         'fms_import',
         'daily_parcels',
@@ -517,7 +528,7 @@ export function App() {
       return allowed.includes(normalized) ? normalized : 'dashboard';
     }
     // payroll
-    const allowed: PageKey[] = ['dashboard', 'computation', 'payroll_history', 'payroll_adjustments', 'reports', 'parcel_history', 'attendance_policy', 'parcel_rates'];
+    const allowed: PageKey[] = ['dashboard', 'computation', 'payroll_history', 'payroll_adjustments', 'reports', 'parcel_history', 'attendance_policy', 'parcel_rates', 'notifications'];
     return allowed.includes(normalized) ? normalized : 'dashboard';
   }
   const safePage = safePageFor(dashRole, currentPage);
@@ -584,6 +595,7 @@ export function App() {
                 {safePage === 'attendance_policy' && <AttendancePolicy role={dashRole} />}
                 {safePage === 'parcel_rates' && <ParcelRates role={dashRole} />}
                 {safePage === 'payroll_adjustments' && <PayrollAdjustments role={dashRole} />}
+                {safePage === 'notifications' && <NotificationCenter onNavigate={(p) => handleNavigate(p.replace(/^\//, '').replace(/-/g, '_') as PageKey)} />}
                 {role === 'admin' &&
                   <>
                     {safePage === 'dashboard' &&

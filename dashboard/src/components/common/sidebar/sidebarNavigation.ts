@@ -47,7 +47,8 @@ export type PageKey =
   | 'leave_absence'
   | 'attendance_policy'
   | 'parcel_rates'
-  | 'payroll_adjustments';
+  | 'payroll_adjustments'
+  | 'notifications';
 
 export type SidebarRole = 'admin' | 'hr' | 'payroll';
 
