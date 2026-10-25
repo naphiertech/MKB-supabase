@@ -33,6 +33,13 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Foreground Service for Continuous Rider GPS Tracking -->
+        <service
+            android:name=".RiderForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
     </application>
 
     <!-- Permissions -->
@@ -49,7 +56,13 @@
     <!-- Geolocation & Foreground Tracking for Polygon Geofencing -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+
+    <!-- Foreground Service & Background Execution for Active Shift Duty -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- Notifications for Geofence Breaches & Shift Alerts -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

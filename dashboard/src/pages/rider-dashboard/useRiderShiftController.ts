@@ -8,6 +8,7 @@ import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricT
 import { isPointInPolygon } from '../../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../../lib/riderGeolocation';
 import { notifyAttendanceEvent, notifyGeofenceWarning } from '../../lib/nativeNotifications';
+import { startForegroundDutyTracking, stopForegroundDutyTracking } from '../../lib/foregroundTracking';
 import { updateCachedAttendanceState } from '../../services/riders/riderCacheService';
 import {
   getMyHubAttendanceGeofence,
@@ -375,6 +376,18 @@ export function useRiderShiftController({
     };
   }, [timeIn, timeOut, loading, locationLoading, hasVerifiedPosition, actualRiderId, restricted]);
 
+  // Android Native Foreground Service: Keep GPS tracking active when phone screen is locked
+  useEffect(() => {
+    if (timeIn && !timeOut && actualRiderId) {
+      void startForegroundDutyTracking({
+        riderId: actualRiderId,
+        hubName: hubGeofence?.hub_name || zoneName || "Assigned Hub",
+      });
+    } else if (timeOut) {
+      void stopForegroundDutyTracking();
+    }
+  }, [timeIn, timeOut, actualRiderId, hubGeofence?.hub_name, zoneName]);
+
   async function openScan(next: 'time-in' | 'time-out') {
     if (attendanceWriteInFlightRef.current || cooldownActiveRef.current || cooldownSecondsRemaining > 0) return;
     if (restricted) {
@@ -592,6 +605,10 @@ export function useRiderShiftController({
         finishUserPerceivedTimingRef.current?.();
         finishUserPerceivedTimingRef.current = null;
         void notifyAttendanceEvent({ type: 'time-in', timestamp: stamp });
+        void startForegroundDutyTracking({
+          riderId: currentRiderId,
+          hubName: hubGeofence?.hub_name || zoneName || 'Assigned Hub',
+        });
 
         setEventsRef.current((prev) => [
           {
@@ -707,6 +724,7 @@ export function useRiderShiftController({
         finishUserPerceivedTimingRef.current?.();
         finishUserPerceivedTimingRef.current = null;
         void notifyAttendanceEvent({ type: 'time-out', timestamp: stamp });
+        void stopForegroundDutyTracking();
 
         setEventsRef.current((prev) => [
           {
