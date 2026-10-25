@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import { Eye, EyeOff, Crosshair, Tag, TagsIcon } from 'lucide-react';
 import type { Rider, Zone } from '../../services/types';
@@ -250,7 +250,7 @@ export function LiveMonitoringMap({
         center={ZAMBOANGA_CENTER}
         zoom={14}
         scrollWheelZoom
-        zoomControl={!compact}
+        zoomControl={false}
         style={{
           height: '100%',
           width: '100%'
@@ -306,14 +306,36 @@ export function LiveMonitoringMap({
           );
         })}
         <MapController focusRiderId={focusRiderId} riders={riders} height={height} />
+        {!compact && <ZoomControl position="bottomright" />}
       </MapContainer>
 
-      {/* Legend (top-left) */}
-      <div className="map-overlay-card absolute left-3 top-3 z-[400] max-w-[calc(100%-7rem)] rounded-lg border border-border bg-white/95 p-2 text-[11px] shadow-lg backdrop-blur-md sm:p-2.5 sm:text-xs">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1.5 font-semibold">
-          Status
+      {/* Mobile Status Bar (<sm): compact 2-column card, clean typography, non-colliding */}
+      <div className="sm:hidden map-overlay-card absolute left-3 top-3 z-[400] max-w-[calc(100%-76px)] rounded-xl border border-border bg-white/95 p-2 shadow-md backdrop-blur-md">
+        <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold pb-1 mb-1 border-b border-border/60">
+          <span>Status</span>
+          <span className="font-mono text-primary font-bold">{liveCount} Live</span>
         </div>
-        <div className="space-y-1">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+          <LegendRow color="#10B981" label="Active" count={counts.active} compact />
+          <LegendRow color="#F59E0B" label="Idle" count={counts.idle} compact />
+          <LegendRow
+            color="#EF4444"
+            label="Violation"
+            count={counts.violation}
+            pulse={counts.violation > 0}
+            compact
+          />
+          <LegendRow color="#6B7280" label="Offline" count={counts.staleOrOffline} compact />
+        </div>
+      </div>
+
+      {/* Desktop Status Card (sm+): full structured card */}
+      <div className="hidden sm:block map-overlay-card absolute left-3 top-3 z-[400] rounded-xl border border-border bg-white/95 p-3 text-xs shadow-md backdrop-blur-md">
+        <div className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-2 font-semibold border-b border-border/50 pb-1.5">
+          <span>Rider Status</span>
+          <span className="font-mono text-primary font-bold">{liveCount} Live</span>
+        </div>
+        <div className="space-y-1.5 min-w-[130px]">
           <LegendRow color="#10B981" label="Active" count={counts.active} />
           <LegendRow color="#F59E0B" label="Idle" count={counts.idle} />
           <LegendRow
@@ -395,23 +417,27 @@ function LegendRow({
   color,
   label,
   count,
-  pulse
+  pulse,
+  compact
 }: {
   color: string;
   label: string;
   count: number;
   pulse?: boolean;
+  compact?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 min-w-[110px]">
+    <div className={`flex items-center gap-1.5 ${compact ? 'min-w-0' : 'min-w-[120px]'}`}>
       <span
-        className={`w-2 h-2 rounded-full ${pulse ? 'animate-pulse' : ''}`}
+        className={`w-2 h-2 shrink-0 rounded-full ${pulse ? 'animate-pulse' : ''}`}
         style={{
           background: color
         }}
       />
-      <span className="text-foreground flex-1 font-medium">{label}</span>
-      <span className="font-mono text-muted-foreground tabular-nums">{count}</span>
+      <span className="text-foreground truncate font-medium text-[11px] sm:text-xs">{label}</span>
+      <span className="ml-auto font-mono text-muted-foreground tabular-nums font-semibold text-[11px] sm:text-xs">
+        {count}
+      </span>
     </div>
   );
 }

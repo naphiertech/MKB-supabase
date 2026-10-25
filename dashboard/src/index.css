@@ -409,8 +409,8 @@
   font-size: 13px;
 }
 .leaflet-control-attribution {
-  background: rgba(255, 255, 255, 0.92) !important;
-  color: #6b6258 !important;
+  display: none !important;
+
   font-size: 10px !important;
   border: 1px solid #efeae2 !important;
   max-width: calc(100% - 3rem);
