@@ -6,7 +6,7 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:react-hooks/recommended',
   ],
-  ignorePatterns: ['dist', 'android', '.eslintrc.cjs', 'public/models/mediapipe/wasm/**'],
+  ignorePatterns: ['dist', 'android', '.eslintrc.cjs', 'public/**'],
   parser: '@typescript-eslint/parser',
   plugins: ['react-refresh'],
   rules: {
