@@ -5,7 +5,7 @@ import { useFaceRecognition } from '../../hooks/useFaceRecognition';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { pushToast } from '../../hooks/useToast';
 import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricTelemetry';
-import { isPointInPolygon } from '../../lib/geofenceUtils';
+import { hasOperationalZoneGeometry, isPointInZone } from '../../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../../lib/riderGeolocation';
 import { notifyGeofenceWarning } from '../../lib/nativeNotifications';
 import { startForegroundDutyTracking, stopForegroundDutyTracking } from '../../lib/foregroundTracking';
@@ -42,18 +42,6 @@ interface UseRiderShiftControllerInput {
 }
 
 const NEUTRAL_LOCATION_ANCHOR = { lat: 0, lng: 0 };
-
-function hasOperationalZoneGeometry(zone: Zone | null): zone is Zone {
-  if (!zone || zone.hasValidGeometry === false) return false;
-  if (zone.zone_type === 'polygon') {
-    return Boolean(
-      zone.polygon_coordinates
-      && zone.polygon_coordinates.length >= 3
-      && zone.polygon_coordinates.every((coordinate) => coordinate.every(Number.isFinite))
-    );
-  }
-  return zone.center.every(Number.isFinite) && Number.isFinite(zone.radius) && zone.radius > 0;
-}
 
 export function useRiderShiftController({
   userId,
@@ -242,14 +230,11 @@ export function useRiderShiftController({
     if (activeViolation && !isOnline) {
       return false;
     }
-    if (zone?.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length > 0) {
-      const lat = activeViolation && !isOnline ? activeViolation.lat : position.lat;
-      const lng = activeViolation && !isOnline ? activeViolation.lng : position.lng;
-      return isPointInPolygon([lat, lng], zone.polygon_coordinates);
-    }
-    if (zoneRadius === null) return null;
-    return distanceToUse <= zoneRadius;
-  }, [isOnline, distanceToUse, zoneRadius, activeViolation, zone, position, geofenceResolved]);
+    const target = activeViolation && !isOnline
+      ? { lat: activeViolation.lat, lng: activeViolation.lng }
+      : position;
+    return isPointInZone(target, zone);
+  }, [isOnline, distanceToUse, activeViolation, zone, position, geofenceResolved]);
 
   const distance = distanceToUse;
   const inZone = inZoneToUse;

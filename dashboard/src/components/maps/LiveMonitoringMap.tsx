@@ -5,7 +5,7 @@ import { Eye, EyeOff, Crosshair, Tag, TagsIcon } from 'lucide-react';
 import type { Rider, Zone } from '../../services/types';
 import { buildRiderIcon } from './RiderMarker';
 import { GeofenceCircle } from './GeofenceCircle';
-import { STREET_BASEMAP } from './mapProviders';
+import { MAP_TILE_LAYERS, SATELLITE_LABELS_LAYER, useMapResizeObserver } from './mapProviders';
 import { reverseGeocode } from '../../lib/apiService';
 
 interface LiveMonitoringMapProps {
@@ -19,23 +19,7 @@ interface LiveMonitoringMapProps {
 }
 
 const ZAMBOANGA_CENTER: [number, number] = [6.925, 122.078];
-const TILE_LAYERS = {
-  dark: {
-    ...STREET_BASEMAP,
-    subdomains: 'abcd'
-  },
-  satellite: {
-    url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    attribution: '&copy; Google',
-    subdomains: 'abc'
-  }
-} as const;
-
-const SATELLITE_LABELS_LAYER = {
-  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
-  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  subdomains: 'abcd'
-};
+const TILE_LAYERS = MAP_TILE_LAYERS;
 
 function MapController({
   focusRiderId,
@@ -58,25 +42,7 @@ function MapController({
     }
   }, [focusRiderId, riders, map]);
 
-  useEffect(() => {
-    const container = map.getContainer();
-    if (!container) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
-    });
-
-    resizeObserver.observe(container);
-
-    map.invalidateSize();
-    const intervals = [50, 100, 150, 200, 300, 400, 600, 1000];
-    const timers = intervals.map((ms) => setTimeout(() => map.invalidateSize(), ms));
-
-    return () => {
-      resizeObserver.disconnect();
-      timers.forEach(clearTimeout);
-    };
-  }, [height, map]);
+  useMapResizeObserver(height);
 
   return null;
 }

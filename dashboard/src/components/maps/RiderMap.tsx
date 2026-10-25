@@ -8,7 +8,7 @@ import { MapContainer, TileLayer, Marker, Circle, Popup, useMap } from 'react-le
 import L from 'leaflet';
 import { Crosshair } from 'lucide-react';
 import { GeofenceCircle } from './GeofenceCircle';
-import { STREET_BASEMAP } from './mapProviders';
+import { MAP_TILE_LAYERS, MapResizeController, SATELLITE_LABELS_LAYER } from './mapProviders';
 import { haversine, type Zone } from '../../services/types';
 
 export interface RiderMapHubProps {
@@ -39,23 +39,7 @@ interface RiderMapProps {
   className?: string;
 }
 
-const TILE_LAYERS = {
-  dark: {
-    ...STREET_BASEMAP,
-    subdomains: 'abcd',
-  },
-  satellite: {
-    url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    attribution: '&copy; Google',
-    subdomains: 'abc',
-  },
-} as const;
-
-const SATELLITE_LABELS_LAYER = {
-  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
-  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  subdomains: 'abcd',
-};
+const TILE_LAYERS = MAP_TILE_LAYERS;
 
 // Inject the ping-pulse keyframes once at module load.
 const KEYFRAMES_STYLE_ID = 'rider-map-pingpulse-keyframes';
@@ -174,30 +158,6 @@ function InitialMapBounds({
   return null;
 }
 
-function ResizeObserverController() {
-  const map = useMap();
-  useEffect(() => {
-    const container = map.getContainer();
-    if (!container) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
-    });
-
-    resizeObserver.observe(container);
-
-    map.invalidateSize();
-    const intervals = [50, 100, 150, 200, 300, 400, 600, 1000];
-    const timers = intervals.map(ms => setTimeout(() => map.invalidateSize(), ms));
-
-    return () => {
-      resizeObserver.disconnect();
-      timers.forEach(clearTimeout);
-    };
-  }, [map]);
-  return null;
-}
-
 export function RiderMap({
   position,
   zone,
@@ -287,7 +247,7 @@ export function RiderMap({
         }}
         ref={mapRef}
       >
-        <ResizeObserverController />
+        <MapResizeController />
         <TileLayer
           key={activeLayer}
           url={tile.url}

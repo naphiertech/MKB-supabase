@@ -1,6 +1,48 @@
-import { haversine } from '../services/types';
+import { haversine, type Zone } from '../services/types';
 
 export { haversine };
+
+/**
+ * Validates whether a Zone has usable, operational geometry.
+ */
+export function hasOperationalZoneGeometry(zone: Zone | null | undefined): zone is Zone {
+  if (!zone || zone.hasValidGeometry === false) return false;
+  if (zone.zone_type === 'polygon') {
+    return Boolean(
+      zone.polygon_coordinates
+      && zone.polygon_coordinates.length >= 3
+      && zone.polygon_coordinates.every((coord) => coord.every(Number.isFinite))
+    );
+  }
+  return (
+    Array.isArray(zone.center)
+    && zone.center.length === 2
+    && zone.center.every(Number.isFinite)
+    && Number.isFinite(zone.radius)
+    && zone.radius > 0
+  );
+}
+
+/**
+ * Evaluates whether a location coordinate falls within a zone's boundary.
+ * Works uniformly for both radial circle zones and polygonal geofences.
+ */
+export function isPointInZone(
+  point: [number, number] | { lat: number; lng: number },
+  zone: Zone | null | undefined,
+): boolean | null {
+  if (!hasOperationalZoneGeometry(zone)) return null;
+
+  const lat = Array.isArray(point) ? point[0] : point.lat;
+  const lng = Array.isArray(point) ? point[1] : point.lng;
+
+  if (zone.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length >= 3) {
+    return isPointInPolygon([lat, lng], zone.polygon_coordinates);
+  }
+
+  const distance = haversine(zone.center[0], zone.center[1], lat, lng);
+  return distance <= zone.radius;
+}
 
 /**
  * Format a meter value for compact display.

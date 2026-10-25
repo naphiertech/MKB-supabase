@@ -7,7 +7,7 @@ import {
 '../services/types';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { RiderMap } from '../components/maps/RiderMap';
-import { isPointInPolygon } from '../lib/geofenceUtils';
+import { hasOperationalZoneGeometry, isPointInZone } from '../lib/geofenceUtils';
 import { GeofenceStatus } from '../components/rider/GeofenceStatus';
 import { RouteTrailMap } from '../components/maps/RouteTrailMap';
 import { 
@@ -100,17 +100,7 @@ export function RiderMonitoring({ userId, riderId, restricted, onBack }: RiderMo
     ? zone.radius
     : null;
   const zoneName = zone?.name ?? 'Unassigned';
-  const hasPolygonGeometry = zone?.zone_type === 'polygon'
-    && Boolean(zone.polygon_coordinates?.length && zone.polygon_coordinates.length >= 3)
-    && zone.polygon_coordinates!.every((coordinate) => coordinate.every(Number.isFinite));
-  const hasCircleGeometry = zone?.zone_type !== 'polygon'
-    && zoneCenterLat !== null
-    && zoneCenterLng !== null
-    && Number.isFinite(zoneCenterLat)
-    && Number.isFinite(zoneCenterLng)
-    && !(zoneCenterLat === 0 && zoneCenterLng === 0)
-    && zoneRadius !== null;
-  const geometryResolved = zone?.hasValidGeometry !== false && (hasPolygonGeometry || hasCircleGeometry);
+  const geometryResolved = hasOperationalZoneGeometry(zone);
 
   const anchor = useMemo(
     () => ({
@@ -141,13 +131,7 @@ export function RiderMonitoring({ userId, riderId, restricted, onBack }: RiderMo
     );
   }, [geometryResolved, zoneCenterLat, zoneCenterLng, position]);
 
-  const inZone = useMemo(() => {
-    if (!geometryResolved) return null;
-    if (zone?.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length > 0) {
-      return isPointInPolygon([position.lat, position.lng], zone.polygon_coordinates);
-    }
-    return distance !== null && zoneRadius !== null ? distance <= zoneRadius : null;
-  }, [distance, geometryResolved, zoneRadius, zone, position]);
+  const inZone = useMemo(() => isPointInZone(position, zone), [position, zone]);
 
   if (loading || !rider || !zone) {
     return <DashboardSkeleton page="monitoring" role="rider" />;

@@ -11,7 +11,7 @@ import L from 'leaflet';
 import { RoutePoint, RouteStats } from '../../services/monitoring/routeService';
 import { haversine } from '../../services/types';
 import { Play, Pause, RotateCcw, X, Activity } from 'lucide-react';
-import { STREET_BASEMAP } from './mapProviders';
+import { MapResizeController, SATELLITE_BASEMAP, SATELLITE_LABELS_LAYER, STREET_BASEMAP } from './mapProviders';
 
 // Custom start marker — green
 const startIcon = L.divIcon({
@@ -102,34 +102,6 @@ const FitBounds = ({ points }: { points: RoutePoint[] }) => {
 };
 
 // Helper to invalidate leaflet map size when container dimensions change
-const InvalidateMapSize = ({ mapHeight }: { mapHeight: string }) => {
-  const map = useMap();
-  useEffect(() => {
-    const container = map.getContainer();
-    if (!container) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
-    });
-
-    resizeObserver.observe(container);
-
-    map.invalidateSize();
-    
-    // Invalidate repeatedly during and after transitions as an extra fallback
-    const intervals = [50, 100, 150, 200, 300, 400, 600, 1000];
-    const timers = intervals.map(ms => setTimeout(() => {
-      map.invalidateSize();
-    }, ms));
-    
-    return () => {
-      resizeObserver.disconnect();
-      timers.forEach(clearTimeout);
-    };
-  }, [mapHeight, map]);
-  return null;
-};
-
 // Custom controller to pan the map viewport to follow the moving rider
 const PlaybackMapController = ({
   activePoint,
@@ -338,9 +310,7 @@ export const RouteTrailMap = ({
     }
   };
 
-  const tileUrl = satellite
-    ? 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
-    : STREET_BASEMAP.url;
+  const tile = satellite ? SATELLITE_BASEMAP : STREET_BASEMAP;
 
   return (
     <div className="flex flex-col h-full gap-0 rounded-xl overflow-hidden
@@ -391,20 +361,18 @@ export const RouteTrailMap = ({
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
         >
-          <InvalidateMapSize mapHeight={mapHeight} />
+          <MapResizeController triggerDependency={mapHeight} />
           <TileLayer
-            url={tileUrl}
+            url={tile.url}
             maxNativeZoom={satellite ? undefined : 19}
-            attribution={satellite
-              ? '&copy; Google'
-              : STREET_BASEMAP.attribution}
+            attribution={tile.attribution}
           />
 
           {/* Labels overlay for satellite mode */}
           {satellite && (
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
-              attribution="© CARTO"
+              url={SATELLITE_LABELS_LAYER.url}
+              attribution={SATELLITE_LABELS_LAYER.attribution}
               opacity={0.9}
             />
           )}
