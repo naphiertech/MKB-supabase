@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient';
+import { logActivity } from '../../lib/apiService';
 import type { Database, Json } from '../../types/supabase';
 
 export type PayrollEarningAdjustment = Database['public']['Tables']['payroll_earning_adjustments']['Row'];
@@ -336,4 +337,42 @@ export async function deleteDraftPayrollRecord(recordId: string, reason: string)
     p_reason: reason.trim(),
   });
   if (error) throw error;
+}
+
+export interface SaveLegacyPayrollAdjustmentsInput {
+  recordId: string;
+  riderName: string;
+  cutoffPeriod: string;
+  adjustments: {
+    other_earnings: number;
+    fm_pickup_amount: number;
+    deductions: number;
+    late_onhold: number;
+    late_remittance: number;
+  };
+}
+
+export async function saveLegacyPayrollRecordAdjustments(input: SaveLegacyPayrollAdjustmentsInput): Promise<void> {
+  const { error } = await supabase
+    .from('payroll_records')
+    .update({
+      other_earnings: input.adjustments.other_earnings,
+      fm_pickup_amount: input.adjustments.fm_pickup_amount,
+      deductions: input.adjustments.deductions,
+      late_onhold: input.adjustments.late_onhold,
+      late_remittance: input.adjustments.late_remittance,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.recordId);
+
+  if (error) throw error;
+
+  await logActivity({
+    eventType: 'payroll_adjustments_update',
+    description: `Updated payroll adjustments for ${input.riderName} (${input.cutoffPeriod})`,
+    metadata: {
+      record_id: input.recordId,
+      adjustments: input.adjustments,
+    },
+  });
 }

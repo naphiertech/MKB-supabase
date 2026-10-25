@@ -5,6 +5,7 @@ import {
   calculatePayslipNetPay,
   LEGACY_FM_PICKUP_RATE,
   payslipAdjustmentsFromRecord,
+  resolvePayrollWorksheet,
   type PayrollAdjustmentsInput,
   type PayrollAdjustmentTotals,
   type PayrollNumericValue,
@@ -240,5 +241,66 @@ describe('payroll adjustment compatibility helpers', () => {
 
   it('exports the explicitly legacy FM pickup rate', () => {
     expect(LEGACY_FM_PICKUP_RATE).toBe(3);
+  });
+
+  describe('resolvePayrollWorksheet', () => {
+    it('resolves snapshot records preserving frozen totals and categorized deduction lines', () => {
+      const record = {
+        id: 'rec-snap',
+        status: 'paid',
+        gross_pay: 3000,
+        total_earnings_snapshot: 3000,
+        total_deductions_snapshot: 350,
+        net_pay_snapshot: 2650,
+        adjustment_snapshot: {
+          version: 2,
+          items: [
+            { code: 'other_earnings' as const, label: 'Other Earnings', category: 'earning' as const, input_mode: 'manual_amount' as const, active: true, amount: 0 },
+            { code: 'fm_pickup' as const, label: 'FM Pick Up', category: 'earning' as const, input_mode: 'manual_amount' as const, active: true, amount: 0 },
+            { code: 'general_deductions' as const, label: 'Uniform Installment', category: 'deduction' as const, input_mode: 'manual_amount' as const, active: true, amount: 200 },
+            { code: 'late_onhold' as const, label: 'Late Delivery Onhold', category: 'deduction' as const, input_mode: 'manual_amount' as const, active: true, amount: 50 },
+            { code: 'late_remittance' as const, label: 'Late Remittance', category: 'deduction' as const, input_mode: 'manual_amount' as const, active: true, amount: 0 },
+            { code: 'absent_without_notice' as const, label: 'Unnotified Absence', category: 'deduction' as const, input_mode: 'manual_amount' as const, active: true, amount: 100 },
+          ],
+        },
+      };
+
+      const result = resolvePayrollWorksheet(record);
+      expect(result.netPay).toBe(2650);
+      expect(result.totalDeductions).toBe(350);
+      expect(result.isSnapshot).toBe(true);
+      expect(result.deductionsList).toHaveLength(3);
+      expect(result.deductionsList[0]).toEqual({
+        code: 'general_deductions',
+        label: 'Uniform Installment',
+        amount: 200,
+        category: 'other',
+      });
+      expect(result.deductionsList[1].category).toBe('attendance');
+      expect(result.deductionsList[2].category).toBe('attendance');
+    });
+
+    it('resolves legacy un-snapshotted records including absent_without_notice in net pay and deduction list', () => {
+      const legacyRecord = {
+        id: 'rec-legacy',
+        status: 'approved',
+        gross_pay: 4000,
+        deductions: 300,
+        late_onhold: 100,
+        late_remittance: 50,
+        absent_without_notice: 500,
+      };
+
+      const result = resolvePayrollWorksheet(legacyRecord);
+      expect(result.isSnapshot).toBe(false);
+      expect(result.totalDeductions).toBe(950);
+      expect(result.netPay).toBe(3050);
+      expect(result.deductionsList).toEqual([
+        { code: 'general_deductions', label: 'General Deductions', amount: 300, category: 'other' },
+        { code: 'late_onhold', label: 'Late Onhold Penalty', amount: 100, category: 'attendance' },
+        { code: 'late_remittance', label: 'Late Remittance Penalty', amount: 50, category: 'penalty' },
+        { code: 'absent_without_notice', label: 'Absent Without Notice', amount: 500, category: 'attendance' },
+      ]);
+    });
   });
 });

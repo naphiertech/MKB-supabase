@@ -129,7 +129,7 @@ function parseAdjustmentSnapshot(value: unknown): PayrollAdjustmentSnapshot | nu
     }];
   });
 
-  return (items.length === 5 || items.length === 6) ? { version: Number(candidate.version), items } : null;
+  return items.length > 0 ? { version: Number(candidate.version), items } : null;
 }
 
 function amountForCode(items: PayrollAdjustmentDefinitionLike[], code: PayrollAdjustmentCode): number {
@@ -235,4 +235,114 @@ export function calculatePayslipNetPay(
   adjustments: PayslipAdjustments,
 ): number {
   return calculatePayrollAdjustmentTotals(grossPay, adjustments).netPay;
+}
+
+export type DeductionCategory = 'attendance' | 'obligation' | 'penalty' | 'other';
+
+export interface ItemizedDeductionLine {
+  code: string;
+  label: string;
+  amount: number;
+  category: DeductionCategory;
+}
+
+export interface PayrollWorksheetView {
+  grossPay: number;
+  otherEarnings: number;
+  fmPickupEarnings: number;
+  totalEarnings: number;
+  totalDeductions: number;
+  netPay: number;
+  isSnapshot: boolean;
+  snapshotVersion?: number;
+  deductionsList: ItemizedDeductionLine[];
+  adjustments: NormalizedPayslipAdjustments;
+  totalsSnapshot?: {
+    totalEarnings: number;
+    totalDeductions: number;
+    netPay: number;
+  };
+}
+
+export function categorizeDeductionCode(code: string): DeductionCategory {
+  const normalized = code.toLowerCase();
+  if (normalized.includes('late') || normalized.includes('absent')) return 'attendance';
+  if (normalized.includes('uniform') || normalized.includes('advance')) return 'obligation';
+  if (normalized.includes('shortage') || normalized.includes('penalty')) return 'penalty';
+  return 'other';
+}
+
+export function resolvePayrollWorksheet(
+  record: PayrollAdjustmentRecord,
+  currentDefinitions?: PayrollAdjustmentDefinitionLike[],
+): PayrollWorksheetView {
+  const totals = calculatePayrollRecordTotals(record);
+  const adjustments = payslipAdjustmentsFromRecord(record, currentDefinitions);
+  const isSubmitted = SUBMITTED_PAYROLL_STATUSES.has(String(record.status ?? '').toLowerCase());
+  const snapshot = isSubmitted ? parseAdjustmentSnapshot(record.adjustment_snapshot) : null;
+
+  const deductionsList: ItemizedDeductionLine[] = [];
+
+  if (snapshot && Array.isArray(snapshot.items)) {
+    snapshot.items.forEach((item) => {
+      if (item.category === 'deduction' && (item.amount ?? 0) > 0) {
+        deductionsList.push({
+          code: item.code,
+          label: item.label ?? 'Deduction Item',
+          amount: Number(item.amount),
+          category: categorizeDeductionCode(item.code),
+        });
+      }
+    });
+  }
+
+  // Fallback to normalized adjustments if snapshot produced no deduction lines
+  if (deductionsList.length === 0) {
+    if (totals.adjustments.deductions > 0) {
+      deductionsList.push({
+        code: 'general_deductions',
+        label: 'General Deductions',
+        amount: totals.adjustments.deductions,
+        category: 'other',
+      });
+    }
+    if (totals.adjustments.lateOnhold > 0) {
+      deductionsList.push({
+        code: 'late_onhold',
+        label: 'Late Onhold Penalty',
+        amount: totals.adjustments.lateOnhold,
+        category: 'attendance',
+      });
+    }
+    if (totals.adjustments.lateRemittance > 0) {
+      deductionsList.push({
+        code: 'late_remittance',
+        label: 'Late Remittance Penalty',
+        amount: totals.adjustments.lateRemittance,
+        category: 'penalty',
+      });
+    }
+    if (totals.adjustments.absentWithoutNotice > 0) {
+      deductionsList.push({
+        code: 'absent_without_notice',
+        label: 'Absent Without Notice',
+        amount: totals.adjustments.absentWithoutNotice,
+        category: 'attendance',
+      });
+    }
+  }
+
+  return {
+    grossPay: totals.grossPay,
+    otherEarnings: totals.otherEarnings,
+    fmPickupEarnings: totals.fmPickupEarnings,
+    totalEarnings: totals.totalEarnings,
+    totalDeductions: totals.totalDeductions,
+    netPay: totals.netPay,
+    isSnapshot: Boolean(snapshot),
+    snapshotVersion: snapshot?.version,
+    deductionsList,
+    adjustments: totals.adjustments,
+    totalsSnapshot: adjustments.totalsSnapshot,
+  };
 }

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { getRiderPayrollHistory, type RiderPayrollRecord } from '../services/riders/riderService';
 import { listPayrollDeductionBalances, type PayrollDeductionBalance } from '../services/payroll/payrollAdjustmentRecordsService';
+import { resolvePayrollWorksheet, type ItemizedDeductionLine } from '../lib/payroll/payrollAdjustments';
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
 import { RiderPayoutsSkeleton } from '../components/rider/RiderRouteSkeletons';
 import { appToast } from '../hooks/useToast';
@@ -22,70 +23,6 @@ interface RiderPayoutsProps {
   userId: string;
   riderId?: string;
   restricted?: boolean;
-}
-
-interface DeductionDetailItem {
-  code: string;
-  label: string;
-  amount: number;
-  category: 'attendance' | 'obligation' | 'penalty' | 'other';
-}
-
-function parseRecordDeductions(record: RiderPayrollRecord): DeductionDetailItem[] {
-  const items: DeductionDetailItem[] = [];
-
-  // 1. Check adjustment snapshot
-  if (record.adjustment_snapshot && typeof record.adjustment_snapshot === 'object') {
-    const snap = record.adjustment_snapshot as { items?: Array<{ code?: string; label?: string; category?: string; amount?: number }> };
-    if (Array.isArray(snap.items)) {
-      snap.items.forEach((item) => {
-        if (item.category === 'deduction' && (item.amount ?? 0) > 0) {
-          const code = item.code ?? 'general_deductions';
-          let category: DeductionDetailItem['category'] = 'other';
-          if (code.includes('late') || code.includes('absent')) category = 'attendance';
-          else if (code.includes('uniform') || code.includes('advance')) category = 'obligation';
-          else if (code.includes('shortage') || code.includes('penalty')) category = 'penalty';
-
-          items.push({
-            code,
-            label: item.label ?? 'Deduction Item',
-            amount: Number(item.amount),
-            category,
-          });
-        }
-      });
-    }
-  }
-
-  // 2. If no snapshot items found, fallback to legacy columns
-  if (items.length === 0) {
-    if ((record.deductions ?? 0) > 0) {
-      items.push({
-        code: 'general_deductions',
-        label: 'General Deductions',
-        amount: Number(record.deductions),
-        category: 'other',
-      });
-    }
-    if ((record.late_onhold ?? 0) > 0) {
-      items.push({
-        code: 'late_onhold',
-        label: 'Late Onhold Penalty',
-        amount: Number(record.late_onhold),
-        category: 'attendance',
-      });
-    }
-    if ((record.late_remittance ?? 0) > 0) {
-      items.push({
-        code: 'late_remittance',
-        label: 'Late Remittance Penalty',
-        amount: Number(record.late_remittance),
-        category: 'penalty',
-      });
-    }
-  }
-
-  return items;
 }
 
 export function RiderPayouts({ userId, riderId, restricted: _restricted }: RiderPayoutsProps) {
@@ -142,19 +79,10 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
     let paidCount = 0;
 
     records.forEach((rec) => {
-      const net = rec.net_pay_snapshot ?? (
-        (rec.gross_pay ?? 0) -
-        (rec.total_deductions_snapshot ?? (
-          (rec.deductions ?? 0) + (rec.late_onhold ?? 0) + (rec.late_remittance ?? 0)
-        ))
-      );
-      const deductions = rec.total_deductions_snapshot ?? (
-        (rec.deductions ?? 0) + (rec.late_onhold ?? 0) + (rec.late_remittance ?? 0)
-      );
-
-      totalNet += Number(net) || 0;
-      totalGross += Number(rec.gross_pay) || 0;
-      totalDeductions += Number(deductions) || 0;
+      const worksheet = resolvePayrollWorksheet(rec);
+      totalNet += Number(worksheet.netPay) || 0;
+      totalGross += Number(worksheet.grossPay) || 0;
+      totalDeductions += Number(worksheet.totalDeductions) || 0;
 
       if (rec.status === 'paid') paidCount++;
       if (rec.status === 'approved') approvedCount++;
@@ -174,19 +102,17 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
     };
   }, [records, deductionBalances]);
 
+  const selectedWorksheet = useMemo(
+    () => (selectedRecord ? resolvePayrollWorksheet(selectedRecord) : null),
+    [selectedRecord]
+  );
+  const selectedDeductions: ItemizedDeductionLine[] = selectedWorksheet?.deductionsList ?? [];
+  const selectedNetPay = selectedWorksheet?.netPay ?? 0;
+  const selectedTotalDeductions = selectedWorksheet?.totalDeductions ?? 0;
+
   if (loading) {
     return <RiderPayoutsSkeleton />;
   }
-
-  const selectedDeductions = selectedRecord ? parseRecordDeductions(selectedRecord) : [];
-  const selectedNetPay = selectedRecord ? (
-    selectedRecord.net_pay_snapshot ?? (
-      (selectedRecord.gross_pay ?? 0) -
-      (selectedRecord.total_deductions_snapshot ?? (
-        (selectedRecord.deductions ?? 0) + (selectedRecord.late_onhold ?? 0) + (selectedRecord.late_remittance ?? 0)
-      ))
-    )
-  ) : 0;
 
   return (
     <div className="p-4 md:p-6 lg:p-7 max-w-5xl mx-auto space-y-6">
@@ -336,12 +262,7 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
               <div className="space-y-2">
                 {records.map((rec) => {
                   const isSelected = selectedRecord?.id === rec.id;
-                  const net = rec.net_pay_snapshot ?? (
-                    (rec.gross_pay ?? 0) -
-                    (rec.total_deductions_snapshot ?? (
-                      (rec.deductions ?? 0) + (rec.late_onhold ?? 0) + (rec.late_remittance ?? 0)
-                    ))
-                  );
+                  const net = resolvePayrollWorksheet(rec).netPay;
 
                   return (
                     <div
@@ -442,9 +363,7 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
                         <span>Itemized Deduction Breakdown</span>
                       </div>
                       <span className="text-xs font-bold font-mono text-amber-700">
-                        Total: -₱{Number(selectedRecord.total_deductions_snapshot ?? (
-                          (selectedRecord.deductions ?? 0) + (selectedRecord.late_onhold ?? 0) + (selectedRecord.late_remittance ?? 0)
-                        )).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                        Total: -₱{selectedTotalDeductions.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
 

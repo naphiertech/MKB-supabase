@@ -13,7 +13,7 @@ import {
   Building,
   FileSpreadsheet,
 } from "lucide-react";
-import { supabase } from "../../lib/supabaseClient";
+
 import {
   getRiderPayrollMetrics,
   getPayrollDeliveryData,
@@ -32,7 +32,7 @@ import {
   type PayslipSnapshotContext,
 } from "../../lib/exports/payrollExport";
 import { pushToast } from "../../hooks/useToast";
-import { logActivity } from "../../lib/apiService";
+
 import { isEditableStatus } from "../../types/payroll";
 import { PayrollMetricsGrid } from "./PayrollMetricsGrid";
 import { SelectedDayDetails } from "./SelectedDayDetails";
@@ -55,6 +55,7 @@ import {
   listPayrollDeductionAllocations,
   listPayrollDeductionBalances,
   listPayrollEarningAdjustments,
+  saveLegacyPayrollRecordAdjustments,
   savePayrollAdjustmentPlan,
   type PayrollDeductionBalance,
   type PayrollEarningAdjustment,
@@ -415,36 +416,18 @@ export function PayrollDetailsModal({
   const handleSaveAdjustments = async () => {
     setIsSavingAdjustments(true);
     try {
-      const { error } = await supabase
-        .from("payroll_records")
-        .update({
+      await saveLegacyPayrollRecordAdjustments({
+        recordId: record.id,
+        riderName,
+        cutoffPeriod: formatPayrollPeriod(record.cutoff_start, record.cutoff_end),
+        adjustments: {
           other_earnings: otherEarnings,
           fm_pickup_amount: fmPickupAmount,
           deductions,
           late_onhold: lateOnhold,
           late_remittance: lateRemittance,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", record.id);
-
-      if (error) throw error;
-
-      // Log this action to activity_logs
-      await logActivity({
-        eventType: "payroll_adjustments_update",
-        description: `Updated payroll adjustments for ${riderName} (${formatPayrollPeriod(record.cutoff_start, record.cutoff_end)})`,
-        metadata: {
-          record_id: record.id,
-          adjustments: {
-            other_earnings: otherEarnings,
-            fm_pickup_amount: fmPickupAmount,
-            deductions,
-            late_onhold: lateOnhold,
-            late_remittance: lateRemittance,
-          },
         },
       });
-
       pushToast({
         title: "Adjustments Saved",
         description: `Successfully updated adjustments for ${riderName}.`,
