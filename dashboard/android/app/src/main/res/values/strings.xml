@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MKBRiderTrack</string>
+    <string name="title_activity_main">MKBRiderTrack</string>
+    <string name="package_name">com.mkbcorp.ridertrack</string>
+    <string name="custom_url_scheme">com.mkbcorp.ridertrack</string>
+</resources>

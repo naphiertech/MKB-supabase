@@ -1,4 +1,6 @@
 import { supabase } from '../supabaseClient';
+import { Capacitor } from '@capacitor/core';
+import { Network as CapNetwork } from '@capacitor/network';
 import {
   SYNC_QUEUE_CHANGED_EVENT,
   getStorageAdapter,
@@ -190,6 +192,19 @@ export class SyncEngine {
   public init(): void {
     if (this.initialized) return;
     this.initialized = true;
+
+    // Capacitor Native Network Listener
+    if (Capacitor.isNativePlatform()) {
+      CapNetwork.addListener('networkStatusChange', (status) => {
+        if (status.connected) {
+          console.log('[SyncEngine] Native network restored');
+          void this.triggerSync();
+        } else {
+          console.log('[SyncEngine] Native network lost');
+          void this.publishStatus();
+        }
+      }).catch(() => undefined);
+    }
 
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {

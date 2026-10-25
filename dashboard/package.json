@@ -10,9 +10,21 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "npx vite preview"
+    "preview": "npx vite preview",
+    "build:rider": "npm run build && npx cap sync android",
+    "cap:sync": "npx cap sync",
+    "cap:open:android": "npx cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/geolocation": "^8.2.4",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
     "@emotion/react": "^11.13.3",
     "@mediapipe/tasks-vision": "0.10.35",
     "@supabase/supabase-js": "^2.106.2",

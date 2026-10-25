@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core';
+import { Geolocation as CapGeolocation } from '@capacitor/geolocation';
+
 export const MAX_RIDER_POSITION_AGE_MS = 2 * 60 * 1000;
 
 export interface GeoPosition {
@@ -25,6 +28,56 @@ export function startRiderGeolocationWatch(
   source: RiderGeolocationSource | null,
   handlers: RiderGeolocationHandlers
 ): () => void {
+  // If running in Capacitor native platform, use @capacitor/geolocation hardware bridge
+  if (Capacitor.isNativePlatform()) {
+    let watchId: string | null = null;
+    let cancelled = false;
+
+    CapGeolocation.checkPermissions().then(async (permissionStatus) => {
+      if (cancelled) return;
+      if (permissionStatus.location !== 'granted') {
+        const req = await CapGeolocation.requestPermissions();
+        if (req.location !== 'granted') {
+          handlers.onError('Precise location permission is required for attendance & geofencing.');
+          return;
+        }
+      }
+
+      watchId = await CapGeolocation.watchPosition(
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        },
+        (position, err) => {
+          if (cancelled) return;
+          if (err) {
+            handlers.onError(err.message || 'Unable to acquire a GPS position from native device.');
+            return;
+          }
+          if (position) {
+            handlers.onPosition({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              ts: position.timestamp,
+            });
+          }
+        }
+      );
+    }).catch((err) => {
+      if (!cancelled) handlers.onError(err.message || 'Native geolocation error.');
+    });
+
+    return () => {
+      cancelled = true;
+      if (watchId) {
+        void CapGeolocation.clearWatch({ id: watchId });
+      }
+    };
+  }
+
+  // Web fallback (navigator.geolocation)
   if (!source) {
     handlers.onError('Geolocation is not supported on this device.');
     return () => undefined;

@@ -22,6 +22,7 @@ import { PasswordRecovery } from './components/auth/PasswordRecovery';
 import { MfaChallenge } from './components/auth/MfaChallenge';
 import { getCurrentAuthSessionIdentity, getMfaState, subscribeToOtherSessionLogout } from './services/auth/authSecurity';
 import { isPasswordRecoveryUrl } from './lib/authRecoveryRoute';
+import { isNativePlatform, initializeNativeShell } from './lib/nativeShell';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
 const RiderAttendance = lazy(() => import('./pages/RiderAttendance').then((module) => ({ default: module.RiderAttendance })));
@@ -233,6 +234,30 @@ export function App() {
       unsubscribe?.();
     };
   }, [isPasswordRecovery, session?.id, signOutLocally]);
+
+  // Initialize native shell (hardware back button, status bar, splash screen) when running in Capacitor
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    void initializeNativeShell({
+      onHardwareBack: () => {
+        // If mobile navigation drawer is open, close it first
+        if (mobileNavOpen) {
+          setMobileNavOpen(false);
+          return true;
+        }
+        // If help modal is open, close it
+        if (helpOpen) {
+          setHelpOpen(false);
+          return true;
+        }
+        return false;
+      },
+    }).then((c) => {
+      cleanup = c;
+    });
+
+    return () => cleanup?.();
+  }, [helpOpen, mobileNavOpen]);
 
   // Attach passive listeners, then activate replay only after rider identity is verified.
   useEffect(() => {
@@ -475,6 +500,32 @@ export function App() {
 
   }
   // Past this point: role is 'admin' | 'hr' | 'payroll'.
+  // Mobile Native Gate: If running in Capacitor native app, block non-rider roles
+  if (isNativePlatform()) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-panel-bg p-6 text-foreground font-[Geist,sans-serif]">
+        <div className="max-w-md rounded-2xl border border-primary/20 bg-white p-6 sm:p-8 text-center shadow-lg space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary mx-auto flex items-center justify-center font-bold text-xl">
+            🛵
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-foreground">Rider Mobile App Only</h1>
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              This mobile application is exclusively built for delivery riders. Administrative, HR, and Payroll dashboards must be accessed via web browser.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={signOut}
+            className="w-full h-10 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition cursor-pointer"
+          >
+            Sign Out of Mobile App
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const dashRole = role as 'admin' | 'hr' | 'payroll';
   // Guards: scope each role to its allowed pages with route key normalization
   function safePageFor(r: 'admin' | 'hr' | 'payroll', p: PageKey): PageKey {
