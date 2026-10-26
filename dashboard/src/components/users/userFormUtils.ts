@@ -37,6 +37,13 @@ export interface FormState {
 
 export type FormErrors = Partial<Record<keyof FormState, string>>;
 
+export function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+}
+
 export function isValidFaceDescriptor(descriptor: number[] | null | undefined): descriptor is number[] {
   return Array.isArray(descriptor) && descriptor.length === 128;
 }
@@ -195,7 +202,7 @@ export function validate(form: FormState, mode: 'create' | 'edit', original?: Fo
     // Vehicle Info Validation
     if (!form.vehicleType) {
       errors.vehicleType = 'Vehicle type is required.';
-    } else if (form.vehicleType !== 'bicycle' && form.vehicleType !== 'none' && form.vehicleType !== '') {
+    } else if (form.vehicleType !== 'bicycle' && form.vehicleType !== '') {
       // Plate number is required for motorcycle and e-bike
       if (!form.vehiclePlateNumber.trim()) {
         errors.vehiclePlateNumber = 'Plate number is required.';

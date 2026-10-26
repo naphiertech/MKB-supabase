@@ -11,6 +11,7 @@ import {
   Trash2,
   ArrowLeft,
   ShieldCheck,
+  MapPin,
 } from "lucide-react";
 import type { AppUser, UserRole, Zone } from "../../services/types";
 import { pushToast } from "../../hooks/useToast";
@@ -41,7 +42,10 @@ import {
   filterZonesForRiderHub,
   resolveInitialRiderHubId,
   validate,
+  formatPhoneNumber,
 } from "./userFormUtils";
+import { StreetAddressPinpointModal } from "./StreetAddressPinpointModal";
+import { ZAMBOANGA_CITY_BARANGAYS } from "./zamboangaBarangays";
 import { checkEmployeeDuplicates } from "../../services/users/userService";
 import { getMissingStaffProfileFields, isStaffRole } from "../../lib/users/staffProfilePolicy";
 import type { Hub } from "../../services/hubs/hubService";
@@ -151,6 +155,7 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
   const [showPassword, setShowPassword] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [pinpointModalOpen, setPinpointModalOpen] = useState(false);
   const [processingBiometrics, setProcessingBiometrics] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialFormRef = useRef<FormState | null>(null);
@@ -687,14 +692,14 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                   innerRef={(el) => (fieldRefs.current.contact = el)}
                 >
                   <input
-                    value={form.contact}
+                    value={formatPhoneNumber(form.contact)}
                     onChange={(e) =>
                       setField(
                         "contact",
                         e.target.value.replace(/\D/g, "").slice(0, 11),
                       )
                     }
-                    placeholder="09XX XXX XXXX"
+                    placeholder="0945-214-1243"
                     inputMode="numeric"
                     className="ar-input font-mono"
                     disabled={submitting}
@@ -805,13 +810,29 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                         error={errors.barangay}
                         innerRef={(el) => (fieldRefs.current.barangay = el)}
                       >
-                        <input
-                          value={form.barangay}
-                          onChange={(e) => setField("barangay", e.target.value)}
-                          placeholder="e.g. Santa Maria"
-                          className="ar-input"
-                          disabled={submitting}
-                        />
+                        {form.city === "Zamboanga City" || !form.city ? (
+                          <select
+                            value={form.barangay}
+                            onChange={(e) => setField("barangay", e.target.value)}
+                            className="ar-input"
+                            disabled={submitting}
+                          >
+                            <option value="">Select Barangay</option>
+                            {ZAMBOANGA_CITY_BARANGAYS.map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            value={form.barangay}
+                            onChange={(e) => setField("barangay", e.target.value)}
+                            placeholder="e.g. Santa Maria"
+                            className="ar-input"
+                            disabled={submitting}
+                          />
+                        )}
                       </Field>
                     </div>
                     <div>
@@ -844,13 +865,25 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                     error={errors.streetAddress}
                     innerRef={(el) => (fieldRefs.current.streetAddress = el)}
                   >
-                    <input
-                      value={form.streetAddress}
-                      onChange={(e) => setField("streetAddress", e.target.value)}
-                      placeholder="House no., Block/Lot, Street name, subdivision..."
-                      className="ar-input"
-                      disabled={submitting}
-                    />
+                    <div className="relative flex items-center">
+                      <input
+                        value={form.streetAddress}
+                        onChange={(e) => setField("streetAddress", e.target.value)}
+                        placeholder="House no., Block/Lot, Street name, subdivision..."
+                        className="ar-input pr-32"
+                        disabled={submitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPinpointModalOpen(true)}
+                        disabled={submitting}
+                        className="absolute right-1.5 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold transition cursor-pointer"
+                        title="Pinpoint street address on map"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>Pin on Map</span>
+                      </button>
+                    </div>
                   </Field>
                 </div>
 
@@ -881,14 +914,14 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                       innerRef={(el) => (fieldRefs.current.emergencyContactPhone = el)}
                     >
                       <input
-                        value={form.emergencyContactPhone}
+                        value={formatPhoneNumber(form.emergencyContactPhone)}
                         onChange={(e) =>
                           setField(
                             "emergencyContactPhone",
                             e.target.value.replace(/\D/g, "").slice(0, 11),
                           )
                         }
-                        placeholder="09XX XXX XXXX"
+                        placeholder="0917-123-4567"
                         inputMode="numeric"
                         className="ar-input font-mono"
                         disabled={submitting}
@@ -1394,7 +1427,6 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                       <option value="motorcycle">Motorcycle</option>
                       <option value="bicycle">Bicycle</option>
                       <option value="e-bike">E-Bike</option>
-                      <option value="none">None</option>
                     </select>
                   </Field>
                   <Field
@@ -1406,9 +1438,9 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                     <input
                       value={form.vehiclePlateNumber}
                       onChange={(e) => setField("vehiclePlateNumber", e.target.value.toUpperCase())}
-                      placeholder={form.vehicleType === 'bicycle' || form.vehicleType === 'none' ? "N/A" : "e.g. ABC 1234"}
+                      placeholder={form.vehicleType === 'bicycle' ? "N/A" : "e.g. ABC 1234"}
                       className="ar-input font-mono"
-                      disabled={submitting || form.vehicleType === 'bicycle' || form.vehicleType === 'none' || form.vehicleType === ''}
+                      disabled={submitting || form.vehicleType === 'bicycle' || form.vehicleType === ''}
                     />
                   </Field>
                 </div>
@@ -1519,6 +1551,17 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
           )}
         </div>
       </div>
+
+      <StreetAddressPinpointModal
+        open={pinpointModalOpen}
+        onClose={() => setPinpointModalOpen(false)}
+        currentStreetAddress={form.streetAddress}
+        barangay={form.barangay}
+        city={form.city}
+        onConfirmAddress={(selectedStreet) => {
+          setField("streetAddress", selectedStreet);
+        }}
+      />
 
       {cameraOpen && (
         <FaceCaptureModal

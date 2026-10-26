@@ -161,3 +161,25 @@ describe('Rider hub assignment controls', () => {
     expect(filterZonesForRiderHub?.(zones, 'hub-1', 'zone-c').map((zone) => zone.id)).toEqual(['zone-a', 'zone-c']);
   });
 });
+
+
+describe('formatPhoneNumber', () => {
+  const { formatPhoneNumber } = formUtils;
+
+  it('formats 11-digit Philippine mobile numbers with dashes', () => {
+    expect(formatPhoneNumber('09452141243')).toBe('0945-214-1243');
+    expect(formatPhoneNumber('09171234567')).toBe('0917-123-4567');
+  });
+
+  it('handles partial mobile numbers incrementally', () => {
+    expect(formatPhoneNumber('0945')).toBe('0945');
+    expect(formatPhoneNumber('09452')).toBe('0945-2');
+    expect(formatPhoneNumber('0945214')).toBe('0945-214');
+    expect(formatPhoneNumber('09452141')).toBe('0945-214-1');
+  });
+
+  it('strips non-digits and truncates exceeding digits', () => {
+    expect(formatPhoneNumber('0945-214-1243 extra')).toBe('0945-214-1243');
+    expect(formatPhoneNumber('abc0945def214ghi1243999')).toBe('0945-214-1243');
+  });
+});
