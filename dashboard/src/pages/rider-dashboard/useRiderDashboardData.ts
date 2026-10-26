@@ -26,6 +26,7 @@ export interface RiderDashboardData {
   actualRiderId: string;
   rider: DashboardRider | null;
   zone: Zone | null;
+  hubZones?: Zone[];
   loading: boolean;
   attendance: DashboardAttendanceState;
   activeViolation: DashboardActiveViolation | null;
@@ -139,6 +140,10 @@ export function useRiderDashboardData({
     setZone(resolvedZone);
   }, [allZones, rider?.zoneId]);
 
+  const hubZones = zone?.hubId
+    ? allZones.filter((candidate) => candidate.hubId === zone.hubId && candidate.status !== 'inactive')
+    : [];
+
   const updateRiderFaceDescriptor = useCallback((descriptor: number[]) => {
     setRider((current) => current ? { ...current, faceDescriptor: descriptor } : null);
   }, []);
@@ -147,6 +152,7 @@ export function useRiderDashboardData({
     actualRiderId,
     rider,
     zone,
+    hubZones,
     loading,
     attendance,
     activeViolation,

@@ -32,7 +32,6 @@ import {
   toHHMM,
   type DashboardViolation,
 } from './rider-dashboard/riderDashboardModel';
-import { useRiderZone } from '../context/RiderZoneContext';
 import { useRiderDashboardData } from './rider-dashboard/useRiderDashboardData';
 import { useRiderShiftController } from './rider-dashboard/useRiderShiftController';
 import { getAttendanceContextLabel, type AttendanceContextCode } from '../services/attendance/attendanceContextService';
@@ -65,11 +64,11 @@ interface PayrollRecord {
 }
 
 export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardProps) {
-  const { zones: allZones } = useRiderZone();
   const {
     actualRiderId,
     rider,
     zone,
+    hubZones = [],
     loading,
     attendance,
     activeViolation,
@@ -78,9 +77,6 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
     reload: loadRiderAndZone,
     updateRiderFaceDescriptor,
   } = useRiderDashboardData({ userId, riderId });
-  const hubZones = zone?.hubId
-    ? allZones.filter((candidate) => candidate.hubId === zone.hubId && candidate.status !== 'inactive')
-    : [];
   const { timeIn, timeOut } = attendance;
   const [violationsList, setViolationsList] = useState<DashboardViolation[]>([]);
   const [loadingViolations, setLoadingViolations] = useState(false);
