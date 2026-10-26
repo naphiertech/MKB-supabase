@@ -5,7 +5,7 @@ import { useFaceRecognition } from '../../hooks/useFaceRecognition';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { pushToast } from '../../hooks/useToast';
 import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricTelemetry';
-import { hasOperationalZoneGeometry, isPointInZone } from '../../lib/geofenceUtils';
+import { hasOperationalZoneGeometry, isPointInHubOperationalTerritory } from '../../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../../lib/riderGeolocation';
 import { notifyGeofenceWarning } from '../../lib/nativeNotifications';
 import { startForegroundDutyTracking, stopForegroundDutyTracking } from '../../lib/foregroundTracking';
@@ -33,6 +33,7 @@ interface UseRiderShiftControllerInput {
   actualRiderId: string;
   rider: DashboardRider | null;
   zone: Zone | null;
+  hubZones?: Zone[];
   attendance: DashboardAttendanceState;
   activeViolation: DashboardActiveViolation | null;
   loading: boolean;
@@ -49,6 +50,7 @@ export function useRiderShiftController({
   actualRiderId,
   rider,
   zone,
+  hubZones = [],
   attendance,
   activeViolation,
   loading,
@@ -233,8 +235,8 @@ export function useRiderShiftController({
     const target = activeViolation && !isOnline
       ? { lat: activeViolation.lat, lng: activeViolation.lng }
       : position;
-    return isPointInZone(target, zone);
-  }, [isOnline, distanceToUse, activeViolation, zone, position, geofenceResolved]);
+    return isPointInHubOperationalTerritory(target, zone, hubZones, hubGeofence);
+  }, [isOnline, distanceToUse, activeViolation, zone, hubZones, hubGeofence, position, geofenceResolved]);
 
   const distance = distanceToUse;
   const inZone = inZoneToUse;

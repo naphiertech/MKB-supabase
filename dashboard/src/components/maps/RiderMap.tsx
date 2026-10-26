@@ -32,6 +32,7 @@ interface RiderMapProps {
     lng: number;
   };
   zone: Zone;
+  hubZones?: Zone[];
   /** Inside-zone status (renders calm pin) vs outside (pulsing red ring). */
   inZone: boolean | null;
   hub?: RiderMapHubProps | null;
@@ -161,6 +162,7 @@ function InitialMapBounds({
 export function RiderMap({
   position,
   zone,
+  hubZones = [],
   inZone,
   hub,
   height,
@@ -269,7 +271,17 @@ export function RiderMap({
           />
         )}
 
-        <GeofenceCircle zone={zone} satelliteMode={isSatellite} />
+        {hubZones
+          .filter((sibling) => sibling.id !== zone.id)
+          .map((sibling) => (
+            <GeofenceCircle
+              key={sibling.id}
+              zone={sibling}
+              dimmed
+              satelliteMode={isSatellite}
+            />
+          ))}
+        <GeofenceCircle zone={zone} highlighted satelliteMode={isSatellite} />
         <Marker position={[position.lat, position.lng]} icon={icon} />
 
         {normalizedHub && hubIcon && (

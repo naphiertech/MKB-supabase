@@ -47,6 +47,68 @@ export function isPointInZone(
 }
 
 /**
+ * Evaluates whether a Rider coordinate is inside their Hub Operational Territory:
+ * - Their Primary Dispatch Zone, OR
+ * - Any active sibling Delivery Zone belonging to the same Hub, OR
+ * - Their Hub Attendance Geofence circle.
+ */
+export function isPointInHubOperationalTerritory(
+  point: [number, number] | { lat: number; lng: number },
+  primaryZone: Zone | null | undefined,
+  hubZones: Zone[] = [],
+  hubCircle?: {
+    latitude?: number | null;
+    longitude?: number | null;
+    attendance_radius_m?: number | null;
+  } | null,
+): boolean | null {
+  const lat = Array.isArray(point) ? point[0] : point.lat;
+  const lng = Array.isArray(point) ? point[1] : point.lng;
+
+  let hasEvaluatableBoundary = false;
+
+  if (hasOperationalZoneGeometry(primaryZone) && primaryZone.status !== 'inactive') {
+    hasEvaluatableBoundary = true;
+    if (isPointInZone([lat, lng], primaryZone) === true) {
+      return true;
+    }
+  }
+
+  if (
+    hubCircle &&
+    Number.isFinite(hubCircle.latitude) &&
+    Number.isFinite(hubCircle.longitude) &&
+    Number.isFinite(hubCircle.attendance_radius_m) &&
+    Number(hubCircle.attendance_radius_m) > 0
+  ) {
+    hasEvaluatableBoundary = true;
+    const dist = haversine(
+      Number(hubCircle.latitude),
+      Number(hubCircle.longitude),
+      lat,
+      lng,
+    );
+    if (dist <= Number(hubCircle.attendance_radius_m)) {
+      return true;
+    }
+  }
+
+  for (const siblingZone of hubZones) {
+    if (!hasOperationalZoneGeometry(siblingZone) || siblingZone.status === 'inactive') continue;
+    hasEvaluatableBoundary = true;
+    if (isPointInZone([lat, lng], siblingZone) === true) {
+      return true;
+    }
+  }
+
+  if (!hasEvaluatableBoundary) {
+    return isPointInZone(point, primaryZone);
+  }
+
+  return false;
+}
+
+/**
  * Format a meter value for compact display.
  * < 1000 → "850 m"; >= 1000 → "1.2 km"
  */

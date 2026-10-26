@@ -5,6 +5,7 @@ import {
   hasOperationalZoneGeometry,
   haversine,
   isClosingPolygonLoop,
+  isPointInHubOperationalTerritory,
   isPointInPolygon,
   isPointInZone,
   metersToReadable,
@@ -159,6 +160,57 @@ describe('geofence utilities', () => {
       expect(isPointInPolygon([6.922, 122.090], snapped)).toBe(false);
       // Point in non-overlapping south region (6.915, 122.090) stays inside snapped south zone
       expect(isPointInPolygon([6.915, 122.090], snapped)).toBe(true);
+    });
+
+    it('evaluates Hub Operational Territory across primary zone, sibling hub zones, and hub attendance circle', () => {
+      const primaryZone: Zone = {
+        id: 'zone-talon',
+        hubId: 'hub-1',
+        name: 'Talon-Talon, Mampang, Arena Blanco',
+        center: [6.915, 122.125],
+        radius: 2500,
+        color: '#db6c00',
+        status: 'active',
+        zone_type: 'polygon',
+        polygon_coordinates: [
+          [6.905, 122.108],
+          [6.930, 122.108],
+          [6.930, 122.160],
+          [6.905, 122.160],
+        ],
+      };
+
+      const siblingZone: Zone = {
+        id: 'zone-guiwan',
+        hubId: 'hub-1',
+        name: 'Guiwan, Putik, Divisoria',
+        center: [6.930, 122.090],
+        radius: 2000,
+        color: '#2563EB',
+        status: 'active',
+        zone_type: 'polygon',
+        polygon_coordinates: [
+          [6.920, 122.080],
+          [6.945, 122.080],
+          [6.945, 122.108],
+          [6.920, 122.108],
+        ],
+      };
+
+      const hubCircle = {
+        latitude: 6.927486,
+        longitude: 122.087875,
+        attendance_radius_m: 55,
+      };
+
+      // Inside primary zone -> true
+      expect(isPointInHubOperationalTerritory([6.915, 122.125], primaryZone, [primaryZone, siblingZone], hubCircle)).toBe(true);
+      // Inside sibling zone of same hub -> true (no violation!)
+      expect(isPointInHubOperationalTerritory([6.930, 122.095], primaryZone, [primaryZone, siblingZone], hubCircle)).toBe(true);
+      // At the Hub pin -> true
+      expect(isPointInHubOperationalTerritory([6.927486, 122.087875], primaryZone, [primaryZone, siblingZone], hubCircle)).toBe(true);
+      // Far outside all zones of the Hub (e.g., another Hub's territory) -> false (violation!)
+      expect(isPointInHubOperationalTerritory([6.960, 122.020], primaryZone, [primaryZone, siblingZone], hubCircle)).toBe(false);
     });
   });
 });
