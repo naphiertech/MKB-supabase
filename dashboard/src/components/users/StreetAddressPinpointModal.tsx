@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { X, MapPin, Search, Loader2, Check, Navigation } from 'lucide-react';
-import { STREET_BASEMAP } from '../maps/mapProviders';
+import { STREET_BASEMAP, useMapResizeObserver } from '../maps/mapProviders';
 
 interface StreetAddressPinpointModalProps {
   open: boolean;
@@ -51,19 +52,13 @@ function MapController({
   center: [number, number] | null;
 }) {
   const map = useMap();
+  useMapResizeObserver();
 
   useEffect(() => {
     if (center) {
       map.flyTo(center, Math.max(map.getZoom(), 16), { duration: 0.6 });
     }
   }, [center, map]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [map]);
 
   return null;
 }
@@ -88,7 +83,6 @@ export function StreetAddressPinpointModal({
   useEffect(() => {
     if (open) {
       setStreetInput(currentStreetAddress || '');
-      // Try geocoding initial barangay / city or current address
       const initialQuery = [currentStreetAddress, barangay, city].filter(Boolean).join(', ');
       if (initialQuery.trim()) {
         void searchLocation(initialQuery, false);
@@ -210,18 +204,21 @@ export function StreetAddressPinpointModal({
         </div>
 
         {/* Map View */}
-        <div className="relative flex-1 min-h-[320px] sm:min-h-[380px] bg-slate-100">
+        <div className="relative w-full h-[380px] sm:h-[440px] bg-slate-100">
           <MapContainer
             center={mapCenter}
             zoom={15}
-            className="w-full h-full"
+            scrollWheelZoom
+            style={{ height: '100%', width: '100%' }}
             zoomControl={false}
           >
             <TileLayer
               attribution={STREET_BASEMAP.attribution}
               url={STREET_BASEMAP.url}
-              maxZoom={19}
+              maxNativeZoom={19}
+              maxZoom={20}
             />
+            <ZoomControl position="bottomright" />
             <MapController center={position || mapCenter} />
             <MapEventsHandler onLocationSelect={handleMapClick} />
             {position && (
