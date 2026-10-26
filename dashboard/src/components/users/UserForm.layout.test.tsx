@@ -122,7 +122,7 @@ describe('UserForm layout refinement', () => {
     expect(twoColGrids?.length).toBe(2);
   });
 
-  it('renders Account Configuration in a responsive 2-column desktop layout', () => {
+  it('renders Staff Account Configuration in a responsive balanced sidebar hierarchy', () => {
     act(() => {
       root.render(
         <UserForm
@@ -133,18 +133,17 @@ describe('UserForm layout refinement', () => {
       );
     });
 
-    // In default admin role (non-rider), the account configuration card is visible
-    const accountConfigGrid = container.querySelector('.lg\\:grid-cols-2.items-start');
-    expect(accountConfigGrid).not.toBeNull();
+    // In default admin role (non-rider), staff permissions and security cards are in the sidebar
+    const staffRoleAccess = container.querySelector('#staff-role-access');
+    const staffSecurity = container.querySelector('#staff-security');
+    expect(staffRoleAccess).not.toBeNull();
+    expect(staffSecurity).not.toBeNull();
 
-    // Left column contains Account Status and System Role
-    expect(accountConfigGrid?.textContent).toContain('Account Status');
-    expect(accountConfigGrid?.textContent).toContain('System Role');
-    expect(accountConfigGrid?.textContent).toContain('Hub access');
-
-    // Right column contains Temporary Password and Credential Security Policy
-    expect(accountConfigGrid?.textContent).toContain('Temporary Password');
-    expect(accountConfigGrid?.textContent).toContain('Credential Security Policy');
+    expect(staffRoleAccess?.textContent).toContain('System Role');
+    expect(staffRoleAccess?.textContent).toContain('Hub access');
+    expect(staffSecurity?.textContent).toContain('Account Status');
+    expect(staffSecurity?.textContent).toContain('Temporary Password');
+    expect(staffSecurity?.textContent).toContain('Credential Security Policy');
   });
 
   it('renders HR Onboarding Notes with full-width textarea and bounded row height', () => {
