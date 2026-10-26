@@ -55,4 +55,19 @@ describe('archived employee profile', () => {
     expect(container.textContent).toContain('Employment Details');
     expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent?.includes('Edit Profile'))).toBe(false);
   });
+
+  it('renders 0 days tenure instead of negative month wrap-around when dateOfHire is in the future', () => {
+    act(() =>
+      root.render(
+        <EmployeeDetails
+          user={{ ...archivedEmployee, employmentStatus: 'active', dateOfHire: '2099-12-31' }}
+          zones={[]}
+          onClose={vi.fn()}
+          onEdit={vi.fn()}
+        />,
+      ),
+    );
+    expect(container.textContent).toContain('0 days');
+    expect(container.textContent).not.toContain('11 mos');
+  });
 });

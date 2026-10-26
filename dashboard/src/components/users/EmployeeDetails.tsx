@@ -128,35 +128,45 @@ export function EmployeeDetails({ user, zones, onClose, onEdit, onManageAssignme
 
   const tenure = useMemo(() => {
     if (!user.dateOfHire) return 'Not set';
-    const start = new Date(user.dateOfHire);
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(user.dateOfHire);
+    const start = match
+      ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+      : new Date(user.dateOfHire);
     if (isNaN(start.getTime())) return 'Not set';
-    const now = new Date();
-    
-    let years = now.getFullYear() - start.getFullYear();
-    let months = now.getMonth() - start.getMonth();
-    let days = now.getDate() - start.getDate();
-    
+    const nowRaw = new Date();
+    const now = new Date(nowRaw.getFullYear(), nowRaw.getMonth(), nowRaw.getDate());
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+
+    if (startDay.getTime() >= now.getTime()) return '0 days';
+
+    let years = now.getFullYear() - startDay.getFullYear();
+    let months = now.getMonth() - startDay.getMonth();
+    let days = now.getDate() - startDay.getDate();
+
     if (days < 0) {
       months -= 1;
-      const daysInMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+      const daysInMonth = new Date(startDay.getFullYear(), startDay.getMonth() + 1, 0).getDate();
       days += daysInMonth;
     }
     if (months < 0) {
       years -= 1;
       months += 12;
     }
-    
+
     const parts = [];
     if (years > 0) parts.push(`${years} yr${years > 1 ? 's' : ''}`);
     if (months > 0) parts.push(`${months} mo${months > 1 ? 's' : ''}`);
     if (days > 0 || parts.length === 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
-    
+
     return parts.join(', ');
   }, [user.dateOfHire]);
 
   const formattedHireDate = useMemo(() => {
     if (!user.dateOfHire) return '—';
-    const d = new Date(user.dateOfHire);
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(user.dateOfHire);
+    const d = match
+      ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+      : new Date(user.dateOfHire);
     if (isNaN(d.getTime())) return user.dateOfHire;
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   }, [user.dateOfHire]);
