@@ -84,7 +84,7 @@ Deno.serve(async (request: Request) => {
   `;
 
   if (resendApiKey) {
-    try {
+    const sendToEmail = async (targetEmail: string) => {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -93,19 +93,30 @@ Deno.serve(async (request: Request) => {
         },
         body: JSON.stringify({
           from: 'MKB System Alert <onboarding@resend.dev>',
-          to: [developerEmail],
+          to: [targetEmail],
           subject: emailSubject,
           html: emailHtml,
         }),
       });
+      const data = await res.json();
+      return { ok: res.ok, status: res.status, data };
+    };
 
-      const resData = await res.json();
+    try {
+      let result = await sendToEmail(developerEmail);
+      if (!result.ok && result.data?.message?.includes('You can only send testing emails to your own email address')) {
+        const match = result.data.message.match(/\(([^)]+)\)/);
+        const fallbackEmail = match ? match[1] : 'naphiera@gmail.com';
+        console.log(`[SupportTicket] Resend free tier sandbox restriction. Dispatching to verified account email: ${fallbackEmail}`);
+        result = await sendToEmail(fallbackEmail);
+      }
+
       return json({
-        ok: true,
-        delivered: res.ok,
+        ok: result.ok,
+        delivered: result.ok,
         provider: 'resend',
         developerEmail,
-        response: resData,
+        response: result.data,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Resend dispatch failed';
