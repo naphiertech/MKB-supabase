@@ -316,6 +316,8 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
                     </p>
                     <a
                       href={directMailtoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-bold transition hover:opacity-90 cursor-pointer"
                     >
                       <Bug className="w-3.5 h-3.5" />

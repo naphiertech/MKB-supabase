@@ -431,6 +431,8 @@ export function SupportTicketDesk({ currentUser }: SupportTicketDeskProps) {
                     description: selectedTicket.description,
                     currentUser,
                   })}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
                 >
                   <Bug className="h-3 w-3" />
