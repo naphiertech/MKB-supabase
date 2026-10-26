@@ -29,6 +29,7 @@ import {
 } from "../services/monitoring/monitoringService";
 import { StatDetailsPanel } from "../components/dashboard/StatDetailsPanels";
 import { useAttendanceContextVersion } from "../hooks/useAttendanceContextVersion";
+import { useHub } from "../context/HubContext";
 
 interface AdminDashboardProps {
   onNavigate: (page: "monitoring" | "attendance") => void;
@@ -36,6 +37,7 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
   const { riders, violations, markLocalViolationRead, markAllLocalViolationsRead } = useRealtimeLocation();
+  const { selectedHubId } = useHub();
   const [focusRiderId, setFocusRiderId] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<"active_riders" | "on_duty" | "violations" | "attendance" | null>(null);
   const activeCount = riders.filter((r) => r.status !== "offline").length;
@@ -56,11 +58,15 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
     const today = getLocalDateString();
     const fromDate = new Date(`${today}T00:00:00.000Z`);
     fromDate.setUTCDate(fromDate.getUTCDate() - 7);
-    void listAttendanceContext({ fromDate: fromDate.toISOString().slice(0, 10), toDate: today }).then((logs) => {
+    void listAttendanceContext({
+      fromDate: fromDate.toISOString().slice(0, 10),
+      toDate: today,
+      hubId: selectedHubId,
+    }).then((logs) => {
       if (active) setAttendanceList(logs);
     });
     return () => { active = false; };
-  }, [attendanceRealtimeVersion]);
+  }, [attendanceRealtimeVersion, selectedHubId]);
 
   const today = getLocalDateString();
   const yesterday = useMemo(() => {

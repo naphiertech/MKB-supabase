@@ -17,6 +17,10 @@ vi.mock('../hooks/useAttendanceContextVersion', () => ({
   useAttendanceContextVersion: () => 0,
 }));
 
+vi.mock('../context/HubContext', () => ({
+  useHub: () => ({ selectedHubId: null, workspaceKey: 'all', isReady: true }),
+}));
+
 vi.mock('../components/common/StatCard', () => ({
   StatCard: ({ label, value, onClick }: { label: string; value: React.ReactNode; onClick?: () => void }) => (
     <div data-testid={`stat-${label.toLowerCase().replace(/\s+/g, '-')}`} onClick={onClick}>

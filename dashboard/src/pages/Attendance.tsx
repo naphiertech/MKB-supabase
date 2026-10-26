@@ -35,6 +35,7 @@ import { exportEmployeeDTR } from '../lib/exports/employeeExport';
 import { exportAttendanceCsv, exportAttendancePdf } from '../lib/exports/attendanceExport';
 import type { EmploymentStatus } from '../services/types';
 import { useAttendanceContextVersion } from '../hooks/useAttendanceContextVersion';
+import { useHub } from '../context/HubContext';
 
 type QuickRange = 'today' | 'this_week' | 'this_cutoff' | 'this_month' | 'custom';
 
@@ -108,6 +109,7 @@ export function Attendance() {
     restoredAt: string | null;
   }[]>([]);
 
+  const { selectedHubId } = useHub();
   const attendanceRealtimeVersion = useAttendanceContextVersion();
 
   // Authoritative Attendance Correction & Audit states
@@ -178,19 +180,26 @@ export function Attendance() {
     const contextFrom = dateFrom === dateTo ? previousDate.toISOString().slice(0, 10) : dateFrom;
 
     void Promise.all([
-      listAttendanceContext({ fromDate: contextFrom, toDate: dateTo }),
+      listAttendanceContext({
+        fromDate: contextFrom,
+        toDate: dateTo,
+        hubId: selectedHubId,
+      }),
       getAttendanceLogs(
         { dateFrom: contextFrom, dateTo },
         { finalizeDaily: false, throwOnError: true, includeEvents: true },
       ),
     ]).then(([contextRows, rawRows]) => {
-      if (active) setAttendanceList(mergeAttendanceContextDetails(contextRows, rawRows));
+      const filteredRawRows = selectedHubId
+        ? rawRows.filter((r) => r.hubId === selectedHubId)
+        : rawRows;
+      if (active) setAttendanceList(mergeAttendanceContextDetails(contextRows, filteredRawRows));
     }).catch((error) => {
       if (active) console.error('Error fetching attendance context:', error);
     });
 
     return () => { active = false; };
-  }, [attendanceRealtimeVersion, dateFrom, dateTo]);
+  }, [attendanceRealtimeVersion, dateFrom, dateTo, selectedHubId]);
 
   const fullAttendanceList = attendanceList;
 
@@ -349,13 +358,20 @@ export function Attendance() {
     const contextFrom = dateFrom === dateTo ? previousDate.toISOString().slice(0, 10) : dateFrom;
 
     void Promise.all([
-      listAttendanceContext({ fromDate: contextFrom, toDate: dateTo }),
+      listAttendanceContext({
+        fromDate: contextFrom,
+        toDate: dateTo,
+        hubId: selectedHubId,
+      }),
       getAttendanceLogs(
         { dateFrom: contextFrom, dateTo },
         { finalizeDaily: false, throwOnError: true, includeEvents: true },
       ),
     ]).then(([contextRows, rawRows]) => {
-      setAttendanceList(mergeAttendanceContextDetails(contextRows, rawRows));
+      const filteredRawRows = selectedHubId
+        ? rawRows.filter((r) => r.hubId === selectedHubId)
+        : rawRows;
+      setAttendanceList(mergeAttendanceContextDetails(contextRows, filteredRawRows));
     }).catch((error) => {
       console.error('Error refreshing attendance context:', error);
     });

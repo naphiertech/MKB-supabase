@@ -15,6 +15,7 @@ import { HRViolationSummary } from '../components/hr/HRViolationSummary';
 import { HRDetailsPanel } from '../components/hr/HRDetailsPanels';
 import { NeedsAttention } from '../components/hr/NeedsAttention';
 import { useAttendanceContextVersion } from '../hooks/useAttendanceContextVersion';
+import { useHub } from '../context/HubContext';
 
 interface HRDashboardProps {
   onNavigate: (page: 'monitoring' | 'attendance' | 'reports', params?: Record<string, string>) => void;
@@ -22,6 +23,7 @@ interface HRDashboardProps {
 
 export function HRDashboard({ onNavigate }: HRDashboardProps) {
   const { riders, violations } = useRealtimeLocation();
+  const { selectedHubId } = useHub();
   const [kpis, setKpis] = useState({
     onDuty: 0,
     complete: 0,
@@ -48,7 +50,11 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
     let active = true;
     const fromDate = new Date(`${today}T00:00:00.000Z`);
     fromDate.setUTCDate(fromDate.getUTCDate() - 7);
-    void listAttendanceContext({ fromDate: fromDate.toISOString().slice(0, 10), toDate: today }).then((logs) => {
+    void listAttendanceContext({
+      fromDate: fromDate.toISOString().slice(0, 10),
+      toDate: today,
+      hubId: selectedHubId,
+    }).then((logs) => {
       if (!active) return;
       const todayLogs = logs.filter(log => log.date === today);
       setKpis({
@@ -60,7 +66,7 @@ export function HRDashboard({ onNavigate }: HRDashboardProps) {
       setAttendanceList(logs);
     });
     return () => { active = false; };
-  }, [attendanceRealtimeVersion, today]);
+  }, [attendanceRealtimeVersion, today, selectedHubId]);
 
   const yesterday = useMemo(() => {
     const d = new Date(`${today}T00:00:00`);
