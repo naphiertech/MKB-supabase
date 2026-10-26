@@ -4,9 +4,11 @@ import {
   formatLatLng,
   hasOperationalZoneGeometry,
   haversine,
+  isClosingPolygonLoop,
   isPointInPolygon,
   isPointInZone,
-  metersToReadable
+  metersToReadable,
+  simplifyPolygonPath
 } from './geofenceUtils';
 import type { Zone } from '../services/types';
 
@@ -88,6 +90,43 @@ describe('geofence utilities', () => {
 
     it('returns null when zone geometry is invalid or missing', () => {
       expect(isPointInZone([14.5, 121.0], null)).toBeNull();
+    });
+  });
+
+  describe('simplifyPolygonPath and isClosingPolygonLoop', () => {
+    it('simplifies dense freehand stroke points while preserving shape corners', () => {
+      const denseLoop: [number, number][] = [
+        [6.9200, 122.0700],
+        [6.9225, 122.0700],
+        [6.9250, 122.0700],
+        [6.9275, 122.0700],
+        [6.9300, 122.0700],
+        [6.9300, 122.0750],
+        [6.9300, 122.0800],
+        [6.9250, 122.0800],
+        [6.9200, 122.0800],
+        [6.9200, 122.0750],
+        [6.92005, 122.07005],
+      ];
+
+      const simplified = simplifyPolygonPath(denseLoop);
+      expect(simplified.length).toBe(4);
+      expect(simplified[0]).toEqual([6.9200, 122.0700]);
+      expect(simplified).toContainEqual([6.9300, 122.0700]);
+      expect(simplified).toContainEqual([6.9300, 122.0800]);
+      expect(simplified).toContainEqual([6.9200, 122.0800]);
+    });
+
+    it('detects when a new point snaps to the start vertex to close a polygon loop', () => {
+      const openPath: [number, number][] = [
+        [6.9250, 122.0780],
+        [6.9300, 122.0820],
+        [6.9220, 122.0840],
+      ];
+
+      expect(isClosingPolygonLoop(openPath, [6.9251, 122.0781], 85)).toBe(true);
+      expect(isClosingPolygonLoop(openPath, [6.9350, 122.0900], 85)).toBe(false);
+      expect(isClosingPolygonLoop(openPath.slice(0, 2), [6.9250, 122.0780], 85)).toBe(false);
     });
   });
 });

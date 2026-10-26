@@ -102,3 +102,120 @@ export function isPointInPolygon(point: [number, number], vs: [number, number][]
   }
   return inside;
 }
+
+/**
+ * Perpendicular distance from a point to a line segment in [lat, lng] space.
+ */
+function perpendicularDistance(
+  point: [number, number],
+  lineStart: [number, number],
+  lineEnd: [number, number]
+): number {
+  const [x, y] = point;
+  const [x1, y1] = lineStart;
+  const [x2, y2] = lineEnd;
+
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  if (dx === 0 && dy === 0) {
+    return Math.hypot(x - x1, y - y1);
+  }
+
+  const t = clamp(((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy), 0, 1);
+  const projX = x1 + t * dx;
+  const projY = y1 + t * dy;
+  return Math.hypot(x - projX, y - projY);
+}
+
+/**
+ * Ramer-Douglas-Peucker simplification for freehand [lat, lng][] strokes.
+ * Default tolerance ~0.00018 degrees (~20 meters) keeps organic shapes smooth
+ * without storing hundreds of jittery mouse/touch points.
+ */
+export function simplifyPolygonPath(
+  points: [number, number][],
+  toleranceDeg = 0.00018
+): [number, number][] {
+  if (points.length <= 3) return points;
+
+  // Deduplicate consecutive identical or sub-meter points first
+  const deduped: [number, number][] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = deduped[deduped.length - 1];
+    const curr = points[i];
+    if (Math.hypot(curr[0] - prev[0], curr[1] - prev[1]) >= 0.00003) {
+      deduped.push(curr);
+    }
+  }
+
+  // Strip trailing point if it duplicates the start point
+  if (
+    deduped.length > 3 &&
+    Math.hypot(
+      deduped[deduped.length - 1][0] - deduped[0][0],
+      deduped[deduped.length - 1][1] - deduped[0][1]
+    ) < toleranceDeg * 1.5
+  ) {
+    deduped.pop();
+  }
+
+  if (deduped.length <= 4) return deduped;
+
+  function rdp(pts: [number, number][]): [number, number][] {
+    if (pts.length <= 2) return pts;
+    let maxDist = 0;
+    let index = 0;
+    const end = pts.length - 1;
+
+    for (let i = 1; i < end; i++) {
+      const dist = perpendicularDistance(pts[i], pts[0], pts[end]);
+      if (dist > maxDist) {
+        index = i;
+        maxDist = dist;
+      }
+    }
+
+    if (maxDist > toleranceDeg) {
+      const left = rdp(pts.slice(0, index + 1));
+      const right = rdp(pts.slice(index));
+      return [...left.slice(0, -1), ...right];
+    }
+    return [pts[0], pts[end]];
+  }
+
+  const simplified = rdp(deduped);
+
+  // Strip trailing point if it is collinear with simplified[last-1] -> simplified[0] or duplicates simplified[0]
+  if (
+    simplified.length > 3 &&
+    perpendicularDistance(
+      simplified[simplified.length - 1],
+      simplified[simplified.length - 2],
+      simplified[0]
+    ) <= toleranceDeg
+  ) {
+    simplified.pop();
+  }
+
+  // Ensure at least 3 vertices survive if the input had >= 3 distinct points
+  if (simplified.length < 3 && deduped.length >= 3) {
+    const midIdx = Math.floor(deduped.length / 2);
+    return [deduped[0], deduped[midIdx], deduped[deduped.length - 1]];
+  }
+  return simplified;
+}
+
+/**
+ * Checks whether a candidate coordinate is within `snapRadiusMeters` of the first vertex
+ * of an open polygon path (requiring at least 3 existing vertices to close a loop).
+ */
+export function isClosingPolygonLoop(
+  points: [number, number][],
+  candidate: [number, number],
+  snapRadiusMeters = 85
+): boolean {
+  if (points.length < 3) return false;
+  const [startLat, startLng] = points[0];
+  return haversine(startLat, startLng, candidate[0], candidate[1]) <= snapRadiusMeters;
+}
+

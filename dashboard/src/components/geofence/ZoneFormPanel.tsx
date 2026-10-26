@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { ChevronDown, Search, X, Undo, Trash2 } from 'lucide-react';
+import { ChevronDown, Search, X, Undo, Trash2, PenTool, MousePointerClick, CheckCircle2 } from 'lucide-react';
 import type { Rider } from '../../services/types';
 import type { Hub } from '../../services/hubs/hubService';
+
+export type PolygonDrawMode = 'corners' | 'freehand';
 
 interface ZoneFormPanelProps {
   zoneName: string;
@@ -30,6 +32,10 @@ interface ZoneFormPanelProps {
   setZoneType: (t: 'circle' | 'polygon') => void;
   polygonCoords: [number, number][];
   setPolygonCoords: (coords: [number, number][] | ((prev: [number, number][]) => [number, number][])) => void;
+  polygonDrawMode?: PolygonDrawMode;
+  setPolygonDrawMode?: (mode: PolygonDrawMode) => void;
+  isPolygonClosed?: boolean;
+  setIsPolygonClosed?: (closed: boolean) => void;
   color: string;
   setColor: (c: string) => void;
   usedColors: string[];
@@ -68,6 +74,10 @@ export function ZoneFormPanel({
   setZoneType,
   polygonCoords,
   setPolygonCoords,
+  polygonDrawMode = 'freehand',
+  setPolygonDrawMode,
+  isPolygonClosed = false,
+  setIsPolygonClosed,
   color,
   setColor,
   usedColors,
@@ -76,11 +86,18 @@ export function ZoneFormPanel({
   const [riderSearch, setRiderSearch] = useState('');
 
   const handleUndoPoint = () => {
-    setPolygonCoords((prev) => prev.slice(0, -1));
+    setPolygonCoords((prev) => {
+      const next = prev.slice(0, -1);
+      if (next.length < 3) {
+        setIsPolygonClosed?.(false);
+      }
+      return next;
+    });
   };
 
   const handleClearPoints = () => {
     setPolygonCoords([]);
+    setIsPolygonClosed?.(false);
   };
 
   return (
@@ -150,50 +167,104 @@ export function ZoneFormPanel({
             )}
           </div>
         ) : (
-          <div className={`p-3 rounded-lg border text-xs leading-relaxed ${
-            polygonCoords.length >= 3 
-              ? 'bg-emerald-50/50 border-emerald-500/20 text-emerald-900' 
-              : errors.polygon 
-                ? 'bg-red-50 border-red-500/20 text-red-900 animate-pulse'
-                : 'bg-accent border-primary/20 text-accent-foreground'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span className="font-semibold font-mono text-[11px]">
-                {polygonCoords.length >= 3 
-                  ? `Polygon shape: ${polygonCoords.length} points` 
-                  : `Points added: ${polygonCoords.length} / 3 minimum`}
-              </span>
-              {polygonCoords.length > 0 && (
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={handleUndoPoint}
-                    className={`p-1 rounded transition ${
-                      polygonCoords.length >= 3 
-                        ? 'hover:bg-emerald-500/10 text-emerald-700' 
-                        : 'hover:bg-primary/10 text-primary'
-                    }`}
-                    title="Undo last point"
-                  >
-                    <Undo size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearPoints}
-                    className="p-1 rounded hover:bg-red-500/10 text-red-700 transition"
-                    title="Clear all points"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              )}
+          <div className="space-y-2.5">
+            {setPolygonDrawMode && (
+              <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-panel-bg p-1">
+                <button
+                  type="button"
+                  onClick={() => setPolygonDrawMode('freehand')}
+                  className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] font-semibold transition-all ${
+                    polygonDrawMode === 'freehand'
+                      ? 'bg-white text-primary shadow-sm border border-primary/20'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <PenTool size={12} />
+                  <span>Freehand Draw</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPolygonDrawMode('corners')}
+                  className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] font-semibold transition-all ${
+                    polygonDrawMode === 'corners'
+                      ? 'bg-white text-primary shadow-sm border border-primary/20'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <MousePointerClick size={12} />
+                  <span>Click Corners</span>
+                </button>
+              </div>
+            )}
+
+            <div className={`p-3 rounded-lg border text-xs leading-relaxed ${
+              polygonCoords.length >= 3 && isPolygonClosed
+                ? 'bg-emerald-50/50 border-emerald-500/20 text-emerald-900' 
+                : errors.polygon 
+                  ? 'bg-red-50 border-red-500/20 text-red-900 animate-pulse'
+                  : 'bg-accent border-primary/20 text-accent-foreground'
+            }`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold font-mono text-[11px] flex items-center gap-1.5">
+                  {polygonCoords.length >= 3 && isPolygonClosed ? (
+                    <>
+                      <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                      <span>Zone loop closed ({polygonCoords.length} vertices)</span>
+                    </>
+                  ) : polygonCoords.length >= 3 ? (
+                    <span>Open path: {polygonCoords.length} pts (click start point to close)</span>
+                  ) : (
+                    <span>Points added: {polygonCoords.length} / 3 minimum</span>
+                  )}
+                </span>
+                {polygonCoords.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {polygonCoords.length >= 3 && !isPolygonClosed && setIsPolygonClosed && (
+                      <button
+                        type="button"
+                        onClick={() => setIsPolygonClosed(true)}
+                        className="px-2 py-0.5 rounded bg-primary text-white text-[10px] font-semibold hover:bg-primary-hover transition"
+                        title="Connect start and end points to close zone"
+                      >
+                        Close Loop
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleUndoPoint}
+                      className={`p-1 rounded transition ${
+                        polygonCoords.length >= 3 && isPolygonClosed
+                          ? 'hover:bg-emerald-500/10 text-emerald-700' 
+                          : 'hover:bg-primary/10 text-primary'
+                      }`}
+                      title="Undo last point"
+                    >
+                      <Undo size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearPoints}
+                      className="p-1 rounded hover:bg-red-500/10 text-red-700 transition"
+                      title="Clear all points"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <p className="mt-1 text-[10.5px] opacity-80">
+                {polygonDrawMode === 'freehand'
+                  ? polygonCoords.length >= 3 && isPolygonClosed
+                    ? '✅ Loop connected! Drag again on the map to redraw or click Save Zone.'
+                    : '✏️ Hold & drag on the map to draw a boundary around your Hub. Release to connect start-to-end.'
+                  : polygonCoords.length >= 3 && !isPolygonClosed
+                    ? '👉 Click the glowing green Start Point on the map (or click Close Loop) to seal the zone.'
+                    : polygonCoords.length >= 3 && isPolygonClosed
+                      ? '✅ Zone sealed! Click map to add more vertices or click Save Zone.'
+                      : '👉 Click on the map to trace points around your Hub, then connect back to the start point.'}
+              </p>
             </div>
-            
-            <p className="mt-1 text-[10.5px] opacity-80">
-              {polygonCoords.length >= 3 
-                ? '👉 Click the map to add more corners (4, 5, or more) to shape your custom geofence.' 
-                : '👉 Click on the left map to add corners of your custom shape geofence.'}
-            </p>
           </div>
         )}
 
