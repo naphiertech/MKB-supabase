@@ -1,3 +1,5 @@
+import * as turf from '@turf/turf';
+import type { Feature, Polygon, MultiPolygon } from 'geojson';
 import { haversine, type Zone } from '../services/types';
 
 export { haversine };
@@ -218,4 +220,109 @@ export function isClosingPolygonLoop(
   const [startLat, startLng] = points[0];
   return haversine(startLat, startLng, candidate[0], candidate[1]) <= snapRadiusMeters;
 }
+
+/**
+ * Clips and snaps a polygon against existing zones so neighboring zones share
+ * an exact flush border with zero overlap.
+ */
+export function snapPolygonToNeighborZones(
+  newCoords: [number, number][],
+  existingZones: Zone[],
+  currentEditingId: string | null = null
+): [number, number][] {
+  if (newCoords.length < 3) return newCoords;
+
+  const formattedNew = [...newCoords];
+  if (
+    formattedNew[0][0] !== formattedNew[formattedNew.length - 1][0] ||
+    formattedNew[0][1] !== formattedNew[formattedNew.length - 1][1]
+  ) {
+    formattedNew.push(formattedNew[0]);
+  }
+  const newLngLat = formattedNew.map(([lat, lng]) => [lng, lat]);
+
+  let currentTurfPoly: Feature<Polygon>;
+  try {
+    currentTurfPoly = turf.polygon([newLngLat]);
+  } catch {
+    return newCoords;
+  }
+
+  for (const zone of existingZones) {
+    if (zone.id === currentEditingId) continue;
+
+    let obstaclePoly: Feature<Polygon> | null = null;
+
+    if (zone.zone_type === 'polygon' && zone.polygon_coordinates && zone.polygon_coordinates.length >= 3) {
+      const obstacleCoords = [...zone.polygon_coordinates];
+      if (
+        obstacleCoords[0][0] !== obstacleCoords[obstacleCoords.length - 1][0] ||
+        obstacleCoords[0][1] !== obstacleCoords[obstacleCoords.length - 1][1]
+      ) {
+        obstacleCoords.push(obstacleCoords[0]);
+      }
+      const obstacleLngLat = obstacleCoords.map(([lat, lng]) => [lng, lat]);
+      try {
+        obstaclePoly = turf.polygon([obstacleLngLat]);
+      } catch {
+        continue;
+      }
+    } else if (zone.zone_type === 'circle' && zone.center && zone.radius > 0) {
+      try {
+        obstaclePoly = turf.circle(
+          [zone.center[1], zone.center[0]],
+          zone.radius / 1000,
+          { steps: 64, units: 'kilometers' }
+        );
+      } catch {
+        continue;
+      }
+    }
+
+    if (!obstaclePoly) continue;
+
+    try {
+      const diff: Feature<Polygon | MultiPolygon> | null = turf.difference(
+        turf.featureCollection([currentTurfPoly, obstaclePoly])
+      );
+      if (!diff) continue;
+
+      if (diff.geometry.type === 'MultiPolygon') {
+        const multiCoords = diff.geometry.coordinates as number[][][][];
+        let maxArea = 0;
+        let bestPoly: Feature<Polygon> | null = null;
+        for (const polyCoords of multiCoords) {
+          const p = turf.polygon(polyCoords);
+          const a = turf.area(p);
+          if (a > maxArea) {
+            maxArea = a;
+            bestPoly = p;
+          }
+        }
+        if (bestPoly) {
+          currentTurfPoly = bestPoly;
+        }
+      } else if (diff.geometry.type === 'Polygon') {
+        currentTurfPoly = diff as Feature<Polygon>;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  try {
+    const finalCoords = currentTurfPoly.geometry.coordinates[0];
+    const leafletCoords = finalCoords.map(([lng, lat]) => [
+      Number(lat.toFixed(6)),
+      Number(lng.toFixed(6)),
+    ]) as [number, number][];
+    if (leafletCoords.length > 3) {
+      leafletCoords.pop();
+    }
+    return leafletCoords.length >= 3 ? leafletCoords : newCoords;
+  } catch {
+    return newCoords;
+  }
+}
+
 

@@ -8,7 +8,8 @@ import {
   isPointInPolygon,
   isPointInZone,
   metersToReadable,
-  simplifyPolygonPath
+  simplifyPolygonPath,
+  snapPolygonToNeighborZones
 } from './geofenceUtils';
 import type { Zone } from '../services/types';
 
@@ -127,6 +128,37 @@ describe('geofence utilities', () => {
       expect(isClosingPolygonLoop(openPath, [6.9251, 122.0781], 85)).toBe(true);
       expect(isClosingPolygonLoop(openPath, [6.9350, 122.0900], 85)).toBe(false);
       expect(isClosingPolygonLoop(openPath.slice(0, 2), [6.9250, 122.0780], 85)).toBe(false);
+    });
+
+    it('snaps overlapping polygon edges flush against neighboring zones with zero overlap', () => {
+      const existingZone: Zone = {
+        id: 'zone-north',
+        name: 'North Zone',
+        center: [6.925, 122.09],
+        radius: 1000,
+        color: '#2563EB',
+        zone_type: 'polygon',
+        polygon_coordinates: [
+          [6.920, 122.080],
+          [6.930, 122.080],
+          [6.930, 122.100],
+          [6.920, 122.100],
+        ],
+      };
+
+      const overlappingSouth: [number, number][] = [
+        [6.910, 122.080],
+        [6.925, 122.080],
+        [6.925, 122.100],
+        [6.910, 122.100],
+      ];
+
+      const snapped = snapPolygonToNeighborZones(overlappingSouth, [existingZone], null);
+      expect(snapped.length).toBeGreaterThanOrEqual(4);
+      // Point inside the overlap (6.922, 122.090) should now belong ONLY to existingZone, not snapped south zone
+      expect(isPointInPolygon([6.922, 122.090], snapped)).toBe(false);
+      // Point in non-overlapping south region (6.915, 122.090) stays inside snapped south zone
+      expect(isPointInPolygon([6.915, 122.090], snapped)).toBe(true);
     });
   });
 });

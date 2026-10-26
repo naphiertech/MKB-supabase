@@ -23,6 +23,7 @@ import {
   getZoneSaveErrorMessage,
   resolveInitialZoneHubId,
 } from '../components/geofence/zoneFormUtils';
+import { snapPolygonToNeighborZones } from '../lib/geofenceUtils';
 
 export function Geofence() {
   const { hubs, selectedHubId, isReady: hubReady, workspaceKey } = useHub();
@@ -207,9 +208,15 @@ export function Geofence() {
   };
 
   const handleFreehandComplete = (coords: [number, number][]) => {
-    setEditPolygonCoords(coords);
+    const snapped = snapPolygonToNeighborZones(coords, zonesList, editingZoneId);
+    setEditPolygonCoords(snapped);
     setIsPolygonClosed(true);
     setErrors((current) => ({ ...current, polygon: undefined }));
+  };
+
+  const handleClosePolygonLoop = () => {
+    setEditPolygonCoords((prev) => snapPolygonToNeighborZones(prev, zonesList, editingZoneId));
+    setIsPolygonClosed(true);
   };
 
   const assignableRiders = useMemo(() => {
@@ -249,6 +256,13 @@ export function Geofence() {
       return;
     }
 
+    const finalPolygonCoords =
+      editZoneType === 'polygon'
+        ? snapPolygonToNeighborZones(editPolygonCoords, zonesList, editingZoneId)
+        : null;
+    if (finalPolygonCoords) {
+      setEditPolygonCoords(finalPolygonCoords);
+    }
     setIsPolygonClosed(true);
 
     const input: ZoneInput = {
@@ -259,7 +273,7 @@ export function Geofence() {
       status: editStatus,
       riderIds: selectedRiders,
       zone_type: editZoneType,
-      polygon_coordinates: editZoneType === 'polygon' ? editPolygonCoords : null,
+      polygon_coordinates: finalPolygonCoords,
       color: editColor,
     };
 
@@ -355,7 +369,7 @@ export function Geofence() {
             zoneType={editZoneType}
             polygonDrawMode={polygonDrawMode}
             isPolygonClosed={isPolygonClosed}
-            onClosePolygonLoop={() => setIsPolygonClosed(true)}
+            onClosePolygonLoop={handleClosePolygonLoop}
             onFreehandComplete={handleFreehandComplete}
             pin={editPin}
             polygonCoords={editPolygonCoords}
@@ -392,7 +406,13 @@ export function Geofence() {
               polygonDrawMode={polygonDrawMode}
               setPolygonDrawMode={setPolygonDrawMode}
               isPolygonClosed={isPolygonClosed}
-              setIsPolygonClosed={setIsPolygonClosed}
+              setIsPolygonClosed={(closed) => {
+                if (closed) {
+                  handleClosePolygonLoop();
+                } else {
+                  setIsPolygonClosed(false);
+                }
+              }}
               color={editColor}
               setColor={setEditColor}
               usedColors={zonesList.filter((z) => z.id !== editingZoneId).map((z) => z.color)}
