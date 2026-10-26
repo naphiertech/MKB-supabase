@@ -12,7 +12,7 @@ import {
   Tooltip
 } from 'react-leaflet';
 import L from 'leaflet';
-import { Crosshair } from 'lucide-react';
+import { Crosshair, Hand, PenTool } from 'lucide-react';
 import type { Zone } from '../../services/types';
 import type { Hub } from '../../services/hubs/hubService';
 import type { PolygonDrawMode } from './ZoneFormPanel';
@@ -92,6 +92,8 @@ const MapInteractionHandler = ({
   isEditing,
   zoneType,
   polygonDrawMode,
+  isFreehandArmed,
+  setIsFreehandArmed,
   onMapClick,
   onFreehandStrokeComplete,
   onStrokePreviewChange,
@@ -99,6 +101,8 @@ const MapInteractionHandler = ({
   isEditing: boolean;
   zoneType: 'circle' | 'polygon';
   polygonDrawMode: PolygonDrawMode;
+  isFreehandArmed: boolean;
+  setIsFreehandArmed: (armed: boolean) => void;
   onMapClick?: (lat: number, lng: number) => void;
   onFreehandStrokeComplete?: (coords: [number, number][]) => void;
   onStrokePreviewChange?: (coords: [number, number][]) => void;
@@ -107,18 +111,22 @@ const MapInteractionHandler = ({
   const isDrawingRef = useRef(false);
   const strokePointsRef = useRef<[number, number][]>([]);
 
-  const isFreehandActive = isEditing && zoneType === 'polygon' && polygonDrawMode === 'freehand';
+  const isFreehandMode = isEditing && zoneType === 'polygon' && polygonDrawMode === 'freehand';
 
   useEffect(() => {
     const container = map.getContainer();
-    if (isFreehandActive) {
+    // Disable Leaflet map dragging ONLY when the freehand pen is actively armed
+    if (isFreehandMode && isFreehandArmed) {
       map.dragging.disable();
+      map.boxZoom?.disable();
       container.style.cursor = 'crosshair';
-    } else if (isEditing) {
+    } else if (isEditing && (!isFreehandMode || isFreehandArmed)) {
       map.dragging.enable();
+      map.boxZoom?.disable();
       container.style.cursor = 'crosshair';
     } else {
       map.dragging.enable();
+      map.boxZoom?.disable();
       container.style.cursor = '';
     }
 
@@ -126,18 +134,24 @@ const MapInteractionHandler = ({
       map.dragging.enable();
       container.style.cursor = '';
     };
-  }, [isEditing, isFreehandActive, map]);
+  }, [isEditing, isFreehandMode, isFreehandArmed, map]);
 
   useMapEvents({
     click(e) {
-      if (!isEditing || isFreehandActive || !onMapClick) return;
+      if (!isEditing || isFreehandMode || !onMapClick) return;
       onMapClick(
         parseFloat(e.latlng.lat.toFixed(6)),
         parseFloat(e.latlng.lng.toFixed(6))
       );
     },
     mousedown(e) {
-      if (!isFreehandActive) return;
+      if (!isFreehandMode) return;
+      const shiftHeld = Boolean(e.originalEvent?.shiftKey);
+      if (!isFreehandArmed && !shiftHeld) return;
+
+      if (shiftHeld && !isFreehandArmed) {
+        map.dragging.disable();
+      }
       isDrawingRef.current = true;
       const pt: [number, number] = [
         parseFloat(e.latlng.lat.toFixed(6)),
@@ -147,7 +161,7 @@ const MapInteractionHandler = ({
       onStrokePreviewChange?.([pt]);
     },
     mousemove(e) {
-      if (!isFreehandActive || !isDrawingRef.current) return;
+      if (!isFreehandMode || !isDrawingRef.current) return;
       const pt: [number, number] = [
         parseFloat(e.latlng.lat.toFixed(6)),
         parseFloat(e.latlng.lng.toFixed(6)),
@@ -159,15 +173,19 @@ const MapInteractionHandler = ({
       }
     },
     mouseup() {
-      if (!isFreehandActive || !isDrawingRef.current) return;
+      if (!isFreehandMode || !isDrawingRef.current) return;
       isDrawingRef.current = false;
       const rawStroke = strokePointsRef.current;
       strokePointsRef.current = [];
       onStrokePreviewChange?.([]);
+      map.dragging.enable();
+
       if (rawStroke.length >= 3) {
         const simplified = simplifyPolygonPath(rawStroke);
         if (simplified.length >= 3) {
           onFreehandStrokeComplete?.(simplified);
+          // Auto-disarm back to Pan Map after completing a loop so the user can move the map freely
+          setIsFreehandArmed(false);
         }
       }
     },
@@ -213,7 +231,15 @@ export function ZoneMapPreview({
 }: ZoneMapPreviewProps) {
   const mapRef = useRef<L.Map | null>(null);
   const [strokePreview, setStrokePreview] = useState<[number, number][]>([]);
+  const [isFreehandArmed, setIsFreehandArmed] = useState(false);
   const activeZone = zones.find((z) => z.id === activeZoneId) ?? null;
+
+  // Disarm freehand pen when leaving edit mode or switching modes
+  useEffect(() => {
+    if (!isEditing || zoneType !== 'polygon' || polygonDrawMode !== 'freehand') {
+      setIsFreehandArmed(false);
+    }
+  }, [isEditing, zoneType, polygonDrawMode]);
 
   const displayCoords = strokePreview.length > 0 ? strokePreview : polygonCoords;
   const showClosedPolygon =
@@ -249,9 +275,11 @@ export function ZoneMapPreview({
                   ? `📍 Pin: ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)} · ${radius}m radius`
                   : 'Click anywhere on the map to set the zone center'
                 : polygonDrawMode === 'freehand'
-                  ? showClosedPolygon
-                    ? `✅ Freehand zone closed (${polygonCoords.length} vertices) · Drag again to redraw`
-                    : '✏️ Hold & drag on the map to draw a loop around the Hub'
+                  ? isFreehandArmed
+                    ? '✏️ Pen active: Hold & drag on the map to draw loop (auto-returns to Pan on release)'
+                    : showClosedPolygon
+                      ? `✅ Loop closed (${polygonCoords.length} vertices) · Pan map freely or click Redraw Loop`
+                      : '✋ Pan map to position view, then click "Draw Loop" (or hold Shift + Drag)'
                   : showClosedPolygon
                     ? `✅ Polygon closed (${polygonCoords.length} corners)`
                     : `Tracing corners: ${polygonCoords.length} (click start point to close loop)`
@@ -262,7 +290,13 @@ export function ZoneMapPreview({
         </div>
         <div className="hidden items-center gap-1.5 rounded-md border border-border bg-panel-bg px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:flex">
           <span className={`w-1.5 h-1.5 rounded-full ${isEditing ? 'bg-red-500 animate-pulse' : 'bg-primary'}`} />
-          {isEditing ? (zoneType === 'polygon' && polygonDrawMode === 'freehand' ? 'Freehand Draw' : 'Interactive Draw') : 'Geofence View'}
+          {isEditing
+            ? zoneType === 'polygon' && polygonDrawMode === 'freehand'
+              ? isFreehandArmed
+                ? 'Drawing Armed'
+                : 'Pan / Shift+Draw'
+              : 'Interactive Draw'
+            : 'Geofence View'}
         </div>
       </div>
       <div className="relative h-[340px] sm:h-[420px] lg:h-[520px] bg-[#0a0c12]">
@@ -340,6 +374,8 @@ export function ZoneMapPreview({
             isEditing={isEditing}
             zoneType={zoneType}
             polygonDrawMode={polygonDrawMode}
+            isFreehandArmed={isFreehandArmed}
+            setIsFreehandArmed={setIsFreehandArmed}
             onMapClick={handleCornerClick}
             onFreehandStrokeComplete={onFreehandComplete}
             onStrokePreviewChange={setStrokePreview}
@@ -443,6 +479,38 @@ export function ZoneMapPreview({
           />
         </MapContainer>
 
+        {/* Floating On-Map Pan vs Freehand Draw Toggle */}
+        {isEditing && zoneType === 'polygon' && polygonDrawMode === 'freehand' && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-1 rounded-full border border-border bg-white/95 backdrop-blur-md p-1 shadow-lg">
+            <button
+              type="button"
+              onClick={() => setIsFreehandArmed(false)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                !isFreehandArmed
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Move and pan the map freely"
+            >
+              <Hand className="w-3.5 h-3.5" />
+              <span>Pan Map</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsFreehandArmed(true)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+                isFreehandArmed
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-primary hover:bg-accent'
+              }`}
+              title="Draw a zone loop in one stroke (or hold Shift + Drag)"
+            >
+              <PenTool className="w-3.5 h-3.5" />
+              <span>{showClosedPolygon ? 'Redraw Loop' : 'Draw Loop'}</span>
+            </button>
+          </div>
+        )}
+
         {/* Recenter control */}
         <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5">
           <button
@@ -481,7 +549,9 @@ export function ZoneMapPreview({
                 ? zoneType === 'circle'
                   ? 'Click map to set center'
                   : polygonDrawMode === 'freehand'
-                    ? 'Hold & drag to draw zone loop'
+                    ? isFreehandArmed
+                      ? 'Hold & drag to draw loop'
+                      : 'Drag to pan · Click "Draw Loop" or Shift+Drag'
                     : 'Click corners, then click start point to close'
                 : 'Click any zone to inspect'}
             </span>

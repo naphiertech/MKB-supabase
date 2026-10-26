@@ -256,8 +256,8 @@ export function ZoneFormPanel({
               <p className="mt-1 text-[10.5px] opacity-80">
                 {polygonDrawMode === 'freehand'
                   ? polygonCoords.length >= 3 && isPolygonClosed
-                    ? '✅ Loop connected! Drag again on the map to redraw or click Save Zone.'
-                    : '✏️ Hold & drag on the map to draw a boundary around your Hub. Release to connect start-to-end.'
+                    ? '✅ Loop connected! Pan map freely, click "Redraw Loop" on the map to adjust, or click Save Zone.'
+                    : '✋ Pan map freely to position view, then click "Draw Loop" on the map (or hold Shift + Drag) to draw around your Hub.'
                   : polygonCoords.length >= 3 && !isPolygonClosed
                     ? '👉 Click the glowing green Start Point on the map (or click Close Loop) to seal the zone.'
                     : polygonCoords.length >= 3 && isPolygonClosed
