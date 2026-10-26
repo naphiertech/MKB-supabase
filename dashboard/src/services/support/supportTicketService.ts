@@ -7,6 +7,43 @@ export type SupportTicketStatus = Database['public']['Enums']['support_ticket_st
 type SupportTicketRow = Database['public']['Tables']['support_tickets']['Row'];
 type SupportTicketMessageRow = Database['public']['Tables']['support_ticket_messages']['Row'];
 
+export const DEVELOPER_SUPPORT_CONTACT = {
+  name: 'Naphier',
+  role: 'Lead Systems Developer',
+  email: 'naphier.tech@gmail.com',
+};
+
+export function buildDeveloperBugReportMailto(details?: {
+  ticketNumber?: string;
+  subject?: string;
+  description?: string;
+  currentUser?: { name?: string; role?: string; email?: string };
+}): string {
+  const subjectPrefix = details?.ticketNumber ? `[MKB Bug ${details.ticketNumber}] ` : '[MKB Bug Report] ';
+  const subject = encodeURIComponent(`${subjectPrefix}${details?.subject || 'System Issue'}`);
+  const body = encodeURIComponent(
+    `Hi Naphier,\n\nI am reporting a system issue on MKB System:\n\n` +
+    `Ticket: ${details?.ticketNumber || 'N/A'}\n` +
+    `Reporter: ${details?.currentUser?.name || 'User'} (${details?.currentUser?.role || 'N/A'})\n` +
+    `Browser/Device: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'}\n` +
+    `URL: ${typeof window !== 'undefined' ? window.location.href : 'N/A'}\n\n` +
+    `Issue Details:\n${details?.description || ''}\n\n` +
+    `Thanks!`
+  );
+  return `mailto:${DEVELOPER_SUPPORT_CONTACT.email}?subject=${subject}&body=${body}`;
+}
+
+async function notifyTicketCreated(ticket: SupportTicket): Promise<void> {
+  try {
+    if (!supabase.functions?.invoke) return;
+    await supabase.functions.invoke('notify-support-ticket', {
+      body: { ticket },
+    });
+  } catch (error) {
+    console.warn('[SupportTicket] Failed to dispatch edge notification:', error);
+  }
+}
+
 export const SUPPORT_TICKET_CATEGORIES: ReadonlyArray<{
   value: SupportTicketCategory;
   label: string;
@@ -133,7 +170,11 @@ export async function createSupportTicket(
     .select(TICKET_SELECT)
     .single();
 
-  if (!error) return data as unknown as SupportTicket;
+  if (!error) {
+    const created = data as unknown as SupportTicket;
+    void notifyTicketCreated(created);
+    return created;
+  }
   if (error.code !== '23505') throw error;
 
   const { data: existing, error: recoveryError } = await supabase
@@ -143,7 +184,9 @@ export async function createSupportTicket(
     .single();
 
   if (recoveryError) throw recoveryError;
-  return existing as unknown as SupportTicket;
+  const recovered = existing as unknown as SupportTicket;
+  void notifyTicketCreated(recovered);
+  return recovered;
 }
 
 export async function replyToSupportTicket(

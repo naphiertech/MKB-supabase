@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, Clock3, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react';
+import { Bug, ChevronLeft, Clock3, Code2, MessageSquare, Plus, RefreshCw, Search } from 'lucide-react';
 import { pushToast } from '../../hooks/useToast';
 import {
   SUPPORT_TICKET_CATEGORIES,
@@ -11,6 +11,8 @@ import {
   updateSupportTicketStatus,
   validateSupportReply,
   validateSupportTicketDraft,
+  DEVELOPER_SUPPORT_CONTACT,
+  buildDeveloperBugReportMailto,
   type SupportTicket,
   type SupportTicketCategory,
   type SupportTicketDraftErrors,
@@ -298,6 +300,12 @@ export function SupportTicketDesk({ currentUser }: SupportTicketDeskProps) {
               {SUPPORT_TICKET_CATEGORIES.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
             </select>
             {draftErrors.category && <p id="support-ticket-category-error" className="text-[11px] text-red-600">{draftErrors.category}</p>}
+            {(draft.category === 'technical_issue' || draft.category === 'geofence_location') && (
+              <div className="flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[10px] text-primary">
+                <Code2 className="h-3 w-3 shrink-0" />
+                <span>Technical and geofence issues automatically alert Engineering & Lead Developer ({DEVELOPER_SUPPORT_CONTACT.email}).</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -413,6 +421,21 @@ export function SupportTicketDesk({ currentUser }: SupportTicketDeskProps) {
                   <p className="mt-1 text-[10px] font-mono text-muted-foreground">{selectedTicket.ticket_number} · {categoryLabel(selectedTicket.category)}</p>
                 </div>
                 <StatusBadge status={selectedTicket.status} />
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-muted-foreground">Need immediate dev review?</span>
+                <a
+                  href={buildDeveloperBugReportMailto({
+                    ticketNumber: selectedTicket.ticket_number,
+                    subject: selectedTicket.subject,
+                    description: selectedTicket.description,
+                    currentUser,
+                  })}
+                  className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline"
+                >
+                  <Bug className="h-3 w-3" />
+                  <span>Notify Developer Directly</span>
+                </a>
               </div>
               {isAdmin && <p className="text-[11px] text-muted-foreground">Submitted by {selectedTicket.creator?.full_name ?? 'Unknown user'} ({selectedTicket.creator?.email ?? 'No email'})</p>}
               {isAdmin && selectedTicket.status !== 'resolved' && (
