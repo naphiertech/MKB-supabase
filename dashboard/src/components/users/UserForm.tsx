@@ -699,7 +699,7 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                         e.target.value.replace(/\D/g, "").slice(0, 11),
                       )
                     }
-                    placeholder="0945-214-1243"
+                    placeholder="09123456789"
                     inputMode="numeric"
                     className="ar-input font-mono"
                     disabled={submitting}
@@ -921,7 +921,7 @@ export function UserForm({ user, defaultRole, zones, hubs, onClose, onSaved }: U
                             e.target.value.replace(/\D/g, "").slice(0, 11),
                           )
                         }
-                        placeholder="0917-123-4567"
+                        placeholder="09123456789"
                         inputMode="numeric"
                         className="ar-input font-mono"
                         disabled={submitting}
