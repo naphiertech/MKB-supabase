@@ -302,7 +302,9 @@ export function HelpSupportModal({ open, onClose, defaultTab = 'guide', currentU
                     <div className="p-2.5 rounded-lg bg-white border border-border">
                       <div className="text-[10px] font-bold text-muted-foreground uppercase">Direct Developer Email</div>
                       <a
-                        href={`mailto:${DEVELOPER_SUPPORT_CONTACT.email}`}
+                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${DEVELOPER_SUPPORT_CONTACT.email}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="font-semibold text-primary hover:underline text-xs mt-0.5 truncate block"
                       >
                         {DEVELOPER_SUPPORT_CONTACT.email}

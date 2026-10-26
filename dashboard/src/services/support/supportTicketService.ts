@@ -30,7 +30,7 @@ export function buildDeveloperBugReportMailto(details?: {
     `Issue Details:\n${details?.description || ''}\n\n` +
     `Thanks!`
   );
-  return `mailto:${DEVELOPER_SUPPORT_CONTACT.email}?subject=${subject}&body=${body}`;
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=${DEVELOPER_SUPPORT_CONTACT.email}&su=${subject}&body=${body}`;
 }
 
 async function notifyTicketCreated(ticket: SupportTicket): Promise<void> {
