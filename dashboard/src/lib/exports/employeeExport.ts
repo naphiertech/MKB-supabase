@@ -278,16 +278,13 @@ export function renderEmployeeDtrPdf(data: DtrDocumentData): void {
 
       doc.setFontSize(7);
       doc.setFont('helvetica', 'bold');
-      doc.text('EMPLOYEE\'S SIGNATURE', startX + 43, finalY + 12, { align: 'center' });
+      doc.text(data.employee.name.toUpperCase(), startX + 43, finalY + 12, { align: 'center' });
       doc.line(startX + 13, finalY + 13, startX + 73, finalY + 13);
 
       doc.setFontSize(6.5);
       doc.setFont('helvetica', 'italic');
       doc.text('Verified as to the prescribed office hours.', startX + 43, finalY + 18, { align: 'center' });
 
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'bold');
-      doc.text('IN-CHARGE', startX + 43, finalY + 28, { align: 'center' });
       doc.line(startX + 13, finalY + 29, startX + 73, finalY + 29);
     };
 
