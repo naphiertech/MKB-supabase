@@ -137,7 +137,6 @@ export function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>('guide');
   const [securityStatus, setSecurityStatus] = useState<DeviceSecurityCheckResult | null>(null);
-  const [securityBypassed, setSecurityBypassed] = useState(false);
 
   const evaluateDeviceSecurity = useCallback(async () => {
     if (!isNativePlatform()) return;
@@ -409,13 +408,11 @@ export function App() {
     return <NotFound />;
   }
 
-  // If running on native device and Developer Options is detected and not bypassed
-  if (isNativePlatform() && securityStatus?.blocked && !securityBypassed) {
+  // If running on native device and Developer Options is detected
+  if (isNativePlatform() && securityStatus?.blocked) {
     return (
       <DeveloperOptionsBlocker
-        isDebugBuild={securityStatus.isDebugBuild}
         onRecheck={evaluateDeviceSecurity}
-        onBypass={() => setSecurityBypassed(true)}
       />
     );
   }

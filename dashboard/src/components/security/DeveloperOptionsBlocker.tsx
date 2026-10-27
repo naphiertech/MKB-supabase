@@ -1,17 +1,13 @@
 import { useState } from 'react';
-import { ShieldAlert, Settings, RefreshCw, AlertTriangle, Bug } from 'lucide-react';
+import { ShieldAlert, Settings, RefreshCw, AlertTriangle } from 'lucide-react';
 import { openDeveloperSettings } from '../../lib/deviceSecurity';
 
 interface DeveloperOptionsBlockerProps {
-  isDebugBuild?: boolean;
   onRecheck: () => Promise<void> | void;
-  onBypass?: () => void;
 }
 
 export function DeveloperOptionsBlocker({
-  isDebugBuild = false,
   onRecheck,
-  onBypass,
 }: DeveloperOptionsBlockerProps) {
   const [openingSettings, setOpeningSettings] = useState(false);
   const [rechecking, setRechecking] = useState(false);
@@ -88,24 +84,6 @@ export function DeveloperOptionsBlocker({
             <span>{rechecking ? 'Checking…' : "I've Disabled It — Check Again"}</span>
           </button>
         </div>
-
-        {isDebugBuild && onBypass && (
-          <div className="mt-6 pt-4 border-t border-slate-200">
-            <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-100 rounded-lg p-2.5">
-              <div className="flex items-center gap-1.5">
-                <Bug className="w-3.5 h-3.5 text-amber-600" />
-                <span className="text-[11px] font-medium text-slate-700">Debug APK detected</span>
-              </div>
-              <button
-                type="button"
-                onClick={onBypass}
-                className="text-[11px] font-bold text-amber-700 hover:text-amber-800 underline cursor-pointer"
-              >
-                Bypass (Testing)
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
