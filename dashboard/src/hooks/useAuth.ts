@@ -81,9 +81,37 @@ const readinessListeners = new Set<(ready: boolean) => void>();
 let currentSession: Session | null = readSession();
 let hasInitialized = false;
 let authReady = false;
+let isPasswordSignInPending = false;
+let verifyingAuthUserId: string | null = null;
 
 function emit() {
   listeners.forEach((l) => l(currentSession));
+}
+
+function isSameSession(a: Session | null, b: Session | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.id === b.id
+    && a.email === b.email
+    && a.fullName === b.fullName
+    && a.role === b.role
+    && a.riderId === b.riderId
+    && a.accountStatus === b.accountStatus
+    && a.employmentStatus === b.employmentStatus
+    && a.hubAccessScope === b.hubAccessScope
+    && a.employmentType === b.employmentType
+  );
+}
+
+function applySession(next: Session | null) {
+  if (isSameSession(currentSession, next)) {
+    writeSession(next);
+    return;
+  }
+  currentSession = next;
+  writeSession(next);
+  emit();
 }
 
 function markAuthReady() {
@@ -111,76 +139,85 @@ async function verifyAndApplyAuthenticatedUser(authUser: {
   email?: string | null;
   app_metadata?: { provider?: string };
 }): Promise<void> {
-  const { data: profile, error } = await supabase
-    .from("users")
-    .select("full_name, role, status, rider_id, employment_status, hub_access_scope, employment_type")
-    .eq("id", authUser.id)
-    .single();
-
-  if (error || !profile) {
-    const attemptedEmail = authUser.email || 'unknown';
-    await logUnauthorizedAttempt({
-      email: attemptedEmail,
-      provider: authUser.app_metadata?.provider || 'oauth',
-      reason: 'Account not found in company registry',
-      metadata: { auth_user_id: authUser.id },
-    });
-
-    await supabase.auth.signOut();
-    currentSession = null;
-    writeSession(null);
-    emit();
-    pushToast({
-      title: "Access Denied",
-      description: `The email "${attemptedEmail}" is not registered in the system.`,
-      tone: "error",
-    });
+  if (isPasswordSignInPending || verifyingAuthUserId === authUser.id || currentSession?.id === authUser.id) {
     return;
   }
+  verifyingAuthUserId = authUser.id;
+  try {
+    const { data: profile, error } = await supabase
+      .from("users")
+      .select("full_name, role, status, rider_id, employment_status, hub_access_scope, employment_type")
+      .eq("id", authUser.id)
+      .single();
 
-  if (isProfileLoginBlocked(profile)) {
-    const attemptedEmail = authUser.email || 'unknown';
-    await logUnauthorizedAttempt({
-      email: attemptedEmail,
-      provider: authUser.app_metadata?.provider || 'oauth',
-      reason: profile.employment_status === 'archived' ? 'Employment archived' : 'Account suspended',
-      metadata: { auth_user_id: authUser.id, role: profile.role },
-    });
-
-    await supabase.auth.signOut();
-    currentSession = null;
-    writeSession(null);
-    emit();
-    pushToast({
-      title: "Access Denied",
-      description: profile.employment_status === 'archived'
-        ? "This employment record is archived. Contact HR or Admin."
-        : "This account is suspended.",
-      tone: "error",
-    });
-    return;
-  }
-
-  const next: Session = {
-    id: authUser.id,
-    email: authUser.email ?? "",
-    fullName: profile.full_name,
-    role: profile.role as Role,
-    riderId: profile.rider_id || undefined,
-    accountStatus: profile.status as UserStatus,
-    employmentStatus: profile.employment_status as EmploymentStatus,
-    hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
-    employmentType: profile.employment_type || undefined,
-  };
-  currentSession = next;
-  writeSession(next);
-  emit();
-
-  supabase.rpc("update_my_last_login").then(({ error: stampErr }) => {
-    if (stampErr) {
-      console.error("[Auth] Failed to update session last login timestamp:", stampErr);
+    if (isPasswordSignInPending || currentSession?.id === authUser.id) {
+      return;
     }
-  });
+
+    if (error || !profile) {
+      const attemptedEmail = authUser.email || 'unknown';
+      await logUnauthorizedAttempt({
+        email: attemptedEmail,
+        provider: authUser.app_metadata?.provider || 'oauth',
+        reason: 'Account not found in company registry',
+        metadata: { auth_user_id: authUser.id },
+      });
+
+      await supabase.auth.signOut();
+      applySession(null);
+      pushToast({
+        title: "Access Denied",
+        description: `The email "${attemptedEmail}" is not registered in the system.`,
+        tone: "error",
+      });
+      return;
+    }
+
+    if (isProfileLoginBlocked(profile)) {
+      const attemptedEmail = authUser.email || 'unknown';
+      await logUnauthorizedAttempt({
+        email: attemptedEmail,
+        provider: authUser.app_metadata?.provider || 'oauth',
+        reason: profile.employment_status === 'archived' ? 'Employment archived' : 'Account suspended',
+        metadata: { auth_user_id: authUser.id, role: profile.role },
+      });
+
+      await supabase.auth.signOut();
+      applySession(null);
+      pushToast({
+        title: "Access Denied",
+        description: profile.employment_status === 'archived'
+          ? "This employment record is archived. Contact HR or Admin."
+          : "This account is suspended.",
+        tone: "error",
+      });
+      return;
+    }
+
+    const next: Session = {
+      id: authUser.id,
+      email: authUser.email ?? "",
+      fullName: profile.full_name,
+      role: profile.role as Role,
+      riderId: profile.rider_id || undefined,
+      accountStatus: profile.status as UserStatus,
+      employmentStatus: profile.employment_status as EmploymentStatus,
+      hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
+      employmentType: profile.employment_type || undefined,
+    };
+    applySession(next);
+    markAuthReady();
+
+    supabase.rpc("update_my_last_login").then(({ error: stampErr }) => {
+      if (stampErr) {
+        console.error("[Auth] Failed to update session last login timestamp:", stampErr);
+      }
+    });
+  } finally {
+    if (verifyingAuthUserId === authUser.id) {
+      verifyingAuthUserId = null;
+    }
+  }
 }
 
 async function reconcileCurrentSession(authUser: { id: string; email?: string | null }): Promise<void> {
@@ -206,18 +243,7 @@ async function reconcileCurrentSession(authUser: { id: string; email?: string | 
     employmentType: profile.employment_type || undefined,
   };
   if (!currentSession || currentSession.id !== authUser.id) return;
-  if (
-    currentSession.email === next.email
-    && currentSession.fullName === next.fullName
-    && currentSession.role === next.role
-    && currentSession.riderId === next.riderId
-    && currentSession.accountStatus === next.accountStatus
-    && currentSession.employmentStatus === next.employmentStatus
-    && currentSession.hubAccessScope === next.hubAccessScope
-  ) return;
-  currentSession = next;
-  writeSession(next);
-  emit();
+  applySession(next);
 }
 
 // Listen for profile updates to keep session synchronized with database in real-time
@@ -242,10 +268,9 @@ if (typeof window !== "undefined") {
           accountStatus: profile.status as UserStatus,
           employmentStatus: profile.employment_status as EmploymentStatus,
           hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
+          employmentType: currentSession.employmentType,
         };
-        currentSession = next;
-        writeSession(next);
-        emit();
+        applySession(next);
       }
     } catch (err) {
       console.error("Error refreshing session on profile-updated:", err);
@@ -480,9 +505,7 @@ export function useAuth() {
             hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
             employmentType: profile.employment_type || undefined,
           };
-          currentSession = next;
-          writeSession(next);
-          emit();
+          applySession(next);
 
           // Safely record user active session timestamp
           supabase.rpc("update_my_last_login").then(({ error: stampErr }) => {
@@ -511,7 +534,7 @@ export function useAuth() {
           void clearOfflineRiderTrust();
           emit();
         }
-      } else if (event === "SIGNED_IN" && (!currentSession || currentSession.id !== sbSession.user.id)) {
+      } else if (event === "SIGNED_IN" && !isPasswordSignInPending && (!currentSession || currentSession.id !== sbSession.user.id)) {
         setTimeout(() => {
           void verifyAndApplyAuthenticatedUser(sbSession.user).catch((error) => {
             console.error('Unable to verify authenticated user:', error);
@@ -551,6 +574,7 @@ export function useAuth() {
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<SignInResult> => {
+      isPasswordSignInPending = true;
       try {
         const { data: authData, error: authError } =
           await supabase.auth.signInWithPassword({
@@ -704,9 +728,7 @@ export function useAuth() {
           employmentType: profile.employment_type || undefined,
         };
 
-        currentSession = next;
-        writeSession(next);
-        emit();
+        applySession(next);
         markAuthReady();
 
         // Record user login timestamp in database
@@ -735,6 +757,8 @@ export function useAuth() {
           ok: false,
           error: message,
         };
+      } finally {
+        isPasswordSignInPending = false;
       }
     },
     [],

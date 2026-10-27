@@ -16,13 +16,14 @@ const RiderZoneContext = createContext<RiderZoneContextType | undefined>(undefin
 
 export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session } = useAuth();
+  const sessionId = session?.id ?? null;
   const { isReady: hubReady, workspaceKey } = useHub();
   const [riders, setRiders] = useState<Rider[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!session || !hubReady) return;
+    if (!sessionId || !hubReady) return;
     setIsLoading(true);
     try {
       const [rData, zData] = await Promise.all([getAllRiders({ scope: 'active' }), getZones()]);
@@ -33,16 +34,16 @@ export const RiderZoneProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } finally {
       setIsLoading(false);
     }
-  }, [hubReady, session]);
+  }, [hubReady, sessionId]);
 
   useEffect(() => {
-    if (session?.id && hubReady) {
+    if (sessionId && hubReady) {
       fetchData();
     } else {
       setRiders([]);
       setZones([]);
     }
-  }, [session?.id, hubReady, workspaceKey, fetchData]);
+  }, [sessionId, hubReady, workspaceKey, fetchData]);
 
   const value = useMemo(() => ({
     riders,

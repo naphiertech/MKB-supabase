@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   onAuthStateChange: vi.fn(),
   rpc: vi.fn(),
   signInWithOAuth: vi.fn(),
+  signInWithPassword: vi.fn(),
   signOut: vi.fn(),
 }));
 
@@ -20,6 +21,7 @@ vi.mock('../lib/supabaseClient', () => ({
       getSession: mocks.getSession,
       onAuthStateChange: mocks.onAuthStateChange,
       signInWithOAuth: mocks.signInWithOAuth,
+      signInWithPassword: mocks.signInWithPassword,
       signOut: mocks.signOut,
     },
     from: mocks.from,
@@ -27,7 +29,7 @@ vi.mock('../lib/supabaseClient', () => ({
   },
 }));
 vi.mock('./useToast', () => ({ pushToast: vi.fn() }));
-vi.mock('../lib/apiService', () => ({ fetchIpLocation: vi.fn(), logActivity: vi.fn() }));
+vi.mock('../lib/apiService', () => ({ fetchIpLocation: vi.fn().mockResolvedValue(null), logActivity: vi.fn() }));
 vi.mock('../lib/deviceFingerprint', () => ({ getDeviceIdentifier: vi.fn() }));
 vi.mock('../services/notifications/notificationService', () => ({ dispatchNotificationSafe: vi.fn() }));
 vi.mock('../lib/offlineRiderTrust', () => ({
@@ -231,5 +233,75 @@ describe('authenticated session reconciliation lifecycle', () => {
     expect(mocks.signOut).toHaveBeenCalled();
     expect(sessionResult).toBeNull();
     expect(container.textContent).toBe('no-session');
+  });
+
+  it('does not blink or re-emit duplicate sessions when signing in as admin/hr/payroll with multiple useAuth consumers', async () => {
+    localStorage.clear();
+    mocks.getSession.mockResolvedValue({ data: { session: null } });
+
+    const staffUser = { id: 'staff-1', email: 'hr@mkb.ph' };
+    mocks.signInWithPassword.mockImplementation(async () => {
+      // Supabase fires SIGNED_IN to all onAuthStateChange listeners before signIn() fetches the user profile
+      for (const cb of [...mocks.authCallbacks]) {
+        void cb('SIGNED_IN', { user: staffUser });
+      }
+      await new Promise((r) => setTimeout(r, 5));
+      return { data: { user: staffUser, session: { user: staffUser } }, error: null };
+    });
+
+    let callIndex = 0;
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockImplementation(async () => {
+        callIndex += 1;
+        await new Promise((r) => setTimeout(r, callIndex * 5));
+        return { data: { ...profile, role: 'hr', hub_access_scope: 'global' }, error: null };
+      }),
+    };
+    mocks.from.mockReturnValue(query);
+
+    const { useAuth } = await import('./useAuth');
+    let authApi!: ReturnType<typeof useAuth>;
+    const emittedSessions: unknown[] = [];
+
+    function Consumer({ id }: { id: string }) {
+      const auth = useAuth();
+      if (id === 'main') {
+        authApi = auth;
+        if (auth.session && emittedSessions[emittedSessions.length - 1] !== auth.session) {
+          emittedSessions.push(auth.session);
+        }
+      }
+      return <div data-id={id}>{auth.session?.role ?? 'logged-out'}</div>;
+    }
+
+    await act(async () => {
+      root.render(
+        <>
+          <Consumer id="hub" />
+          <Consumer id="rider-zone" />
+          <Consumer id="notifications" />
+          <Consumer id="app" />
+          <Consumer id="main" />
+        </>
+      );
+      await flushAsyncWork();
+    });
+
+    expect(emittedSessions).toHaveLength(0);
+
+    await act(async () => {
+      void authApi.signIn('hr@mkb.ph', 'password123');
+    });
+    for (let i = 0; i < 8; i++) {
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 6));
+      });
+    }
+
+    // Should emit_once for the login, not 6 duplicate references causing UI blinks
+    expect(emittedSessions).toHaveLength(1);
+    expect(query.single).toHaveBeenCalledTimes(1);
   });
 });

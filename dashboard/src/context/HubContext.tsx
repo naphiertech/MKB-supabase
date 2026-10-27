@@ -21,42 +21,41 @@ export function HubProvider({ children }: { children: ReactNode }) {
   const [hubs, setHubs] = useState<Hub[]>([]);
   const [selectedHubId, setSelectedHubId] = useState<string | null>(null);
   const [readyUserId, setReadyUserId] = useState<string | null | undefined>(undefined);
-  const canSelectAll = session?.role === 'admin' || session?.hubAccessScope === 'global';
-  const isReady = authReady && readyUserId === (session?.id ?? null);
+  const sessionId = session?.id ?? null;
+  const sessionRole = session?.role ?? null;
+  const canSelectAll = sessionRole === 'admin' || session?.hubAccessScope === 'global';
+  const isReady = authReady && readyUserId === sessionId;
 
   const selectHub = useCallback((hubId: string | null) => {
-    if (!session || session.role === 'rider') return;
+    if (!sessionId || sessionRole === 'rider') return;
     if (hubId === null && !canSelectAll) return;
     if (hubId !== null && !hubs.some((hub) => hub.id === hubId)) return;
     setWorkspaceHubId(hubId);
     setSelectedHubId(hubId);
-    window.localStorage.setItem(`mkb.hub-workspace.${session.id}`, hubId ?? 'all');
-  }, [canSelectAll, hubs, session]);
+    window.localStorage.setItem(`mkb.hub-workspace.${sessionId}`, hubId ?? 'all');
+  }, [canSelectAll, hubs, sessionId, sessionRole]);
 
   const refreshHubs = useCallback(async () => {
-    if (!session || session.role === 'rider') {
+    if (!sessionId || sessionRole === 'rider') {
       setHubs([]);
       setWorkspaceHubId(null);
       setSelectedHubId(null);
-      setReadyUserId(session?.id ?? null);
+      setReadyUserId(sessionId);
       return;
     }
-    setReadyUserId(undefined);
-    setWorkspaceHubId(null);
-    setSelectedHubId(null);
-    setHubs([]);
+    setReadyUserId((prev) => (prev === sessionId ? prev : undefined));
     try {
       const accessible = await listAccessibleHubs({ activeOnly: false });
       setHubs(accessible);
-      const stored = window.localStorage.getItem(`mkb.hub-workspace.${session.id}`);
+      const stored = window.localStorage.getItem(`mkb.hub-workspace.${sessionId}`);
       const storedHubId = stored && stored !== 'all' && accessible.some((hub) => hub.id === stored) ? stored : null;
       const next = storedHubId ?? (canSelectAll ? null : accessible[0]?.id ?? null);
       setWorkspaceHubId(next);
       setSelectedHubId(next);
     } finally {
-      setReadyUserId(session.id);
+      setReadyUserId(sessionId);
     }
-  }, [canSelectAll, session]);
+  }, [canSelectAll, sessionId, sessionRole]);
 
   useEffect(() => {
     if (!authReady) return;
