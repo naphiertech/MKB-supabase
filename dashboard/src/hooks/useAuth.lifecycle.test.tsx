@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(),
   rpc: vi.fn(),
+  signInWithOAuth: vi.fn(),
+  signOut: vi.fn(),
 }));
 
 vi.mock('../lib/supabaseClient', () => ({
@@ -17,7 +19,8 @@ vi.mock('../lib/supabaseClient', () => ({
     auth: {
       getSession: mocks.getSession,
       onAuthStateChange: mocks.onAuthStateChange,
-      signOut: vi.fn(),
+      signInWithOAuth: mocks.signInWithOAuth,
+      signOut: mocks.signOut,
     },
     from: mocks.from,
     rpc: mocks.rpc,
@@ -82,6 +85,8 @@ describe('authenticated session reconciliation lifecycle', () => {
     mocks.from.mockReturnValue(query);
     mocks.getSession.mockResolvedValue({ data: { session: authSession(storedSession.email) } });
     mocks.rpc.mockResolvedValue({ data: null, error: null });
+    mocks.signInWithOAuth.mockResolvedValue({ error: null });
+    mocks.signOut.mockResolvedValue({ error: null });
     mocks.onAuthStateChange.mockImplementation((callback) => {
       mocks.authCallbacks.push(callback);
       return { data: { subscription: { unsubscribe: vi.fn() } } };
@@ -148,5 +153,83 @@ describe('authenticated session reconciliation lifecycle', () => {
     expect(isProfileLoginBlocked({ role: 'rider', status: 'suspended', employment_status: 'active' })).toBe(false);
     expect(isProfileLoginBlocked({ role: 'rider', status: 'suspended', employment_status: 'archived' })).toBe(true);
     expect(isProfileLoginBlocked({ role: 'payroll', status: 'suspended', employment_status: 'active' })).toBe(true);
+  });
+
+  it('initiates Google OAuth sign in with correct parameters', async () => {
+    const { useAuth } = await import('./useAuth');
+    let authHook: ReturnType<typeof useAuth> | undefined;
+    function Probe() {
+      authHook = useAuth();
+      return null;
+    }
+
+    await act(async () => {
+      root.render(<Probe />);
+      await flushAsyncWork();
+    });
+
+    await act(async () => {
+      const res = await authHook?.signInWithGoogle();
+      expect(res).toEqual({ ok: true });
+    });
+
+    expect(mocks.signInWithOAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: 'google',
+        options: expect.objectContaining({
+          redirectTo: expect.any(String),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        }),
+      })
+    );
+  });
+
+  it('blocks unregistered Google OAuth logins, logs unauthorized attempt, and calls signOut', async () => {
+    localStorage.clear();
+    mocks.from.mockClear();
+    mocks.rpc.mockClear();
+    mocks.signOut.mockClear();
+
+    const strangerSession = {
+      user: {
+        id: 'unregistered-google-uid',
+        email: 'unregistered@gmail.com',
+        app_metadata: { provider: 'google' },
+      },
+    };
+
+    mocks.getSession.mockResolvedValue({ data: { session: strangerSession } });
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Row not found' } }),
+    };
+    mocks.from.mockReturnValue(query);
+
+    const { useAuth } = await import('./useAuth');
+    let sessionResult: unknown = 'init';
+    function Probe() {
+      const { session } = useAuth();
+      sessionResult = session;
+      return <span>{session?.email ?? 'no-session'}</span>;
+    }
+
+    await act(async () => {
+      root.render(<Probe />);
+      await flushAsyncWork();
+    });
+
+    expect(mocks.rpc).toHaveBeenCalledWith('log_unauthorized_auth_attempt', {
+      p_email: 'unregistered@gmail.com',
+      p_provider: 'google',
+      p_reason: 'Account not found in company registry',
+      p_metadata: { auth_user_id: 'unregistered-google-uid' },
+    });
+    expect(mocks.signOut).toHaveBeenCalled();
+    expect(sessionResult).toBeNull();
+    expect(container.textContent).toBe('no-session');
   });
 });

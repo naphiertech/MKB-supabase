@@ -70,7 +70,7 @@ TURNSTILE_SECRET_KEY=your-turnstile-secret-key
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Loading and submitting reviews | Browser and server |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Loading and submitting reviews | Browser and server |
-| `NEXT_PUBLIC_DASHBOARD_URL` | Access Portal links | Browser |
+| `NEXT_PUBLIC_DASHBOARD_URL` | Dashboard Portal URL | Browser |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Review captcha widget | Browser |
 | `TURNSTILE_SECRET_KEY` | Server-side captcha verification | Server only |
 
@@ -130,4 +130,4 @@ pnpm run typecheck
 pnpm run build
 ```
 
-Confirm that Access Portal links point to the deployed dashboard and that review submission, moderation, and approved-review retrieval work with the production RLS policies.
+Confirm that review submission, moderation, and approved-review retrieval work with the production RLS policies.

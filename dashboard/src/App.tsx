@@ -24,6 +24,10 @@ import { getCurrentAuthSessionIdentity, getMfaState, subscribeToOtherSessionLogo
 import { isPasswordRecoveryUrl } from './lib/authRecoveryRoute';
 import { isNativePlatform, initializeNativeShell } from './lib/nativeShell';
 import { initNativeNotifications } from './lib/nativeNotifications';
+import { checkDeviceSecurity, type DeviceSecurityCheckResult } from './lib/deviceSecurity';
+import { DeveloperOptionsBlocker } from './components/security/DeveloperOptionsBlocker';
+import { subscribeToMockLocationAlert } from './lib/foregroundTracking';
+import { pushToast } from './hooks/useToast';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
 const RiderAttendance = lazy(() => import('./pages/RiderAttendance').then((module) => ({ default: module.RiderAttendance })));
@@ -132,6 +136,46 @@ export function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>('guide');
+  const [securityStatus, setSecurityStatus] = useState<DeviceSecurityCheckResult | null>(null);
+  const [securityBypassed, setSecurityBypassed] = useState(false);
+
+  const evaluateDeviceSecurity = useCallback(async () => {
+    if (!isNativePlatform()) return;
+    const res = await checkDeviceSecurity();
+    setSecurityStatus(res);
+  }, []);
+
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    void evaluateDeviceSecurity();
+
+    const handleFocus = () => void evaluateDeviceSecurity();
+    window.addEventListener('focus', handleFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void evaluateDeviceSecurity();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [evaluateDeviceSecurity]);
+
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    void subscribeToMockLocationAlert((event) => {
+      pushToast({
+        title: 'Mock GPS Detected',
+        description: `Fake location (${event.lat.toFixed(4)}, ${event.lng.toFixed(4)}) discarded to protect dispatch integrity.`,
+        tone: 'error',
+      });
+    }).then((unsub) => {
+      if (unsub) cleanup = unsub;
+    });
+
+    return () => cleanup?.();
+  }, []);
 
   const { riders: allRiders, zones: allZones } = useRiderZone();
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
@@ -363,6 +407,17 @@ export function App() {
   // If route is 404
   if (isNotFound) {
     return <NotFound />;
+  }
+
+  // If running on native device and Developer Options is detected and not bypassed
+  if (isNativePlatform() && securityStatus?.blocked && !securityBypassed) {
+    return (
+      <DeveloperOptionsBlocker
+        isDebugBuild={securityStatus.isDebugBuild}
+        onRecheck={evaluateDeviceSecurity}
+        onBypass={() => setSecurityBypassed(true)}
+      />
+    );
   }
 
   if (isPasswordRecovery) {

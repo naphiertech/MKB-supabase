@@ -244,7 +244,7 @@ export default async function HubDetailPage({ params }: HubPageProps) {
         </section>
       )}
 
-      {/* Access Portal CTA */}
+      {/* Contact CTA */}
       <CtaSection />
     </>
   )

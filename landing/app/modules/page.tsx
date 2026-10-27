@@ -33,14 +33,12 @@ export default function ModulesPage() {
               system—ensuring end-to-end transparency from rider check-in to finalized salary
               disbursement.
             </p>
-            <a
-              href={dashboardUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/contact"
               className="text-link"
             >
-              Access Portal <ArrowUpRight size={18} />
-            </a>
+              Contact <ArrowUpRight size={18} />
+            </Link>
           </div>
         </div>
       </section>

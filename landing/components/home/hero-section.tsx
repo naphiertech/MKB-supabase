@@ -7,11 +7,9 @@ import gsap from "gsap"
 import { Eyebrow } from "@/components/section-header"
 import { ProductFrame } from "@/components/ui/product-frame"
 import { DashboardPreview } from "@/components/home/dashboard-preview"
-import { getDashboardUrl } from "@/lib/data"
 
 export function HeroSection() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const dashboardUrl = getDashboardUrl()
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -52,15 +50,13 @@ export function HeroSection() {
           one connected system.
         </p>
         <div className="hero-actions" data-enter>
-          <a
-            href={dashboardUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/contact"
             className="button button-orange"
           >
-            Access Portal
+            Contact
             <ArrowUpRight size={18} />
-          </a>
+          </Link>
           <Link href="/about" className="button button-outline">
             Explore RiderTrack
             <ArrowRight size={17} />

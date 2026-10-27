@@ -31,6 +31,10 @@ interface ForegroundTrackingPlugin {
     eventName: 'onLocationUpdate',
     listenerFunc: (event: ForegroundLocationEvent) => void,
   ): Promise<PluginListenerHandle>;
+  addListener(
+    eventName: 'onMockLocationDetected',
+    listenerFunc: (event: { lat: number; lng: number; timestamp: number }) => void,
+  ): Promise<PluginListenerHandle>;
 }
 
 const ForegroundTracking = registerPlugin<ForegroundTrackingPlugin>('ForegroundTracking');
@@ -113,6 +117,25 @@ export async function subscribeToForegroundLocation(
     };
   } catch (err) {
     console.warn('[ForegroundTracking] Failed to bind location update listener:', err);
+    return () => undefined;
+  }
+}
+
+/**
+ * Subscribes to mock / spoofed location detection events pushed by the native GPS engine.
+ */
+export async function subscribeToMockLocationAlert(
+  callback: (event: { lat: number; lng: number; timestamp: number }) => void,
+): Promise<() => void> {
+  if (!isNativeAndroid()) return () => undefined;
+
+  try {
+    const handle = await ForegroundTracking.addListener('onMockLocationDetected', callback);
+    return () => {
+      void handle.remove();
+    };
+  } catch (err) {
+    console.warn('[ForegroundTracking] Failed to bind mock location listener:', err);
     return () => undefined;
   }
 }

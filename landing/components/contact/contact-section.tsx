@@ -78,7 +78,7 @@ export function ContactSection() {
   return (
     <div ref={containerRef}>
       {/* Main Content */}
-      <section className="container section-space">
+      <section className="container section-space" id="contact-form">
         <div className="contact-form-trigger grid gap-12 lg:grid-cols-5 lg:gap-14">
           {/* Contact Form */}
           <div className="lg:col-span-3 rounded-xl border border-[#e7e8e2] bg-[#ffffff] p-8 md:p-10 shadow-[0_2px_12px_rgba(40,43,38,0.04)]">

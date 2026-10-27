@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { Eyebrow } from "@/components/section-header"
 import { LocationsList } from "@/components/locations/locations-list"
 import { CtaSection } from "@/components/home/cta-section"
-import { siteConfig, getDashboardUrl } from "@/lib/data"
 import { getPublicHubs } from "@/lib/supabase/operations"
 
 export const revalidate = 60
@@ -16,7 +16,6 @@ export const metadata: Metadata = {
 
 export default async function LocationsPage() {
   const hubs = await getPublicHubs()
-  const dashboardUrl = getDashboardUrl()
 
   return (
     <>
@@ -34,14 +33,12 @@ export default async function LocationsPage() {
               MKBRiderTrack oversees last-mile parcel distribution across Zamboanga City through four
               operational hubs, each enforcing calibrated polygon boundary geofences.
             </p>
-            <a
-              href={dashboardUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/contact"
               className="text-link"
             >
-              Access Portal <ArrowUpRight size={18} />
-            </a>
+              Contact <ArrowUpRight size={18} />
+            </Link>
           </div>
         </div>
       </section>

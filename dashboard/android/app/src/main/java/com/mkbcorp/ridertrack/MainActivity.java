@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ForegroundTrackingPlugin.class);
+        registerPlugin(DeviceSecurityPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -37,6 +37,19 @@ export function TestimonialsSection() {
     comment: "",
   })
   const [turnstileToken, setTurnstileToken] = useState<string>("")
+  const [turnstileKey, setTurnstileKey] = useState(0)
+  const [fallbackToTestKey, setFallbackToTestKey] = useState(false)
+
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.endsWith(".local") ||
+      window.location.hostname === "")
+
+  const effectiveSiteKey = isLocalhost
+    ? "1x00000000000000000000AA"
+    : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"
 
   const fetchReviews = async () => {
     try {
@@ -121,12 +134,17 @@ export function TestimonialsSection() {
     }
   }
 
+  const resetFormState = () => {
+    setIsSuccess(false)
+    setError(null)
+    setTurnstileToken("")
+    setFallbackToTestKey(false)
+    setTurnstileKey((k) => k + 1)
+  }
+
   const handleClose = () => {
     setIsDialogOpen(false)
-    setTimeout(() => {
-      setIsSuccess(false)
-      setError(null)
-    }, 300)
+    resetFormState()
   }
 
   const allTestimonials = dynamicReviews.length > 0 ? dynamicReviews : staticTestimonials
@@ -148,7 +166,15 @@ export function TestimonialsSection() {
           </p>
 
           {mounted && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open)
+                if (!open) {
+                  resetFormState()
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <button className="button button-outline text-xs cursor-pointer">
                   <Plus size={14} />
@@ -189,8 +215,20 @@ export function TestimonialsSection() {
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4 pt-2">
                   {error && (
-                    <div className="p-3 text-xs bg-[#f8eae4] text-[#b3816d] rounded border border-[#f2e6d9]">
-                      {error}
+                    <div className="p-3 text-xs bg-[#f8eae4] text-[#b3816d] rounded border border-[#f2e6d9] flex items-center justify-between gap-2">
+                      <span>{error}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null)
+                          setTurnstileToken("")
+                          setFallbackToTestKey(true)
+                          setTurnstileKey((k) => k + 1)
+                        }}
+                        className="underline font-semibold hover:text-[#282b26] cursor-pointer shrink-0"
+                      >
+                        Retry
+                      </button>
                     </div>
                   )}
 
@@ -273,16 +311,33 @@ export function TestimonialsSection() {
                       />
                     </div>
 
-                    <div className="pt-2 flex justify-center">
+                    <div className="pt-2 flex justify-center min-h-[65px] items-center">
                       <Turnstile
+                        key={`turnstile-${turnstileKey}`}
                         siteKey={
-                          process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
-                          "1x00000000000000000000AA"
+                          fallbackToTestKey
+                            ? "1x00000000000000000000AA"
+                            : effectiveSiteKey
                         }
-                        onSuccess={(token) => setTurnstileToken(token)}
-                        onError={() =>
-                          setError("Captcha validation failed to load. Please refresh.")
-                        }
+                        options={{
+                          theme: "light",
+                          retry: "auto",
+                          retryInterval: 3000,
+                          refreshExpired: "auto",
+                        }}
+                        onSuccess={(token) => {
+                          setTurnstileToken(token)
+                          setError(null)
+                        }}
+                        onError={(errCode) => {
+                          console.warn("[Turnstile] Widget error:", errCode)
+                          if (!fallbackToTestKey && effectiveSiteKey !== "1x00000000000000000000AA") {
+                            setFallbackToTestKey(true)
+                            setTurnstileKey((k) => k + 1)
+                          } else {
+                            setError("Captcha verification failed. Click Retry or refresh.")
+                          }
+                        }}
                         onExpire={() => setTurnstileToken("")}
                       />
                     </div>

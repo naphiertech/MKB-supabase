@@ -91,6 +91,98 @@ function markAuthReady() {
   readinessListeners.forEach((listener) => listener(true));
 }
 
+async function logUnauthorizedAttempt(params: {
+  email: string;
+  provider: string;
+  reason: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  const { error: rpcErr } = await supabase.rpc('log_unauthorized_auth_attempt', {
+    p_email: params.email,
+    p_provider: params.provider,
+    p_reason: params.reason,
+    p_metadata: params.metadata || {},
+  });
+  if (rpcErr) console.warn('[Auth] Failed to log unauthorized attempt:', rpcErr);
+}
+
+async function verifyAndApplyAuthenticatedUser(authUser: {
+  id: string;
+  email?: string | null;
+  app_metadata?: { provider?: string };
+}): Promise<void> {
+  const { data: profile, error } = await supabase
+    .from("users")
+    .select("full_name, role, status, rider_id, employment_status, hub_access_scope, employment_type")
+    .eq("id", authUser.id)
+    .single();
+
+  if (error || !profile) {
+    const attemptedEmail = authUser.email || 'unknown';
+    await logUnauthorizedAttempt({
+      email: attemptedEmail,
+      provider: authUser.app_metadata?.provider || 'oauth',
+      reason: 'Account not found in company registry',
+      metadata: { auth_user_id: authUser.id },
+    });
+
+    await supabase.auth.signOut();
+    currentSession = null;
+    writeSession(null);
+    emit();
+    pushToast({
+      title: "Access Denied",
+      description: `The email "${attemptedEmail}" is not registered in the system.`,
+      tone: "error",
+    });
+    return;
+  }
+
+  if (isProfileLoginBlocked(profile)) {
+    const attemptedEmail = authUser.email || 'unknown';
+    await logUnauthorizedAttempt({
+      email: attemptedEmail,
+      provider: authUser.app_metadata?.provider || 'oauth',
+      reason: profile.employment_status === 'archived' ? 'Employment archived' : 'Account suspended',
+      metadata: { auth_user_id: authUser.id, role: profile.role },
+    });
+
+    await supabase.auth.signOut();
+    currentSession = null;
+    writeSession(null);
+    emit();
+    pushToast({
+      title: "Access Denied",
+      description: profile.employment_status === 'archived'
+        ? "This employment record is archived. Contact HR or Admin."
+        : "This account is suspended.",
+      tone: "error",
+    });
+    return;
+  }
+
+  const next: Session = {
+    id: authUser.id,
+    email: authUser.email ?? "",
+    fullName: profile.full_name,
+    role: profile.role as Role,
+    riderId: profile.rider_id || undefined,
+    accountStatus: profile.status as UserStatus,
+    employmentStatus: profile.employment_status as EmploymentStatus,
+    hubAccessScope: profile.hub_access_scope as 'global' | 'assigned',
+    employmentType: profile.employment_type || undefined,
+  };
+  currentSession = next;
+  writeSession(next);
+  emit();
+
+  supabase.rpc("update_my_last_login").then(({ error: stampErr }) => {
+    if (stampErr) {
+      console.error("[Auth] Failed to update session last login timestamp:", stampErr);
+    }
+  });
+}
+
 async function reconcileCurrentSession(authUser: { id: string; email?: string | null }): Promise<void> {
   if (!currentSession || currentSession.id !== authUser.id) return;
 
@@ -290,18 +382,46 @@ export function useAuth() {
           .single();
 
         if (error || !profile) {
+          const attemptedEmail = supabaseSession.user.email || 'unknown';
+          await logUnauthorizedAttempt({
+            email: attemptedEmail,
+            provider: supabaseSession.user.app_metadata?.provider || 'oauth',
+            reason: 'Account not found in company registry',
+            metadata: { auth_user_id: supabaseSession.user.id },
+          });
+
           await supabase.auth.signOut();
           currentSession = null;
           writeSession(null);
           emit();
+          pushToast({
+            title: "Access Denied",
+            description: `The email "${attemptedEmail}" is not registered in the system.`,
+            tone: "error",
+          });
           return;
         }
 
         if (isProfileLoginBlocked(profile)) {
+          const attemptedEmail = supabaseSession.user.email || 'unknown';
+          await logUnauthorizedAttempt({
+            email: attemptedEmail,
+            provider: supabaseSession.user.app_metadata?.provider || 'oauth',
+            reason: profile.employment_status === 'archived' ? 'Employment archived' : 'Account suspended',
+            metadata: { auth_user_id: supabaseSession.user.id, role: profile.role },
+          });
+
           await supabase.auth.signOut();
           currentSession = null;
           writeSession(null);
           emit();
+          pushToast({
+            title: "Access Denied",
+            description: profile.employment_status === 'archived'
+              ? "This employment record is archived. Contact HR or Admin."
+              : "This account is suspended.",
+            tone: "error",
+          });
           return;
         }
 
@@ -391,6 +511,12 @@ export function useAuth() {
           void clearOfflineRiderTrust();
           emit();
         }
+      } else if (event === "SIGNED_IN" && (!currentSession || currentSession.id !== sbSession.user.id)) {
+        setTimeout(() => {
+          void verifyAndApplyAuthenticatedUser(sbSession.user).catch((error) => {
+            console.error('Unable to verify authenticated user:', error);
+          });
+        }, 0);
       } else if (event !== "INITIAL_SESSION") {
         setTimeout(() => {
           void reconcileCurrentSession(sbSession.user).catch((error) => {
@@ -652,11 +778,42 @@ export function useAuth() {
     });
   }, []);
 
+  const signInWithGoogle = useCallback(async (): Promise<SignInResult> => {
+    try {
+      const redirectTo = `${window.location.origin}${window.location.pathname}`;
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (authError) {
+        return {
+          ok: false,
+          error: authError.message || 'Google sign-in could not be initiated.',
+        };
+      }
+      return { ok: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred during Google sign-in.';
+      return {
+        ok: false,
+        error: message,
+      };
+    }
+  }, []);
+
   const state = {
     session,
     isReady,
     user,
     signIn,
+    signInWithGoogle,
     signOut,
     signOutLocally,
   };

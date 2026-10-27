@@ -15,7 +15,7 @@ import { SectionHeader, Eyebrow } from "@/components/section-header"
 import { TimelineSection } from "@/components/about/timeline-section"
 import { RoleSwitcher } from "@/components/home/role-switcher"
 import { CtaSection } from "@/components/home/cta-section"
-import { siteConfig, getDashboardUrl } from "@/lib/data"
+import { siteConfig } from "@/lib/data"
 
 export const metadata: Metadata = {
   title: "About",
@@ -24,8 +24,6 @@ export const metadata: Metadata = {
 }
 
 export default function AboutPage() {
-  const dashboardUrl = getDashboardUrl()
-
   return (
     <>
       <section className="page-hero container">
@@ -43,14 +41,12 @@ export default function AboutPage() {
               A workforce attendance and monitoring system built for MKB Corporation’s third-party
               logistics courier riders—and the teams supporting them.
             </p>
-            <a
-              href={dashboardUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/contact"
               className="text-link"
             >
-              Access Portal <ArrowUpRight size={18} />
-            </a>
+              Contact <ArrowUpRight size={18} />
+            </Link>
           </div>
         </div>
       </section>

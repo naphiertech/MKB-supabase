@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { ArrowUpRight, Menu, X } from "lucide-react"
 import gsap from "gsap"
 import { Brand } from "@/components/brand-logo"
-import { getDashboardUrl, navigation } from "@/lib/data"
+import { navigation } from "@/lib/data"
 
 export function SiteHeader() {
   const pathname = usePathname()
@@ -52,8 +52,6 @@ export function SiteHeader() {
     return () => window.removeEventListener("keydown", close)
   }, [open])
 
-  const dashboardUrl = getDashboardUrl()
-
   return (
     <header className={`site-header ${scrolled ? "scrolled" : ""}`}>
       <div className="container nav-inner">
@@ -75,14 +73,12 @@ export function SiteHeader() {
             )
           })}
         </nav>
-        <a
+        <Link
           className="button button-dark nav-access"
-          href={dashboardUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/contact"
         >
-          Access Portal <ArrowUpRight size={16} />
-        </a>
+          Contact <ArrowUpRight size={16} />
+        </Link>
         <button
           className="menu-toggle"
           aria-expanded={open}
@@ -108,10 +104,10 @@ export function SiteHeader() {
                 <ArrowUpRight size={16} />
               </Link>
             ))}
-            <a href={dashboardUrl} target="_blank" rel="noopener noreferrer">
-              Access Portal
+            <Link href="/contact" onClick={() => setOpen(false)}>
+              Contact
               <ArrowUpRight size={16} />
-            </a>
+            </Link>
           </nav>
         </div>
       )}

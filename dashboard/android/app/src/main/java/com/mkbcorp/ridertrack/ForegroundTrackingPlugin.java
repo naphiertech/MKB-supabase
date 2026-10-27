@@ -34,6 +34,16 @@ public class ForegroundTrackingPlugin extends Plugin {
         }
     }
 
+    public static void onMockLocationDetected(double lat, double lng) {
+        if (sInstance != null) {
+            JSObject data = new JSObject();
+            data.put("lat", lat);
+            data.put("lng", lng);
+            data.put("timestamp", System.currentTimeMillis());
+            sInstance.notifyListeners("onMockLocationDetected", data);
+        }
+    }
+
     @PluginMethod
     public void startTracking(PluginCall call) {
         String riderId = call.getString("riderId");

@@ -1,10 +1,8 @@
 import Link from "next/link"
 import { Brand } from "@/components/brand-logo"
-import { getDashboardUrl, navigation } from "@/lib/data"
+import { navigation } from "@/lib/data"
 
 export function SiteFooter() {
-  const dashboardUrl = getDashboardUrl()
-
   return (
     <footer className="site-footer">
       <div className="container">
@@ -16,14 +14,14 @@ export function SiteFooter() {
             <p>Attendance. Monitoring. Payroll.</p>
           </div>
           <nav aria-label="Footer navigation">
-            {navigation.map((item) => (
+            {navigation.filter((item) => item.name !== "Contact").map((item) => (
               <Link key={item.name} href={item.href}>
                 {item.name}
               </Link>
             ))}
-            <a href={dashboardUrl} target="_blank" rel="noopener noreferrer">
-              Access Portal
-            </a>
+            <Link href="/contact">
+              Contact
+            </Link>
           </nav>
         </div>
         <div className="footer-bottom">

@@ -1,10 +1,8 @@
+import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { Eyebrow } from "@/components/section-header"
-import { getDashboardUrl } from "@/lib/data"
 
 export function CtaSection() {
-  const dashboardUrl = getDashboardUrl()
-
   return (
     <section className="cta-section" data-reveal>
       <div className="container cta-inner">
@@ -20,14 +18,12 @@ export function CtaSection() {
             <br className="desktop-only" /> and payroll workflows into one operational system.
           </p>
         </div>
-        <a
-          href={dashboardUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          href="/contact"
           className="button button-orange"
         >
-          Access Portal <ArrowUpRight size={19} />
-        </a>
+          Contact <ArrowUpRight size={19} />
+        </Link>
         <span className="cta-watermark" aria-hidden="true">
           ↗
         </span>

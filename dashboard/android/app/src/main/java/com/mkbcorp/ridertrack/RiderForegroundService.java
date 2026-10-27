@@ -218,6 +218,25 @@ public class RiderForegroundService extends Service implements LocationListener 
     public void onLocationChanged(Location location) {
         if (location == null) return;
 
+        boolean isMock = false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            isMock = location.isMock();
+        } else {
+            isMock = location.isFromMockProvider();
+        }
+
+        if (isMock) {
+            Log.w(TAG, "Mock / spoofed location detected: " + location.getLatitude() + ", " + location.getLongitude());
+            ForegroundTrackingPlugin.onMockLocationDetected(location.getLatitude(), location.getLongitude());
+            updateNotification("Active duty · Fake GPS detected (blocked)");
+            if (riderId != null && supabaseUrl != null && (authToken != null || supabaseAnonKey != null)) {
+                final double mockLat = location.getLatitude();
+                final double mockLng = location.getLongitude();
+                new Thread(() -> reportMockLocationToSupabase(mockLat, mockLng)).start();
+            }
+            return;
+        }
+
         final double lat = location.getLatitude();
         final double lng = location.getLongitude();
         final float accuracy = location.getAccuracy();
@@ -233,6 +252,51 @@ public class RiderForegroundService extends Service implements LocationListener 
         // Directly post breadcrumb to Supabase in background thread
         if (riderId != null && supabaseUrl != null && (authToken != null || supabaseAnonKey != null)) {
             new Thread(() -> postLocationToSupabase(lat, lng)).start();
+        }
+    }
+
+    private void reportMockLocationToSupabase(double lat, double lng) {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL(supabaseUrl.replaceAll("/+$", "") + "/rest/v1/activity_logs");
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("Prefer", "return=minimal");
+
+            String key = (authToken != null && !authToken.isEmpty()) ? authToken : supabaseAnonKey;
+            conn.setRequestProperty("apikey", supabaseAnonKey != null ? supabaseAnonKey : key);
+            conn.setRequestProperty("Authorization", "Bearer " + key);
+
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(6000);
+            conn.setReadTimeout(6000);
+
+            JSONObject payload = new JSONObject();
+            if (riderId != null) {
+                payload.put("rider_id", riderId);
+            }
+            payload.put("event_type", "spoofed_location_attempt");
+            payload.put("description", "Mock / spoofed location detected by hardware GPS sensor");
+            JSONObject meta = new JSONObject();
+            meta.put("latitude", lat);
+            meta.put("longitude", lng);
+            meta.put("source", "android_is_mock");
+            payload.put("metadata", meta);
+
+            byte[] outputBytes = payload.toString().getBytes(StandardCharsets.UTF_8);
+            conn.setFixedLengthStreamingMode(outputBytes.length);
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(outputBytes);
+            }
+            int code = conn.getResponseCode();
+            Log.d(TAG, "Reported spoofed location attempt to Supabase, response: " + code);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to report spoofed location to Supabase:", e);
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
     }
 

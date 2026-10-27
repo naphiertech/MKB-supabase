@@ -36,9 +36,10 @@ function formatLogTimestamp(value: string) {
 }
 
 function formatActionLabel(type: string) {
-  return type === 'unauthorized_device_access'
-    ? 'Unauthorized device'
-    : type.replace(/_/g, ' ');
+  if (type === 'unauthorized_device_access') return 'Unauthorized device';
+  if (type === 'unauthorized_login_attempt') return 'Unauthorized login attempt';
+  if (type === 'spoofed_location_attempt') return 'Fake GPS / Mock location attempt';
+  return type.replace(/_/g, ' ');
 }
 
 function metadataText(log: ActivityLog, key: string): string | null {

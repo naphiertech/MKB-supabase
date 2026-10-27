@@ -1,9 +1,10 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { Eyebrow } from "@/components/section-header"
 import { ContactSection } from "@/components/contact/contact-section"
 import { CtaSection } from "@/components/home/cta-section"
-import { siteConfig, getDashboardUrl } from "@/lib/data"
+import { siteConfig } from "@/lib/data"
 
 export const metadata: Metadata = {
   title: "Contact & Inquiries",
@@ -26,8 +27,6 @@ export const metadata: Metadata = {
 }
 
 export default function ContactPage() {
-  const dashboardUrl = getDashboardUrl()
-
   return (
     <>
       <section className="page-hero container">
@@ -44,14 +43,12 @@ export default function ContactPage() {
               Whether you want to request an enterprise demo, plan a multi-hub deployment, or
               consult with our operations specialists, we are ready to assist.
             </p>
-            <a
-              href={dashboardUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="#contact-form"
               className="text-link"
             >
-              Access Portal <ArrowUpRight size={18} />
-            </a>
+              Contact <ArrowUpRight size={18} />
+            </Link>
           </div>
         </div>
       </section>

@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { Eyebrow } from "@/components/section-header"
 import { TeamGrid } from "@/components/team/team-grid"
 import { JoinBanner } from "@/components/team/join-banner"
 import { CtaSection } from "@/components/home/cta-section"
-import { siteConfig, getDashboardUrl } from "@/lib/data"
+import { siteConfig } from "@/lib/data"
 
 export const metadata: Metadata = {
   title: "Team & Engineering",
@@ -27,8 +28,6 @@ export const metadata: Metadata = {
 }
 
 export default function TeamPage() {
-  const dashboardUrl = getDashboardUrl()
-
   return (
     <>
       <section className="page-hero container">
@@ -45,14 +44,12 @@ export default function TeamPage() {
               Engineers, spatial architects, and fleet supervisors working together to establish
               transparency and automation across last-mile courier operations.
             </p>
-            <a
-              href={dashboardUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/contact"
               className="text-link"
             >
-              Access Portal <ArrowUpRight size={18} />
-            </a>
+              Contact <ArrowUpRight size={18} />
+            </Link>
           </div>
         </div>
       </section>
