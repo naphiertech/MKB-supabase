@@ -232,22 +232,28 @@ describe('attendancePolicyService', () => {
 
   describe('createFutureAttendancePolicy & deactivateFutureAttendancePolicy', () => {
     it('schedules a future policy through one atomic RPC', async () => {
-      vi.mocked(supabase.rpc).mockResolvedValue({ data: null, error: null } as never);
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-15T00:00:00.000Z'));
+      try {
+        vi.mocked(supabase.rpc).mockResolvedValue({ data: null, error: null } as never);
 
-      await createFutureAttendancePolicy({
-        lateThreshold: '08:45',
-        effectiveFrom: '2026-11-01',
-        reason: 'Q4 Peak Season Shift Expansion',
-      });
+        await createFutureAttendancePolicy({
+          lateThreshold: '08:45',
+          effectiveFrom: '2026-11-01',
+          reason: 'Q4 Peak Season Shift Expansion',
+        });
 
-      expect(supabase.rpc).toHaveBeenCalledTimes(1);
-      expect(supabase.rpc).toHaveBeenCalledWith('schedule_attendance_policy', {
-        p_late_threshold: '08:45:00',
-        p_effective_from: '2026-11-01',
-        p_change_reason: 'Q4 Peak Season Shift Expansion',
-      });
-      expect(supabase.from).not.toHaveBeenCalled();
-      expect(supabase.auth.getUser).not.toHaveBeenCalled();
+        expect(supabase.rpc).toHaveBeenCalledTimes(1);
+        expect(supabase.rpc).toHaveBeenCalledWith('schedule_attendance_policy', {
+          p_late_threshold: '08:45:00',
+          p_effective_from: '2026-11-01',
+          p_change_reason: 'Q4 Peak Season Shift Expansion',
+        });
+        expect(supabase.from).not.toHaveBeenCalled();
+        expect(supabase.auth.getUser).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('cancels a future policy through one atomic RPC', async () => {

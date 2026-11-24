@@ -65,14 +65,31 @@ describe('Time Out offline payload', () => {
     expect(operation.payload).not.toHaveProperty('lng');
   });
 
-  it('requires an active internet connection for online Time Out', async () => {
+  it('queues Time Out locally when offline with verified GPS coordinates', async () => {
     vi.stubGlobal('navigator', { onLine: false });
-    await expect(recordTimeOut('attendance-1', {
+    mocks.enqueue.mockClear();
+    mocks.rpc.mockClear();
+
+    const result = await recordTimeOut('attendance-1', {
       riderId: 'rider-1',
       date: '2026-08-05',
       lat: 6.9214,
       lng: 122.079,
-    })).rejects.toThrow('An active internet connection is required');
+    });
+
+    expect(result).toBe(true);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'TIME_OUT',
+      riderId: 'rider-1',
+      payload: expect.objectContaining({
+        attendance_log_id: 'attendance-1',
+        rider_id: 'rider-1',
+        date: '2026-08-05',
+        lat: 6.9214,
+        lng: 122.079,
+      }),
+    }));
   });
 
   it('requires verified coordinates for online Time Out', async () => {
@@ -115,12 +132,32 @@ describe('Time Out offline payload', () => {
 });
 
 describe('Time In execution', () => {
-  it('requires an active internet connection', async () => {
+  it('queues Time In locally when offline with verified GPS coordinates', async () => {
     vi.stubGlobal('navigator', { onLine: false });
-    await expect(recordTimeIn('rider-1', {
+    mocks.enqueue.mockClear();
+    mocks.rpc.mockClear();
+
+    const result = await recordTimeIn('rider-1', {
       lat: 6.9214,
       lng: 122.079,
-    }, 24)).rejects.toThrow('An active internet connection is required');
+    }, 24);
+
+    expect(result).toMatchObject({
+      id: 'offline-10000000-0000-4000-8000-000000000099',
+      riderId: 'rider-1',
+      source: 'face-scan',
+      status: 'present',
+    });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'TIME_IN',
+      riderId: 'rider-1',
+      payload: expect.objectContaining({
+        rider_id: 'rider-1',
+        lat: 6.9214,
+        lng: 122.079,
+      }),
+    }));
   });
 
   it('requires verified GPS coordinates', async () => {
