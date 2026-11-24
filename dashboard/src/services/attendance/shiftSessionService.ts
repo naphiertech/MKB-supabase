@@ -1,5 +1,6 @@
 import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricTelemetry';
 import { notifyAttendanceEvent } from '../../lib/nativeNotifications';
+import { triggerSuccessHaptic } from '../../lib/nativeHaptics';
 import { startForegroundDutyTracking, stopForegroundDutyTracking } from '../../lib/foregroundTracking';
 import { updateCachedAttendanceState } from '../riders/riderCacheService';
 import { recordTimeIn, recordTimeOut } from './attendanceService';
@@ -95,7 +96,7 @@ export async function executeShiftTransition(
       finishStatusPersistence();
     }
 
-    if (!navigator.onLine) {
+    if (!navigator.onLine || newLog.id.startsWith('offline-')) {
       await updateCachedAttendanceState(userId, riderId, {
         id: newLog.id,
         rider_id: riderId,
@@ -116,6 +117,7 @@ export async function executeShiftTransition(
       finishDashboardRefresh();
     }
 
+    void triggerSuccessHaptic();
     void notifyAttendanceEvent({ type: 'time-in', timestamp: stamp });
     void startForegroundDutyTracking({
       riderId,
@@ -186,6 +188,7 @@ export async function executeShiftTransition(
       finishDashboardRefresh();
     }
 
+    void triggerSuccessHaptic();
     void notifyAttendanceEvent({ type: 'time-out', timestamp: stamp });
     void stopForegroundDutyTracking();
 

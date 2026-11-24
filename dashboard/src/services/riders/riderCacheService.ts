@@ -8,6 +8,7 @@ import { clearCachedAvatar } from '../../lib/avatarCache';
 import { clearCachedDescriptor } from '../../lib/descriptorCache';
 import { clearRiderScheduleCache } from '../workforce/riderScheduleService';
 import { clearRiderAbsenceRequestCache } from '../workforce/riderAbsenceRequestService';
+import { clearRiderParcelCache } from '../parcels/riderParcelService';
 import { listAttendanceContext, reconcileClockIntoContextRow, type AttendanceContextLog } from '../attendance/attendanceContextService';
 
 export interface DBUserProfileRow {
@@ -348,8 +349,11 @@ export async function clearRiderSensitiveCache(userId: string, riderId?: string)
     storage.removeItem(`${DASHBOARD_CACHE_PREFIX}${userId}`),
     storage.removeItem(`${MONITORING_CACHE_PREFIX}${userId}`),
     storage.removeItem(`${PROFILE_CACHE_PREFIX}${userId}`),
+    storage.removeItem(`rider_payouts_cache_v1:${userId}:${riderId ?? userId}`),
+    ...(riderId ? [storage.removeItem(`rider_hub_geofence_v1:${riderId}`)] : []),
     clearRiderScheduleCache(userId, riderId),
     clearRiderAbsenceRequestCache(userId, riderId),
+    clearRiderParcelCache(userId, riderId),
   ]);
   try {
     if (typeof localStorage !== 'undefined' && typeof localStorage.removeItem === 'function') {

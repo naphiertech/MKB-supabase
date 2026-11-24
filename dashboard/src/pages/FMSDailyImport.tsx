@@ -50,7 +50,7 @@ import {
   resolveRateTierInfo,
   type ParcelRateContext,
 } from '../services/parcels/parcelOperationsPolicy';
-import { supabase } from '../lib/supabaseClient';
+import { getRiderWorkforceDirectory } from '../services/workforce/workforceDirectoryService';
 import { PAGE_TRANSITION_VARIANTS } from '../lib/motion';
 
 function getUrlBatchId(): string | null {
@@ -208,22 +208,24 @@ export function FMSDailyImport() {
       const mappingMap = await listExternalRiderMappings('spx_fms');
       setMappings(mappingMap);
 
-      let ridersQuery = supabase
-        .from('riders')
-        .select('id, name, mkb_id, hub_id')
-        .neq('status', 'archived');
-
-      if (effectiveHubId) {
-        ridersQuery = ridersQuery.eq('hub_id', effectiveHubId);
-      }
-
-      const { data: rData } = await ridersQuery.order('name', { ascending: true });
-      setHubRiders(rData || []);
+      const activeRiders = await getRiderWorkforceDirectory({
+        scope: 'active',
+        hubId: effectiveHubId || null,
+      });
+      setHubRiders(
+        activeRiders.map((rider) => ({
+          id: rider.id,
+          name: rider.name,
+          mkb_id: rider.mkb_id,
+          hub_id: rider.hubId,
+        }))
+      );
 
       const batches = await listFmsImportBatches(effectiveHubId || undefined);
       setRecentBatches(batches.slice(0, 5));
     } catch (err) {
       console.error('Error loading reference data:', err);
+      appToast.error('Failed to load hub riders or import reference data.');
     }
   }, [effectiveHubId]);
 

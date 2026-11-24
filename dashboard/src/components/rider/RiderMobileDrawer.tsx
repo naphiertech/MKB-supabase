@@ -8,6 +8,7 @@ import {
   CalendarDays,
   FileWarning,
   MapPin,
+  PackageCheck,
   Wallet,
   User,
   LogOut
@@ -57,6 +58,11 @@ const ITEMS: {
     key: 'monitoring',
     label: 'My Location',
     icon: MapPin
+  },
+  {
+    key: 'parcels',
+    label: 'My Parcels',
+    icon: PackageCheck
   },
   {
     key: 'payouts',

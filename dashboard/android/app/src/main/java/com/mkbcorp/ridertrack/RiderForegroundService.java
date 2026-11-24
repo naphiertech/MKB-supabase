@@ -8,6 +8,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
@@ -23,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.OutputStream;
@@ -39,8 +41,12 @@ public class RiderForegroundService extends Service implements LocationListener 
     private static final String TAG = "RiderForegroundService";
     private static final String CHANNEL_ID = "mkb_foreground_tracking";
     private static final int NOTIFICATION_ID = 9901;
+    private static final String OFFLINE_PREFS = "mkb_offline_gps_buffer";
+    private static final String OFFLINE_QUEUE_KEY = "queued_breadcrumbs";
+    private static final int MAX_OFFLINE_BUFFER = 200;
 
     private static volatile boolean sIsRunning = false;
+    private final Object bufferLock = new Object();
 
     private LocationManager locationManager;
     private PowerManager.WakeLock wakeLock;
@@ -249,9 +255,9 @@ public class RiderForegroundService extends Service implements LocationListener 
         // Notify Capacitor Plugin listener
         ForegroundTrackingPlugin.onLocation(lat, lng, accuracy, time);
 
-        // Directly post breadcrumb to Supabase in background thread
+        // Post breadcrumb to Supabase (or queue offline for automatic replay when signal returns)
         if (riderId != null && supabaseUrl != null && (authToken != null || supabaseAnonKey != null)) {
-            new Thread(() -> postLocationToSupabase(lat, lng)).start();
+            new Thread(() -> syncOrQueueLocation(lat, lng, formattedTime)).start();
         }
     }
 
@@ -300,13 +306,87 @@ public class RiderForegroundService extends Service implements LocationListener 
         }
     }
 
-    private void postLocationToSupabase(double lat, double lng) {
+    private void syncOrQueueLocation(double lat, double lng, String formattedTime) {
+        SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+        isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String isoTimestamp = isoFormat.format(new Date());
+
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("id", UUID.randomUUID().toString());
+            payload.put("rider_id", riderId);
+            payload.put("lat", lat);
+            payload.put("lng", lng);
+            payload.put("status", "active");
+            payload.put("recorded_at", isoTimestamp);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to construct GPS payload:", e);
+            return;
+        }
+
+        if (postLocationPayload(payload)) {
+            flushOfflineBuffer();
+            updateNotification("Active duty · GPS synced at " + formattedTime);
+        } else {
+            int queued = enqueueOfflineBreadcrumb(payload);
+            updateNotification("Active duty · Offline (" + queued + " GPS queued)");
+        }
+    }
+
+    private int enqueueOfflineBreadcrumb(JSONObject payload) {
+        synchronized (bufferLock) {
+            try {
+                SharedPreferences prefs = getSharedPreferences(OFFLINE_PREFS, MODE_PRIVATE);
+                JSONArray queue = new JSONArray(prefs.getString(OFFLINE_QUEUE_KEY, "[]"));
+                queue.put(payload);
+                while (queue.length() > MAX_OFFLINE_BUFFER) {
+                    JSONArray trimmed = new JSONArray();
+                    for (int i = 1; i < queue.length(); i++) {
+                        trimmed.put(queue.get(i));
+                    }
+                    queue = trimmed;
+                }
+                prefs.edit().putString(OFFLINE_QUEUE_KEY, queue.toString()).apply();
+                return queue.length();
+            } catch (Exception e) {
+                Log.w(TAG, "Failed to queue offline breadcrumb:", e);
+                return 0;
+            }
+        }
+    }
+
+    private void flushOfflineBuffer() {
+        synchronized (bufferLock) {
+            try {
+                SharedPreferences prefs = getSharedPreferences(OFFLINE_PREFS, MODE_PRIVATE);
+                JSONArray queue = new JSONArray(prefs.getString(OFFLINE_QUEUE_KEY, "[]"));
+                if (queue.length() == 0) return;
+
+                JSONArray remaining = new JSONArray();
+                boolean networkFailed = false;
+                for (int i = 0; i < queue.length(); i++) {
+                    JSONObject item = queue.optJSONObject(i);
+                    if (item == null) continue;
+                    if (networkFailed) {
+                        remaining.put(item);
+                        continue;
+                    }
+                    if (!postLocationPayload(item)) {
+                        networkFailed = true;
+                        remaining.put(item);
+                    }
+                }
+                prefs.edit().putString(OFFLINE_QUEUE_KEY, remaining.toString()).apply();
+                Log.d(TAG, "Flushed offline GPS buffer; remaining=" + remaining.length());
+            } catch (Exception e) {
+                Log.w(TAG, "Failed flushing offline GPS buffer:", e);
+            }
+        }
+    }
+
+    private boolean postLocationPayload(JSONObject payload) {
         HttpURLConnection conn = null;
         try {
-            SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
-            isoFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-            String isoTimestamp = isoFormat.format(new Date());
-
             URL url = new URL(supabaseUrl.replaceAll("/$", "") + "/rest/v1/rider_locations");
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
@@ -321,14 +401,6 @@ public class RiderForegroundService extends Service implements LocationListener 
             conn.setConnectTimeout(10000);
             conn.setReadTimeout(10000);
 
-            JSONObject payload = new JSONObject();
-            payload.put("id", UUID.randomUUID().toString());
-            payload.put("rider_id", riderId);
-            payload.put("lat", lat);
-            payload.put("lng", lng);
-            payload.put("status", "active");
-            payload.put("recorded_at", isoTimestamp);
-
             byte[] outputBytes = payload.toString().getBytes(StandardCharsets.UTF_8);
             conn.setFixedLengthStreamingMode(outputBytes.length);
             try (OutputStream os = conn.getOutputStream()) {
@@ -338,11 +410,17 @@ public class RiderForegroundService extends Service implements LocationListener 
             int responseCode = conn.getResponseCode();
             if (responseCode >= 200 && responseCode < 300) {
                 Log.d(TAG, "Background GPS breadcrumb posted to Supabase successfully: " + responseCode);
-            } else {
-                Log.w(TAG, "Supabase breadcrumb post returned code: " + responseCode);
+                return true;
             }
+            if (responseCode == 409) {
+                // Already synced (idempotent duplicate UUID)
+                return true;
+            }
+            Log.w(TAG, "Supabase breadcrumb post returned code: " + responseCode);
+            return false;
         } catch (Exception e) {
             Log.w(TAG, "Failed to send background GPS breadcrumb to Supabase:", e);
+            return false;
         } finally {
             if (conn != null) {
                 conn.disconnect();

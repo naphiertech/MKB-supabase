@@ -27,6 +27,7 @@ import { initNativeNotifications } from './lib/nativeNotifications';
 import { checkDeviceSecurity, type DeviceSecurityCheckResult } from './lib/deviceSecurity';
 import { DeveloperOptionsBlocker } from './components/security/DeveloperOptionsBlocker';
 import { subscribeToMockLocationAlert } from './lib/foregroundTracking';
+import { triggerErrorHaptic } from './lib/nativeHaptics';
 import { pushToast } from './hooks/useToast';
 
 const pageVariants = PAGE_TRANSITION_VARIANTS;
@@ -35,6 +36,7 @@ const RiderMonitoring = lazy(() => import('./pages/RiderMonitoring').then((modul
 const RiderProfile = lazy(() => import('./pages/RiderProfile').then((module) => ({ default: module.RiderProfile })));
 const RiderSchedule = lazy(() => import('./pages/RiderSchedule').then((module) => ({ default: module.RiderSchedule })));
 const RiderLeaveAbsence = lazy(() => import('./pages/RiderLeaveAbsence').then((module) => ({ default: module.RiderLeaveAbsence })));
+const RiderParcels = lazy(() => import('./pages/RiderParcels').then((module) => ({ default: module.RiderParcels })));
 const RiderPayouts = lazy(() => import('./pages/RiderPayouts').then((module) => ({ default: module.RiderPayouts })));
 const LiveMonitoring = lazy(() => import('./pages/LiveMonitoring').then((module) => ({ default: module.LiveMonitoring })));
 const Geofence = lazy(() => import('./pages/Geofence').then((module) => ({ default: module.Geofence })));
@@ -164,6 +166,7 @@ export function App() {
   useEffect(() => {
     let cleanup: (() => void) | undefined;
     void subscribeToMockLocationAlert((event) => {
+      void triggerErrorHaptic();
       pushToast({
         title: 'Mock GPS Detected',
         description: `Fake location (${event.lat.toFixed(4)}, ${event.lng.toFixed(4)}) discarded to protect dispatch integrity.`,
@@ -496,7 +499,14 @@ export function App() {
                 className="w-full flex-1"
               >
                 <Suspense fallback={<DashboardSkeleton page={riderPage} role="rider" />}>
-                  {riderPage === 'dashboard' && <RiderDashboard userId={user.id} riderId={riderId} restricted={user.status === 'suspended'} />}
+                  {riderPage === 'dashboard' && (
+                    <RiderDashboard
+                      userId={user.id}
+                      riderId={riderId}
+                      restricted={user.status === 'suspended'}
+                      onOpenParcels={() => setRiderPage('parcels')}
+                    />
+                  )}
                   {riderPage === 'attendance' &&
                     <RiderAttendance userId={user.id} riderId={riderId} onBack={() => setRiderPage('dashboard')} />
                   }
@@ -513,13 +523,20 @@ export function App() {
                   {riderPage === 'leave_absence' &&
                     <RiderLeaveAbsence userId={user.id} riderId={riderId} employmentType={user.employmentType} />
                   }
+                  {riderPage === 'parcels' &&
+                    <RiderParcels
+                      userId={user.id}
+                      riderId={riderId}
+                      onOpenPayouts={() => setRiderPage('payouts')}
+                    />
+                  }
                   {riderPage === 'payouts' &&
                     <RiderPayouts userId={user.id} riderId={riderId} restricted={user.status === 'suspended'} />
                   }
                   {riderPage === 'notifications' && (
                     <NotificationCenter onNavigate={(p) => {
                       const key = p.replace('/rider/', '').replace('/', '') as RiderPageKey;
-                      if (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'payouts' || key === 'profile' || key === 'notifications') {
+                      if (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'parcels' || key === 'payouts' || key === 'profile' || key === 'notifications') {
                         setRiderPage(key);
                       }
                     }} />

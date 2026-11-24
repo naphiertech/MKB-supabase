@@ -14,6 +14,7 @@ import {
   Bell,
   RefreshCw,
   TriangleAlert,
+  PackageCheck,
   Wallet } from
 'lucide-react';
 import { BRANDING } from "../../config/branding";
@@ -22,7 +23,7 @@ import type { Notification } from '../../hooks/useNotifications';
 import { useSyncQueueStatus } from '../../hooks/useSyncQueueStatus';
 import { SyncQueueDiagnosticsModal } from './SyncQueueDiagnosticsModal';
 import { RiderMobileDrawer } from './RiderMobileDrawer';
-export type RiderPageKey = 'dashboard' | 'attendance' | 'schedule' | 'leave_absence' | 'monitoring' | 'payouts' | 'profile' | 'notifications';
+export type RiderPageKey = 'dashboard' | 'attendance' | 'schedule' | 'leave_absence' | 'monitoring' | 'parcels' | 'payouts' | 'profile' | 'notifications';
 interface RiderTopNavProps {
   current: RiderPageKey;
   onNavigate: (page: RiderPageKey) => void;
@@ -72,6 +73,12 @@ const ITEMS: {
   label: 'My Location',
   icon: MapPin,
   route: '/rider/monitoring'
+},
+{
+  key: 'parcels',
+  label: 'My Parcels',
+  icon: PackageCheck,
+  route: '/rider/parcels'
 },
 {
   key: 'payouts',
@@ -134,7 +141,7 @@ export function RiderTopNav({
                 whileTap={{ scale: 0.96 }}
                 onClick={() => onNavigate(key)}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition cursor-pointer ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}>
+                className={`relative flex items-center gap-1.5 xl:gap-2 px-2.5 xl:px-3 py-2 rounded-lg text-xs xl:text-sm whitespace-nowrap transition cursor-pointer ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-panel-bg'}`}>
                 
                 <Icon
                   className={`w-[16px] h-[16px] transition-colors duration-150 ${active ? 'text-primary' : ''}`} />
@@ -204,7 +211,7 @@ export function RiderTopNav({
             onViewAll={() => onNavigate('notifications')}
             onNavigate={(path) => {
               const key = path.replace('/rider/', '').replace('/', '') as RiderPageKey;
-              if (onNavigate && (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'profile' || key === 'notifications')) {
+              if (onNavigate && (key === 'dashboard' || key === 'attendance' || key === 'schedule' || key === 'leave_absence' || key === 'monitoring' || key === 'parcels' || key === 'payouts' || key === 'profile' || key === 'notifications')) {
                 onNavigate(key);
               }
             }}

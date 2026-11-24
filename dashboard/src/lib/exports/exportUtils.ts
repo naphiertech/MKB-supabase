@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core';
+import { saveAndShareNativeBlob } from './nativeFileShare';
+
 export type ExportCell = string | number | boolean | null | undefined;
 
 export const EXPORT_MIME_TYPES = {
@@ -112,6 +115,10 @@ export function createCsvContent(
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {
+  if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
+    void saveAndShareNativeBlob(blob, filename);
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

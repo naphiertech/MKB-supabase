@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   RefreshCw,
   HelpCircle,
+  WifiOff,
 } from 'lucide-react';
 import { getRiderPayrollHistory, type RiderPayrollRecord } from '../services/riders/riderService';
 import { listPayrollDeductionBalances, type PayrollDeductionBalance } from '../services/payroll/payrollAdjustmentRecordsService';
@@ -18,6 +19,18 @@ import { resolvePayrollWorksheet, type ItemizedDeductionLine } from '../lib/payr
 import { PayrollDetailsModal } from '../components/payroll/PayrollDetailsModal';
 import { RiderPayoutsSkeleton } from '../components/rider/RiderRouteSkeletons';
 import { appToast } from '../hooks/useToast';
+import { getStorageAdapter } from '../lib/storage';
+
+const PAYOUTS_CACHE_PREFIX = 'rider_payouts_cache_v1:';
+const PAYOUTS_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+interface CachedPayoutsSnapshot {
+  userId: string;
+  riderId: string;
+  records: RiderPayrollRecord[];
+  deductionBalances: PayrollDeductionBalance[];
+  cachedAt: number;
+}
 
 interface RiderPayoutsProps {
   userId: string;
@@ -33,6 +46,7 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
   const [selectedRecord, setSelectedRecord] = useState<RiderPayrollRecord | null>(null);
   const [isPayslipOpen, setIsPayslipOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'payouts' | 'deductions'>('payouts');
+  const [offlineSnapshotAt, setOfflineSnapshotAt] = useState<number | null>(null);
 
   const activeRiderId = riderId || userId;
 
@@ -40,6 +54,8 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
     if (!activeRiderId) return;
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
+
+    const cacheKey = `${PAYOUTS_CACHE_PREFIX}${userId}:${activeRiderId}`;
 
     try {
       const [history, balances] = await Promise.all([
@@ -54,17 +70,37 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
 
       setRecords(finalized);
       setDeductionBalances(balances);
+      setOfflineSnapshotAt(null);
       if (finalized.length > 0 && !selectedRecord) {
         setSelectedRecord(finalized[0]);
       }
+
+      const snapshot: CachedPayoutsSnapshot = {
+        userId,
+        riderId: activeRiderId,
+        records: finalized,
+        deductionBalances: balances,
+        cachedAt: Date.now(),
+      };
+      void getStorageAdapter().setItem(cacheKey, snapshot, PAYOUTS_CACHE_TTL_MS).catch(() => undefined);
     } catch (err) {
-      console.error('[RiderPayouts] Failed to load payout records:', err);
-      appToast.error('Failed to load payout history. Please try again.');
+      const cached = await getStorageAdapter().getItem<CachedPayoutsSnapshot>(cacheKey).catch(() => null);
+      if (cached && cached.userId === userId && cached.riderId === activeRiderId && Array.isArray(cached.records)) {
+        setRecords(cached.records);
+        setDeductionBalances(cached.deductionBalances ?? []);
+        setOfflineSnapshotAt(cached.cachedAt);
+        if (cached.records.length > 0 && !selectedRecord) {
+          setSelectedRecord(cached.records[0]);
+        }
+      } else {
+        console.error('[RiderPayouts] Failed to load payout records:', err);
+        appToast.error('Failed to load payout history. Please try again.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeRiderId, selectedRecord]);
+  }, [activeRiderId, selectedRecord, userId]);
 
   useEffect(() => {
     loadData();
@@ -149,6 +185,20 @@ export function RiderPayouts({ userId, riderId, restricted: _restricted }: Rider
           </button>
         </div>
       </div>
+
+      {/* Offline Snapshot Banner */}
+      {offlineSnapshotAt !== null && (
+        <div
+          role="status"
+          className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900"
+        >
+          <WifiOff className="h-4 w-4 shrink-0 text-amber-700 mt-0.5" />
+          <span>
+            <strong className="font-semibold">Offline snapshot shown.</strong> Last synced{' '}
+            {new Date(offlineSnapshotAt).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}.
+          </span>
+        </div>
+      )}
 
       {/* 2. Aggregate Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

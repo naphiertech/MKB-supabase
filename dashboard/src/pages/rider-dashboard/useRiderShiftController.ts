@@ -8,6 +8,7 @@ import { biometricTelemetry, BIOMETRIC_TIMING_NAMES } from '../../lib/biometricT
 import { hasOperationalZoneGeometry, isPointInHubOperationalTerritory } from '../../lib/geofenceUtils';
 import { canStartRiderAttendance, isRecentRiderPosition } from '../../lib/riderGeolocation';
 import { notifyGeofenceWarning } from '../../lib/nativeNotifications';
+import { triggerWarningHaptic } from '../../lib/nativeHaptics';
 import { startForegroundDutyTracking, stopForegroundDutyTracking } from '../../lib/foregroundTracking';
 import {
   getMyHubAttendanceGeofence,
@@ -125,7 +126,7 @@ export function useRiderShiftController({
     }
     let active = true;
     setHubGeofenceLoading(true);
-    getMyHubAttendanceGeofence()
+    getMyHubAttendanceGeofence(actualRiderId)
       .then((fence) => {
         if (!active) return;
         setHubGeofence(fence);
@@ -396,7 +397,7 @@ export function useRiderShiftController({
     let fence = hubGeofenceRef.current;
     if (!fence) {
       try {
-        fence = await getMyHubAttendanceGeofence();
+        fence = await getMyHubAttendanceGeofence(actualRiderId);
         setHubGeofence(fence);
         hubGeofenceRef.current = fence;
       } catch (err: any) {
@@ -430,6 +431,7 @@ export function useRiderShiftController({
       );
 
       if (dist > fence.attendance_radius_m) {
+        void triggerWarningHaptic();
         const nextAttempts = outsideAttemptsRef.current + 1;
         outsideAttemptsRef.current = nextAttempts;
         setOutsideAttempts(nextAttempts);

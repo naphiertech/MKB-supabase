@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabaseClient';
 import { type AttendanceLog, type AttendanceStatus, type AttendancePresence, type PunctualityStatus } from '../types';
 import { getCachedAvatar } from '../../lib/avatarCache';
-import { type QueueEnqueueInput } from '../../lib/storage';
+import { getStorageAdapter, createSyncOperationId, type QueueEnqueueInput } from '../../lib/storage';
 import { dispatchNotificationSafe } from '../notifications/notificationService';
 import { downloadCsv } from '../../lib/exports/exportUtils';
 import {
@@ -396,19 +396,54 @@ export function formatAttendanceErrorMessage(rawError?: string | null): string {
   if (msg.includes('RIDER_NOT_OPERATIONAL')) {
     return 'Your account is currently inactive or not operational.';
   }
+  if (msg.includes('EXPIRED_OFFLINE_ATTENDANCE')) {
+    return 'This offline attendance record is older than 24 hours. Please contact HR to record it manually.';
+  }
   if (msg.includes('42501') || msg.includes('violates row-level security')) {
     return 'Attendance must be recorded through verified location scanning.';
   }
   return msg;
 }
 
-export async function getMyHubAttendanceGeofence(): Promise<HubAttendanceGeofence> {
-  const { data, error } = await supabase.rpc('get_my_hub_attendance_geofence');
-  if (error) {
-    console.error('Error fetching hub attendance geofence:', error);
-    throw new Error(formatAttendanceErrorMessage(error.message));
+const HUB_GEOFENCE_CACHE_PREFIX = 'rider_hub_geofence_v1:';
+const HUB_GEOFENCE_CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+
+function isNetworkFailureError(err: unknown): boolean {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  const msg = (err instanceof Error ? err.message : String((err as { message?: unknown })?.message ?? err ?? '')).toLowerCase();
+  return (
+    msg.includes('failed to fetch')
+    || msg.includes('networkerror')
+    || msg.includes('network request failed')
+    || msg.includes('load failed')
+    || msg.includes('err_internet_disconnected')
+    || msg.includes('fetcherror')
+  );
+}
+
+export async function getMyHubAttendanceGeofence(riderId?: string): Promise<HubAttendanceGeofence> {
+  const cacheKey = riderId ? `${HUB_GEOFENCE_CACHE_PREFIX}${riderId}` : null;
+  try {
+    const { data, error } = await supabase.rpc('get_my_hub_attendance_geofence');
+    if (error) {
+      throw error;
+    }
+    const fence = data as unknown as HubAttendanceGeofence;
+    if (cacheKey) {
+      await getStorageAdapter().setItem(cacheKey, fence, HUB_GEOFENCE_CACHE_TTL_MS).catch(() => undefined);
+    }
+    return fence;
+  } catch (err) {
+    if (cacheKey) {
+      const cached = await getStorageAdapter().getItem<HubAttendanceGeofence>(cacheKey).catch(() => null);
+      if (cached) {
+        return cached;
+      }
+    }
+    console.error('Error fetching hub attendance geofence:', err);
+    const rawMsg = err instanceof Error ? err.message : (err as { message?: string })?.message;
+    throw new Error(formatAttendanceErrorMessage(rawMsg));
   }
-  return data as unknown as HubAttendanceGeofence;
 }
 
 export interface TimeInOptions {
@@ -417,6 +452,55 @@ export interface TimeInOptions {
   accuracy?: number;
   positionTimestamp?: string | number;
   zoneId?: string;
+}
+
+async function enqueueOfflineTimeIn(
+  riderId: string,
+  today: string,
+  posTs: string,
+  options: TimeInOptions,
+): Promise<AttendanceLog> {
+  const localId = `offline-${createSyncOperationId()}`;
+  const idempotencyKey = `time-in:${riderId}:${today}`;
+  await getStorageAdapter().enqueue({
+    action: 'TIME_IN',
+    riderId,
+    idempotencyKey,
+    eventTimestamp: posTs,
+    payload: {
+      id: localId,
+      attendance_log_id: localId,
+      rider_id: riderId,
+      date: today,
+      time_in: posTs,
+      lat: options.lat,
+      lng: options.lng,
+      accuracy: options.accuracy ?? null,
+      status: 'present',
+      source: 'face-scan',
+    },
+    priority: 1,
+  });
+
+  return {
+    id: localId,
+    riderId,
+    riderName: '',
+    riderAvatar: '',
+    date: today,
+    timeIn: toHHMM(posTs),
+    timeOut: null,
+    rawTimeIn: posTs,
+    rawTimeOut: null,
+    hours: 0,
+    zoneId: options.zoneId || '',
+    zoneName: '',
+    status: 'present',
+    presence: 'present',
+    punctuality: 'on_time',
+    source: 'face-scan',
+    events: [],
+  };
 }
 
 export async function recordTimeIn(
@@ -428,10 +512,6 @@ export async function recordTimeIn(
 
   if (isAttendanceFinalized(today, cutoffHour)) {
     throw new Error("Attendance Closed: Today's attendance has already been finalized.");
-  }
-
-  if (!navigator.onLine) {
-    throw new Error('An active internet connection is required to record attendance and verify your Hub location.');
   }
 
   const options: TimeInOptions = typeof optionsOrZoneId === 'string'
@@ -446,51 +526,65 @@ export async function recordTimeIn(
     ? new Date(options.positionTimestamp).toISOString()
     : new Date().toISOString();
 
-  const { data, error } = await supabase.rpc('record_my_time_in', {
-    p_latitude: options.lat,
-    p_longitude: options.lng,
-    p_accuracy: options.accuracy ?? null,
-    p_position_timestamp: posTs,
-  });
-
-  if (error || !data) {
-    console.error('Error recording Time In via RPC:', error);
-    throw new Error(formatAttendanceErrorMessage(error?.message));
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return enqueueOfflineTimeIn(riderId, today, posTs, options);
   }
 
-  // Non-blocking notification dispatch for Time-In
-  void dispatchNotificationSafe({
-    category: 'attendance',
-    priority: 'medium',
-    type: 'attendance',
-    title: 'Rider Clock-In',
-    message: `Rider clock-in recorded for shift on ${today}`,
-    riderId: riderId,
-    actionLink: '/attendance',
-    targetRoles: ['hr', 'admin']
-  });
+  try {
+    const { data, error } = await supabase.rpc('record_my_time_in', {
+      p_latitude: options.lat,
+      p_longitude: options.lng,
+      p_accuracy: options.accuracy ?? null,
+      p_position_timestamp: posTs,
+    });
 
-  const timeInIso = data.time_in as string;
+    if (error || !data) {
+      if (isNetworkFailureError(error)) {
+        return enqueueOfflineTimeIn(riderId, today, posTs, options);
+      }
+      console.error('Error recording Time In via RPC:', error);
+      throw new Error(formatAttendanceErrorMessage(error?.message));
+    }
 
-  return {
-    id: data.attendance_log_id,
-    riderId: data.rider_id,
-    riderName: '',
-    riderAvatar: '',
-    date: data.date,
-    timeIn: toHHMM(timeInIso),
-    timeOut: null,
-    rawTimeIn: timeInIso,
-    rawTimeOut: null,
-    hours: 0,
-    zoneId: options.zoneId || '',
-    zoneName: '',
-    status: 'present',
-    presence: 'present',
-    punctuality: 'on_time',
-    source: 'face-scan',
-    events: []
-  };
+    // Non-blocking notification dispatch for Time-In
+    void dispatchNotificationSafe({
+      category: 'attendance',
+      priority: 'medium',
+      type: 'attendance',
+      title: 'Rider Clock-In',
+      message: `Rider clock-in recorded for shift on ${today}`,
+      riderId: riderId,
+      actionLink: '/attendance',
+      targetRoles: ['hr', 'admin']
+    });
+
+    const timeInIso = data.time_in as string;
+
+    return {
+      id: data.attendance_log_id,
+      riderId: data.rider_id,
+      riderName: '',
+      riderAvatar: '',
+      date: data.date,
+      timeIn: toHHMM(timeInIso),
+      timeOut: null,
+      rawTimeIn: timeInIso,
+      rawTimeOut: null,
+      hours: 0,
+      zoneId: options.zoneId || '',
+      zoneName: '',
+      status: 'present',
+      presence: 'present',
+      punctuality: 'on_time',
+      source: 'face-scan',
+      events: []
+    };
+  } catch (err) {
+    if (isNetworkFailureError(err)) {
+      return enqueueOfflineTimeIn(riderId, today, posTs, options);
+    }
+    throw err;
+  }
 }
 
 export interface TimeOutContext {
@@ -509,7 +603,7 @@ export function buildTimeOutQueueOperation(
   idempotencyKey: string
 ): QueueEnqueueInput {
   const coordinates = context.lat != null && context.lng != null
-    ? { lat: context.lat, lng: context.lng }
+    ? { lat: context.lat, lng: context.lng, accuracy: context.accuracy ?? null }
     : {};
   return {
     action: 'TIME_OUT' as const,
@@ -528,11 +622,7 @@ export function buildTimeOutQueueOperation(
   };
 }
 
-export async function recordTimeOut(_logId: string, context: TimeOutContext): Promise<boolean> {
-  if (!navigator.onLine) {
-    throw new Error('An active internet connection is required to record attendance and verify your Hub location.');
-  }
-
+export async function recordTimeOut(logId: string, context: TimeOutContext): Promise<boolean> {
   if (context.lat == null || context.lng == null) {
     throw new Error('Current location is required to record attendance.');
   }
@@ -541,29 +631,51 @@ export async function recordTimeOut(_logId: string, context: TimeOutContext): Pr
     ? new Date(context.positionTimestamp).toISOString()
     : new Date().toISOString();
 
-  const { data, error } = await supabase.rpc('record_my_time_out', {
-    p_latitude: context.lat,
-    p_longitude: context.lng,
-    p_accuracy: context.accuracy ?? null,
-    p_position_timestamp: posTs,
-  });
+  const queueOffline = async (): Promise<boolean> => {
+    const idempotencyKey = `time-out:${context.riderId}:${context.date}`;
+    await getStorageAdapter().enqueue(
+      buildTimeOutQueueOperation(logId, context, posTs, idempotencyKey),
+    );
+    return true;
+  };
 
-  if (error || !data) {
-    console.error('Error recording Time Out via RPC:', error);
-    throw new Error(formatAttendanceErrorMessage(error?.message));
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return queueOffline();
   }
 
-  // Non-blocking notification dispatch for Time-Out after DB update succeeds
-  void dispatchNotificationSafe({
-    category: 'attendance',
-    priority: 'medium',
-    type: 'attendance',
-    title: 'Rider Clock-Out',
-    message: `Rider clock-out recorded for shift on ${getLocalDateString()}`,
-    riderId: context.riderId,
-    actionLink: '/attendance',
-    targetRoles: ['hr', 'admin']
-  });
+  try {
+    const { data, error } = await supabase.rpc('record_my_time_out', {
+      p_latitude: context.lat,
+      p_longitude: context.lng,
+      p_accuracy: context.accuracy ?? null,
+      p_position_timestamp: posTs,
+    });
 
-  return true;
+    if (error || !data) {
+      if (isNetworkFailureError(error)) {
+        return queueOffline();
+      }
+      console.error('Error recording Time Out via RPC:', error);
+      throw new Error(formatAttendanceErrorMessage(error?.message));
+    }
+
+    // Non-blocking notification dispatch for Time-Out after DB update succeeds
+    void dispatchNotificationSafe({
+      category: 'attendance',
+      priority: 'medium',
+      type: 'attendance',
+      title: 'Rider Clock-Out',
+      message: `Rider clock-out recorded for shift on ${getLocalDateString()}`,
+      riderId: context.riderId,
+      actionLink: '/attendance',
+      targetRoles: ['hr', 'admin']
+    });
+
+    return true;
+  } catch (err) {
+    if (isNetworkFailureError(err)) {
+      return queueOffline();
+    }
+    throw err;
+  }
 }

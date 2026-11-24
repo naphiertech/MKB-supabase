@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock, PackageCheck, BatteryCharging } from 'lucide-react';
+import { checkBatteryOptimization, requestIgnoreBatteryOptimization } from '../lib/deviceSecurity';
+import { isNativePlatform } from '../lib/nativeShell';
 import {
   getRiderPayrollHistory,
   cacheRiderFaceDescriptor,
@@ -40,6 +42,7 @@ interface RiderDashboardProps {
   userId: string;
   riderId: string;
   restricted: boolean;
+  onOpenParcels?: () => void;
 }
 
 interface PayrollRecord {
@@ -63,7 +66,7 @@ interface PayrollRecord {
   } | null;
 }
 
-export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardProps) {
+export function RiderDashboard({ userId, riderId, restricted, onOpenParcels }: RiderDashboardProps) {
   const {
     actualRiderId,
     rider,
@@ -81,7 +84,31 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
   const [violationsList, setViolationsList] = useState<DashboardViolation[]>([]);
   const [loadingViolations, setLoadingViolations] = useState(false);
   const [activeStatModal, setActiveStatModal] = useState<'days' | 'hours' | 'violations' | null>(null);
+  const [batteryOptimizationActive, setBatteryOptimizationActive] = useState(false);
   const violationRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    let mounted = true;
+    const refreshBatteryState = async () => {
+      const res = await checkBatteryOptimization();
+      if (mounted) {
+        setBatteryOptimizationActive(!res.isIgnoringBatteryOptimizations);
+      }
+    };
+    void refreshBatteryState();
+    const onFocus = () => void refreshBatteryState();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refreshBatteryState();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
 
   // Rider Payroll States
   const [myPayrollRecords, setMyPayrollRecords] = useState<PayrollRecord[]>([]);
@@ -307,6 +334,24 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
           </div>
         )}
 
+        {batteryOptimizationActive && (
+          <div className="mx-auto mt-3 max-w-md rounded-xl border border-amber-200 bg-amber-50/90 p-3 text-left flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2 text-xs text-amber-900">
+              <BatteryCharging className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+              <span>
+                <strong className="font-semibold">Background GPS protection:</strong> Disable battery optimization so shift tracking stays active when your screen is locked.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => void requestIgnoreBatteryOptimization()}
+              className="shrink-0 min-h-11 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-hover cursor-pointer"
+            >
+              Allow
+            </button>
+          </div>
+        )}
+
         {hubAttendance?.geofence && (
           <div className="mt-3 flex items-center justify-center">
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
@@ -424,7 +469,7 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
 
       {/* 5. My Earnings & Payslips Portal */}
       <section className="rounded-2xl border border-border bg-white p-5 space-y-4 shadow-sm">
-        <header className="flex items-center justify-between pb-3 border-b border-border">
+        <header className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border">
           <div>
             <h2 className="text-foreground font-semibold text-base flex items-center gap-2">
               <span className="p-1 rounded-md bg-accent text-primary shrink-0">
@@ -438,6 +483,16 @@ export function RiderDashboard({ userId, riderId, restricted }: RiderDashboardPr
               Cutoff earnings progress and historical payslips
             </p>
           </div>
+          {onOpenParcels && (
+            <button
+              type="button"
+              onClick={onOpenParcels}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-primary/25 bg-accent px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-accent/80 cursor-pointer"
+            >
+              <PackageCheck className="w-3.5 h-3.5" />
+              View Daily Parcels
+            </button>
+          )}
         </header>
 
         {myPayrollRecords.length === 0 ? (

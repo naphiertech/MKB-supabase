@@ -310,30 +310,37 @@ vi.mock('../services/parcels/parcelOperationsPolicy', () => ({
   })),
 }));
 
-vi.mock('../lib/supabaseClient', () => {
-  const createQueryBuilder = () => {
-    const builder: any = {
-      neq: vi.fn(() => builder),
-      eq: vi.fn(() => builder),
-      order: vi.fn().mockResolvedValue({
-        data: [
-          { id: 'rider-1', name: 'Mark Sheldon Alconaba', mkb_id: 'MKB-101', hub_id: 'hub-1' },
-          { id: 'rider-2', name: 'Edemer Malong Jimlan', mkb_id: 'MKB-102', hub_id: 'hub-1' },
-        ],
-        error: null,
-      }),
-    };
-    return builder;
-  };
+vi.mock('../lib/supabaseClient', () => ({
+  supabase: {
+    from: vi.fn(),
+    rpc: vi.fn(),
+  },
+}));
 
-  return {
-    supabase: {
-      from: vi.fn(() => ({
-        select: vi.fn(() => createQueryBuilder()),
-      })),
+vi.mock('../services/workforce/workforceDirectoryService', () => ({
+  getRiderWorkforceDirectory: vi.fn(async () => [
+    {
+      id: 'rider-1',
+      name: 'Mark Sheldon Alconaba',
+      mkb_id: 'MKB-101',
+      hubId: 'hub-1',
+      zones: null,
+      employmentStatus: 'active',
+      archiveEffectiveDate: null,
+      restoredAt: null,
     },
-  };
-});
+    {
+      id: 'rider-2',
+      name: 'Edemer Malong Jimlan',
+      mkb_id: 'MKB-102',
+      hubId: 'hub-1',
+      zones: null,
+      employmentStatus: 'active',
+      archiveEffectiveDate: null,
+      restoredAt: null,
+    },
+  ]),
+}));
 
 async function flushPromises() {
   await act(async () => {

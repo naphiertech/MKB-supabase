@@ -1,4 +1,5 @@
 import { getStorageAdapter } from './storage';
+import { getHardwareDeviceInfo } from './deviceSecurity';
 
 export interface DeviceIdentifierResult {
   deviceUuid: string;
@@ -187,23 +188,22 @@ export async function getDeviceIdentifier(): Promise<DeviceIdentifierResult> {
     };
   }
 
-  // Capacitor Native Hardware Platform Check (Pre-wired for Phase 5)
-  if ((window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.()) {
-    try {
-      const capModule = '@capacitor/device';
-      const { Device } = await import(/* @vite-ignore */ capModule);
-      const info = await Device.getId();
-      const model = await Device.getInfo();
+  // Native Android hardware binding via DeviceSecurityPlugin (Settings.Secure.ANDROID_ID)
+  try {
+    const nativeInfo = await getHardwareDeviceInfo();
+    if (nativeInfo?.androidId) {
+      const hardwareUuid = `android_${nativeInfo.androidId}`;
+      const hardwareHash = await sha256(`android:${nativeInfo.androidId}`);
       return {
-        deviceUuid: info.identifier,
-        fingerprintHash: info.identifier,
-        deviceName: `${model.manufacturer} ${model.model}`,
-        platform: (model.platform as 'android' | 'ios') || 'android',
-        userAgent: navigator.userAgent || 'Capacitor Native'
+        deviceUuid: hardwareUuid,
+        fingerprintHash: hardwareHash,
+        deviceName: `${nativeInfo.manufacturer} ${nativeInfo.model}`.trim(),
+        platform: 'android',
+        userAgent: navigator.userAgent || 'Capacitor Android'
       };
-    } catch {
-      // Fallback to web implementation if native plugin fails
     }
+  } catch {
+    // Fallback to web fingerprint if native bridge unavailable
   }
 
   const deviceUuid = await getOrCreatePersistentDeviceUuid();

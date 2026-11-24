@@ -32,6 +32,7 @@ interface WorkforceDirectoryRow {
 export async function getRiderWorkforceDirectory(options: {
   scope: WorkforceScope;
   date?: string;
+  hubId?: string | null;
 }): Promise<WorkforceDirectoryEntry[]> {
   if (options.scope === 'employed_on_date' && !options.date) {
     throw new Error('A business date is required for employed-on-date workforce lookup.');
@@ -39,9 +40,9 @@ export async function getRiderWorkforceDirectory(options: {
   const { data, error } = await supabase.rpc('get_rider_workforce_directory');
   if (error) throw error;
 
-  const selectedHubId = getSelectedHubId();
+  const targetHubId = options.hubId !== undefined ? options.hubId : getSelectedHubId();
   return ((data || []) as WorkforceDirectoryRow[])
-    .filter((row) => !selectedHubId || row.hub_id === selectedHubId)
+    .filter((row) => !targetHubId || row.hub_id === targetHubId)
     .map((row) => ({
       id: row.id,
       name: row.name,

@@ -45,6 +45,7 @@ import {
   RiderMonitoringSkeleton,
   RiderScheduleSkeleton,
   RiderLeaveAbsenceSkeleton,
+  RiderParcelsSkeleton,
   RiderPayoutsSkeleton
 } from '../rider/RiderRouteSkeletons';
 import { AttendancePolicySkeleton } from '../attendance/AttendancePolicySkeleton';
@@ -88,6 +89,7 @@ export {
   RiderMonitoringSkeleton,
   RiderScheduleSkeleton,
   RiderLeaveAbsenceSkeleton,
+  RiderParcelsSkeleton,
   RiderPayoutsSkeleton,
   AttendancePolicySkeleton,
   ParcelRatesSkeleton,
@@ -203,6 +205,9 @@ export function DashboardSkeleton({ page, role }: DashboardSkeletonProps) {
 
     case 'profile':
       return <RiderProfileSkeleton />;
+
+    case 'parcels' as PageKey:
+      return <RiderParcelsSkeleton />;
 
     case 'payouts' as PageKey:
       return <RiderPayoutsSkeleton />;

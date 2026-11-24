@@ -166,4 +166,29 @@ describe('RiderTopNav', () => {
     act(() => payoutsButton?.click());
     expect(onNavigate).toHaveBeenCalledWith('payouts');
   });
+
+  it('renders My Parcels nav item and calls onNavigate with parcels', () => {
+    const onNavigate = vi.fn();
+
+    act(() => {
+      root.render(
+        <RiderTopNav
+          current="dashboard"
+          onNavigate={onNavigate}
+          user={{ name: 'Juan Dela Cruz', avatar: 'https://example.com/avatar.png', zoneName: 'Tetuan Sector' }}
+          notifications={[]}
+          unreadCount={0}
+          onMarkAsRead={vi.fn()}
+          onMarkAllAsRead={vi.fn()}
+        />,
+      );
+    });
+
+    const parcelsButton = Array.from(container.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('My Parcels'),
+    );
+    expect(parcelsButton).toBeDefined();
+    act(() => parcelsButton?.click());
+    expect(onNavigate).toHaveBeenCalledWith('parcels');
+  });
 });

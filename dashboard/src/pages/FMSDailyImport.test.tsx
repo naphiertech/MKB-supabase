@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   confirmFmsDailyRiderObservation: vi.fn(),
   listFmsImportBatches: vi.fn(),
   getParcelRateContextForDate: vi.fn(),
+  getRiderWorkforceDirectory: vi.fn(),
   supabaseFrom: vi.fn(),
 }));
 
@@ -55,6 +56,10 @@ vi.mock('../services/parcels/parcelOperationsPolicy', async (importOriginal) => 
   };
 });
 
+vi.mock('../services/workforce/workforceDirectoryService', () => ({
+  getRiderWorkforceDirectory: mocks.getRiderWorkforceDirectory,
+}));
+
 describe('FMSDailyImport (Parcel Data Import)', () => {
   let container: HTMLDivElement | null = null;
   let root: Root | null = null;
@@ -75,15 +80,44 @@ describe('FMSDailyImport (Parcel Data Import)', () => {
       heavyRate: 25,
     });
 
+    mocks.getRiderWorkforceDirectory.mockResolvedValue([
+      {
+        id: 'rider-1',
+        name: 'Juan Rider',
+        mkb_id: 'MKB-001',
+        hubId: 'hub-1',
+        zones: null,
+        employmentStatus: 'active',
+        archiveEffectiveDate: null,
+        restoredAt: null,
+      },
+      {
+        id: 'rider-2',
+        name: 'Maria Rider',
+        mkb_id: 'MKB-002',
+        hubId: 'hub-1',
+        zones: null,
+        employmentStatus: 'active',
+        archiveEffectiveDate: null,
+        restoredAt: null,
+      },
+    ]);
+
     mocks.supabaseFrom.mockImplementation(() => ({
       select: vi.fn().mockReturnThis(),
-      neq: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockImplementation((col: string, val: string) => {
+        if (col === 'status' && val === 'archived') {
+          throw new Error('22P02: invalid input value for enum rider_status: "archived"');
+        }
+        return {
+          eq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue({ data: [], error: null }),
+        };
+      }),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
-        data: [
-          { id: 'rider-1', name: 'Juan Rider', mkb_id: 'MKB-001', hub_id: 'hub-1' },
-          { id: 'rider-2', name: 'Maria Rider', mkb_id: 'MKB-002', hub_id: 'hub-1' },
-        ],
+        data: [],
+        error: null,
       }),
     }));
   });
@@ -105,6 +139,18 @@ describe('FMSDailyImport (Parcel Data Import)', () => {
     expect(container?.textContent).toContain('Import Delivery File');
     expect(container?.textContent).toContain('Choose XLSX File');
     expect(container?.textContent).toContain('Talon-Talon Hub');
+  });
+
+  it('loads active hub riders via workforceDirectoryService without querying invalid rider_status enum', async () => {
+    await act(async () => {
+      root?.render(<FMSDailyImport />);
+    });
+
+    expect(mocks.getRiderWorkforceDirectory).toHaveBeenCalledWith({
+      scope: 'active',
+      hubId: 'hub-1',
+    });
+    expect(mocks.supabaseFrom).not.toHaveBeenCalledWith('riders');
   });
 
   it('provides attendance-aware observation view item fields and rate tier resolution', () => {

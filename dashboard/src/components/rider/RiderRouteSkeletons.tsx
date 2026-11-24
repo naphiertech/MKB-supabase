@@ -222,3 +222,44 @@ export function RiderPayoutsSkeleton() {
     </SkeletonPage>
   );
 }
+
+export function RiderParcelsSkeleton() {
+  return (
+    <SkeletonPage className="mx-auto max-w-5xl p-4 md:p-6 lg:p-7 space-y-6" label="Loading My Parcels">
+      <div className="space-y-1.5">
+        <SkeletonBlock className="h-4 w-32 rounded-full" />
+        <SkeletonBlock className="h-7 w-36 rounded" />
+        <SkeletonBlock className="h-3.5 w-80 max-w-full rounded" />
+      </div>
+
+      <div className="ui-card p-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <SkeletonBlock className="h-11 w-11 rounded-lg" />
+          <div className="space-y-1.5">
+            <SkeletonBlock className="h-3 w-28 rounded" />
+            <SkeletonBlock className="h-5 w-44 rounded" />
+          </div>
+          <SkeletonBlock className="h-11 w-11 rounded-lg" />
+        </div>
+        <SkeletonBlock className="h-9 w-24 rounded-lg" />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="ui-card p-4 space-y-2">
+            <SkeletonBlock className="h-3 w-24 rounded" />
+            <SkeletonBlock className="h-7 w-24 rounded" />
+            <SkeletonBlock className="h-2.5 w-32 max-w-full rounded" />
+          </div>
+        ))}
+      </div>
+
+      <div className="ui-card p-5 space-y-3">
+        <SkeletonBlock className="h-4 w-44 rounded" />
+        {Array.from({ length: 4 }).map((_, index) => (
+          <SkeletonBlock key={index} className="h-14 w-full rounded-lg" />
+        ))}
+      </div>
+    </SkeletonPage>
+  );
+}

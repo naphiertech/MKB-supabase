@@ -42,6 +42,9 @@ interface TimeInPayload {
   rider_id?: string;
   date?: string;
   time_in?: string;
+  lat?: number;
+  lng?: number;
+  accuracy?: number | null;
   status?: string;
   source?: string;
 }
@@ -55,6 +58,7 @@ interface TimeOutPayload {
   time_out?: string;
   lat?: number;
   lng?: number;
+  accuracy?: number | null;
 }
 
 interface LocationPayload {
@@ -504,6 +508,26 @@ export class SyncEngine {
       );
     }
 
+    if (payload.lat != null && payload.lng != null && typeof supabase.rpc === 'function') {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('sync_offline_rider_time_in', {
+        p_latitude: payload.lat,
+        p_longitude: payload.lng,
+        p_captured_at: item.eventTimestamp,
+        p_accuracy: payload.accuracy ?? null,
+      });
+      if (rpcError) throw rpcError;
+      const resolvedId = (rpcData as { attendance_log_id?: string } | null)?.attendance_log_id;
+      if (resolvedId) {
+        payload.attendance_log_id = resolvedId;
+      }
+      const { error: riderError } = await supabase
+        .from('riders')
+        .update({ status: 'active', lat: payload.lat, lng: payload.lng, last_ping: item.eventTimestamp })
+        .eq('id', item.riderId);
+      if (riderError) console.warn('[SyncEngine] Failed to update active rider status:', riderError);
+      return;
+    }
+
     const requestedId = payload.attendance_log_id || payload.id || item.idempotencyKey;
     const { data: existing, error: lookupError } = await supabase
       .from('attendance_logs')
@@ -551,6 +575,26 @@ export class SyncEngine {
     let attendanceLogId = payload.attendance_log_id || payload.id;
     if (!attendanceLogId || !payload.date) {
       throw new PermanentSyncError('Invalid TIME_OUT payload: missing attendance log ID, rider ID, or date.');
+    }
+
+    if (payload.lat != null && payload.lng != null && typeof supabase.rpc === 'function') {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('sync_offline_rider_time_out', {
+        p_latitude: payload.lat,
+        p_longitude: payload.lng,
+        p_captured_at: item.eventTimestamp,
+        p_accuracy: payload.accuracy ?? null,
+      });
+      if (rpcError) throw rpcError;
+      const resolvedId = (rpcData as { attendance_log_id?: string } | null)?.attendance_log_id;
+      if (resolvedId) {
+        payload.attendance_log_id = resolvedId;
+      }
+      const { error: riderError } = await supabase
+        .from('riders')
+        .update({ status: 'offline', lat: payload.lat, lng: payload.lng, last_ping: item.eventTimestamp })
+        .eq('id', item.riderId);
+      if (riderError) console.warn('[SyncEngine] Failed to update offline rider status:', riderError);
+      return;
     }
 
     let { data, error } = await supabase
